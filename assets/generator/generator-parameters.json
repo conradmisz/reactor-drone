@@ -1,0 +1,280 @@
+{
+  "defaults": {
+    "frame_size": 128,
+    "camera": {
+      "type": "perspective",
+      "elevation_deg": 30,
+      "azimuth_deg": 45,
+      "yfov_deg": 45,
+      "fit_margin": 1.1
+    },
+    "lighting": {
+      "key_intensity": 3.0,
+      "ambient": 0.3
+    },
+    "background": "transparent",
+    "frames_per_clip": 8
+  },
+  "entities": {
+    "reference": {
+      "model": "models/enemy-ufo-a.glb",
+      "frame_size": 128,
+      "provenance": {
+        "source_url": "https://kenney.nl/assets/tower-defense-kit",
+        "license": "CC0-1.0"
+      },
+      "animations": {
+        "march": {
+          "frames": 8,
+          "frame_duration": 0.10,
+          "looping": true,
+          "pose": {
+            "bob_amplitude": 0.12,
+            "spin_deg_per_frame": 12.0
+          }
+        }
+      }
+    },
+    "enemy_runner": {
+      "model": "models/enemy-ufo-a.glb",
+      "frame_size": 128,
+      "provenance": {
+        "source_url": "https://kenney.nl/assets/tower-defense-kit",
+        "license": "CC0-1.0"
+      },
+      "animations": {
+        "march": {
+          "frames": 8,
+          "frame_duration": 0.10,
+          "looping": true,
+          "pose": {
+            "bob_amplitude": 0.12,
+            "spin_deg_per_frame": 12.0
+          }
+        },
+        "death": {
+          "frames": 6,
+          "frame_duration": 0.08,
+          "looping": false,
+          "pose": {
+            "scale": 0.05,
+            "sink": 0.5,
+            "spin_deg_per_frame": 24.0
+          }
+        }
+      }
+    },
+    "enemy_fast": {
+      "model": "models/enemy-ufo-b.glb",
+      "frame_size": 128,
+      "provenance": {
+        "source_url": "https://kenney.nl/assets/tower-defense-kit",
+        "license": "CC0-1.0"
+      },
+      "animations": {
+        "march": {
+          "frames": 8,
+          "frame_duration": 0.07,
+          "looping": true,
+          "pose": {
+            "bob_amplitude": 0.15,
+            "spin_deg_per_frame": 20.0
+          }
+        },
+        "death": {
+          "frames": 6,
+          "frame_duration": 0.06,
+          "looping": false,
+          "pose": {
+            "scale": 0.05,
+            "sink": 0.45,
+            "spin_deg_per_frame": 36.0
+          }
+        }
+      }
+    },
+    "enemy_armored": {
+      "model": "models/enemy-ufo-c.glb",
+      "frame_size": 128,
+      "provenance": {
+        "source_url": "https://kenney.nl/assets/tower-defense-kit",
+        "license": "CC0-1.0"
+      },
+      "animations": {
+        "march": {
+          "frames": 8,
+          "frame_duration": 0.12,
+          "looping": true,
+          "pose": {
+            "bob_amplitude": 0.08,
+            "spin_deg_per_frame": 8.0
+          }
+        },
+        "death": {
+          "frames": 8,
+          "frame_duration": 0.10,
+          "looping": false,
+          "pose": {
+            "scale": 0.1,
+            "sink": 0.5,
+            "spin_deg_per_frame": 12.0
+          }
+        }
+      }
+    },
+    "enemy_boss": {
+      "model": "models/enemy-ufo-d.glb",
+      "frame_size": 128,
+      "provenance": {
+        "source_url": "https://kenney.nl/assets/tower-defense-kit",
+        "license": "CC0-1.0"
+      },
+      "animations": {
+        "march": {
+          "frames": 8,
+          "frame_duration": 0.14,
+          "looping": true,
+          "pose": {
+            "bob_amplitude": 0.10,
+            "spin_deg_per_frame": 6.0
+          }
+        },
+        "death": {
+          "frames": 10,
+          "frame_duration": 0.12,
+          "looping": false,
+          "pose": {
+            "scale": 0.02,
+            "sink": 0.6,
+            "spin_deg_per_frame": 18.0
+          }
+        }
+      }
+    },
+    "tower_cannon": {
+      "model": "models/tower-round-base.glb",
+      "weapon_model": "models/weapon-cannon.glb",
+      "frame_size": 128,
+      "provenance": {
+        "source_url": "https://kenney.nl/assets/tower-defense-kit",
+        "license": "CC0-1.0"
+      },
+      "animations": {
+        "directions": {
+          "frames": 32,
+          "frame_duration": 0.05,
+          "looping": true,
+          "pose": {
+            "spin_deg_per_frame": 11.25
+          }
+        }
+      }
+    },
+    "tower_laser": {
+      "model": "models/tower-round-base.glb",
+      "weapon_model": "models/weapon-turret.glb",
+      "frame_size": 128,
+      "provenance": {
+        "source_url": "https://kenney.nl/assets/tower-defense-kit",
+        "license": "CC0-1.0"
+      },
+      "animations": {
+        "directions": {
+          "frames": 32,
+          "frame_duration": 0.05,
+          "looping": true,
+          "pose": {
+            "spin_deg_per_frame": 11.25
+          }
+        }
+      }
+    },
+    "tower_mortar": {
+      "model": "models/tower-round-base.glb",
+      "weapon_model": "models/weapon-catapult.glb",
+      "frame_size": 128,
+      "provenance": {
+        "source_url": "https://kenney.nl/assets/tower-defense-kit",
+        "license": "CC0-1.0"
+      },
+      "animations": {
+        "directions": {
+          "frames": 32,
+          "frame_duration": 0.05,
+          "looping": true,
+          "pose": {
+            "spin_deg_per_frame": 11.25
+          }
+        }
+      }
+    },
+    "tower_phaser": {
+      "model": "models/tower-round-base.glb",
+      "weapon_model": "models/weapon-ballista.glb",
+      "frame_size": 128,
+      "provenance": {
+        "source_url": "https://kenney.nl/assets/tower-defense-kit",
+        "license": "CC0-1.0"
+      },
+      "animations": {
+        "directions": {
+          "frames": 32,
+          "frame_duration": 0.05,
+          "looping": true,
+          "pose": {
+            "spin_deg_per_frame": 11.25
+          }
+        }
+      }
+    },
+    "projectile_cannonball": {
+      "primitive": {
+        "type": "icosphere",
+        "radius": 12.0,
+        "subdivisions": 2
+      },
+      "frame_size": 128,
+      "provenance": {
+        "source_url": "trimesh.creation.icosphere(radius=12.0, subdivisions=2)",
+        "license": "CC0-1.0"
+      },
+      "animations": {
+        "still": {
+          "frames": 1,
+          "frame_duration": 0.1,
+          "looping": false
+        },
+        "spin": {
+          "frames": 8,
+          "frame_duration": 0.08,
+          "looping": true,
+          "pose": {
+            "spin_deg_per_frame": 45.0
+          }
+        }
+      }
+    },
+    "effect_explosion": {
+      "primitive": {
+        "type": "shell",
+        "radius": 8.0,
+        "subdivisions": 2
+      },
+      "frame_size": 128,
+      "provenance": {
+        "source_url": "trimesh.creation.icosphere(radius=8.0, subdivisions=2) [shell]",
+        "license": "CC0-1.0"
+      },
+      "animations": {
+        "expand": {
+          "frames": 8,
+          "frame_duration": 0.06,
+          "looping": false,
+          "pose": {
+            "scale": 2.5
+          }
+        }
+      }
+    }
+  }
+}

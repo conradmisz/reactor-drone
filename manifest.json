@@ -1,0 +1,1109 @@
+{
+  "files": [
+    {
+      "file_name": "CMakeLists.txt",
+      "path": "CPP/CMakeLists.txt",
+      "sha256": "d62487c236eeb75466f0b7d47d36cd2da1a5da5b4a183ef1ae34fe904bb7536a"
+    },
+    {
+      "file_name": "blackboard.hpp",
+      "path": "CPP/engine/ecs/blackboard.hpp",
+      "sha256": "7489fe58f9ae3fe6cf9e204625c3cccd2d2df24da679512c4bf18b25dd089c40"
+    },
+    {
+      "file_name": "component_storage.cpp",
+      "path": "CPP/engine/ecs/component_storage.cpp",
+      "sha256": "934377afa4ddb434d78dbd57d9da590e88bd72af46fe225d45599168db22b198"
+    },
+    {
+      "file_name": "component_storage.hpp",
+      "path": "CPP/engine/ecs/component_storage.hpp",
+      "sha256": "47794181bb94d066926380c30e234013c3104d8dd9a9a9e5b87797c019e3a098"
+    },
+    {
+      "file_name": "components.hpp",
+      "path": "CPP/engine/ecs/components.hpp",
+      "sha256": "e193842f78c38cae79fd8f91d92fedd625075b2727578b10f1212d08cd4088c9"
+    },
+    {
+      "file_name": "debug_types.hpp",
+      "path": "CPP/engine/ecs/debug/debug_types.hpp",
+      "sha256": "0731e20da821ac4b879d74d2ec3ff787e6fb7bd8ffa5848c1f272d11a83cdcc0"
+    },
+    {
+      "file_name": "json_serializer.cpp",
+      "path": "CPP/engine/ecs/debug/json_serializer.cpp",
+      "sha256": "8961a81881a1308a151f4c97c0c5c2d7f6032a4f6a468c31580629b1b0da6311"
+    },
+    {
+      "file_name": "json_serializer.hpp",
+      "path": "CPP/engine/ecs/debug/json_serializer.hpp",
+      "sha256": "5fdadce92396166f8e61929123b9575b1d1bb61d96c4fd9434f27d805a26cfdb"
+    },
+    {
+      "file_name": "destruction.cpp",
+      "path": "CPP/engine/ecs/destruction.cpp",
+      "sha256": "d39833d40ced3999573a609f7b8ac67df3a6863f3b93d16572c9a85a4ff21339"
+    },
+    {
+      "file_name": "destruction.hpp",
+      "path": "CPP/engine/ecs/destruction.hpp",
+      "sha256": "02d25e4c2aa83c04206a80bd872cebb478497890dd4efb83e63da84b494e9c71"
+    },
+    {
+      "file_name": "entity_manager.cpp",
+      "path": "CPP/engine/ecs/entity_manager.cpp",
+      "sha256": "bf33c8954c2e1d45c7d5e3193d443578b28f8660b5afc7309557136adcad5b39"
+    },
+    {
+      "file_name": "entity_manager.hpp",
+      "path": "CPP/engine/ecs/entity_manager.hpp",
+      "sha256": "e9c67ef77959cfc1836f738c84404f2d19432a80d3a3a72638b74aefeb1d4b52"
+    },
+    {
+      "file_name": "sprite_sheet_math.hpp",
+      "path": "CPP/engine/ecs/sprite_sheet_math.hpp",
+      "sha256": "743c1bce5c640efb283832477af5431d9354a78564597c0efe7d82d83f612a9f"
+    },
+    {
+      "file_name": "animation_system.cpp",
+      "path": "CPP/engine/ecs/systems/animation_system.cpp",
+      "sha256": "c2726cfd94a9064e74afbbaa81cabfb222563c13609befe4a9870681da8679ba"
+    },
+    {
+      "file_name": "animation_system.hpp",
+      "path": "CPP/engine/ecs/systems/animation_system.hpp",
+      "sha256": "5cf7579e28a14ba269b81490f9eb184f24a4b95a82a64fd5e64bb4f317002548"
+    },
+    {
+      "file_name": "brute_force_strategy.cpp",
+      "path": "CPP/engine/ecs/systems/brute_force_strategy.cpp",
+      "sha256": "a12b06faa574d2e3d6baa668f769c8e71c7ee14e50eafc241446901b47af66ad"
+    },
+    {
+      "file_name": "brute_force_strategy.hpp",
+      "path": "CPP/engine/ecs/systems/brute_force_strategy.hpp",
+      "sha256": "846fb96d830e328d7eeb79387459e05303a6343a9c7608b3521626ff3388e7b4"
+    },
+    {
+      "file_name": "camera_control_system.cpp",
+      "path": "CPP/engine/ecs/systems/camera_control_system.cpp",
+      "sha256": "f30614c67a568d6760867c369196ff11c0de3200fe6960c643af8746d9fc5e05"
+    },
+    {
+      "file_name": "camera_control_system.hpp",
+      "path": "CPP/engine/ecs/systems/camera_control_system.hpp",
+      "sha256": "2940a1c9bee36836aa01d818c80684ea8d50e8664c54b35844655b0cef937f30"
+    },
+    {
+      "file_name": "camera_system.cpp",
+      "path": "CPP/engine/ecs/systems/camera_system.cpp",
+      "sha256": "84aee83b15ea611cdf343551d3e3128f9f94e6dc4e3f5595eb369b2125535925"
+    },
+    {
+      "file_name": "camera_system.hpp",
+      "path": "CPP/engine/ecs/systems/camera_system.hpp",
+      "sha256": "1762f5c261c49efe8e1480e3eda9eefc0cada52114ec30aa5dd36b73ac1859d9"
+    },
+    {
+      "file_name": "collision_math.cpp",
+      "path": "CPP/engine/ecs/systems/collision_math.cpp",
+      "sha256": "8882aef29ba4921729089755afcef3d8ddeeafb318bb53cd05bfdacad312f10e"
+    },
+    {
+      "file_name": "collision_math.hpp",
+      "path": "CPP/engine/ecs/systems/collision_math.hpp",
+      "sha256": "ea6f4a49aed379c9904e374a3be77ee943034646dbb36d50b35b3507e0d86e95"
+    },
+    {
+      "file_name": "collision_strategy.hpp",
+      "path": "CPP/engine/ecs/systems/collision_strategy.hpp",
+      "sha256": "0d41de6db590bec939d71e6eba26e70c2d1304356a176c0371bbbebfda5c7400"
+    },
+    {
+      "file_name": "collision_system.cpp",
+      "path": "CPP/engine/ecs/systems/collision_system.cpp",
+      "sha256": "a662590295e64eae4a068e06c44b337f21ca2cce8e8d298fabea9e6fe161de06"
+    },
+    {
+      "file_name": "collision_system.hpp",
+      "path": "CPP/engine/ecs/systems/collision_system.hpp",
+      "sha256": "9b820df798e4dfb0c7923160d68a69244ebc31f41bf28803fef05c710d0e0ca5"
+    },
+    {
+      "file_name": "debug_hud_system.cpp",
+      "path": "CPP/engine/ecs/systems/debug_hud_system.cpp",
+      "sha256": "79f82e034b77a940bf1bd8d45109800b152173bd7c0022b9bea33ff335d745a3"
+    },
+    {
+      "file_name": "debug_hud_system.hpp",
+      "path": "CPP/engine/ecs/systems/debug_hud_system.hpp",
+      "sha256": "4a08937e4cbc8f26b0c3ebc6177ca7cc3c04e9c8fb258be86a690b198d6767e5"
+    },
+    {
+      "file_name": "hud_system.cpp",
+      "path": "CPP/engine/ecs/systems/hud_system.cpp",
+      "sha256": "903b876ca8ccce944521e21301adb751bf16ad20d48451f4590b173a5d3553a7"
+    },
+    {
+      "file_name": "hud_system.hpp",
+      "path": "CPP/engine/ecs/systems/hud_system.hpp",
+      "sha256": "715b815e5c203bb465d3df5e3a495b74b85d31728a9acff142f87d2eb300d7ad"
+    },
+    {
+      "file_name": "input_system.cpp",
+      "path": "CPP/engine/ecs/systems/input_system.cpp",
+      "sha256": "725007f4511997dad57be0acbd9f7d6d91ce4ff788f0622a999a29ef7785e247"
+    },
+    {
+      "file_name": "input_system.hpp",
+      "path": "CPP/engine/ecs/systems/input_system.hpp",
+      "sha256": "f6516d519d498c2e99070ea27fccde26f923f0b5ffb2942069bca0d641a65549"
+    },
+    {
+      "file_name": "lifetime_system.cpp",
+      "path": "CPP/engine/ecs/systems/lifetime_system.cpp",
+      "sha256": "fdec585e8dfeab532bde6756209630afc9a849c6ed441b7830d6e479ec4c2040"
+    },
+    {
+      "file_name": "lifetime_system.hpp",
+      "path": "CPP/engine/ecs/systems/lifetime_system.hpp",
+      "sha256": "cfb566eac41e4385e60bc147ca290673c87ec9384c5d45f02ec6d329341b789c"
+    },
+    {
+      "file_name": "movement_system.cpp",
+      "path": "CPP/engine/ecs/systems/movement_system.cpp",
+      "sha256": "1524d5c2d5b1a2e7e76b66edf3f2cb4a03d84b1de9429ffb6d32b2380166d48b"
+    },
+    {
+      "file_name": "movement_system.hpp",
+      "path": "CPP/engine/ecs/systems/movement_system.hpp",
+      "sha256": "355234e7839c9c847479fff23df667fddd6f3be358e36fa6be6c641412f524de"
+    },
+    {
+      "file_name": "player_control_system.cpp",
+      "path": "CPP/engine/ecs/systems/player_control_system.cpp",
+      "sha256": "36c3c105b62194602ff872a80af57658245de651d1bf909bb9d80efe6914821e"
+    },
+    {
+      "file_name": "player_control_system.hpp",
+      "path": "CPP/engine/ecs/systems/player_control_system.hpp",
+      "sha256": "ac694f05ce2e6da8aca4a5c2caf0b3a52c9611f06d4b3ea024754f9b86c7c680"
+    },
+    {
+      "file_name": "quadtree_strategy.cpp",
+      "path": "CPP/engine/ecs/systems/quadtree_strategy.cpp",
+      "sha256": "3ddf8543035fb6f51674b591c7e764c09c4578c4de59d4d774692de334be93cc"
+    },
+    {
+      "file_name": "quadtree_strategy.hpp",
+      "path": "CPP/engine/ecs/systems/quadtree_strategy.hpp",
+      "sha256": "3d9b7316fdcd8c191431421573c1dec833d4ab41081c422949afc2ca446d3a9c"
+    },
+    {
+      "file_name": "render_system.cpp",
+      "path": "CPP/engine/ecs/systems/render_system.cpp",
+      "sha256": "a154288563abf50e8926f07c8c86464a4a70f3ac46ab7eda11093305fe4d4a51"
+    },
+    {
+      "file_name": "render_system.hpp",
+      "path": "CPP/engine/ecs/systems/render_system.hpp",
+      "sha256": "25b5975b695746f2fd6ab23b51ca94f8a96eccb1605ce52d7131f63d8f49bb34"
+    },
+    {
+      "file_name": "rotation_system.cpp",
+      "path": "CPP/engine/ecs/systems/rotation_system.cpp",
+      "sha256": "0c206f67808340be038c3d0855301e001f2957c2079ae3fc99ff229824f158b4"
+    },
+    {
+      "file_name": "rotation_system.hpp",
+      "path": "CPP/engine/ecs/systems/rotation_system.hpp",
+      "sha256": "271481961fe9bcc425f9601ed7e074d86d4ed41d57de4d2d8779e7f7f8498495"
+    },
+    {
+      "file_name": "screenshot_system.cpp",
+      "path": "CPP/engine/ecs/systems/screenshot_system.cpp",
+      "sha256": "361c3185ce45da4363d576e6a8ecd4b874d359038f9daa14e7098b14988f28ce"
+    },
+    {
+      "file_name": "screenshot_system.hpp",
+      "path": "CPP/engine/ecs/systems/screenshot_system.hpp",
+      "sha256": "58c59c9432ffb20c41ccfa1634c6d0c3b7fda63b8b38a04d378c701ae05da7e7"
+    },
+    {
+      "file_name": "script_system.cpp",
+      "path": "CPP/engine/ecs/systems/script_system.cpp",
+      "sha256": "edecec23894c34de6f733ff01f8c97906e1271fb76a7edea8601eef57c4edcc6"
+    },
+    {
+      "file_name": "script_system.hpp",
+      "path": "CPP/engine/ecs/systems/script_system.hpp",
+      "sha256": "2fc7330eb27a96e7fb678f0f8a7fe7fef082cee7342f72d4a2e44e2ec731f1c2"
+    },
+    {
+      "file_name": "uniform_grid_strategy.cpp",
+      "path": "CPP/engine/ecs/systems/uniform_grid_strategy.cpp",
+      "sha256": "59c11ae2622ec091aee230e5b8eeda566755d95b1d48d5d7c7204bb9fff543a2"
+    },
+    {
+      "file_name": "uniform_grid_strategy.hpp",
+      "path": "CPP/engine/ecs/systems/uniform_grid_strategy.hpp",
+      "sha256": "3140bb5dfcd0bb4ee9432444398780b90e7528881e7c094e3c2f05c006a1402e"
+    },
+    {
+      "file_name": "wrap_system.cpp",
+      "path": "CPP/engine/ecs/systems/wrap_system.cpp",
+      "sha256": "d8541fa22e5046c21808d0501f4a26bc8d5600fb05dcecc1fffb87ddf0a0e0fd"
+    },
+    {
+      "file_name": "wrap_system.hpp",
+      "path": "CPP/engine/ecs/systems/wrap_system.hpp",
+      "sha256": "f4c2a387dfca33bbccaaf86acbe71518f23acac226f2beb8b2638fcc46f864b9"
+    },
+    {
+      "file_name": "gamedata_loader.cpp",
+      "path": "CPP/engine/gamedata_loader.cpp",
+      "sha256": "0753e80cb2caa881498a5472187020e71050f5967ede5f1257afc6c4f88d704a"
+    },
+    {
+      "file_name": "gamedata_loader.hpp",
+      "path": "CPP/engine/gamedata_loader.hpp",
+      "sha256": "f2a35f3d6d740333d116a889b35938b9116e4a46a02caa0a59d3892e14d7c0b4"
+    },
+    {
+      "file_name": "lua_bindings.cpp",
+      "path": "CPP/engine/lua_bindings.cpp",
+      "sha256": "a5eece1d63ef66ce9483756bbfecc9ec85a52a6dfc464c55ea8a90347d5e9a37"
+    },
+    {
+      "file_name": "lua_bindings.hpp",
+      "path": "CPP/engine/lua_bindings.hpp",
+      "sha256": "91928f6dec3ec048b7471554f430551fdc4096701c0a2c689fcc9ae733e02d03"
+    },
+    {
+      "file_name": "lua_manager.cpp",
+      "path": "CPP/engine/lua_manager.cpp",
+      "sha256": "808c4dde401e88f5e42c1c0be88f5b555792dba2d80955d2d85f5f17a95d1f6f"
+    },
+    {
+      "file_name": "lua_manager.hpp",
+      "path": "CPP/engine/lua_manager.hpp",
+      "sha256": "53e034ebaa98289f26427737e0d64eca67c260b461eb3059e5a8e9f86c714f51"
+    },
+    {
+      "file_name": "pathfinding.hpp",
+      "path": "CPP/engine/pathfinding.hpp",
+      "sha256": "5dff06a7cbfb72472ca60b4c1d01753493146fde551b7facf8ba49e7867ba921"
+    },
+    {
+      "file_name": "project_paths.hpp",
+      "path": "CPP/engine/project_paths.hpp",
+      "sha256": "1d3c825a93bb941a4a6cd77829b431f0c3864045e872a00381d0b52f58f5274c"
+    },
+    {
+      "file_name": "resource_manager.cpp",
+      "path": "CPP/engine/resource_manager.cpp",
+      "sha256": "11973c5be54067f912fd9a1fe49598d5ccb78def9af2ffadbf473381372e52a8"
+    },
+    {
+      "file_name": "resource_manager.hpp",
+      "path": "CPP/engine/resource_manager.hpp",
+      "sha256": "f7e364ff4ae42b258b773261ba22c9d6d83e267b90389a01fd645c39c7b36055"
+    },
+    {
+      "file_name": "CMakeLists.txt",
+      "path": "CPP/engine/tests/CMakeLists.txt",
+      "sha256": "39a4d5d69b088470034c76149d781b54970cd7febb7b7581b4f2586d51cbe777"
+    },
+    {
+      "file_name": "test_aabb_overlap_properties.cpp",
+      "path": "CPP/engine/tests/property/test_aabb_overlap_properties.cpp",
+      "sha256": "78de45a20988aad0356b29eb4c369c3f1c1dfcd0c24f3657f1f1ef9afb0aa8bd"
+    },
+    {
+      "file_name": "test_animation_system_properties.cpp",
+      "path": "CPP/engine/tests/property/test_animation_system_properties.cpp",
+      "sha256": "0412b94eff702793e1c4f52f3119982ba3aae6aafe7dab5a99dcc34f4defa290"
+    },
+    {
+      "file_name": "test_blackboard_properties.cpp",
+      "path": "CPP/engine/tests/property/test_blackboard_properties.cpp",
+      "sha256": "9ba0deb6c3559e065707a469ba21afca8075fae0b04d425a5aa790d7bfaccccd"
+    },
+    {
+      "file_name": "test_brute_force_properties.cpp",
+      "path": "CPP/engine/tests/property/test_brute_force_properties.cpp",
+      "sha256": "816d9dc4c9140b51c1a615ab572a9db3b19e754ef39cb6cbc3fb65facc7a0f4a"
+    },
+    {
+      "file_name": "test_camera_control_properties.cpp",
+      "path": "CPP/engine/tests/property/test_camera_control_properties.cpp",
+      "sha256": "a287fa3d24157aad9dcfb7b87ad880c8e00965879cf85ab7b26704d977f8da75"
+    },
+    {
+      "file_name": "test_camera_properties.cpp",
+      "path": "CPP/engine/tests/property/test_camera_properties.cpp",
+      "sha256": "2146c1025f9fd2fb8c027efc461ea7187dd8a05e3bac66343a9f27e53cc2f4a8"
+    },
+    {
+      "file_name": "test_circle_collider_properties.cpp",
+      "path": "CPP/engine/tests/property/test_circle_collider_properties.cpp",
+      "sha256": "15c9118a0393eeb48bb52e187f0049bf339b079c6ec7a6e193dd4eb89ce9a9e2"
+    },
+    {
+      "file_name": "test_collision_pair_count_properties.cpp",
+      "path": "CPP/engine/tests/property/test_collision_pair_count_properties.cpp",
+      "sha256": "b6ef11b77c5b1a1eb975890eb92c397b0f15361ab94d2b148a88ef37b003ce62"
+    },
+    {
+      "file_name": "test_collision_system_properties.cpp",
+      "path": "CPP/engine/tests/property/test_collision_system_properties.cpp",
+      "sha256": "75738f7809b52cd4db22f74802b2900ea925e6ad0ea642e71de5f1229805fc03"
+    },
+    {
+      "file_name": "test_component_properties.cpp",
+      "path": "CPP/engine/tests/property/test_component_properties.cpp",
+      "sha256": "2f455c971a7b8d62c435ae3575dab864ed50576d170b4115676856a98450f90c"
+    },
+    {
+      "file_name": "test_entity_properties.cpp",
+      "path": "CPP/engine/tests/property/test_entity_properties.cpp",
+      "sha256": "4d81b041c513fce64115a065f463d81646ab0cb178b0c5c859e13d3ae9ef98cb"
+    },
+    {
+      "file_name": "test_gamedata_loader_properties.cpp",
+      "path": "CPP/engine/tests/property/test_gamedata_loader_properties.cpp",
+      "sha256": "7d882c67e9d429a85381c65ee0b5daa02d0421e947ff8aaeddc3384593fdc521"
+    },
+    {
+      "file_name": "test_hud_properties.cpp",
+      "path": "CPP/engine/tests/property/test_hud_properties.cpp",
+      "sha256": "d8f29dab00b5c0b145299719ee5bd9927c8a64203cc79c6de8c0e1d1c71d816a"
+    },
+    {
+      "file_name": "test_lifetime_system_properties.cpp",
+      "path": "CPP/engine/tests/property/test_lifetime_system_properties.cpp",
+      "sha256": "927d7468f90ffc258b429ce2b58e6ea149fe5962a8ee7e5eb1e9d27716aee2c7"
+    },
+    {
+      "file_name": "test_lua_bindings_properties.cpp",
+      "path": "CPP/engine/tests/property/test_lua_bindings_properties.cpp",
+      "sha256": "054eba275757751db02e5244a0999a64a20f89f0e8f678654d55a6fd13bd7b6b"
+    },
+    {
+      "file_name": "test_new_component_properties.cpp",
+      "path": "CPP/engine/tests/property/test_new_component_properties.cpp",
+      "sha256": "18b83521d250c78eab113485dfc8caf8b6f2124c4cf1f477ff4ec6f7f721d479"
+    },
+    {
+      "file_name": "test_obb_collision_properties.cpp",
+      "path": "CPP/engine/tests/property/test_obb_collision_properties.cpp",
+      "sha256": "c54024bead5ad03d497b515da0279d0edf2beacae022e2f7ba4eecf0f0a83853"
+    },
+    {
+      "file_name": "test_pathfinding_properties.cpp",
+      "path": "CPP/engine/tests/property/test_pathfinding_properties.cpp",
+      "sha256": "c2fdd6484bf7a408464c7a9423d96aa122849592eaae996fa92c5743d847de8b"
+    },
+    {
+      "file_name": "test_quadtree_properties.cpp",
+      "path": "CPP/engine/tests/property/test_quadtree_properties.cpp",
+      "sha256": "60acfc437cf95d2bab525f7d0ad61c17cb9447bd8656c435e6cdb2cd9678fa83"
+    },
+    {
+      "file_name": "test_render_decision_properties.cpp",
+      "path": "CPP/engine/tests/property/test_render_decision_properties.cpp",
+      "sha256": "3f5576b5d2070c03744793b9a51d0a8d633492bae949cd4a1c0bdbf999830695"
+    },
+    {
+      "file_name": "test_resource_manager_properties.cpp",
+      "path": "CPP/engine/tests/property/test_resource_manager_properties.cpp",
+      "sha256": "5eeef377f177b990cef7896bf97d09ee83fc46a6510c3343784b0e9f566c0eef"
+    },
+    {
+      "file_name": "test_rotation_system_properties.cpp",
+      "path": "CPP/engine/tests/property/test_rotation_system_properties.cpp",
+      "sha256": "0255ac2100ade3ab91a0bd96c65fd0229602cbfdf389ad569087822461b85594"
+    },
+    {
+      "file_name": "test_script_properties.cpp",
+      "path": "CPP/engine/tests/property/test_script_properties.cpp",
+      "sha256": "88a43bb99a44e0c8ca874ac1b7509083927ed6e6c2f20bcf446cac38ff42b9f1"
+    },
+    {
+      "file_name": "test_sprite_sheet_properties.cpp",
+      "path": "CPP/engine/tests/property/test_sprite_sheet_properties.cpp",
+      "sha256": "785d7b4f2ec90605eb51b45623b28a918e3667f0f35b8d19cf8fc341fc27691b"
+    },
+    {
+      "file_name": "test_tile_map_properties.cpp",
+      "path": "CPP/engine/tests/property/test_tile_map_properties.cpp",
+      "sha256": "5b74f3a876f3a40bdb39161c920112720b883c7a1781bf54c808bb8fdfda2466"
+    },
+    {
+      "file_name": "test_timer_bugfix_properties.cpp",
+      "path": "CPP/engine/tests/property/test_timer_bugfix_properties.cpp",
+      "sha256": "b4a3a7d826feb4ed063341356e3d560b39df5849d8aadb52410c91eae64308ec"
+    },
+    {
+      "file_name": "test_timer_no_advance_properties.cpp",
+      "path": "CPP/engine/tests/property/test_timer_no_advance_properties.cpp",
+      "sha256": "b20cb6648531e81c607ccf24e77720a8aa1c0abefc5877e04ec8fc89d5ba87f0"
+    },
+    {
+      "file_name": "test_timer_properties.cpp",
+      "path": "CPP/engine/tests/property/test_timer_properties.cpp",
+      "sha256": "aa9b42130493f4482a2c1cd3f8b1534b9ea686d06144bec370ec5f4155d12d03"
+    },
+    {
+      "file_name": "test_uniform_grid_properties.cpp",
+      "path": "CPP/engine/tests/property/test_uniform_grid_properties.cpp",
+      "sha256": "840f83ee176a36e469c345a48313307f81368ebff1a22c98a5a969f996b539f9"
+    },
+    {
+      "file_name": "test_wrap_system_properties.cpp",
+      "path": "CPP/engine/tests/property/test_wrap_system_properties.cpp",
+      "sha256": "654f637edd3d27122a80818fcea780cb15fed6c5dfdccc5ee4dc2aa1b74bbfee"
+    },
+    {
+      "file_name": "test_animation_system.cpp",
+      "path": "CPP/engine/tests/unit/test_animation_system.cpp",
+      "sha256": "bd291916cfc0ad45371250cebd606503456eeff22303a5de081442b6b7c7dd6f"
+    },
+    {
+      "file_name": "test_blackboard.cpp",
+      "path": "CPP/engine/tests/unit/test_blackboard.cpp",
+      "sha256": "a937cfc66db3a6856de14870d53cd8df141f0326716aea13369ca071adb0ba69"
+    },
+    {
+      "file_name": "test_brute_force_strategy.cpp",
+      "path": "CPP/engine/tests/unit/test_brute_force_strategy.cpp",
+      "sha256": "c3de549a8f227c631ce79e1c8641afdb48f4a25e43a756ee1d3720078b92ad03"
+    },
+    {
+      "file_name": "test_camera_control_system.cpp",
+      "path": "CPP/engine/tests/unit/test_camera_control_system.cpp",
+      "sha256": "d7248f662a4ea1dde5d4f053cd4496e8368297c8dc5d3f72d43e5a4cde8a825d"
+    },
+    {
+      "file_name": "test_camera_system.cpp",
+      "path": "CPP/engine/tests/unit/test_camera_system.cpp",
+      "sha256": "33f7a79aa229755a21e9aabba22523acfa8de1747c829e0dc444ef1e9ba436d2"
+    },
+    {
+      "file_name": "test_circle_aabb_overlap.cpp",
+      "path": "CPP/engine/tests/unit/test_circle_aabb_overlap.cpp",
+      "sha256": "702c56ce722b4cf394bbcee12747a9c5101e09fbd39a2c34e86041ce38709d04"
+    },
+    {
+      "file_name": "test_circle_overlap.cpp",
+      "path": "CPP/engine/tests/unit/test_circle_overlap.cpp",
+      "sha256": "f72656a5378c4ced142573043469b08f986c3cb92433e83d797e617900eb93f4"
+    },
+    {
+      "file_name": "test_circle_pipeline.cpp",
+      "path": "CPP/engine/tests/unit/test_circle_pipeline.cpp",
+      "sha256": "87a26dfabe80d2bf4090b420e49cffd028f5b994f9ebfffc084f86292ac1ef51"
+    },
+    {
+      "file_name": "test_collision_math.cpp",
+      "path": "CPP/engine/tests/unit/test_collision_math.cpp",
+      "sha256": "4f1a38e3d8b458ecf9c2f509128373e6489858118993df993ca5f9dec389ba47"
+    },
+    {
+      "file_name": "test_collision_pair_count_unit.cpp",
+      "path": "CPP/engine/tests/unit/test_collision_pair_count_unit.cpp",
+      "sha256": "60a69b36757aa41e0f92a43104366e189ec888301ad18adceee0f9d72cc8fa36"
+    },
+    {
+      "file_name": "test_collision_system.cpp",
+      "path": "CPP/engine/tests/unit/test_collision_system.cpp",
+      "sha256": "95a4cd45034022071b6791c2d44a1520fe50165a6fa427adf452e3d84477e360"
+    },
+    {
+      "file_name": "test_component_storage.cpp",
+      "path": "CPP/engine/tests/unit/test_component_storage.cpp",
+      "sha256": "b7738d350212f829476801a593c59216979d36f007408d2db565d75d48c072ef"
+    },
+    {
+      "file_name": "test_debug_hud_system.cpp",
+      "path": "CPP/engine/tests/unit/test_debug_hud_system.cpp",
+      "sha256": "93bec643c41856839525f73b595212338d3f864389d8815aa53d0577342a41be"
+    },
+    {
+      "file_name": "test_destruction_pipeline.cpp",
+      "path": "CPP/engine/tests/unit/test_destruction_pipeline.cpp",
+      "sha256": "62a3e290470e5ba72bff8e2e790f4a6ffdcd7c1506a2bd77ba18a7682d64f8e3"
+    },
+    {
+      "file_name": "test_entity_manager.cpp",
+      "path": "CPP/engine/tests/unit/test_entity_manager.cpp",
+      "sha256": "c2ef7dae7f4b75e3bd0cb523e4b3dad090efaa5cfc489696b82d0e4ea23db6eb"
+    },
+    {
+      "file_name": "test_gamedata_collider.cpp",
+      "path": "CPP/engine/tests/unit/test_gamedata_collider.cpp",
+      "sha256": "9c9599474ed111ba4c44d88fee384cd76bfbc7f6303b82523f0153961ceb95f4"
+    },
+    {
+      "file_name": "test_gamedata_loader.cpp",
+      "path": "CPP/engine/tests/unit/test_gamedata_loader.cpp",
+      "sha256": "9b46f20cd339dd2fbfb7068a675682c38486d11c203ea959add31ec555f8a44d"
+    },
+    {
+      "file_name": "test_hud_system.cpp",
+      "path": "CPP/engine/tests/unit/test_hud_system.cpp",
+      "sha256": "adca89499f2fb4215cff054dbf79472130a4a25ea912cb37aec5ab82b6a3da6d"
+    },
+    {
+      "file_name": "test_input_system_mouse.cpp",
+      "path": "CPP/engine/tests/unit/test_input_system_mouse.cpp",
+      "sha256": "5319240fd4ccffe626cdd7bb58ebe4b0f3c74aef8f32056526e304d9d5d574ed"
+    },
+    {
+      "file_name": "test_lifetime_system.cpp",
+      "path": "CPP/engine/tests/unit/test_lifetime_system.cpp",
+      "sha256": "8697ffc023c2d01fe270bc883b2c35e315eee32010c73c806ec32d1cbd539db2"
+    },
+    {
+      "file_name": "test_lua_bindings.cpp",
+      "path": "CPP/engine/tests/unit/test_lua_bindings.cpp",
+      "sha256": "c6a37f5d4fecd110f1bfa7d4195e7ad997541aef97189578207931cb96f4e8e5"
+    },
+    {
+      "file_name": "test_lua_manager.cpp",
+      "path": "CPP/engine/tests/unit/test_lua_manager.cpp",
+      "sha256": "e5342a31711519d05b0b3c517cfa03152755d7737d087ba3dc74ffdb897ab779"
+    },
+    {
+      "file_name": "test_movement_wrap_skip.cpp",
+      "path": "CPP/engine/tests/unit/test_movement_wrap_skip.cpp",
+      "sha256": "b86349403940f5ae0cbe2b9923735000a36d7308e1ff341b0cb12c3b74b82025"
+    },
+    {
+      "file_name": "test_obb_circle_overlap.cpp",
+      "path": "CPP/engine/tests/unit/test_obb_circle_overlap.cpp",
+      "sha256": "b06c3867da3dae41e35d59d05943598adaa5f89ea280b3b1e993157a0a590d6d"
+    },
+    {
+      "file_name": "test_obb_obb_overlap.cpp",
+      "path": "CPP/engine/tests/unit/test_obb_obb_overlap.cpp",
+      "sha256": "16d6673abab9742b7bf2c4ecd97589e9e2da9807498e02a45020e617081d7ff8"
+    },
+    {
+      "file_name": "test_obb_pipeline.cpp",
+      "path": "CPP/engine/tests/unit/test_obb_pipeline.cpp",
+      "sha256": "c59d5ea00e81a9e3db211b75a25cd78f6064b7531211b784d317e96094250f4f"
+    },
+    {
+      "file_name": "test_pathfinding.cpp",
+      "path": "CPP/engine/tests/unit/test_pathfinding.cpp",
+      "sha256": "a7377e0051fc514ed4d48986b6d82761cd5596e76f4ad0206482369a155de2a3"
+    },
+    {
+      "file_name": "test_quadtree_strategy.cpp",
+      "path": "CPP/engine/tests/unit/test_quadtree_strategy.cpp",
+      "sha256": "0eeab92b05632a282892de40dfe7dfb25cbef90f4da34866ca036e6904498339"
+    },
+    {
+      "file_name": "test_render_decision.cpp",
+      "path": "CPP/engine/tests/unit/test_render_decision.cpp",
+      "sha256": "90375015903adc1bceb0275ad164a662cbce6eac7289ac0b7ba52a57e1c37e9d"
+    },
+    {
+      "file_name": "test_resource_manager.cpp",
+      "path": "CPP/engine/tests/unit/test_resource_manager.cpp",
+      "sha256": "3ccf65a74a48054f5bade6d7065c9fa528b058b457575c4d7648e27ca409a768"
+    },
+    {
+      "file_name": "test_rotation_system.cpp",
+      "path": "CPP/engine/tests/unit/test_rotation_system.cpp",
+      "sha256": "ea72bab6e33cf14875e355fd8d59482fa0f6208c147b85722faa3a2552965c2d"
+    },
+    {
+      "file_name": "test_script_system.cpp",
+      "path": "CPP/engine/tests/unit/test_script_system.cpp",
+      "sha256": "fa51b8efebe98ba4ab617511574ee378568b7fb8c0cb0ab04c624debbddaa083"
+    },
+    {
+      "file_name": "test_sprite_sheet.cpp",
+      "path": "CPP/engine/tests/unit/test_sprite_sheet.cpp",
+      "sha256": "bd95b2d077e47f25e984047000754919b33b2f2ef340a6ce9f49736ac638ea2c"
+    },
+    {
+      "file_name": "test_tile_map.cpp",
+      "path": "CPP/engine/tests/unit/test_tile_map.cpp",
+      "sha256": "8156d5490f0327f4fa60083ade121b309d4a8d5e6e50dbe2fbdad1706522c66c"
+    },
+    {
+      "file_name": "test_timer.cpp",
+      "path": "CPP/engine/tests/unit/test_timer.cpp",
+      "sha256": "460d20751bc888b1f1464ab8af391ea98b1ce87d8fa20a405c6d2d60f73d53ee"
+    },
+    {
+      "file_name": "test_timer_no_advance.cpp",
+      "path": "CPP/engine/tests/unit/test_timer_no_advance.cpp",
+      "sha256": "70c79b9de5cce452cd43990d72327cd64fad437ce7f730cb5274015622f6fe3c"
+    },
+    {
+      "file_name": "test_uniform_grid_strategy.cpp",
+      "path": "CPP/engine/tests/unit/test_uniform_grid_strategy.cpp",
+      "sha256": "94dc54fac8e06732d259524435b91b5c46709a793d06c4cd6a4771f81e2bfac4"
+    },
+    {
+      "file_name": "test_wrap_system.cpp",
+      "path": "CPP/engine/tests/unit/test_wrap_system.cpp",
+      "sha256": "68c1074f8d54cb7fc39665ba8569fe761e169b344b86e49969dc24b906588eb1"
+    },
+    {
+      "file_name": "tile_map.hpp",
+      "path": "CPP/engine/tile_map.hpp",
+      "sha256": "f9f8bf708b6b6af7f9946204e9c6a61b49692ff3bff2744dddd7dccd6ea4a2c2"
+    },
+    {
+      "file_name": "timer.cpp",
+      "path": "CPP/engine/timer.cpp",
+      "sha256": "735836bc23fdf9dea4f9122bb088e72aa43a037d55853576de1d18ebba1c47de"
+    },
+    {
+      "file_name": "timer.hpp",
+      "path": "CPP/engine/timer.hpp",
+      "sha256": "96e4a8565ca9013059fe8da372ad9a57a2ecc51f6d08b095142f0e25fbffdbbe"
+    },
+    {
+      "file_name": "CMakeLists.txt",
+      "path": "CPP/game/CMakeLists.txt",
+      "sha256": "2e77e23aff9deb60f1155f52c5391cf3767f7797b221a340ce53059bb7712c65"
+    },
+    {
+      "file_name": "cannon_spawn_system.cpp",
+      "path": "CPP/game/cannon_spawn_system.cpp",
+      "sha256": "bc5eac66427eaae1d025b2ff0cbc7342c5b23ecb24b16df74beb8eb2666d496f"
+    },
+    {
+      "file_name": "cannon_spawn_system.hpp",
+      "path": "CPP/game/cannon_spawn_system.hpp",
+      "sha256": "76bff89d214bacdda6dd3164ffe9ab280cdfeb296058149262590f7b9aa0a140"
+    },
+    {
+      "file_name": "cli_parser.cpp",
+      "path": "CPP/game/cli_parser.cpp",
+      "sha256": "8b025dcc28cfdd2485ba3b486a021446a7615a26b49fa0c9dae0701134910ced"
+    },
+    {
+      "file_name": "cli_parser.hpp",
+      "path": "CPP/game/cli_parser.hpp",
+      "sha256": "3671464356e2909d7cd58ad4cb66ee8d783cd38bd81b56105f5daa0039d9ba4f"
+    },
+    {
+      "file_name": "damage_apply_system.cpp",
+      "path": "CPP/game/damage_apply_system.cpp",
+      "sha256": "fdff5fa3361b07c1ec9d618e650f9f9951c0f87c032b03f9bfc17a19417de299"
+    },
+    {
+      "file_name": "damage_apply_system.hpp",
+      "path": "CPP/game/damage_apply_system.hpp",
+      "sha256": "db78bcca74195bafb0f7e691033a2d33231f6ee3bcc08e54b1c873ca83f38353"
+    },
+    {
+      "file_name": "debug_adapters.cpp",
+      "path": "CPP/game/debug_adapters.cpp",
+      "sha256": "6f1b5f11d03c291e9d2eadce9b48e945ee6ac8e3f9faa11c463da5d2f2914bb1"
+    },
+    {
+      "file_name": "debug_adapters.hpp",
+      "path": "CPP/game/debug_adapters.hpp",
+      "sha256": "46417602c1a1cc4f9b652dd905566b28a271acb4c9063e6aafc0ef292d416d3e"
+    },
+    {
+      "file_name": "debug_state.hpp",
+      "path": "CPP/game/debug_state.hpp",
+      "sha256": "3e6c2b5c2c17e961682f4dd03353d95f7079a2e9c9425a33f633e3e1b9614b8f"
+    },
+    {
+      "file_name": "enemy_cleanup_system.cpp",
+      "path": "CPP/game/enemy_cleanup_system.cpp",
+      "sha256": "a531280e69d6e21f62ec07ee2ed25bd3b0d04275198d59aeb6742b8f02aeccf4"
+    },
+    {
+      "file_name": "enemy_cleanup_system.hpp",
+      "path": "CPP/game/enemy_cleanup_system.hpp",
+      "sha256": "41d0160ffbd4483c3e7423acb17b16612e1a7d610cbcdb949721a76bf5cc7431"
+    },
+    {
+      "file_name": "enemy_components.hpp",
+      "path": "CPP/game/enemy_components.hpp",
+      "sha256": "9df09628963bce3173bd64924b32df5b9e96e9eae1ee735c037d2a04838726e8"
+    },
+    {
+      "file_name": "enemy_death_system.cpp",
+      "path": "CPP/game/enemy_death_system.cpp",
+      "sha256": "2e14a2ce76a81a636b142f0ffdbe4ef0c5e202df5818c9341bd257daed42d744"
+    },
+    {
+      "file_name": "enemy_death_system.hpp",
+      "path": "CPP/game/enemy_death_system.hpp",
+      "sha256": "0b51c4c65c0f9616d086dfaff82652f6e476aaed632cefac0e39d6ed5452751f"
+    },
+    {
+      "file_name": "enemy_movement_system.cpp",
+      "path": "CPP/game/enemy_movement_system.cpp",
+      "sha256": "539a14d69a215d435bc488f742c258a223479550f61b1a0e6b86ad67b3cc1f4d"
+    },
+    {
+      "file_name": "enemy_movement_system.hpp",
+      "path": "CPP/game/enemy_movement_system.hpp",
+      "sha256": "7ae883bdd5eaabe0b91d5c5c0f3cfde93dee570bc6984d10d83196097d707f0d"
+    },
+    {
+      "file_name": "game_hud_system.cpp",
+      "path": "CPP/game/game_hud_system.cpp",
+      "sha256": "91265836e4d386f2fd04fd5703e110ebd92e732785f7062a824d566cd53b4b6e"
+    },
+    {
+      "file_name": "game_hud_system.hpp",
+      "path": "CPP/game/game_hud_system.hpp",
+      "sha256": "fe491e53daed117acddb4e5d27f1a11700449c27df0c522f45cd781a288a81f7"
+    },
+    {
+      "file_name": "laser_damage_system.cpp",
+      "path": "CPP/game/laser_damage_system.cpp",
+      "sha256": "b0df291fdb3ac090869d1f35bc59d3642494dda9e33c06f62da2792835f049a3"
+    },
+    {
+      "file_name": "laser_damage_system.hpp",
+      "path": "CPP/game/laser_damage_system.hpp",
+      "sha256": "e515e468afe088ad1720be90a012c99389bc1716aa8829bd8f6902cbc4a7f6b6"
+    },
+    {
+      "file_name": "laser_expire_system.cpp",
+      "path": "CPP/game/laser_expire_system.cpp",
+      "sha256": "1c48def58c3c5143403abfed13e43200990fbcb04f26e32c018ddd62f4321247"
+    },
+    {
+      "file_name": "laser_expire_system.hpp",
+      "path": "CPP/game/laser_expire_system.hpp",
+      "sha256": "b0061c2053f1127f6375986221119a8cb60f9fc390b05f39554a6b4a20ee2a80"
+    },
+    {
+      "file_name": "laser_fire_system.cpp",
+      "path": "CPP/game/laser_fire_system.cpp",
+      "sha256": "524cd95010a101f33bba4a781bcb695e36210cc9a01aadc6926997283ad678b0"
+    },
+    {
+      "file_name": "laser_fire_system.hpp",
+      "path": "CPP/game/laser_fire_system.hpp",
+      "sha256": "e4d240e1150e469a9c4a77239b5d9942984b38ec818dc351609b83f0892fb0b4"
+    },
+    {
+      "file_name": "laser_render_system.cpp",
+      "path": "CPP/game/laser_render_system.cpp",
+      "sha256": "a59f5109114bcca6e7be4108cd876ae21ba9445f25f9cefcf506af0a45e47948"
+    },
+    {
+      "file_name": "laser_render_system.hpp",
+      "path": "CPP/game/laser_render_system.hpp",
+      "sha256": "4ba580120b8e42f34b7bff1ff9132222436d994ef3e79c1555578315b29c934c"
+    },
+    {
+      "file_name": "main.cpp",
+      "path": "CPP/game/main.cpp",
+      "sha256": "3aadcdee0a3fd5bc2a0d40233b735cae1bb2f779f624156366960f615a2e5f9d"
+    },
+    {
+      "file_name": "path_overlay_system.cpp",
+      "path": "CPP/game/path_overlay_system.cpp",
+      "sha256": "a0181f3b29fb48d0d6e23267fe2979bc6ab12b23fb4be2c8ffd5fe10a8b4b912"
+    },
+    {
+      "file_name": "path_overlay_system.hpp",
+      "path": "CPP/game/path_overlay_system.hpp",
+      "sha256": "1d3eaa40931a24496ad0bc48ee7366e4ad4bfa5f6e2b5a978893ed17a8901b3c"
+    },
+    {
+      "file_name": "projectile_hit_system.cpp",
+      "path": "CPP/game/projectile_hit_system.cpp",
+      "sha256": "53b5b7ae8157cd06a4552e35dd13380110526a990b712804db40efb016a06ba9"
+    },
+    {
+      "file_name": "projectile_hit_system.hpp",
+      "path": "CPP/game/projectile_hit_system.hpp",
+      "sha256": "40dea6c3c601819f59157db9960094852247977c7ea1369ac628f1626074fe03"
+    },
+    {
+      "file_name": "projectile_movement_system.cpp",
+      "path": "CPP/game/projectile_movement_system.cpp",
+      "sha256": "d325b4d6a863f7bbdb6dc2d18835eb6133e8e0f6187e3d4c7dd38707aaf07a2c"
+    },
+    {
+      "file_name": "projectile_movement_system.hpp",
+      "path": "CPP/game/projectile_movement_system.hpp",
+      "sha256": "c93291d64670fe676192e6e68bada92e2d4137ce183aa275b0f0f7912b30ecbc"
+    },
+    {
+      "file_name": "script_loader.cpp",
+      "path": "CPP/game/script_loader.cpp",
+      "sha256": "eb7c9a168b7b3e228d29894fc744c00aec6cc71f10355ac250eab518d45cd0de"
+    },
+    {
+      "file_name": "script_loader.hpp",
+      "path": "CPP/game/script_loader.hpp",
+      "sha256": "9ae4c35230e92c16af20d2a817086d0f88fc40a8339f24ecaeae7e64fcd1969d"
+    },
+    {
+      "file_name": "CMakeLists.txt",
+      "path": "CPP/game/tests/CMakeLists.txt",
+      "sha256": "1c8f0d59eccac987c09609e62b580d8d9d9922c1dec5d2e56b79308001909a04"
+    },
+    {
+      "file_name": "test_cannon_spawn_properties.cpp",
+      "path": "CPP/game/tests/property/test_cannon_spawn_properties.cpp",
+      "sha256": "2768e99f17d45674d425246c4a49979a198347ae47c0920fc69d93509b234cbb"
+    },
+    {
+      "file_name": "test_cli_parser_properties.cpp",
+      "path": "CPP/game/tests/property/test_cli_parser_properties.cpp",
+      "sha256": "e979b1fb57b3c3e6a438849dd8df954a59db8a805cd9db27708c7572b1516044"
+    },
+    {
+      "file_name": "test_damage_apply_properties.cpp",
+      "path": "CPP/game/tests/property/test_damage_apply_properties.cpp",
+      "sha256": "12f230c57435ebad03152ca816159512bea40b0af146350a731fc679b08aca6d"
+    },
+    {
+      "file_name": "test_debug_adapter_properties.cpp",
+      "path": "CPP/game/tests/property/test_debug_adapter_properties.cpp",
+      "sha256": "328924659cad717a118082ad766af2f8ceb20128c2cbc36592b1d8ad2eb253b0"
+    },
+    {
+      "file_name": "test_debug_state_properties.cpp",
+      "path": "CPP/game/tests/property/test_debug_state_properties.cpp",
+      "sha256": "4850fb9c77c465b97959e21c8b5e295fb3611530ed0c72a8c308ea26cc682b1a"
+    },
+    {
+      "file_name": "test_enemy_properties.cpp",
+      "path": "CPP/game/tests/property/test_enemy_properties.cpp",
+      "sha256": "2dce6121b5a7c128999ff70722a1650b7902f16a1a2974f6d57c7457815a573f"
+    },
+    {
+      "file_name": "test_fire_request_cleanup_properties.cpp",
+      "path": "CPP/game/tests/property/test_fire_request_cleanup_properties.cpp",
+      "sha256": "f718e93fbe6c3432d3f5f072ded2f131abaec2dd1717185fa1c48bae15c4efba"
+    },
+    {
+      "file_name": "test_game_hud_properties.cpp",
+      "path": "CPP/game/tests/property/test_game_hud_properties.cpp",
+      "sha256": "f11bca4b530291daeeee6d8ab2ce3b82f27587e681e5fce59729dea4653ddf70"
+    },
+    {
+      "file_name": "test_laser_damage_properties.cpp",
+      "path": "CPP/game/tests/property/test_laser_damage_properties.cpp",
+      "sha256": "0ab87889a5c9c6d3fda942a9d1a94e01830893d6db809cba2f9a562484df9072"
+    },
+    {
+      "file_name": "test_laser_expire_properties.cpp",
+      "path": "CPP/game/tests/property/test_laser_expire_properties.cpp",
+      "sha256": "56eef42acd76f276cd734408fd39ac013ce67fb19af06a3bd7eaae12bd66aec3"
+    },
+    {
+      "file_name": "test_projectile_hit_properties.cpp",
+      "path": "CPP/game/tests/property/test_projectile_hit_properties.cpp",
+      "sha256": "acf45a1888041adc9ac17d949ca0adcd51698ea1fb903d6d5d41688db736c9d4"
+    },
+    {
+      "file_name": "test_projectile_movement_properties.cpp",
+      "path": "CPP/game/tests/property/test_projectile_movement_properties.cpp",
+      "sha256": "08c8fd8cc88989528091bef29d02f314a3b153938c946ee9ad3b2ccb079f009a"
+    },
+    {
+      "file_name": "test_tower_fire_system_properties.cpp",
+      "path": "CPP/game/tests/property/test_tower_fire_system_properties.cpp",
+      "sha256": "dbf47498857c497b28c1fc074f1833a63ae48fc1cfe019573b2b94a3dc876560"
+    },
+    {
+      "file_name": "test_tower_properties.cpp",
+      "path": "CPP/game/tests/property/test_tower_properties.cpp",
+      "sha256": "2ab6a276f2087f06cc9895eccff679acfbe792d604d4a1e8d37e378d900c4016"
+    },
+    {
+      "file_name": "test_cannon_laser_integration.cpp",
+      "path": "CPP/game/tests/unit/test_cannon_laser_integration.cpp",
+      "sha256": "cb09b0db0b3f7e174af02464a258daecaf40057de6c67c468ead6444ff3f3086"
+    },
+    {
+      "file_name": "test_cannon_spawn_system.cpp",
+      "path": "CPP/game/tests/unit/test_cannon_spawn_system.cpp",
+      "sha256": "cbf4e0e1d4a44b156db55c1f01274159a49761b0089250a558dad98549b5e84e"
+    },
+    {
+      "file_name": "test_cli_parser.cpp",
+      "path": "CPP/game/tests/unit/test_cli_parser.cpp",
+      "sha256": "7599ef8925921a1ebd22b04c52e2ae7cf5b151ee08da847a749f56ffde658497"
+    },
+    {
+      "file_name": "test_damage_apply_system.cpp",
+      "path": "CPP/game/tests/unit/test_damage_apply_system.cpp",
+      "sha256": "77b53b9db212942304d7dfcdd5dfa9be2c6985e8ce409e0eb4507e764fdac7e1"
+    },
+    {
+      "file_name": "test_debug_adapters.cpp",
+      "path": "CPP/game/tests/unit/test_debug_adapters.cpp",
+      "sha256": "760d6f40fdf1a07d6c1469f71a54446bfd96d7cfbd96d086a194a21d270c50d5"
+    },
+    {
+      "file_name": "test_debug_state.cpp",
+      "path": "CPP/game/tests/unit/test_debug_state.cpp",
+      "sha256": "df41b7fdb30848ed6e52d6687306912d98449064e7a34c2c033243bf666d4134"
+    },
+    {
+      "file_name": "test_enemy_systems.cpp",
+      "path": "CPP/game/tests/unit/test_enemy_systems.cpp",
+      "sha256": "07f5423ee12adb2d89b5b23a8116fd882866a4f0dad5011424af6d6a0577db60"
+    },
+    {
+      "file_name": "test_game_hud_system.cpp",
+      "path": "CPP/game/tests/unit/test_game_hud_system.cpp",
+      "sha256": "e0aaaf2cd80909d61865b360fe585d6cd111c802703fa11965efe98afb5a317e"
+    },
+    {
+      "file_name": "test_laser_damage_system.cpp",
+      "path": "CPP/game/tests/unit/test_laser_damage_system.cpp",
+      "sha256": "9ed26335581bfbe90c7c01b95119a9f360f757c42b190c501e3fb4fc11b67a30"
+    },
+    {
+      "file_name": "test_laser_expire_system.cpp",
+      "path": "CPP/game/tests/unit/test_laser_expire_system.cpp",
+      "sha256": "54146cf55e6bbdb9cba5b3e66d06845ca00e96815dc52bb45b7b038e0ce45734"
+    },
+    {
+      "file_name": "test_laser_fire_system.cpp",
+      "path": "CPP/game/tests/unit/test_laser_fire_system.cpp",
+      "sha256": "916d0eb34b5e89fbb51a0b0822e3870b0360e842399f3dc68e437ec7e197e1cb"
+    },
+    {
+      "file_name": "test_projectile_hit_refactored.cpp",
+      "path": "CPP/game/tests/unit/test_projectile_hit_refactored.cpp",
+      "sha256": "e070f78e2f05b3529e176a4751753354c0e83965677083a66b30f9e91b36fecf"
+    },
+    {
+      "file_name": "test_tower_fire_system.cpp",
+      "path": "CPP/game/tests/unit/test_tower_fire_system.cpp",
+      "sha256": "37ac998c351bd673a0ce8b5010dc66defc75ecfd8da8dc18a9fb6984a17ee4b3"
+    },
+    {
+      "file_name": "test_tower_systems.cpp",
+      "path": "CPP/game/tests/unit/test_tower_systems.cpp",
+      "sha256": "d1e7fd0c240887b9d27ebaec0ed742605352478ece1aba915c99c9ea92971f03"
+    },
+    {
+      "file_name": "tile_render_system.cpp",
+      "path": "CPP/game/tile_render_system.cpp",
+      "sha256": "5e1bfec0cdde66f8879a3d7e831599054f3bcfda9d0c8aa6e5b343a5fca3227d"
+    },
+    {
+      "file_name": "tile_render_system.hpp",
+      "path": "CPP/game/tile_render_system.hpp",
+      "sha256": "758072cc7c0280eca022d24f281e255b3400d476c7e320f3e2bb641eae9cb707"
+    },
+    {
+      "file_name": "tower_components.hpp",
+      "path": "CPP/game/tower_components.hpp",
+      "sha256": "a634dfb311aa5d0a14924bb333fb7ee610a4a61bc395b07eee014aa1de705a0b"
+    },
+    {
+      "file_name": "tower_fire_system.cpp",
+      "path": "CPP/game/tower_fire_system.cpp",
+      "sha256": "83e4dc1abf752d7ed69879ca9f5ed22d943d16437123c3b03e219db41036021c"
+    },
+    {
+      "file_name": "tower_fire_system.hpp",
+      "path": "CPP/game/tower_fire_system.hpp",
+      "sha256": "4bd12790faad272e9895edfb5b779866cfed7160e78633c922796efb52504380"
+    },
+    {
+      "file_name": "tower_firing_system.cpp",
+      "path": "CPP/game/tower_firing_system.cpp",
+      "sha256": "0768de643c3f4246f4a34231f763fa5af11f93af1c7535a22fed55113d158479"
+    },
+    {
+      "file_name": "tower_firing_system.hpp",
+      "path": "CPP/game/tower_firing_system.hpp",
+      "sha256": "25172f2501c43aaaa5bb0842f397b0db7f285856cef44ed390ea3d02c64cac37"
+    },
+    {
+      "file_name": "tower_placement_system.cpp",
+      "path": "CPP/game/tower_placement_system.cpp",
+      "sha256": "3ab42b7206590cc1094b78601e14b95aab349266845e7c65640107fbda59ad52"
+    },
+    {
+      "file_name": "tower_placement_system.hpp",
+      "path": "CPP/game/tower_placement_system.hpp",
+      "sha256": "bb47070de6e0dfd328495ee3163cf3a8e9464583acf7d0742ab145fa26eb0c0b"
+    },
+    {
+      "file_name": "tower_targeting_system.cpp",
+      "path": "CPP/game/tower_targeting_system.cpp",
+      "sha256": "a2a3020b7b9d6aafa75e6094efd214fa8a0c3fb684cfecb2502dbe32068df3e6"
+    },
+    {
+      "file_name": "tower_targeting_system.hpp",
+      "path": "CPP/game/tower_targeting_system.hpp",
+      "sha256": "3b36063c7e7d6b343400f335e8ade4e2b1de74f511f71b3482c0f7b49e0cdc7a"
+    },
+    {
+      "file_name": "tower_type_config.hpp",
+      "path": "CPP/game/tower_type_config.hpp",
+      "sha256": "99b815038d20c169cabe19c5e1f97da6bc251bee8e122690aaeade8c1cd81ba1"
+    },
+    {
+      "file_name": "wave_config.hpp",
+      "path": "CPP/game/wave_config.hpp",
+      "sha256": "572c02fad72e31f4ece0897dc6d78afa452ecfa1424208bcdd7c969094d55cf7"
+    },
+    {
+      "file_name": "wave_spawner_system.cpp",
+      "path": "CPP/game/wave_spawner_system.cpp",
+      "sha256": "30cd9b9ca984fb20d00544db2a77c291e57e1b9ca78f00fb85ee32363e47bc0f"
+    },
+    {
+      "file_name": "wave_spawner_system.hpp",
+      "path": "CPP/game/wave_spawner_system.hpp",
+      "sha256": "da8810a7754832f51ee33a5fb7a53e8823b6f3194342421f405e40b8fedca496"
+    },
+    {
+      "file_name": "compileGame.py",
+      "path": "compileGame.py",
+      "sha256": "a6a09869b13b53d45df80bbd330ef96595104540b66d92fe555d49f7354ddbd4"
+    },
+    {
+      "file_name": "run.py",
+      "path": "run.py",
+      "sha256": "5120b5be515232ee295a0b3e350ca5c0f12507cd5f43f3d9bf6f4e5417005eec"
+    },
+    {
+      "file_name": "runEngineTests.py",
+      "path": "runEngineTests.py",
+      "sha256": "35e66adef7de44a2ea50089404cf9372036e2f321eed9ff4188216b285a7acd1"
+    },
+    {
+      "file_name": "runGame.py",
+      "path": "runGame.py",
+      "sha256": "eb8009912e63f658371ff570d7ab2690afcdbe51e9a3832b9096c1e226289b29"
+    },
+    {
+      "file_name": "runGameTests.py",
+      "path": "runGameTests.py",
+      "sha256": "76776dc505630bbf6dfe2ee7d0c869b5e676c2b0d07efb29c94059cbb72dfd7a"
+    },
+    {
+      "file_name": "runTests.py",
+      "path": "runTests.py",
+      "sha256": "e1c7bdca30ef9330560880875dede329c14c1c6367270c13cfcabb7a87ea8b6e"
+    },
+    {
+      "file_name": "runTestsAll.py",
+      "path": "runTestsAll.py",
+      "sha256": "d98576729d1e2998d17f626469612bbeca4400b673d7bad1a6901005b19e3891"
+    }
+  ]
+}

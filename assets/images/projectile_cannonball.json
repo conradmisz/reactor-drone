@@ -1,0 +1,21 @@
+{
+  "atlas": "projectile_cannonball.png",
+  "frame_width": 128,
+  "frame_height": 128,
+  "columns": 3,
+  "total_frames": 9,
+  "animations": {
+    "still": {
+      "start_frame": 0,
+      "frame_count": 1,
+      "frame_duration": 0.1,
+      "looping": false
+    },
+    "spin": {
+      "start_frame": 1,
+      "frame_count": 8,
+      "frame_duration": 0.08,
+      "looping": true
+    }
+  }
+}

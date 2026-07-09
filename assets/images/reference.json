@@ -1,0 +1,15 @@
+{
+  "atlas": "reference.png",
+  "frame_width": 128,
+  "frame_height": 128,
+  "columns": 3,
+  "total_frames": 8,
+  "animations": {
+    "march": {
+      "start_frame": 0,
+      "frame_count": 8,
+      "frame_duration": 0.1,
+      "looping": true
+    }
+  }
+}

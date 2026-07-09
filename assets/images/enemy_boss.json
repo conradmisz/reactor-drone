@@ -1,0 +1,21 @@
+{
+  "atlas": "enemy_boss.png",
+  "frame_width": 128,
+  "frame_height": 128,
+  "columns": 5,
+  "total_frames": 18,
+  "animations": {
+    "march": {
+      "start_frame": 0,
+      "frame_count": 8,
+      "frame_duration": 0.14,
+      "looping": true
+    },
+    "death": {
+      "start_frame": 8,
+      "frame_count": 10,
+      "frame_duration": 0.12,
+      "looping": false
+    }
+  }
+}

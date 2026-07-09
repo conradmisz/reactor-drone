@@ -1,0 +1,15 @@
+{
+  "atlas": "effect_explosion.png",
+  "frame_width": 128,
+  "frame_height": 128,
+  "columns": 3,
+  "total_frames": 8,
+  "animations": {
+    "expand": {
+      "start_frame": 0,
+      "frame_count": 8,
+      "frame_duration": 0.06,
+      "looping": false
+    }
+  }
+}

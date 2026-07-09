@@ -1,0 +1,7 @@
+{
+  "levels": [
+    "GameData.json",
+    "levels/level2.json",
+    "levels/level3.json"
+  ]
+}

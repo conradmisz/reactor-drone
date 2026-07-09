@@ -1,0 +1,83 @@
+{
+  "window": {
+    "title": "Tower Defense — Level 3: Serpentine",
+    "width": 980,
+    "height": 660
+  },
+  "camera": {
+    "lookat_x": 0,
+    "lookat_y": 0,
+    "zoom": 1.0
+  },
+  "tilemap": {
+    "tile_size": 64,
+    "spawn": { "col": 0, "row": 8 },
+    "destination": { "col": 0, "row": 1 },
+    "tiles": [
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+      [0, 2, 0, 1, 2, 1, 0, 2, 0, 0, 2, 0, 0, 1, 0],
+      [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 0],
+      [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0],
+      [0, 2, 0, 0, 0, 0, 1, 2, 0, 1, 0, 2, 0, 1, 0],
+      [1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    ]
+  },
+  "game": {
+    "lives": 10,
+    "starting_gold": 200,
+    "tower_types": [
+      {
+        "type": "cannon",
+        "cost": 50,
+        "range": 150.0,
+        "fire_rate": 1.0,
+        "damage": 25.0,
+        "sidecar": "images/tower_cannon.json",
+        "clip": "directions"
+      },
+      {
+        "type": "laser",
+        "cost": 75,
+        "range": 200.0,
+        "fire_rate": 4.0,
+        "damage": 10.0,
+        "laser_duration": 0.15,
+        "sidecar": "images/tower_laser.json",
+        "clip": "directions"
+      }
+    ],
+    "tower": {
+      "cost": 50,
+      "range": 150.0,
+      "fire_rate": 1.0,
+      "damage": 25.0,
+      "kill_reward": 15
+    },
+    "waves": [
+      {
+        "enemy_count": 5,
+        "spawn_interval": 1.0,
+        "wave_delay": 2.0,
+        "enemy_speed": 64.0,
+        "enemy_hp": 100.0,
+        "enemy_sidecar": "images/enemy_runner.json",
+        "enemy_clip": "march"
+      },
+      {
+        "enemy_count": 8,
+        "spawn_interval": 0.8,
+        "wave_delay": 3.0,
+        "enemy_speed": 80.0,
+        "enemy_hp": 150.0,
+        "enemy_sidecar": "images/enemy_fast.json",
+        "enemy_clip": "march"
+      }
+    ]
+  },
+  "entities": [],
+  "hud_entities": []
+}

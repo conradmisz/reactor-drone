@@ -1,0 +1,60 @@
+{
+  "window": { "title": "Reactor Drone", "width": 980, "height": 660 },
+  "camera": { "lookat_x": 480.0, "lookat_y": 330.0, "zoom": 1.0 },
+  "entities": [],
+  "hud_entities": [],
+
+  "seed": 1234,
+  "victory_wave": 0,
+
+  "arena": {
+    "radius": 300.0,
+    "spawn_radius": 340.0,
+    "center_x": 480.0,
+    "center_y": 330.0,
+    "backdrop": ""
+  },
+
+  "player": {
+    "start_health": 100.0,
+    "move_speed": 260.0,
+    "invuln_window": 0.8,
+    "start_x": 480.0,
+    "start_y": 330.0,
+    "size": 52.0,
+    "sidecar": "images/enemy_boss.json",
+    "idle_clip": "march",
+    "weapon": {
+      "fire_rate": 4.0,
+      "damage": 20.0,
+      "projectile_speed": 520.0,
+      "projectile_lifetime": 1.0,
+      "spread": 0.06
+    }
+  },
+
+  "enemy_types": [
+    { "name": "spark",  "sidecar": "images/enemy_fast.json",    "clip": "march", "speed": 95.0, "health": 20.0, "contact_damage": 8.0,  "size": 42.0, "score": 10, "xp": 1 },
+    { "name": "runner", "sidecar": "images/enemy_runner.json",  "clip": "march", "speed": 70.0, "health": 40.0, "contact_damage": 10.0, "size": 46.0, "score": 15, "xp": 2 },
+    { "name": "hulk",   "sidecar": "images/enemy_armored.json", "clip": "march", "speed": 45.0, "health": 90.0, "contact_damage": 16.0, "size": 52.0, "score": 30, "xp": 4 }
+  ],
+
+  "waves": [
+    { "count": 6,  "spawn_interval": 0.80, "delay": 1.0, "types": [0] },
+    { "count": 8,  "spawn_interval": 0.70, "delay": 2.0, "types": [0, 1] },
+    { "count": 10, "spawn_interval": 0.60, "delay": 2.0, "types": [0, 1] },
+    { "count": 12, "spawn_interval": 0.55, "delay": 2.0, "types": [1, 2] },
+    { "count": 14, "spawn_interval": 0.50, "delay": 2.0, "types": [0, 1, 2] },
+    { "count": 18, "spawn_interval": 0.40, "delay": 2.0, "types": [0, 1, 2] }
+  ],
+
+  "xp_curve": { "level2": 5.0, "multiplier": 1.6 },
+
+  "upgrades": [
+    { "stat": "fire_rate",        "amount": 1.0,  "weight": 3.0, "label": "Rapid Fire" },
+    { "stat": "damage",           "amount": 8.0,  "weight": 3.0, "label": "Heavy Rounds" },
+    { "stat": "projectile_speed", "amount": 80.0, "weight": 2.0, "label": "Velocity Coils" },
+    { "stat": "max_health",       "amount": 20.0, "weight": 2.0, "label": "Reinforced Hull" },
+    { "stat": "spread",           "amount": 0.02, "weight": 2.0, "label": "Targeting Array" }
+  ]
+}

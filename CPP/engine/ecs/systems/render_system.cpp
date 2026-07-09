@@ -1,0 +1,280 @@
+/**
+ * RenderSystem implementation
+ * 
+ * Renders entities using a priority chain: SpriteSheet > Images > Color > skip.
+ * Textured entities use SDL_RenderTexture; colored entities use SDL_RenderFillRect.
+ * Both paths apply the Y-axis flip from bottom-left game coords to top-left SDL coords.
+ * 
+ * Coordinate preference: ScreenPosition (camera-aware) > Position (backward compatible).
+ * Size dimensions are multiplied by camera.zoom (from Blackboard) for the destination rect.
+ */
+
+#include "engine/ecs/systems/render_system.hpp"
+#include "engine/ecs/sprite_sheet_math.hpp"
+#include "engine/resource_manager.hpp"
+#include <algorithm>
+#include <cmath>
+#include <map>
+#include <vector>
+
+RenderSystem::RenderSystem(SDL_Renderer* renderer, ResourceManager& resource_manager)
+    : renderer_(renderer), resource_manager_(resource_manager) {
+}
+
+void RenderSystem::set_background_texture(const std::string& texture_name) {
+    background_texture_name_ = texture_name;
+}
+
+void RenderSystem::clear_background() {
+    if (!background_texture_name_.empty()) {
+        SDL_Texture* bg = resource_manager_.load_texture(background_texture_name_);
+        if (bg) {
+            int win_w, win_h;
+            SDL_GetRenderOutputSize(renderer_, &win_w, &win_h);
+            float tex_w, tex_h;
+            SDL_GetTextureSize(bg, &tex_w, &tex_h);
+
+            // Tile the texture across the window
+            for (float y = 0; y < static_cast<float>(win_h); y += tex_h) {
+                for (float x = 0; x < static_cast<float>(win_w); x += tex_w) {
+                    SDL_FRect dst = {x, y, tex_w, tex_h};
+                    SDL_RenderTexture(renderer_, bg, nullptr, &dst);
+                }
+            }
+            return;
+        }
+    }
+    // Fallback: solid blue
+    SDL_SetRenderDrawColor(renderer_, 0, 0, 255, 255);
+    SDL_RenderClear(renderer_);
+}
+
+void RenderSystem::render(const ComponentStorage& storage, const Blackboard& blackboard) {
+    float zoom = blackboard.get_or<float>("camera.zoom", 1.0f);
+
+    auto all = storage.entities_with_component<Position>();
+
+    // Draw order is by RenderLayer (entities without one are layer 0, so existing
+    // content is unchanged; higher layers draw on top — e.g. laser beams, health bars).
+    // Rather than an O(n log n) comparison sort, bucket the entities by layer in a
+    // single O(n) pass and emit the buckets in ascending layer order (std::map keeps
+    // the small, fixed set of layer keys ordered). Within a layer, entities keep their
+    // storage order. draw_entity is then called over the layered sequence.
+    std::map<int, std::vector<Entity>> buckets;
+    for (Entity e : all) {
+        int layer = 0;
+        if (storage.has_component<RenderLayer>(e)) {
+            auto rl = storage.get_component<RenderLayer>(e);
+            if (rl.has_value()) layer = rl->get().layer;
+        }
+        buckets[layer].push_back(e);
+    }
+
+    std::vector<Entity> entities;
+    entities.reserve(all.size());
+    for (auto& [layer, bucket] : buckets) {
+        (void)layer;
+        for (Entity e : bucket) entities.push_back(e);
+    }
+
+    for (Entity entity : entities) {
+        if (!storage.has_component<Size>(entity)) {
+            continue;  // Position without Size — nothing to render
+        }
+
+        auto size_opt = storage.get_component<Size>(entity);
+        if (!size_opt.has_value()) {
+            continue;
+        }
+        const auto& size = size_opt->get();
+
+        // Prefer ScreenPosition over Position for coordinates
+        float x, y;
+        if (storage.has_component<ScreenPosition>(entity)) {
+            auto sp = storage.get_component<ScreenPosition>(entity);
+            x = sp->get().x;
+            y = sp->get().y;
+        } else {
+            auto pos = storage.get_component<Position>(entity);
+            if (!pos.has_value()) continue;
+            x = pos->get().x;
+            y = pos->get().y;
+        }
+
+        // Zoom-scale dimensions
+        float render_width = size.width * zoom;
+        float render_height = size.height * zoom;
+
+        // Priority: SpriteSheet > Images > Color > skip
+        if (storage.has_component<SpriteSheet>(entity)) {
+            auto ss_opt = storage.get_component<SpriteSheet>(entity);
+            if (ss_opt.has_value()) {
+                const auto& ss = ss_opt->get();
+                SDL_Texture* texture = resource_manager_.load_texture(ss.atlas_filename);
+                SDL_FRect src_rect = compute_source_rect(
+                    ss.current_frame, ss.columns, ss.frame_width, ss.frame_height);
+                float rotation_angle = 0.0f;
+                if (storage.has_component<Rotation>(entity)) {
+                    auto rot = storage.get_component<Rotation>(entity);
+                    rotation_angle = rot->get().angle;
+                }
+                draw_entity(x, y, render_width, render_height,
+                            Color{0, 0, 0, 255}, texture, rotation_angle, &src_rect);
+            }
+        } else if (storage.has_component<Images>(entity)) {
+            auto img_opt = storage.get_component<Images>(entity);
+            if (img_opt.has_value()) {
+                SDL_Texture* texture = resource_manager_.load_texture(
+                    img_opt->get().active_filename());
+                float rotation_angle = 0.0f;
+                if (storage.has_component<Rotation>(entity)) {
+                    auto rot = storage.get_component<Rotation>(entity);
+                    rotation_angle = rot->get().angle;
+                }
+                draw_entity(x, y, render_width, render_height, Color{0, 0, 0, 255}, texture, rotation_angle);
+            }
+        } else if (storage.has_component<Color>(entity)) {
+            auto color_opt = storage.get_component<Color>(entity);
+            if (color_opt.has_value()) {
+                draw_entity(x, y, render_width, render_height, color_opt->get(), nullptr);
+            }
+        }
+        // else: has Position+Size but neither Images nor Color → skip
+    }
+}
+
+void RenderSystem::present() {
+    SDL_RenderPresent(renderer_);
+}
+
+void RenderSystem::draw_entity(float x, float y, float width, float height,
+                                const Color& color, SDL_Texture* texture,
+                                float rotation_angle,
+                                const SDL_FRect* src_rect) {
+    // Get window height for Y-axis flip
+    int window_width, window_height;
+    SDL_GetRenderOutputSize(renderer_, &window_width, &window_height);
+
+    // Compute destination rectangle ONCE — shared by both paths
+    // CRITICAL: Y-axis flip from bottom-left game coords to top-left SDL coords
+    // Formula: sdl_y = window_height - y - height
+    SDL_FRect rect;
+    rect.x = x;
+    rect.y = static_cast<float>(window_height) - y - height;
+    rect.w = width;
+    rect.h = height;
+
+    if (texture) {
+        if (rotation_angle != 0.0f) {
+            // Convert radians to degrees and negate for Y-axis flip
+            // Positive game angle = CCW, SDL angle = CW, so negate
+            double sdl_angle = -(static_cast<double>(rotation_angle) * 180.0 / M_PI);
+
+            // For non-symmetric sprites (e.g. ducks facing right at angle 0):
+            // When facing left (|angle| > 90°), flip horizontally instead of
+            // rotating upside-down. This keeps the sprite right-side-up.
+            SDL_FlipMode flip = SDL_FLIP_NONE;
+            float abs_angle = std::fabs(rotation_angle);
+            if (abs_angle > M_PI / 2.0f && abs_angle < 3.0f * M_PI / 2.0f) {
+                flip = SDL_FLIP_HORIZONTAL;
+                // Mirror the angle: subtract π so the sprite faces right in
+                // its local frame, then the flip handles the left-facing.
+                sdl_angle = -(static_cast<double>(rotation_angle - static_cast<float>(M_PI)) * 180.0 / M_PI);
+            }
+
+            SDL_RenderTextureRotated(renderer_, texture, src_rect, &rect,
+                                      sdl_angle, nullptr, flip);
+        } else {
+            // Non-rotated textured rendering path — no rotation overhead
+            SDL_RenderTexture(renderer_, texture, src_rect, &rect);
+        }
+    } else {
+        // Colored rectangle rendering path (backward compatible)
+        // Rotation is ignored — SDL3 has no rotated fill-rect function
+        SDL_SetRenderDrawColor(renderer_, color.r, color.g, color.b, color.a);
+        SDL_RenderFillRect(renderer_, &rect);
+    }
+}
+
+void RenderSystem::draw_world_border(const Blackboard& blackboard) {
+    // Read world bounds from Blackboard (set by gamedata_loader)
+    float world_x = blackboard.get_or<float>("world.x", 0.0f);
+    float world_y = blackboard.get_or<float>("world.y", 0.0f);
+    float world_w = blackboard.get_or<float>("world.width", 0.0f);
+    float world_h = blackboard.get_or<float>("world.height", 0.0f);
+
+    // No world bounds defined — nothing to draw
+    if (world_w <= 0.0f || world_h <= 0.0f) return;
+
+    // Read camera parameters for world-to-screen transform
+    float lookat_x = blackboard.get_or<float>("camera.lookat.x", 0.0f);
+    float lookat_y = blackboard.get_or<float>("camera.lookat.y", 0.0f);
+    float zoom     = blackboard.get_or<float>("camera.zoom", 1.0f);
+    int win_w, win_h;
+    SDL_GetRenderOutputSize(renderer_, &win_w, &win_h);
+
+    // Camera transform: world → screen (bottom-left origin)
+    float cam_left   = lookat_x - (static_cast<float>(win_w) / zoom) / 2.0f;
+    float cam_bottom = lookat_y - (static_cast<float>(win_h) / zoom) / 2.0f;
+
+    // World corners in screen space (bottom-left origin)
+    float screen_left   = (world_x - cam_left) * zoom;
+    float screen_bottom = (world_y - cam_bottom) * zoom;
+    float screen_w      = world_w * zoom;
+    float screen_h      = world_h * zoom;
+
+    // Convert to SDL coords (top-left origin)
+    // CRITICAL: Y-axis flip from bottom-left game coords to top-left SDL coords
+    float sdl_left   = screen_left;
+    float sdl_top    = static_cast<float>(win_h) - screen_bottom - screen_h;
+    float sdl_right  = sdl_left + screen_w;
+    float sdl_bottom = sdl_top + screen_h;
+
+    // Border thickness in pixels (screen space, not affected by zoom)
+    constexpr float BORDER_WIDTH = 5.0f;
+    // Dash segment length in pixels
+    constexpr float DASH_LEN = 15.0f;
+
+    // Colors for the dashed pattern: black, red, green
+    struct { uint8_t r, g, b; } colors[] = {
+        {0, 0, 0}, {255, 0, 0}, {0, 255, 0}
+    };
+    constexpr int NUM_COLORS = 3;
+
+    // Helper lambda: draw a dashed line as a series of filled rectangles
+    // along a horizontal or vertical strip
+    auto draw_dashed_strip = [&](float x0, float y0, float length, bool horizontal) {
+        float pos = 0.0f;
+        int color_idx = 0;
+        while (pos < length) {
+            float seg = (pos + DASH_LEN > length) ? (length - pos) : DASH_LEN;
+            auto& c = colors[color_idx % NUM_COLORS];
+            SDL_SetRenderDrawColor(renderer_, c.r, c.g, c.b, 255);
+
+            SDL_FRect seg_rect;
+            if (horizontal) {
+                seg_rect = {x0 + pos, y0, seg, BORDER_WIDTH};
+            } else {
+                seg_rect = {x0, y0 + pos, BORDER_WIDTH, seg};
+            }
+            SDL_RenderFillRect(renderer_, &seg_rect);
+
+            pos += DASH_LEN;
+            color_idx++;
+        }
+    };
+
+    // Draw 4 border strips (outside the world rect):
+    // Top edge: above the world top
+    draw_dashed_strip(sdl_left - BORDER_WIDTH, sdl_top - BORDER_WIDTH,
+                      screen_w + 2.0f * BORDER_WIDTH, true);
+    // Bottom edge: below the world bottom
+    draw_dashed_strip(sdl_left - BORDER_WIDTH, sdl_bottom,
+                      screen_w + 2.0f * BORDER_WIDTH, true);
+    // Left edge: left of the world
+    draw_dashed_strip(sdl_left - BORDER_WIDTH, sdl_top,
+                      screen_h, false);
+    // Right edge: right of the world
+    draw_dashed_strip(sdl_right, sdl_top,
+                      screen_h, false);
+}

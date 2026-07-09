@@ -1,0 +1,2 @@
+-- This script intentionally defines no lifecycle hooks.
+-- ScriptSystem should handle this gracefully.
