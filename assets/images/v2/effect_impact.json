@@ -1,0 +1,15 @@
+{
+  "atlas": "images/v2/effect_impact.png",
+  "frame_width": 128,
+  "frame_height": 128,
+  "columns": 4,
+  "total_frames": 4,
+  "animations": {
+    "expand": {
+      "start_frame": 0,
+      "frame_count": 4,
+      "frame_duration": 0.05,
+      "looping": false
+    }
+  }
+}

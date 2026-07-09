@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+"""Shared Pillow helpers for the v2 generators (glow, halos, atlas assembly).
+
+Pure Pillow — no numpy, no scipy. Kept small; each generator imports what it
+needs. Coordinate convention here is image-space (top-left origin); the game's
+Y-flip happens only in the renderer, so art is authored the natural way.
+"""
+from __future__ import annotations
+
+import json
+import math
+import os
+from typing import Callable
+
+from PIL import Image, ImageDraw, ImageFilter
+
+IMAGES_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "images", "v2")
+)
+
+
+def ensure_dirs() -> None:
+    os.makedirs(IMAGES_DIR, exist_ok=True)
+
+
+def radial_glow(size: int, color, inner=1.0, outer=0.0, power=2.0) -> Image.Image:
+    """A soft radial gradient disc, RGBA. Alpha falls from `inner` at the centre
+    to `outer` at the edge following (1-r)**power. Colour is constant; only alpha
+    varies, so it composites cleanly under additive blending."""
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    px = img.load()
+    c = size / 2.0
+    for y in range(size):
+        for x in range(size):
+            d = math.hypot(x + 0.5 - c, y + 0.5 - c) / c
+            if d >= 1.0:
+                continue
+            a = outer + (inner - outer) * ((1.0 - d) ** power)
+            px[x, y] = (color[0], color[1], color[2], int(round(255 * a)))
+    return img
+
+
+def soft_disc(size: int, color, radius_frac=0.42, blur=None) -> Image.Image:
+    """A filled disc with a blurred glow halo — the workhorse for neon bodies."""
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    c = size / 2.0
+    r = size * radius_frac
+    d.ellipse([c - r, c - r, c + r, c + r], fill=(color[0], color[1], color[2], 255))
+    if blur is None:
+        blur = size * 0.06
+    return img.filter(ImageFilter.GaussianBlur(blur)) if blur else img
+
+
+def add_halo(sprite: Image.Image, color, spread=0.18, strength=200) -> Image.Image:
+    """Bake an outer glow halo around a sprite's opaque silhouette.
+    Returns a new image the same size with the halo composited *under* the art."""
+    a = sprite.split()[3]
+    halo = Image.new("RGBA", sprite.size, (color[0], color[1], color[2], 0))
+    halo.putalpha(a.point(lambda v: strength if v > 20 else 0))
+    blur = max(1.0, sprite.size[0] * spread)
+    halo = halo.filter(ImageFilter.GaussianBlur(blur))
+    out = Image.alpha_composite(halo, sprite)
+    return out
+
+
+def glow_line(draw: ImageDraw.ImageDraw, p0, p1, color, width):
+    draw.line([p0, p1], fill=(color[0], color[1], color[2], 255), width=width)
+
+
+def build_atlas(frames, columns: int) -> Image.Image:
+    """Lay square frames into a grid atlas (row-major). Frames must be equal size."""
+    fw, fh = frames[0].size
+    rows = math.ceil(len(frames) / columns)
+    atlas = Image.new("RGBA", (fw * columns, fh * rows), (0, 0, 0, 0))
+    for i, fr in enumerate(frames):
+        r, c = divmod(i, columns)
+        atlas.paste(fr, (c * fw, r * fh))
+    return atlas
+
+
+def write_sprite(name: str, frames, columns: int, animations: dict) -> None:
+    """Write <name>.png atlas + <name>.json sidecar in the engine's documented
+    format (atlas / frame_width / frame_height / columns / total_frames / animations)."""
+    ensure_dirs()
+    fw, fh = frames[0].size
+    atlas = build_atlas(frames, columns)
+    png = os.path.join(IMAGES_DIR, f"{name}.png")
+    atlas.save(png)
+    sidecar = {
+        "atlas": f"images/v2/{name}.png",
+        "frame_width": fw,
+        "frame_height": fh,
+        "columns": columns,
+        "total_frames": len(frames),
+        "animations": animations,
+    }
+    with open(os.path.join(IMAGES_DIR, f"{name}.json"), "w") as f:
+        json.dump(sidecar, f, indent=2)
+    print(f"  wrote {name}: {len(frames)} frames {fw}x{fh} cols={columns} -> {png}")
+
+
+def save_png(name: str, img: Image.Image) -> None:
+    ensure_dirs()
+    path = os.path.join(IMAGES_DIR, f"{name}.png")
+    img.save(path)
+    print(f"  wrote {name}.png {img.size}")
