@@ -34,6 +34,7 @@ void destroy_marked_entities(EntityManager& em, ComponentStorage& storage) {
         storage.remove_component<Animation>(entity);
         storage.remove_component<SpriteSheet>(entity);
         storage.remove_component<RenderLayer>(entity);
+        storage.remove_component<Tint>(entity);
 
         // Game components — tower defense
         storage.remove_component<TowerTag>(entity);

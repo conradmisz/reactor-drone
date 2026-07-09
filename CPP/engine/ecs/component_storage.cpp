@@ -273,6 +273,11 @@ const std::unordered_map<Entity, RenderLayer>& ComponentStorage::get_storage<Ren
 }
 
 template<>
+std::unordered_map<Entity, Tint>& ComponentStorage::get_storage<Tint>() { return tints_; }
+template<>
+const std::unordered_map<Entity, Tint>& ComponentStorage::get_storage<Tint>() const { return tints_; }
+
+template<>
 std::unordered_map<Entity, BeamTag>& ComponentStorage::get_storage<BeamTag>() {
     return beam_tags_;
 }
@@ -713,6 +718,7 @@ const std::unordered_map<Entity, WeaponStats>& ComponentStorage::get_storage<Wea
     template void ComponentStorage::remove_component<T>(Entity); \
     template bool ComponentStorage::has_component<T>(Entity) const; \
     template std::vector<Entity> ComponentStorage::entities_with_component<T>() const;
+CS110_INSTANTIATE(Tint)  // engine component; registered via the shared macro
 CS110_INSTANTIATE(PlayerTag)
 CS110_INSTANTIATE(Experience)
 CS110_INSTANTIATE(ContactDamage)

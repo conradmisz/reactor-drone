@@ -50,6 +50,7 @@ add_executable(engine_unit_tests
     unit/test_tile_map.cpp
     unit/test_pathfinding.cpp
     unit/test_sidecar_loader.cpp
+    unit/test_tint.cpp
 
     # Engine implementation files needed by tests
     ../ecs/entity_manager.cpp

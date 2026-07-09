@@ -321,6 +321,11 @@ private:
     std::unordered_map<Entity, RenderLayer> render_layers_;
 
     /**
+     * Storage for Tint components (engine; v2 per-entity colour/alpha/blend mod).
+     */
+    std::unordered_map<Entity, Tint> tints_;
+
+    /**
      * Storage for BeamTag components (laser-beam entity marker).
      */
     std::unordered_map<Entity, BeamTag> beam_tags_;
@@ -453,6 +458,8 @@ template<> std::unordered_map<Entity, TowerAiming>& ComponentStorage::get_storag
 template<> const std::unordered_map<Entity, TowerAiming>& ComponentStorage::get_storage<TowerAiming>() const;
 template<> std::unordered_map<Entity, RenderLayer>& ComponentStorage::get_storage<RenderLayer>();
 template<> const std::unordered_map<Entity, RenderLayer>& ComponentStorage::get_storage<RenderLayer>() const;
+template<> std::unordered_map<Entity, Tint>& ComponentStorage::get_storage<Tint>();
+template<> const std::unordered_map<Entity, Tint>& ComponentStorage::get_storage<Tint>() const;
 template<> std::unordered_map<Entity, BeamTag>& ComponentStorage::get_storage<BeamTag>();
 template<> const std::unordered_map<Entity, BeamTag>& ComponentStorage::get_storage<BeamTag>() const;
 template<> std::unordered_map<Entity, HealthBarTag>& ComponentStorage::get_storage<HealthBarTag>();
@@ -808,6 +815,7 @@ extern template std::vector<Entity> ComponentStorage::entities_with_component<Da
     extern template void ComponentStorage::remove_component<T>(Entity); \
     extern template bool ComponentStorage::has_component<T>(Entity) const; \
     extern template std::vector<Entity> ComponentStorage::entities_with_component<T>() const;
+CS110_EXTERN(Tint)  // engine component; registered via the shared macro
 CS110_EXTERN(PlayerTag)
 CS110_EXTERN(Experience)
 CS110_EXTERN(ContactDamage)

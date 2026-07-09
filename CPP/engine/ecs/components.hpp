@@ -67,6 +67,38 @@ struct Color {
 };
 
 /**
+ * Tint component (engine; v2 neon overhaul)
+ *
+ * Optional per-entity colour/alpha modulation applied by the RenderSystem on top
+ * of whatever the entity draws (texture or colour rect). When `additive` is set,
+ * the entity is drawn with additive blending (SDL_BLENDMODE_ADD) for glow effects.
+ * Default {255,255,255,255,false} is identity — no visual change.
+ *
+ * The RenderSystem MUST reset the shared/cached texture's mod state after every
+ * textured draw, since textures are cache-shared across entities.
+ */
+struct Tint {
+    uint8_t r = 255;
+    uint8_t g = 255;
+    uint8_t b = 255;
+    uint8_t a = 255;
+    bool additive = false;
+};
+
+/**
+ * Modulate a base colour by a tint, per channel (base * tint / 255), including
+ * alpha. Pure helper — identity when the tint is {255,255,255,255}, and every
+ * output channel stays within [0,255]. Models the colour-rect render path and is
+ * the unit-testable core of Tint handling.
+ */
+inline Color modulate_color(const Color& c, const Tint& t) {
+    auto mul = [](uint8_t a, uint8_t b) -> uint8_t {
+        return static_cast<uint8_t>((static_cast<int>(a) * static_cast<int>(b)) / 255);
+    };
+    return Color{mul(c.r, t.r), mul(c.g, t.g), mul(c.b, t.b), mul(c.a, t.a)};
+}
+
+/**
  * Input component
  * 
  * Tracks keyboard input state for arrow keys.
@@ -159,6 +191,10 @@ struct ScreenPosition {
 struct Rotation {
     float angle = 0.0f;            // Orientation in radians
     float angular_velocity = 0.0f; // Rotational speed in radians/second
+    // When false, the renderer skips the "face-left → horizontal-flip" heuristic
+    // and applies pure rotation. v2's symmetric, right-facing top-down art sets
+    // this false; v1 entities keep the default true so their behaviour is unchanged.
+    bool flip_when_left = true;
 };
 
 /**

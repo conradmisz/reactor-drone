@@ -112,11 +112,19 @@ private:
      * @param texture Optional texture to render (nullptr = colored rectangle)
      * @param rotation_angle Rotation angle in radians (default 0.0f, used only with texture)
      * @param src_rect Optional source rectangle for atlas rendering (nullptr = full texture)
+     * @param tint   Optional per-entity colour/alpha/blend modulation (nullptr = none).
+     *               Texture path: SetTextureColorMod/AlphaMod/BlendMode before draw,
+     *               reset to 255/255/255/BLEND after (textures are cache-shared).
+     *               Rect path: modulate_color(color, tint) + additive blend when set.
+     * @param flip_when_left When false, skip the face-left horizontal-flip heuristic
+     *               (pure rotation). v2 symmetric right-facing art passes false.
      */
     void draw_entity(float x, float y, float width, float height,
                      const Color& color, SDL_Texture* texture = nullptr,
                      float rotation_angle = 0.0f,
-                     const SDL_FRect* src_rect = nullptr);
+                     const SDL_FRect* src_rect = nullptr,
+                     const Tint* tint = nullptr,
+                     bool flip_when_left = true);
 
     SDL_Renderer* renderer_;
     ResourceManager& resource_manager_;

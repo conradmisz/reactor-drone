@@ -105,6 +105,21 @@ void RenderSystem::render(const ComponentStorage& storage, const Blackboard& bla
         float render_width = size.width * zoom;
         float render_height = size.height * zoom;
 
+        // Hoist rotation + flip control + optional tint once — shared by all paths.
+        float rotation_angle = 0.0f;
+        bool flip_when_left = true;
+        if (storage.has_component<Rotation>(entity)) {
+            const auto& rot = storage.get_component<Rotation>(entity)->get();
+            rotation_angle = rot.angle;
+            flip_when_left = rot.flip_when_left;
+        }
+        Tint tint_val{};
+        const Tint* tint = nullptr;
+        if (storage.has_component<Tint>(entity)) {
+            auto t = storage.get_component<Tint>(entity);
+            if (t.has_value()) { tint_val = t->get(); tint = &tint_val; }
+        }
+
         // Priority: SpriteSheet > Images > Color > skip
         if (storage.has_component<SpriteSheet>(entity)) {
             auto ss_opt = storage.get_component<SpriteSheet>(entity);
@@ -113,30 +128,23 @@ void RenderSystem::render(const ComponentStorage& storage, const Blackboard& bla
                 SDL_Texture* texture = resource_manager_.load_texture(ss.atlas_filename);
                 SDL_FRect src_rect = compute_source_rect(
                     ss.current_frame, ss.columns, ss.frame_width, ss.frame_height);
-                float rotation_angle = 0.0f;
-                if (storage.has_component<Rotation>(entity)) {
-                    auto rot = storage.get_component<Rotation>(entity);
-                    rotation_angle = rot->get().angle;
-                }
                 draw_entity(x, y, render_width, render_height,
-                            Color{0, 0, 0, 255}, texture, rotation_angle, &src_rect);
+                            Color{0, 0, 0, 255}, texture, rotation_angle, &src_rect,
+                            tint, flip_when_left);
             }
         } else if (storage.has_component<Images>(entity)) {
             auto img_opt = storage.get_component<Images>(entity);
             if (img_opt.has_value()) {
                 SDL_Texture* texture = resource_manager_.load_texture(
                     img_opt->get().active_filename());
-                float rotation_angle = 0.0f;
-                if (storage.has_component<Rotation>(entity)) {
-                    auto rot = storage.get_component<Rotation>(entity);
-                    rotation_angle = rot->get().angle;
-                }
-                draw_entity(x, y, render_width, render_height, Color{0, 0, 0, 255}, texture, rotation_angle);
+                draw_entity(x, y, render_width, render_height, Color{0, 0, 0, 255},
+                            texture, rotation_angle, nullptr, tint, flip_when_left);
             }
         } else if (storage.has_component<Color>(entity)) {
             auto color_opt = storage.get_component<Color>(entity);
             if (color_opt.has_value()) {
-                draw_entity(x, y, render_width, render_height, color_opt->get(), nullptr);
+                draw_entity(x, y, render_width, render_height, color_opt->get(),
+                            nullptr, 0.0f, nullptr, tint, flip_when_left);
             }
         }
         // else: has Position+Size but neither Images nor Color → skip
@@ -150,7 +158,9 @@ void RenderSystem::present() {
 void RenderSystem::draw_entity(float x, float y, float width, float height,
                                 const Color& color, SDL_Texture* texture,
                                 float rotation_angle,
-                                const SDL_FRect* src_rect) {
+                                const SDL_FRect* src_rect,
+                                const Tint* tint,
+                                bool flip_when_left) {
     // Get window height for Y-axis flip
     int window_width, window_height;
     SDL_GetRenderOutputSize(renderer_, &window_width, &window_height);
@@ -165,6 +175,17 @@ void RenderSystem::draw_entity(float x, float y, float width, float height,
     rect.h = height;
 
     if (texture) {
+        // Apply per-entity tint to the shared/cached texture. This state MUST be
+        // reset after the draw (below) because textures are cache-shared across
+        // entities — leaving it dirty would tint every later entity that reuses
+        // the same texture.
+        if (tint) {
+            SDL_SetTextureColorMod(texture, tint->r, tint->g, tint->b);
+            SDL_SetTextureAlphaMod(texture, tint->a);
+            SDL_SetTextureBlendMode(texture,
+                tint->additive ? SDL_BLENDMODE_ADD : SDL_BLENDMODE_BLEND);
+        }
+
         if (rotation_angle != 0.0f) {
             // Convert radians to degrees and negate for Y-axis flip
             // Positive game angle = CCW, SDL angle = CW, so negate
@@ -173,9 +194,11 @@ void RenderSystem::draw_entity(float x, float y, float width, float height,
             // For non-symmetric sprites (e.g. ducks facing right at angle 0):
             // When facing left (|angle| > 90°), flip horizontally instead of
             // rotating upside-down. This keeps the sprite right-side-up.
+            // Symmetric v2 art (flip_when_left == false) skips this — pure rotation.
             SDL_FlipMode flip = SDL_FLIP_NONE;
             float abs_angle = std::fabs(rotation_angle);
-            if (abs_angle > M_PI / 2.0f && abs_angle < 3.0f * M_PI / 2.0f) {
+            if (flip_when_left &&
+                abs_angle > M_PI / 2.0f && abs_angle < 3.0f * M_PI / 2.0f) {
                 flip = SDL_FLIP_HORIZONTAL;
                 // Mirror the angle: subtract π so the sprite faces right in
                 // its local frame, then the flip handles the left-facing.
@@ -188,11 +211,26 @@ void RenderSystem::draw_entity(float x, float y, float width, float height,
             // Non-rotated textured rendering path — no rotation overhead
             SDL_RenderTexture(renderer_, texture, src_rect, &rect);
         }
+
+        // Reset the shared texture's mod state to identity/BLEND after every draw.
+        if (tint) {
+            SDL_SetTextureColorMod(texture, 255, 255, 255);
+            SDL_SetTextureAlphaMod(texture, 255);
+            SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+        }
     } else {
         // Colored rectangle rendering path (backward compatible)
-        // Rotation is ignored — SDL3 has no rotated fill-rect function
-        SDL_SetRenderDrawColor(renderer_, color.r, color.g, color.b, color.a);
-        SDL_RenderFillRect(renderer_, &rect);
+        // Rotation is ignored — SDL3 has no rotated fill-rect function.
+        Color c = tint ? modulate_color(color, *tint) : color;
+        if (tint && tint->additive) {
+            SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_ADD);
+            SDL_SetRenderDrawColor(renderer_, c.r, c.g, c.b, c.a);
+            SDL_RenderFillRect(renderer_, &rect);
+            SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+        } else {
+            SDL_SetRenderDrawColor(renderer_, c.r, c.g, c.b, c.a);
+            SDL_RenderFillRect(renderer_, &rect);
+        }
     }
 }
 
