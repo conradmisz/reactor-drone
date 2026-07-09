@@ -375,4 +375,61 @@ struct RenderLayer {
     int layer = 0;
 };
 
+// ---------------------------------------------------------------------------
+// Particle system (ported verbatim from Option-020, with two v2 extensions:
+// host-relative emitter offset, and an `additive` flag that tags spawned
+// particles for additive-blend glow via the Tint component).
+// ---------------------------------------------------------------------------
+
+/**
+ * EmitterShape — spatial pattern a ParticleEmitter spawns in:
+ *   Point  — at the emitter position
+ *   Line   — a random point along a configured segment
+ *   Circle — a random point within a configured radius (uniform in area)
+ *   Cone   — at the emitter position, velocity within a half-angle of `direction`
+ */
+enum class EmitterShape { Point = 0, Line = 1, Circle = 2, Cone = 3 };
+
+/**
+ * Particle component — one short-lived visual particle. Position/Velocity/Color/
+ * Size live in their own reused components; this carries only the time state,
+ * the interpolation endpoints, and a per-particle gravity copied at spawn.
+ */
+struct Particle {
+    float age = 0.0f;        // Seconds since spawn
+    float lifetime = 1.0f;   // Seconds until expiry (age >= lifetime → destroyed)
+    uint8_t start_r = 255, start_g = 255, start_b = 255, start_a = 255;
+    uint8_t end_r   = 255, end_g   = 255, end_b   = 255, end_a   = 0;
+    float start_size = 4.0f;
+    float end_size   = 0.0f;
+    float gravity_x = 0.0f;  // world units / s^2 (down = negative y)
+    float gravity_y = 0.0f;
+};
+
+/**
+ * ParticleEmitter component — attached to a host entity (ship, projectile, or a
+ * short-lived burst host). Describes how the ParticleSystem spawns particles.
+ */
+struct ParticleEmitter {
+    EmitterShape shape = EmitterShape::Point;
+    bool  active = true;               // When false, spawns nothing
+    float emission_rate = 30.0f;       // Particles per second
+    float emit_accumulator = 0.0f;     // Fractional carry for frame-rate independence
+    float particle_lifetime = 1.0f;    // Seconds each spawned particle lives
+    float min_speed = 20.0f;
+    float max_speed = 60.0f;
+    float direction = 90.0f;           // Degrees; cone center direction
+    float cone_half_angle = 180.0f;    // Degrees; 180 = full circle of directions
+    float line_dx = 0.0f, line_dy = 0.0f;   // Line: segment vector from emitter pos
+    float radius = 0.0f;                     // Circle: spawn radius (world units)
+    uint8_t start_r = 255, start_g = 200, start_b = 0, start_a = 255;
+    uint8_t end_r   = 255, end_g   = 0,   end_b   = 0, end_a   = 0;
+    float start_size = 4.0f, end_size = 0.0f;
+    float gravity_x = 0.0f, gravity_y = 0.0f;
+    int   max_particles = 0;           // Per-emitter cap; 0 = global budget only
+    // v2 extensions:
+    float offset_x = 0.0f, offset_y = 0.0f;  // Host-relative spawn offset (attach to moving hosts)
+    bool  additive = false;            // Spawned particles get Tint{additive} for glow
+};
+
 #endif // COMPONENTS_HPP

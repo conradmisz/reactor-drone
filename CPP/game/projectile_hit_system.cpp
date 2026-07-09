@@ -27,6 +27,26 @@ void ProjectileHitSystem::update(EntityManager& entity_manager,
             Entity event_entity = entity_manager.create_entity();
             component_storage.add_component<DamageEvent>(
                 event_entity, DamageEvent{other, data.damage});
+
+            // v2: additive impact spark burst at the projectile's position.
+            if (auto ppos = component_storage.get_component<Position>(proj); ppos.has_value()) {
+                Entity burst = entity_manager.create_entity();
+                component_storage.add_component<Position>(burst,
+                    Position{ppos->get().x, ppos->get().y});
+                ParticleEmitter e;
+                e.shape = EmitterShape::Point;
+                e.additive = true;
+                e.emission_rate = 400.0f;
+                e.particle_lifetime = 0.25f;
+                e.min_speed = 40.0f; e.max_speed = 160.0f;
+                e.cone_half_angle = 180.0f;
+                e.start_r = 180; e.start_g = 245; e.start_b = 255; e.start_a = 255;
+                e.end_r = 40;    e.end_g = 90;    e.end_b = 160;   e.end_a = 0;
+                e.start_size = 5.0f; e.end_size = 0.0f;
+                component_storage.add_component<ParticleEmitter>(burst, e);
+                component_storage.add_component<Lifetime>(burst, Lifetime{0.06f});
+            }
+
             component_storage.add_component<DestroyRequest>(proj, DestroyRequest{});
             break;  // one hit per projectile
         }

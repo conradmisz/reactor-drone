@@ -61,5 +61,22 @@ void PlayerFireSystem::update(ComponentStorage& storage,
         storage.add_component<ProjectileData>(shot,
             ProjectileData{NO_TARGET, wpn.projectile_speed, wpn.damage});
         storage.add_component<RenderLayer>(shot, RenderLayer{5});
+
+        // v2: additive glow trail that rides the projectile. The emitter dies with
+        // the shot (destroyed on hit / lifetime); its live particles keep fading via
+        // their own lifetime. Offset by PR so particles spawn at the shot's centre.
+        ParticleEmitter trail;
+        trail.shape = EmitterShape::Point;
+        trail.additive = true;
+        trail.emission_rate = 70.0f;
+        trail.particle_lifetime = 0.35f;
+        trail.min_speed = 0.0f;
+        trail.max_speed = 24.0f;
+        trail.cone_half_angle = 180.0f;
+        trail.start_r = 120; trail.start_g = 225; trail.start_b = 255; trail.start_a = 220;
+        trail.end_r = 40;    trail.end_g = 90;    trail.end_b = 160;   trail.end_a = 0;
+        trail.start_size = 7.0f; trail.end_size = 0.0f;
+        trail.offset_x = PR;  trail.offset_y = PR;
+        storage.add_component<ParticleEmitter>(shot, trail);
     }
 }

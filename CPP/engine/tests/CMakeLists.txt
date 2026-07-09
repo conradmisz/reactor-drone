@@ -51,10 +51,12 @@ add_executable(engine_unit_tests
     unit/test_pathfinding.cpp
     unit/test_sidecar_loader.cpp
     unit/test_tint.cpp
+    unit/test_particle_system.cpp
 
     # Engine implementation files needed by tests
     ../ecs/entity_manager.cpp
     ../ecs/component_storage.cpp
+    ../ecs/systems/particle_system.cpp
     ../sidecar_loader.cpp
     ../ecs/systems/camera_system.cpp
     ../ecs/systems/camera_control_system.cpp
@@ -153,10 +155,12 @@ add_executable(engine_property_tests
     property/test_tile_map_properties.cpp
     property/test_pathfinding_properties.cpp
     property/test_sidecar_loader_properties.cpp
+    property/test_particle_properties.cpp
 
     # Engine implementation files needed by tests
     ../ecs/entity_manager.cpp
     ../ecs/component_storage.cpp
+    ../ecs/systems/particle_system.cpp
     ../sidecar_loader.cpp
     ../ecs/systems/camera_system.cpp
     ../ecs/systems/camera_control_system.cpp

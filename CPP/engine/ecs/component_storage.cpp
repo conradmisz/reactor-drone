@@ -278,6 +278,16 @@ template<>
 const std::unordered_map<Entity, Tint>& ComponentStorage::get_storage<Tint>() const { return tints_; }
 
 template<>
+std::unordered_map<Entity, Particle>& ComponentStorage::get_storage<Particle>() { return particles_; }
+template<>
+const std::unordered_map<Entity, Particle>& ComponentStorage::get_storage<Particle>() const { return particles_; }
+
+template<>
+std::unordered_map<Entity, ParticleEmitter>& ComponentStorage::get_storage<ParticleEmitter>() { return particle_emitters_; }
+template<>
+const std::unordered_map<Entity, ParticleEmitter>& ComponentStorage::get_storage<ParticleEmitter>() const { return particle_emitters_; }
+
+template<>
 std::unordered_map<Entity, BeamTag>& ComponentStorage::get_storage<BeamTag>() {
     return beam_tags_;
 }
@@ -718,7 +728,9 @@ const std::unordered_map<Entity, WeaponStats>& ComponentStorage::get_storage<Wea
     template void ComponentStorage::remove_component<T>(Entity); \
     template bool ComponentStorage::has_component<T>(Entity) const; \
     template std::vector<Entity> ComponentStorage::entities_with_component<T>() const;
-CS110_INSTANTIATE(Tint)  // engine component; registered via the shared macro
+CS110_INSTANTIATE(Tint)             // engine components (v2); registered via the shared macro
+CS110_INSTANTIATE(Particle)
+CS110_INSTANTIATE(ParticleEmitter)
 CS110_INSTANTIATE(PlayerTag)
 CS110_INSTANTIATE(Experience)
 CS110_INSTANTIATE(ContactDamage)

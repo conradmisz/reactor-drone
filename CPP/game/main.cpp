@@ -35,6 +35,7 @@
 #include "engine/ecs/systems/quadtree_strategy.hpp"
 #include "engine/ecs/systems/lifetime_system.hpp"
 #include "engine/ecs/systems/animation_system.hpp"
+#include "engine/ecs/systems/particle_system.hpp"
 #include "engine/ecs/systems/camera_system.hpp"
 #include "engine/ecs/systems/render_system.hpp"
 #include "engine/ecs/systems/hud_system.hpp"
@@ -138,6 +139,7 @@ int main(int argc, char* argv[]) {
     upgrade.set_pool(config.upgrades, config.seed);
     LifetimeSystem lifetime;
     AnimationSystem animation;
+    ParticleSystem particles;  // v2: global 2000-particle budget
     CameraSystem camera;
 
     auto resource_manager_ptr =
@@ -201,6 +203,23 @@ int main(int argc, char* argv[]) {
             Collider{psz, psz, layers::PLAYER, layers::PLAYER_MASK});
         component_storage.add_component<CircleCollider>(player, CircleCollider{psz * 0.5f, 0.0f, 0.0f});
         component_storage.add_component<RenderLayer>(player, RenderLayer{3});
+
+        // v2: subtle additive aura/thruster emitter riding the player's centre.
+        {
+            ParticleEmitter thruster;
+            thruster.shape = EmitterShape::Point;
+            thruster.additive = true;
+            thruster.emission_rate = 34.0f;
+            thruster.particle_lifetime = 0.4f;
+            thruster.min_speed = 5.0f; thruster.max_speed = 30.0f;
+            thruster.cone_half_angle = 180.0f;
+            thruster.start_r = 90; thruster.start_g = 220; thruster.start_b = 255; thruster.start_a = 170;
+            thruster.end_r = 30;   thruster.end_g = 80;    thruster.end_b = 160;   thruster.end_a = 0;
+            thruster.start_size = 5.0f; thruster.end_size = 0.0f;
+            thruster.offset_x = psz * 0.5f; thruster.offset_y = psz * 0.5f;
+            component_storage.add_component<ParticleEmitter>(player, thruster);
+        }
+
         if (player_sprite.has_value()) {
             component_storage.add_component<SpriteSheet>(player, player_sprite->sprite_sheet);
             component_storage.add_component<Animation>(player, player_sprite->animation);
@@ -329,6 +348,15 @@ int main(int argc, char* argv[]) {
         }
         if (step_requested) apply_step_complete(step_requested, debug_paused);
         blackboard.set("phase", phase);
+
+        // v2: advance the particle simulation every frame in ALL phases (so trails
+        // and death bursts keep animating on the title / game-over / victory
+        // screens), then sweep the particles that expired this frame.
+        if (sim) {
+            float pdt = static_cast<float>(blackboard.get_or<double>("delta_time", 0.0));
+            particles.update(component_storage, entity_manager, pdt);
+            destroy_marked_entities(entity_manager, component_storage);
+        }
 
         // Tick the level-up message timer.
         float dt = static_cast<float>(blackboard.get_or<double>("delta_time", 0.0));

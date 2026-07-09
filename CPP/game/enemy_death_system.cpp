@@ -61,6 +61,30 @@ void EnemyDeathSystem::update(ComponentStorage& component_storage,
             }
         }
 
+        // v2: additive particle burst alongside the explosion clip. A short-lived
+        // host with a high-rate radial emitter sprays for a moment, then is
+        // destroyed (emitter dies with host; particles fade via their lifetime).
+        if (auto pos = component_storage.get_component<Position>(enemy); pos.has_value()) {
+            auto sz = component_storage.get_component<Size>(enemy);
+            float w = sz.has_value() ? sz->get().width : 40.0f;
+            float h = sz.has_value() ? sz->get().height : 40.0f;
+            Entity burst = entity_manager.create_entity();
+            component_storage.add_component<Position>(burst,
+                Position{pos->get().x + w * 0.5f, pos->get().y + h * 0.5f});
+            ParticleEmitter e;
+            e.shape = EmitterShape::Point;
+            e.additive = true;
+            e.emission_rate = 500.0f;
+            e.particle_lifetime = 0.45f;
+            e.min_speed = 60.0f; e.max_speed = 240.0f;
+            e.cone_half_angle = 180.0f;
+            e.start_r = 255; e.start_g = 200; e.start_b = 120; e.start_a = 255;
+            e.end_r = 255;   e.end_g = 60;    e.end_b = 30;    e.end_a = 0;
+            e.start_size = 7.0f; e.end_size = 0.0f;
+            component_storage.add_component<ParticleEmitter>(burst, e);
+            component_storage.add_component<Lifetime>(burst, Lifetime{0.10f});
+        }
+
         component_storage.add_component<DestroyRequest>(enemy, DestroyRequest{});
     }
 

@@ -326,6 +326,12 @@ private:
     std::unordered_map<Entity, Tint> tints_;
 
     /**
+     * Storage for Particle / ParticleEmitter components (engine; ported from 020).
+     */
+    std::unordered_map<Entity, Particle> particles_;
+    std::unordered_map<Entity, ParticleEmitter> particle_emitters_;
+
+    /**
      * Storage for BeamTag components (laser-beam entity marker).
      */
     std::unordered_map<Entity, BeamTag> beam_tags_;
@@ -460,6 +466,10 @@ template<> std::unordered_map<Entity, RenderLayer>& ComponentStorage::get_storag
 template<> const std::unordered_map<Entity, RenderLayer>& ComponentStorage::get_storage<RenderLayer>() const;
 template<> std::unordered_map<Entity, Tint>& ComponentStorage::get_storage<Tint>();
 template<> const std::unordered_map<Entity, Tint>& ComponentStorage::get_storage<Tint>() const;
+template<> std::unordered_map<Entity, Particle>& ComponentStorage::get_storage<Particle>();
+template<> const std::unordered_map<Entity, Particle>& ComponentStorage::get_storage<Particle>() const;
+template<> std::unordered_map<Entity, ParticleEmitter>& ComponentStorage::get_storage<ParticleEmitter>();
+template<> const std::unordered_map<Entity, ParticleEmitter>& ComponentStorage::get_storage<ParticleEmitter>() const;
 template<> std::unordered_map<Entity, BeamTag>& ComponentStorage::get_storage<BeamTag>();
 template<> const std::unordered_map<Entity, BeamTag>& ComponentStorage::get_storage<BeamTag>() const;
 template<> std::unordered_map<Entity, HealthBarTag>& ComponentStorage::get_storage<HealthBarTag>();
@@ -815,7 +825,9 @@ extern template std::vector<Entity> ComponentStorage::entities_with_component<Da
     extern template void ComponentStorage::remove_component<T>(Entity); \
     extern template bool ComponentStorage::has_component<T>(Entity) const; \
     extern template std::vector<Entity> ComponentStorage::entities_with_component<T>() const;
-CS110_EXTERN(Tint)  // engine component; registered via the shared macro
+CS110_EXTERN(Tint)             // engine components (v2); registered via the shared macro
+CS110_EXTERN(Particle)
+CS110_EXTERN(ParticleEmitter)
 CS110_EXTERN(PlayerTag)
 CS110_EXTERN(Experience)
 CS110_EXTERN(ContactDamage)
