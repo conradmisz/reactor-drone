@@ -1,6 +1,7 @@
 #include "enemy_death_system.hpp"
 #include "enemy_components.hpp"   // EnemyTag, Health
 #include "player_components.hpp"  // ContactDamage
+#include "feedback.hpp"           // add_trauma
 #include "engine/project_paths.hpp"
 #include <string>
 
@@ -84,6 +85,11 @@ void EnemyDeathSystem::update(ComponentStorage& component_storage,
             component_storage.add_component<ParticleEmitter>(burst, e);
             component_storage.add_component<Lifetime>(burst, Lifetime{0.10f});
         }
+
+        // v2 Phase 4: every kill adds a little camera trauma.
+        blackboard.set<float>("feedback.trauma", feedback::add_trauma(
+            blackboard.get_or<float>("feedback.trauma", 0.0f),
+            blackboard.get_or<float>("fb.trauma_enemy_death", 0.25f)));
 
         component_storage.add_component<DestroyRequest>(enemy, DestroyRequest{});
     }

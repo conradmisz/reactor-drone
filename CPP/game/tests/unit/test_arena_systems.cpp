@@ -87,7 +87,7 @@ TEST_CASE("WaveSpawnerSystem total_waves honors victory_wave", "[Game][arena][wa
 }
 
 TEST_CASE("ProjectileHitSystem damages the enemy it overlaps and expires", "[Game][arena][hit]") {
-    EntityManager em; ComponentStorage storage;
+    EntityManager em; ComponentStorage storage; Blackboard bb;
     Entity enemy = em.create_entity();
     storage.add_component<EnemyTag>(enemy, EnemyTag{});
     storage.add_component<Health>(enemy, Health{30.0f, 30.0f});
@@ -98,9 +98,10 @@ TEST_CASE("ProjectileHitSystem damages the enemy it overlaps and expires", "[Gam
     storage.add_component<CollidedWith>(proj, CollidedWith{{enemy}});
 
     ProjectileHitSystem sys;
-    sys.update(em, storage);
+    sys.update(em, storage, bb);
 
     CHECK(storage.has_component<DestroyRequest>(proj));      // projectile consumed
+    CHECK(storage.has_component<Flash>(enemy));              // v2: struck enemy flashes
     auto events = storage.entities_with_component<DamageEvent>();
     REQUIRE(events.size() == 1);
     CHECK(storage.get_component<DamageEvent>(events[0])->get().target_entity == enemy);

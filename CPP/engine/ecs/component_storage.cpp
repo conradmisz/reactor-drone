@@ -721,6 +721,11 @@ std::unordered_map<Entity, WeaponStats>& ComponentStorage::get_storage<WeaponSta
 template<>
 const std::unordered_map<Entity, WeaponStats>& ComponentStorage::get_storage<WeaponStats>() const { return weapon_stats_; }
 
+template<>
+std::unordered_map<Entity, Flash>& ComponentStorage::get_storage<Flash>() { return flashes_; }
+template<>
+const std::unordered_map<Entity, Flash>& ComponentStorage::get_storage<Flash>() const { return flashes_; }
+
 #define CS110_INSTANTIATE(T) \
     template void ComponentStorage::add_component<T>(Entity, const T&); \
     template std::optional<std::reference_wrapper<T>> ComponentStorage::get_component<T>(Entity); \
@@ -735,4 +740,5 @@ CS110_INSTANTIATE(PlayerTag)
 CS110_INSTANTIATE(Experience)
 CS110_INSTANTIATE(ContactDamage)
 CS110_INSTANTIATE(WeaponStats)
+CS110_INSTANTIATE(Flash)
 #undef CS110_INSTANTIATE

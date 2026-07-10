@@ -388,6 +388,7 @@ private:
     std::unordered_map<Entity, Experience> experiences_;
     std::unordered_map<Entity, ContactDamage> contact_damages_;
     std::unordered_map<Entity, WeaponStats> weapon_stats_;
+    std::unordered_map<Entity, Flash> flashes_;
 
     /**
      * Helper method to get the storage map for a specific component type.
@@ -494,6 +495,8 @@ template<> std::unordered_map<Entity, ContactDamage>& ComponentStorage::get_stor
 template<> const std::unordered_map<Entity, ContactDamage>& ComponentStorage::get_storage<ContactDamage>() const;
 template<> std::unordered_map<Entity, WeaponStats>& ComponentStorage::get_storage<WeaponStats>();
 template<> const std::unordered_map<Entity, WeaponStats>& ComponentStorage::get_storage<WeaponStats>() const;
+template<> std::unordered_map<Entity, Flash>& ComponentStorage::get_storage<Flash>();
+template<> const std::unordered_map<Entity, Flash>& ComponentStorage::get_storage<Flash>() const;
 
 // Prevent implicit instantiation — definitions are in component_storage.cpp
 extern template void ComponentStorage::add_component<Position>(Entity, const Position&);
@@ -832,6 +835,7 @@ CS110_EXTERN(PlayerTag)
 CS110_EXTERN(Experience)
 CS110_EXTERN(ContactDamage)
 CS110_EXTERN(WeaponStats)
+CS110_EXTERN(Flash)
 #undef CS110_EXTERN
 
 #endif // COMPONENT_STORAGE_HPP

@@ -1,6 +1,7 @@
 #ifndef ARENA_CONFIG_HPP
 #define ARENA_CONFIG_HPP
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -57,6 +58,22 @@ struct WaveDef {
     std::vector<int> types;        // indices into enemy_types (empty = all)
 };
 
+/**
+ * FeedbackConfig — screen-shake and hit-flash tuning (v2, Phase 4). All balance
+ * knobs; the math lives in feedback.hpp. max_shake_px and trauma_decay_per_sec
+ * drive the camera shake; the trauma_* values are how much trauma each event
+ * adds; flash_duration and the two colours drive the per-entity hit flashes.
+ */
+struct FeedbackConfig {
+    float max_shake_px = 18.0f;         // camera offset at full trauma
+    float trauma_decay_per_sec = 1.6f;  // linear trauma bleed-off
+    float trauma_player_hit = 0.6f;     // trauma added when the player is hit
+    float trauma_enemy_death = 0.25f;   // trauma added when an enemy dies
+    float flash_duration = 0.12f;       // hit-flash lifetime (seconds)
+    uint8_t player_flash_r = 255, player_flash_g = 70,  player_flash_b = 70;   // red
+    uint8_t enemy_flash_r  = 255, enemy_flash_g  = 255, enemy_flash_b  = 255;  // white
+};
+
 struct Upgrade {
     std::string stat;              // fire_rate | damage | projectile_speed | max_health | spread
     float amount = 0.0f;
@@ -70,6 +87,7 @@ struct GameConfig {
     std::vector<EnemyType> enemy_types;
     std::vector<WaveDef> waves;
     std::vector<Upgrade> upgrades;
+    FeedbackConfig feedback;
     int victory_wave = 0;          // 0 = survive all waves; N = win after clearing wave N
     float xp_level2 = 5.0f;        // XP needed for level 2
     float xp_multiplier = 1.5f;    // threshold growth per level

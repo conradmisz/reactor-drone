@@ -67,4 +67,18 @@ struct WeaponStats {
     float cooldown_remaining = 0.0f;
 };
 
+/**
+ * Flash component (v2 hit feedback)
+ *
+ * A brief coloured flare on an entity. The FlashSystem decrements time_left each
+ * frame and writes a Tint (additive glow toward {r,g,b}, fading with
+ * time_left/duration) onto the entity; when time_left hits zero it removes both
+ * the Flash and the Tint. Used for player-hit (red) and enemy-damaged (white).
+ */
+struct Flash {
+    float time_left = 0.0f;   // Seconds remaining
+    float duration = 0.1f;    // Total duration (for intensity = time_left/duration)
+    uint8_t r = 255, g = 255, b = 255;
+};
+
 #endif // PLAYER_COMPONENTS_HPP

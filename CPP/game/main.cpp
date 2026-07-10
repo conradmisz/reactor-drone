@@ -17,6 +17,7 @@
 #include <iostream>
 #include <cmath>
 #include <algorithm>
+#include <random>
 
 #include "engine/ecs/entity_manager.hpp"
 #include "engine/ecs/component_storage.hpp"
@@ -59,6 +60,8 @@
 #include "upgrade_system.hpp"
 #include "wave_spawner_system.hpp"
 #include "game_hud_system.hpp"
+#include "feedback.hpp"
+#include "flash_system.hpp"
 
 struct SDL_WindowDeleter { void operator()(SDL_Window* w) const { if (w) SDL_DestroyWindow(w); } };
 struct SDL_RendererDeleter { void operator()(SDL_Renderer* r) const { if (r) SDL_DestroyRenderer(r); } };
@@ -113,6 +116,19 @@ int main(int argc, char* argv[]) {
     blackboard.set<float>("camera.zoom", 1.0f);
     blackboard.set<float>("player.invuln_window", config.player.invuln_window);
 
+    // v2 Phase 4: hit-feedback tunables the producer systems read (mirrors how
+    // player.invuln_window is pushed to the blackboard above). Shake tunables
+    // stay on `config` — only main.cpp's shake loop uses them.
+    blackboard.set<float>("fb.trauma_player_hit", config.feedback.trauma_player_hit);
+    blackboard.set<float>("fb.trauma_enemy_death", config.feedback.trauma_enemy_death);
+    blackboard.set<float>("fb.flash_duration", config.feedback.flash_duration);
+    blackboard.set<int>("fb.player_flash_r", config.feedback.player_flash_r);
+    blackboard.set<int>("fb.player_flash_g", config.feedback.player_flash_g);
+    blackboard.set<int>("fb.player_flash_b", config.feedback.player_flash_b);
+    blackboard.set<int>("fb.enemy_flash_r", config.feedback.enemy_flash_r);
+    blackboard.set<int>("fb.enemy_flash_g", config.feedback.enemy_flash_g);
+    blackboard.set<int>("fb.enemy_flash_b", config.feedback.enemy_flash_b);
+
     // Quadtree world bounds cover the arena + spawn ring + margin.
     const float margin = 80.0f;
     const float world_x = config.arena.center_x - config.arena.spawn_radius - margin;
@@ -152,6 +168,13 @@ int main(int argc, char* argv[]) {
     ScreenshotSystem screenshot_system(renderer.get(), log_dir);
 
     GameHUDSystem game_hud;
+    FlashSystem flash_system;
+
+    // v2 Phase 4: seeded RNG for the screen-shake direction. Seeded from the run
+    // seed and only advanced when there is trauma to render, so replay stays
+    // deterministic (same seed + same hit sequence -> same shake).
+    std::mt19937 shake_rng(config.seed);
+    std::uniform_real_distribution<float> shake_angle(0.0f, 6.28318530718f);
 
     // Load the player sprite once (optional; falls back to a Color rectangle).
     std::optional<sidecar_loader::LoadedSprite> player_sprite;
@@ -310,7 +333,7 @@ int main(int argc, char* argv[]) {
 
             player_fire.update(component_storage, entity_manager, blackboard);
             collision.update(component_storage, blackboard);
-            projectile_hit.update(entity_manager, component_storage);
+            projectile_hit.update(entity_manager, component_storage, blackboard);
             player_damage.update(entity_manager, component_storage, blackboard);
             damage_apply.update(entity_manager, component_storage);
             enemy_death.update(component_storage, entity_manager, blackboard);
@@ -318,6 +341,7 @@ int main(int argc, char* argv[]) {
             upgrade.update(component_storage, blackboard);
             lifetime.update(component_storage, blackboard);
             animation.update(component_storage, blackboard);
+            flash_system.update(component_storage, blackboard);  // v2: tick hit flashes -> Tint
             destroy_marked_entities(entity_manager, component_storage);
 
             // Win/lose detection.
@@ -364,6 +388,28 @@ int main(int argc, char* argv[]) {
         if (mt > 0.0f) blackboard.set<float>("upgrade_message_timer", std::max(0.0f, mt - dt));
 
         game_hud.update(component_storage, blackboard);
+
+        // v2 Phase 4: screen shake. Decay trauma, then offset the fixed arena
+        // camera by shake_amplitude(trauma) in a seeded-random direction. The
+        // base look-at is always the arena centre; recomputing from it each frame
+        // means no separate "restore" step. Runs in every simulated phase so a
+        // lingering shake keeps decaying into the game-over/victory transition.
+        if (sim) {
+            float trauma = feedback::decay_trauma(
+                blackboard.get_or<float>("feedback.trauma", 0.0f), dt,
+                config.feedback.trauma_decay_per_sec);
+            blackboard.set<float>("feedback.trauma", trauma);
+
+            float amp = feedback::shake_amplitude(trauma, config.feedback.max_shake_px);
+            float ox = 0.0f, oy = 0.0f;
+            if (amp > 0.0f) {
+                float ang = shake_angle(shake_rng);
+                ox = std::cos(ang) * amp;
+                oy = std::sin(ang) * amp;
+            }
+            blackboard.set<float>("camera.lookat.x", config.arena.center_x + ox);
+            blackboard.set<float>("camera.lookat.y", config.arena.center_y + oy);
+        }
 
         // === Render ===
         camera.update(component_storage, blackboard);

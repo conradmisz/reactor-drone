@@ -60,6 +60,7 @@ void destroy_marked_entities(EntityManager& em, ComponentStorage& storage) {
         storage.remove_component<Experience>(entity);
         storage.remove_component<ContactDamage>(entity);
         storage.remove_component<WeaponStats>(entity);
+        storage.remove_component<Flash>(entity);
 
         // DestroyRequest itself (must be last)
         storage.remove_component<DestroyRequest>(entity);

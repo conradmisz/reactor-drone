@@ -15,6 +15,16 @@
     "backdrop": ""
   },
 
+  "feedback": {
+    "max_shake_px": 18.0,
+    "trauma_decay_per_sec": 1.6,
+    "trauma_player_hit": 0.6,
+    "trauma_enemy_death": 0.25,
+    "flash_duration": 0.12,
+    "player_flash": { "r": 255, "g": 70, "b": 70 },
+    "enemy_flash": { "r": 255, "g": 255, "b": 255 }
+  },
+
   "player": {
     "start_health": 100.0,
     "move_speed": 260.0,

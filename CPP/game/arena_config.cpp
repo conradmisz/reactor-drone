@@ -84,6 +84,31 @@ GameConfig load_arena_config(const std::string& file_path) {
         cfg.xp_multiplier = x.value("multiplier", cfg.xp_multiplier);
     }
 
+    if (data.contains("feedback")) {
+        const auto& f = data["feedback"];
+        auto& fb = cfg.feedback;
+        fb.max_shake_px        = f.value("max_shake_px", fb.max_shake_px);
+        fb.trauma_decay_per_sec = f.value("trauma_decay_per_sec", fb.trauma_decay_per_sec);
+        fb.trauma_player_hit   = f.value("trauma_player_hit", fb.trauma_player_hit);
+        fb.trauma_enemy_death  = f.value("trauma_enemy_death", fb.trauma_enemy_death);
+        fb.flash_duration      = f.value("flash_duration", fb.flash_duration);
+        auto u8 = [](const json& j, const char* k, uint8_t d) -> uint8_t {
+            return static_cast<uint8_t>(j.value(k, static_cast<int>(d)));
+        };
+        if (f.contains("player_flash")) {
+            const auto& c = f["player_flash"];
+            fb.player_flash_r = u8(c, "r", fb.player_flash_r);
+            fb.player_flash_g = u8(c, "g", fb.player_flash_g);
+            fb.player_flash_b = u8(c, "b", fb.player_flash_b);
+        }
+        if (f.contains("enemy_flash")) {
+            const auto& c = f["enemy_flash"];
+            fb.enemy_flash_r = u8(c, "r", fb.enemy_flash_r);
+            fb.enemy_flash_g = u8(c, "g", fb.enemy_flash_g);
+            fb.enemy_flash_b = u8(c, "b", fb.enemy_flash_b);
+        }
+    }
+
     if (data.contains("upgrades")) {
         for (const auto& u : data["upgrades"]) {
             Upgrade up;

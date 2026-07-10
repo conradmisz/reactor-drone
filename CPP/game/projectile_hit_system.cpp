@@ -1,13 +1,20 @@
 #include "projectile_hit_system.hpp"
 #include "tower_components.hpp"   // ProjectileTag, ProjectileData, DamageEvent
 #include "enemy_components.hpp"   // EnemyTag
+#include "player_components.hpp"  // Flash
 
 // Arena shooter hit detection: projectiles fly straight (moved by the engine
 // MovementSystem) and the engine CollisionSystem reports overlaps via
 // CollidedWith. For each projectile that overlapped an enemy this frame, queue a
 // DamageEvent on that enemy and destroy the projectile (one enemy per shot).
 void ProjectileHitSystem::update(EntityManager& entity_manager,
-                                 ComponentStorage& component_storage) {
+                                 ComponentStorage& component_storage,
+                                 const Blackboard& blackboard) {
+    const float fdur = blackboard.get_or<float>("fb.flash_duration", 0.12f);
+    const uint8_t fr = static_cast<uint8_t>(blackboard.get_or<int>("fb.enemy_flash_r", 255));
+    const uint8_t fg = static_cast<uint8_t>(blackboard.get_or<int>("fb.enemy_flash_g", 255));
+    const uint8_t fb = static_cast<uint8_t>(blackboard.get_or<int>("fb.enemy_flash_b", 255));
+
     auto projectiles = component_storage.entities_with_component<ProjectileTag>();
 
     for (Entity proj : projectiles) {
@@ -27,6 +34,10 @@ void ProjectileHitSystem::update(EntityManager& entity_manager,
             Entity event_entity = entity_manager.create_entity();
             component_storage.add_component<DamageEvent>(
                 event_entity, DamageEvent{other, data.damage});
+
+            // v2 Phase 4: flash the struck enemy (overwrites any in-flight flash,
+            // resetting its clock — repeated hits keep it lit).
+            component_storage.add_component<Flash>(other, Flash{fdur, fdur, fr, fg, fb});
 
             // v2: additive impact spark burst at the projectile's position.
             if (auto ppos = component_storage.get_component<Position>(proj); ppos.has_value()) {

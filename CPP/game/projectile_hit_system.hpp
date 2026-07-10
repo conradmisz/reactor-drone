@@ -3,6 +3,7 @@
 
 #include "engine/ecs/component_storage.hpp"
 #include "engine/ecs/entity_manager.hpp"
+#include "engine/ecs/blackboard.hpp"
 
 /**
  * ProjectileHitSystem — detects projectile arrival and creates DamageEvent.
@@ -10,6 +11,7 @@
  * For each projectile within HIT_THRESHOLD (5.0 px) of target:
  *   - Creates a DamageEvent entity (target, damage)
  *   - Attaches DestroyRequest to projectile
+ *   - v2: flashes the struck enemy white (Flash component)
  *
  * If target is dead or lacks Position:
  *   - Attaches DestroyRequest to projectile without creating DamageEvent
@@ -17,7 +19,8 @@
 class ProjectileHitSystem {
 public:
     void update(EntityManager& entity_manager,
-                ComponentStorage& component_storage);
+                ComponentStorage& component_storage,
+                const Blackboard& blackboard);
 };
 
 #endif // PROJECTILE_HIT_SYSTEM_HPP
