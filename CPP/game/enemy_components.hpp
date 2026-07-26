@@ -8,17 +8,23 @@
 struct EnemyTag {};
 
 /**
- * PathFollower — tracks an enemy's progress along the computed path.
+ * PathFollower — an enemy's seek speed plus its A* repath state (v2, Phase 7).
  *
- * waypoint_index: index into computed_path of the waypoint the enemy is
- *                 currently moving TOWARD. Starts at 1 (enemy spawns at waypoint 0).
- * progress:       interpolation factor [0.0, 1.0] from waypoint[index-1] to waypoint[index].
- * speed:          movement speed in pixels per second.
+ * speed:          movement speed in pixels per second (the only field used by
+ *                 the straight-line seek path).
+ * repath_timer:   seconds until the next A* recompute while line-of-sight to the
+ *                 player is blocked; counts down by dt. 0 = repath this frame.
+ * target_x/_y:    world point the enemy currently steers toward when pathing
+ *                 (centre of the next path cell); refreshed on each repath.
+ * waypoint_index/progress: unused in v2 (kept for the Class-090 path-follow API).
  */
 struct PathFollower {
     int waypoint_index = 1;
     float progress = 0.0f;
     float speed = 64.0f;
+    float repath_timer = 0.0f;
+    float target_x = 0.0f;
+    float target_y = 0.0f;
 };
 
 /**

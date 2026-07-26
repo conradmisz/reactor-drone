@@ -18,6 +18,7 @@
 #include <cmath>
 #include <algorithm>
 #include <random>
+#include <vector>
 
 #include "engine/ecs/entity_manager.hpp"
 #include "engine/ecs/component_storage.hpp"
@@ -62,6 +63,9 @@
 #include "game_hud_system.hpp"
 #include "feedback.hpp"
 #include "flash_system.hpp"
+#include "parallax.hpp"
+#include "obstacles.hpp"
+#include "enemy_path.hpp"
 
 struct SDL_WindowDeleter { void operator()(SDL_Window* w) const { if (w) SDL_DestroyWindow(w); } };
 struct SDL_RendererDeleter { void operator()(SDL_Renderer* r) const { if (r) SDL_DestroyRenderer(r); } };
@@ -142,6 +146,14 @@ int main(int argc, char* argv[]) {
     PlayerAimSystem player_aim;
     PlayerFireSystem player_fire(config.seed);
     EnemySeekSystem enemy_seek;
+    enemy_seek.set_repath_interval(config.pathfinding.repath_interval);
+    // v2 Phase 7: grid resolution covering the arena + spawn ring (world origin
+    // bottom-left), rebuilt per arena swap below so A* sees that arena's walls.
+    const int path_cell = std::max(1, config.pathfinding.cell_size);
+    const int path_cols = static_cast<int>(std::ceil(
+        (config.arena.center_x + config.arena.spawn_radius) / path_cell)) + 1;
+    const int path_rows = static_cast<int>(std::ceil(
+        (config.arena.center_y + config.arena.spawn_radius) / path_cell)) + 1;
     WaveSpawnerSystem wave_spawner;
     wave_spawner.set_config(&config);
     MovementSystem movement;
@@ -185,6 +197,44 @@ int main(int argc, char* argv[]) {
         } catch (...) { player_sprite.reset(); }
     }
 
+    // v2 Phase 6: themed-arena state. arena_props holds the current arena's
+    // obstacle + hazard entities so they can be swept on an arena swap;
+    // active_backdrop points at the parallax layers the render step tiles.
+    std::vector<Entity> arena_props;
+    int active_arena = -1;
+    const std::vector<BackdropLayer>* active_backdrop = &config.arena.backdrop_layers;
+
+    auto clear_arena_props = [&]() {
+        for (Entity e : arena_props) component_storage.add_component<DestroyRequest>(e, DestroyRequest{});
+        destroy_marked_entities(entity_manager, component_storage);
+        arena_props.clear();
+    };
+
+    auto spawn_arena_props = [&](const ArenaDef& def) {
+        for (const auto& o : def.obstacles) {
+            Entity e = entity_manager.create_entity();
+            component_storage.add_component<Position>(e, Position{o.x, o.y});
+            component_storage.add_component<Size>(e, Size{o.w, o.h});
+            component_storage.add_component<Color>(e, Color{70, 96, 128, 255});
+            component_storage.add_component<Collider>(e,
+                Collider{o.w, o.h, layers::OBSTACLE, layers::OBSTACLE_MASK});
+            component_storage.add_component<RenderLayer>(e, RenderLayer{2});
+            arena_props.push_back(e);
+        }
+        for (const auto& h : def.hazards) {
+            Entity e = entity_manager.create_entity();
+            component_storage.add_component<Position>(e, Position{h.x, h.y});
+            component_storage.add_component<Size>(e, Size{h.w, h.h});
+            component_storage.add_component<Color>(e, Color{210, 70, 45, 150});
+            component_storage.add_component<Collider>(e,
+                Collider{h.w, h.h, layers::HAZARD, layers::HAZARD_MASK});
+            // Score/xp 0: hazards only bleed the drone, they never "die" or reward.
+            component_storage.add_component<ContactDamage>(e, ContactDamage{h.damage, 0, 0});
+            component_storage.add_component<RenderLayer>(e, RenderLayer{1});
+            arena_props.push_back(e);
+        }
+    };
+
     // spawn_world: tear down everything and build a fresh run (player + HUD).
     auto spawn_world = [&]() {
         for (Entity e : entity_manager.all_entities()) {
@@ -210,7 +260,10 @@ int main(int argc, char* argv[]) {
             Position{config.player.start_x - psz * 0.5f, config.player.start_y - psz * 0.5f});
         component_storage.add_component<Velocity>(player, Velocity{0.0f, 0.0f});
         component_storage.add_component<Size>(player, Size{psz, psz});
-        component_storage.add_component<Rotation>(player, Rotation{0.0f, 0.0f});
+        // flip_when_left=false: the v2 drone art is symmetric and right-facing, so
+        // it takes pure rotation. The default (true) mirrors the sprite past 90°,
+        // which reads as a snap that no longer matches the fire direction.
+        component_storage.add_component<Rotation>(player, Rotation{0.0f, 0.0f, false});
         component_storage.add_component<Input>(player, Input{});
         component_storage.add_component<Color>(player, Color{90, 200, 160, 255});
         component_storage.add_component<PlayerTag>(player, PlayerTag{});
@@ -249,6 +302,12 @@ int main(int argc, char* argv[]) {
         }
 
         game_hud.init(component_storage, entity_manager, blackboard);
+
+        // Arena props were destroyed by the bulk teardown above; forget them and
+        // force a fresh arena swap on the first playing frame.
+        arena_props.clear();
+        active_arena = -1;
+        active_backdrop = &config.arena.backdrop_layers;
     };
 
     spawn_world();
@@ -310,7 +369,26 @@ int main(int argc, char* argv[]) {
             player_control.update(component_storage);
             player_aim.update(component_storage, blackboard);
             wave_spawner.update(blackboard, entity_manager, component_storage);
-            enemy_seek.update(component_storage);
+
+            // v2 Phase 6: swap the themed arena (backdrop + obstacle/hazard props)
+            // when the wave crosses a configured activation. Keyed on the integer
+            // wave, so it is deterministic under a fixed seed.
+            if (!config.arenas.empty()) {
+                int want = active_arena_index(config.arenas, blackboard.get_or<int>("wave", 1));
+                if (want != active_arena) {
+                    const ArenaDef& def = config.arenas[static_cast<size_t>(want)];
+                    clear_arena_props();
+                    spawn_arena_props(def);
+                    active_arena = want;
+                    active_backdrop = &def.backdrop_layers;
+                    // v2 Phase 7: rasterise this arena's obstacles into the A* grid.
+                    enemy_seek.set_arena(&def.obstacles,
+                        enemy_path::build_obstacle_grid(path_cols, path_rows, path_cell,
+                            def.obstacles, config.pathfinding.clearance));
+                }
+            }
+
+            enemy_seek.update(component_storage, blackboard);
             movement.update(component_storage, blackboard);
 
             // Clamp the player inside the arena circle.
@@ -328,6 +406,26 @@ int main(int argc, char* argv[]) {
                     cy = config.arena.center_y + dy / d * limit;
                     pos->get().x = cx - sz->get().width * 0.5f;
                     pos->get().y = cy - sz->get().height * 0.5f;
+                }
+            }
+
+            // v2 Phase 6: shove the drone out of any solid obstacle. Runs after
+            // the arena clamp so "can't pass the wall" is the last word on where
+            // the drone ends up (obstacles are kept interior, away from the ring).
+            if (active_arena >= 0) {
+                const auto& obs = config.arenas[static_cast<size_t>(active_arena)].obstacles;
+                for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+                    auto pos = component_storage.get_component<Position>(p);
+                    auto sz = component_storage.get_component<Size>(p);
+                    if (!pos.has_value() || !sz.has_value()) continue;
+                    float r = sz->get().width * 0.5f;
+                    float cx = pos->get().x + r, cy = pos->get().y + r;
+                    for (const auto& o : obs) {
+                        Vec2 c = push_circle_out_of_aabb(cx, cy, r, o.x, o.y, o.w, o.h);
+                        cx = c.x; cy = c.y;
+                    }
+                    pos->get().x = cx - r;
+                    pos->get().y = cy - r;
                 }
             }
 
@@ -413,7 +511,25 @@ int main(int argc, char* argv[]) {
 
         // === Render ===
         camera.update(component_storage, blackboard);
-        render_system.clear_background();
+
+        // v2 Phase 5: parallax backdrops. The camera is fixed on the arena centre,
+        // so its only displacement is the seeded screen shake (camera.lookat minus
+        // centre); each layer is offset by parallax_offset(displacement, factor),
+        // so far layers barely move and near layers shake the most. Render-only —
+        // no RNG, no sim state — so deterministic replay is untouched.
+        std::vector<RenderSystem::TiledLayer> bg_layers;
+        if (!active_backdrop->empty()) {
+            float cam_dx = blackboard.get_or<float>("camera.lookat.x", config.arena.center_x)
+                         - config.arena.center_x;
+            float cam_dy = blackboard.get_or<float>("camera.lookat.y", config.arena.center_y)
+                         - config.arena.center_y;
+            for (const auto& bl : *active_backdrop) {
+                bg_layers.push_back({bl.image,
+                    parallax::parallax_offset(cam_dx, bl.scroll_factor),
+                    parallax::parallax_offset(cam_dy, bl.scroll_factor)});
+            }
+        }
+        render_system.render_layers(bg_layers);
         render_system.render(component_storage, blackboard);
         hud_system.render(component_storage, blackboard);
 

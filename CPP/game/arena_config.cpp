@@ -19,6 +19,19 @@ GameConfig load_arena_config(const std::string& file_path) {
 
     GameConfig cfg;
 
+    auto parse_backdrop_layers = [](const json& node) {
+        std::vector<BackdropLayer> layers;
+        if (node.contains("backdrop_layers")) {
+            for (const auto& l : node["backdrop_layers"]) {
+                BackdropLayer bl;
+                bl.image         = l.value("image", std::string());
+                bl.scroll_factor = l.value("scroll_factor", bl.scroll_factor);
+                if (!bl.image.empty()) layers.push_back(std::move(bl));
+            }
+        }
+        return layers;
+    };
+
     if (data.contains("seed")) cfg.seed = data["seed"].get<unsigned int>();
     if (data.contains("victory_wave")) cfg.victory_wave = data["victory_wave"].get<int>();
 
@@ -29,6 +42,34 @@ GameConfig load_arena_config(const std::string& file_path) {
         cfg.arena.center_x     = a.value("center_x", cfg.arena.center_x);
         cfg.arena.center_y     = a.value("center_y", cfg.arena.center_y);
         cfg.arena.backdrop     = a.value("backdrop", std::string());
+        cfg.arena.backdrop_layers = parse_backdrop_layers(a);
+    }
+
+    if (data.contains("arenas")) {
+        for (const auto& a : data["arenas"]) {
+            ArenaDef def;
+            def.name       = a.value("name", std::string());
+            def.first_wave = a.value("first_wave", def.first_wave);
+            def.backdrop_layers = parse_backdrop_layers(a);
+            if (a.contains("obstacles")) {
+                for (const auto& o : a["obstacles"]) {
+                    ObstacleDef od;
+                    od.x = o.value("x", od.x); od.y = o.value("y", od.y);
+                    od.w = o.value("w", od.w); od.h = o.value("h", od.h);
+                    def.obstacles.push_back(od);
+                }
+            }
+            if (a.contains("hazards")) {
+                for (const auto& h : a["hazards"]) {
+                    HazardDef hd;
+                    hd.x = h.value("x", hd.x); hd.y = h.value("y", hd.y);
+                    hd.w = h.value("w", hd.w); hd.h = h.value("h", hd.h);
+                    hd.damage = h.value("damage", hd.damage);
+                    def.hazards.push_back(hd);
+                }
+            }
+            cfg.arenas.push_back(std::move(def));
+        }
     }
 
     if (data.contains("player")) {
@@ -107,6 +148,13 @@ GameConfig load_arena_config(const std::string& file_path) {
             fb.enemy_flash_g = u8(c, "g", fb.enemy_flash_g);
             fb.enemy_flash_b = u8(c, "b", fb.enemy_flash_b);
         }
+    }
+
+    if (data.contains("pathfinding")) {
+        const auto& p = data["pathfinding"];
+        cfg.pathfinding.repath_interval = p.value("repath_interval", cfg.pathfinding.repath_interval);
+        cfg.pathfinding.cell_size       = p.value("cell_size", cfg.pathfinding.cell_size);
+        cfg.pathfinding.clearance       = p.value("clearance", cfg.pathfinding.clearance);
     }
 
     if (data.contains("upgrades")) {

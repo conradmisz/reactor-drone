@@ -48,5 +48,13 @@ void PlayerControlSystem::update(ComponentStorage& storage) {
         if (input.down) {
             vel.dy -= speed_;  // Move down (negative Y)
         }
+
+        // Normalize diagonals: without this, holding two axes gives a velocity of
+        // magnitude speed_*sqrt(2), i.e. ~41% faster than moving cardinally.
+        if (vel.dx != 0.0f && vel.dy != 0.0f) {
+            constexpr float INV_SQRT2 = 0.70710678f;
+            vel.dx *= INV_SQRT2;
+            vel.dy *= INV_SQRT2;
+        }
     }
 }

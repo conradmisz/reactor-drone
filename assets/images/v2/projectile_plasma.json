@@ -1,5 +1,5 @@
 {
-  "atlas": "images/v2/projectile_plasma.png",
+  "atlas": "v2/projectile_plasma.png",
   "frame_width": 128,
   "frame_height": 128,
   "columns": 4,

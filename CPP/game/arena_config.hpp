@@ -11,12 +11,49 @@
  * tunable lives here so the game can be re-balanced without recompiling.
  */
 
+/**
+ * BackdropLayer — one tiled parallax layer (v2, Phase 5). `scroll_factor` in
+ * [0,1] is how attached the layer is to the camera: 1 = glued (farthest, never
+ * moves), 0 = fully detached (nearest, moves 1:1). Draw offset per axis is
+ * camera * (1 - scroll_factor); see parallax.hpp. Layers draw in list order
+ * (first = backmost), so the first layer should be opaque.
+ */
+struct BackdropLayer {
+    std::string image;             // texture path relative to assets/
+    float scroll_factor = 1.0f;    // 1 = far/static, 0 = near/full-motion
+};
+
 struct ArenaConfig {
     float radius = 320.0f;         // arena radius in world units (play area)
     float spawn_radius = 340.0f;   // ring radius enemies spawn on
     float center_x = 480.0f;       // arena center (world)
     float center_y = 330.0f;
-    std::string backdrop;          // optional backdrop image filename
+    std::string backdrop;          // optional single backdrop image (legacy; unused)
+    std::vector<BackdropLayer> backdrop_layers;  // tiled parallax layers, back-to-front
+};
+
+/**
+ * ObstacleDef / HazardDef — static arena props (v2, Phase 6). Both are
+ * bottom-left-origin AABBs in world coordinates. Obstacles are solid (block the
+ * drone and stop shots); hazards carry ContactDamage and hurt the drone on
+ * contact but let it pass. `damage` is the health removed per i-frame window.
+ */
+struct ObstacleDef { float x = 0.0f, y = 0.0f, w = 40.0f, h = 40.0f; };
+struct HazardDef   { float x = 0.0f, y = 0.0f, w = 40.0f, h = 40.0f; float damage = 10.0f; };
+
+/**
+ * ArenaDef — one themed arena (v2, Phase 6): its parallax backdrop plus obstacle
+ * and hazard layouts. `first_wave` is the (1-based) wave at which this arena
+ * becomes active; the active arena is the last one whose first_wave <= the
+ * current wave (see active_arena_index). Arena geometry (radius/centre/spawn
+ * ring) stays shared on ArenaConfig — only the theme + props swap.
+ */
+struct ArenaDef {
+    std::string name;
+    int first_wave = 1;
+    std::vector<BackdropLayer> backdrop_layers;
+    std::vector<ObstacleDef> obstacles;
+    std::vector<HazardDef> hazards;
 };
 
 struct WeaponConfig {
@@ -74,6 +111,18 @@ struct FeedbackConfig {
     uint8_t enemy_flash_r  = 255, enemy_flash_g  = 255, enemy_flash_b  = 255;  // white
 };
 
+/**
+ * PathfindingConfig — enemy A* tuning (v2, Phase 7). `cell_size` is the grid
+ * resolution the obstacle layout is rasterised at; `clearance` grows each
+ * obstacle so paths keep a body's width away from walls; `repath_interval` is how
+ * often a blocked enemy recomputes its route (seconds). All balance knobs.
+ */
+struct PathfindingConfig {
+    float repath_interval = 0.35f;
+    int   cell_size = 40;
+    float clearance = 24.0f;
+};
+
 struct Upgrade {
     std::string stat;              // fire_rate | damage | projectile_speed | max_health | spread
     float amount = 0.0f;
@@ -87,12 +136,28 @@ struct GameConfig {
     std::vector<EnemyType> enemy_types;
     std::vector<WaveDef> waves;
     std::vector<Upgrade> upgrades;
+    std::vector<ArenaDef> arenas;  // v2 Phase 6: themed arenas swapped by wave
     FeedbackConfig feedback;
+    PathfindingConfig pathfinding;  // v2 Phase 7: enemy A* tuning
     int victory_wave = 0;          // 0 = survive all waves; N = win after clearing wave N
     float xp_level2 = 5.0f;        // XP needed for level 2
     float xp_multiplier = 1.5f;    // threshold growth per level
     unsigned int seed = 1234u;     // RNG seed for spread/spawn/upgrades
 };
+
+/**
+ * Index of the active arena for a given 1-based `wave`: the last arena whose
+ * first_wave <= wave. Returns -1 when `arenas` is empty; clamps to 0 when the
+ * wave precedes every arena's activation. Pure — unit/property-tested.
+ */
+inline int active_arena_index(const std::vector<ArenaDef>& arenas, int wave) {
+    if (arenas.empty()) return -1;
+    int idx = 0;
+    for (int i = 0; i < static_cast<int>(arenas.size()); ++i) {
+        if (arenas[static_cast<size_t>(i)].first_wave <= wave) idx = i;
+    }
+    return idx;
+}
 
 /// Parse GameData.json into a GameConfig. Missing fields fall back to defaults;
 /// throws std::runtime_error only on an unopenable file or malformed JSON.

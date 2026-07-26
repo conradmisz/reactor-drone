@@ -49,6 +49,33 @@ void RenderSystem::clear_background() {
     SDL_RenderClear(renderer_);
 }
 
+void RenderSystem::render_layers(const std::vector<TiledLayer>& layers) {
+    SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
+    SDL_RenderClear(renderer_);
+
+    int win_w, win_h;
+    SDL_GetRenderOutputSize(renderer_, &win_w, &win_h);
+
+    for (const auto& layer : layers) {
+        SDL_Texture* tex = resource_manager_.load_texture(layer.texture);
+        if (!tex) continue;
+        float tw, th;
+        SDL_GetTextureSize(tex, &tw, &th);
+        if (tw <= 0.0f || th <= 0.0f) continue;
+
+        // Wrap the offset into [0,tw)/[0,th) and tile from just off-screen so the
+        // window is fully covered regardless of the offset's sign.
+        float sx = std::fmod(layer.offset_x, tw); if (sx < 0.0f) sx += tw;
+        float sy = std::fmod(layer.offset_y, th); if (sy < 0.0f) sy += th;
+        for (float y = -sy; y < static_cast<float>(win_h); y += th) {
+            for (float x = -sx; x < static_cast<float>(win_w); x += tw) {
+                SDL_FRect dst = {x, y, tw, th};
+                SDL_RenderTexture(renderer_, tex, nullptr, &dst);
+            }
+        }
+    }
+}
+
 void RenderSystem::render(const ComponentStorage& storage, const Blackboard& blackboard) {
     float zoom = blackboard.get_or<float>("camera.zoom", 1.0f);
 

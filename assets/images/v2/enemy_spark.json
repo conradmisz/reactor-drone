@@ -1,5 +1,5 @@
 {
-  "atlas": "images/v2/enemy_spark.png",
+  "atlas": "v2/enemy_spark.png",
   "frame_width": 128,
   "frame_height": 128,
   "columns": 4,

@@ -88,7 +88,9 @@ def write_sprite(name: str, frames, columns: int, animations: dict) -> None:
     png = os.path.join(IMAGES_DIR, f"{name}.png")
     atlas.save(png)
     sidecar = {
-        "atlas": f"images/v2/{name}.png",
+        # Relative to assets/images/ — ResourceManager::load_texture prepends that
+        # dir, so an "images/" prefix here resolves to assets/images/images/...
+        "atlas": f"v2/{name}.png",
         "frame_width": fw,
         "frame_height": fh,
         "columns": columns,

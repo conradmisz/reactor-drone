@@ -1,5 +1,5 @@
 {
-  "atlas": "images/v2/player_drone.png",
+  "atlas": "v2/player_drone.png",
   "frame_width": 128,
   "frame_height": 128,
   "columns": 3,

@@ -25,6 +25,8 @@
 #define RENDER_SYSTEM_HPP
 
 #include <SDL3/SDL.h>
+#include <string>
+#include <vector>
 #include "engine/ecs/component_storage.hpp"
 #include "engine/ecs/blackboard.hpp"
 
@@ -58,6 +60,25 @@ public:
      * @param texture_name Filename of the texture in the assets directory
      */
     void set_background_texture(const std::string& texture_name);
+
+    /**
+     * One tiled backdrop layer: a texture wrapped across the whole window with a
+     * per-axis pixel offset (offsets come from parallax math; sign is arbitrary
+     * since the tile wraps). Screen-space only — no camera transform, no Y-flip.
+     */
+    struct TiledLayer {
+        std::string texture;
+        float offset_x = 0.0f;
+        float offset_y = 0.0f;
+    };
+
+    /**
+     * Clear to opaque black, then tile each layer (in order, back-to-front) over
+     * the window with wraparound at its offset. Missing/zero-size textures are
+     * skipped. Replaces clear_background when parallax backdrops are configured;
+     * an empty list is just the black clear.
+     */
+    void render_layers(const std::vector<TiledLayer>& layers);
 
     /**
      * Render all entities with Position and Size components.

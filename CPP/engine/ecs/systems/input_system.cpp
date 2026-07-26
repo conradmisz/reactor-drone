@@ -51,10 +51,12 @@ void InputSystem::process_events(ComponentStorage& storage, bool& running, Black
         auto input_opt = storage.get_component<Input>(entity);
         if (input_opt.has_value()) {
             Input& input = input_opt->get();
-            input.up    = keys[SDL_SCANCODE_UP];
-            input.down  = keys[SDL_SCANCODE_DOWN];
-            input.left  = keys[SDL_SCANCODE_LEFT];
-            input.right = keys[SDL_SCANCODE_RIGHT];
+            // Arrows and WASD both drive the same flags (WASD is free — the
+            // camera-pan system that used it is not wired into the game).
+            input.up    = keys[SDL_SCANCODE_UP]    || keys[SDL_SCANCODE_W];
+            input.down  = keys[SDL_SCANCODE_DOWN]  || keys[SDL_SCANCODE_S];
+            input.left  = keys[SDL_SCANCODE_LEFT]  || keys[SDL_SCANCODE_A];
+            input.right = keys[SDL_SCANCODE_RIGHT] || keys[SDL_SCANCODE_D];
             input.fire  = keys[SDL_SCANCODE_SPACE];
         }
     }

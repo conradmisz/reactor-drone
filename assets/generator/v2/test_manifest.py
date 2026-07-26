@@ -30,8 +30,8 @@ def check():
     for sc in sidecars:
         d = json.load(open(sc))
         name = os.path.basename(sc)
-        atlas_rel = d["atlas"]                      # e.g. images/v2/foo.png
-        atlas = os.path.join(ROOT, "images", os.path.relpath(atlas_rel, "images"))
+        atlas_rel = d["atlas"]                      # e.g. v2/foo.png, relative to assets/images/
+        atlas = os.path.join(ROOT, "images", atlas_rel)
         if not os.path.exists(atlas):
             errors.append(f"{name}: atlas {atlas_rel} missing"); continue
         w, h = Image.open(atlas).size

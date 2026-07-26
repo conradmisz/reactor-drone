@@ -2,6 +2,7 @@
 #include "tower_components.hpp"   // ProjectileTag, ProjectileData, DamageEvent
 #include "enemy_components.hpp"   // EnemyTag
 #include "player_components.hpp"  // Flash
+#include "collision_layers.hpp"   // OBSTACLE
 
 // Arena shooter hit detection: projectiles fly straight (moved by the engine
 // MovementSystem) and the engine CollisionSystem reports overlaps via
@@ -27,6 +28,14 @@ void ProjectileHitSystem::update(EntityManager& entity_manager,
         const ProjectileData& data = data_opt->get();
 
         for (Entity other : collided->get().entities) {
+            // v2 Phase 6: a shot that meets a solid obstacle stops dead — no
+            // damage, no pass-through.
+            if (auto col = component_storage.get_component<Collider>(other);
+                col.has_value() && (col->get().layer & layers::OBSTACLE)) {
+                component_storage.add_component<DestroyRequest>(proj, DestroyRequest{});
+                break;
+            }
+
             // Only enemies take projectile damage.
             if (!component_storage.has_component<EnemyTag>(other)) continue;
             if (!entity_manager.is_alive(other)) continue;

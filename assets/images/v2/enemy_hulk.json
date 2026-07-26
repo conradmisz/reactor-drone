@@ -1,5 +1,5 @@
 {
-  "atlas": "images/v2/enemy_hulk.png",
+  "atlas": "v2/enemy_hulk.png",
   "frame_width": 128,
   "frame_height": 128,
   "columns": 4,

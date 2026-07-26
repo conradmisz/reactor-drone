@@ -1,5 +1,5 @@
 {
-  "atlas": "images/v2/effect_impact.png",
+  "atlas": "v2/effect_impact.png",
   "frame_width": 128,
   "frame_height": 128,
   "columns": 4,
