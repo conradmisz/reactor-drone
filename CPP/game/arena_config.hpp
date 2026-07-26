@@ -51,6 +51,7 @@ struct HazardDef   { float x = 0.0f, y = 0.0f, w = 40.0f, h = 40.0f; float damag
 struct ArenaDef {
     std::string name;
     int first_wave = 1;
+    std::string wall_image;        // boundary-ring segment sprite (relative to assets/images/)
     std::vector<BackdropLayer> backdrop_layers;
     std::vector<ObstacleDef> obstacles;
     std::vector<HazardDef> hazards;

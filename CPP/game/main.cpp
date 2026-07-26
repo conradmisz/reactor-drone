@@ -214,6 +214,28 @@ int main(int argc, char* argv[]) {
     };
 
     auto spawn_arena_props = [&](const ArenaDef& def) {
+        // v2 Upgrade Phase 3: visible boundary ring — segments evenly spaced on the
+        // arena circle, 110 units wide on 90-unit spacing so they overlap into a
+        // continuous wall (~97 segments at radius 1400).
+        // ponytail: decorative only — the arena clamp in the game loop is the real wall.
+        if (!def.wall_image.empty()) {
+            const float seg = 110.0f;   // drawn size; spaced tighter so the ring reads solid
+            const int count = std::max(24, static_cast<int>(2.0f * 3.14159265f *
+                                                            config.arena.radius / 90.0f));
+            for (int i = 0; i < count; ++i) {
+                const float a = 2.0f * 3.14159265f * static_cast<float>(i) /
+                                static_cast<float>(count);
+                Entity e = entity_manager.create_entity();
+                component_storage.add_component<Position>(e, Position{
+                    config.arena.center_x + std::cos(a) * config.arena.radius - seg * 0.5f,
+                    config.arena.center_y + std::sin(a) * config.arena.radius - seg * 0.5f});
+                component_storage.add_component<Size>(e, Size{seg, seg});
+                component_storage.add_component<Color>(e, Color{60, 150, 190, 255});
+                component_storage.add_component<Images>(e, Images{{def.wall_image}, 0});
+                component_storage.add_component<RenderLayer>(e, RenderLayer{2});
+                arena_props.push_back(e);
+            }
+        }
         for (const auto& o : def.obstacles) {
             Entity e = entity_manager.create_entity();
             component_storage.add_component<Position>(e, Position{o.x, o.y});

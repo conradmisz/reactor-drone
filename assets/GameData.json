@@ -24,6 +24,7 @@
     {
       "name": "Core",
       "first_wave": 1,
+      "wall_image": "v2/pillar_core.png",
       "backdrop_layers": [
         { "image": "v2/bg_core_far.png",  "scroll_factor": 0.9 },
         { "image": "v2/bg_core_mid.png",  "scroll_factor": 0.6 },
@@ -40,6 +41,7 @@
     {
       "name": "Foundry",
       "first_wave": 3,
+      "wall_image": "v2/pillar_foundry.png",
       "backdrop_layers": [
         { "image": "v2/bg_foundry_far.png",  "scroll_factor": 0.9 },
         { "image": "v2/bg_foundry_mid.png",  "scroll_factor": 0.6 },
@@ -58,6 +60,7 @@
     {
       "name": "Bio-lab",
       "first_wave": 5,
+      "wall_image": "v2/pillar_biolab.png",
       "backdrop_layers": [
         { "image": "v2/bg_biolab_far.png",  "scroll_factor": 0.9 },
         { "image": "v2/bg_biolab_mid.png",  "scroll_factor": 0.6 },

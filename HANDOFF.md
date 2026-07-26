@@ -117,13 +117,42 @@ off-screen at spawn. The map reads as empty terrain. Phase 4 rewrites those layo
 *Skipped:* camera smoothing / look-ahead, camera bounds clamping at the arena edge.
 Add smoothing only if the hard follow reads as stiff.
 
-## Upgrade Phase 3 — Visible boundary wall (NEXT)
+## Upgrade Phase 3 — Visible boundary wall ✅ COMPLETE
 
-See the plan file. In short: keep the circular clamp at `main.cpp:397-413`; spawn ~80
-decorative wall segments on the `arena.radius` circle inside `spawn_arena_props`
-(`main.cpp:213-236`) with `Position`/`Size`/`Images{v2/pillar_<theme>.png}`/
-`RenderLayer{2}` and **no `Collider`** — the clamp stays the real wall.
-`clear_arena_props()` already tears them down on arena swap.
+**Changes.**
+- `CPP/game/arena_config.hpp` — `ArenaDef` gained `std::string wall_image` (boundary
+  segment sprite, path relative to `assets/images/`).
+- `CPP/game/arena_config.cpp:52` — parses `wall_image` (defaults to empty = no ring).
+- `assets/GameData.json:27,44,63` — `"wall_image"` per arena: `v2/pillar_core.png`,
+  `v2/pillar_foundry.png`, `v2/pillar_biolab.png`.
+- `CPP/game/main.cpp:216-238` — `spawn_arena_props` now first spawns the ring: segments
+  on the `arena.radius` circle, drawn **110** units wide on **90**-unit spacing (they
+  overlap into a continuous wall; 97 segments at radius 1400). Count is
+  `max(24, 2πr / 90)`, so it scales if `arena.radius` changes. Components:
+  `Position` (centre − size/2, world is bottom-left origin), `Size`, `Color{60,150,190}`
+  as texture-load fallback, `Images{wall_image}`, `RenderLayer{2}`. **No `Collider`** —
+  the circular clamp in the game loop is still the real wall. Segments go into
+  `arena_props`, so the existing `clear_arena_props()` swaps them with the theme.
+
+**Verified.** Zero warnings under `-Wall -Wextra -Wpedantic`; `ctest` 8/8; headless run
+to frame 900 with no texture warnings. Ring rendering proven by two temporary
+(reverted) edits: `player.start_x` → 2900 put the drone at the arena edge and the wall
+renders as a solid curving barrier; setting Foundry's `first_wave` to 1 showed the
+orange foundry pillars replacing the cyan core ones with no leftover ring, confirming
+the swap teardown.
+
+*Skipped:* rotating each segment to face the centre (the pillar art is square and
+symmetric enough that it reads fine unrotated) and a real circle primitive in
+`RenderSystem`. Enemies still pass through the ring visual — only the player is
+clamped; that is unchanged and by design.
+
+## Upgrade Phase 4 — Terrain that behaves like terrain (NEXT)
+
+See the plan file §Phase 4: add `obstacle_image`/`hazard_image` to `ArenaDef` (mirror
+the `wall_image` parsing added in Phase 3), give props `Images`, extend the player
+push-out loop at `main.cpp` to enemies via `push_circle_out_of_aabb`, and rewrite each
+arena's obstacle/hazard layout in `GameData.json` around the new (1600,1600) centre —
+they are still authored around (480,330) and are off-screen at spawn.
 
 ---
 
