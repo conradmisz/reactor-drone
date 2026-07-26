@@ -57,6 +57,10 @@ TEST_CASE("Property: spawned enemies land on the arena spawn ring", "[Game][aren
     cfg.arena.center_x = 500.0f;
     cfg.arena.center_y = 350.0f;
     cfg.arena.spawn_radius = radius;
+    // Upgrade Phase 2: the ring is centred on the player (here: none, so the
+    // arena centre) and clamped inside arena.radius — keep the play circle
+    // wider than the spawn ring so nothing is clamped.
+    cfg.arena.radius = radius + 100.0f;
     cfg.enemy_types.push_back(EnemyType{});           // one default type
     WaveDef w; w.count = 3; w.delay = 0.0f; w.spawn_interval = 0.0f;
     cfg.waves.push_back(w);

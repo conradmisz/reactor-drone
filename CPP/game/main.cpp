@@ -114,7 +114,8 @@ int main(int argc, char* argv[]) {
     const int win_w = blackboard.get_or<int>("window_width", 980);
     const int win_h = blackboard.get_or<int>("window_height", 660);
 
-    // Fixed camera centered on the arena.
+    // Camera starts on the arena centre; from here on it follows the player
+    // (Upgrade Phase 2 — see the follow/shake block in the main loop).
     blackboard.set<float>("camera.lookat.x", config.arena.center_x);
     blackboard.set<float>("camera.lookat.y", config.arena.center_y);
     blackboard.set<float>("camera.zoom", 1.0f);
@@ -133,11 +134,13 @@ int main(int argc, char* argv[]) {
     blackboard.set<int>("fb.enemy_flash_g", config.feedback.enemy_flash_g);
     blackboard.set<int>("fb.enemy_flash_b", config.feedback.enemy_flash_b);
 
-    // Quadtree world bounds cover the arena + spawn ring + margin.
+    // Quadtree world bounds cover the whole arena circle + margin. (Spawns ring
+    // the player now, always clamped inside arena.radius, so the radius bounds
+    // everything.)
     const float margin = 80.0f;
-    const float world_x = config.arena.center_x - config.arena.spawn_radius - margin;
-    const float world_y = config.arena.center_y - config.arena.spawn_radius - margin;
-    const float world_wh = 2.0f * (config.arena.spawn_radius + margin);
+    const float world_x = config.arena.center_x - config.arena.radius - margin;
+    const float world_y = config.arena.center_y - config.arena.radius - margin;
+    const float world_wh = 2.0f * (config.arena.radius + margin);
     QuadtreeStrategy quadtree(6, 8, world_x, world_y, world_wh, world_wh);
 
     // === Systems ===
@@ -147,13 +150,13 @@ int main(int argc, char* argv[]) {
     PlayerFireSystem player_fire(config.seed);
     EnemySeekSystem enemy_seek;
     enemy_seek.set_repath_interval(config.pathfinding.repath_interval);
-    // v2 Phase 7: grid resolution covering the arena + spawn ring (world origin
+    // v2 Phase 7: grid resolution covering the whole arena circle (world origin
     // bottom-left), rebuilt per arena swap below so A* sees that arena's walls.
     const int path_cell = std::max(1, config.pathfinding.cell_size);
     const int path_cols = static_cast<int>(std::ceil(
-        (config.arena.center_x + config.arena.spawn_radius) / path_cell)) + 1;
+        (config.arena.center_x + config.arena.radius) / path_cell)) + 1;
     const int path_rows = static_cast<int>(std::ceil(
-        (config.arena.center_y + config.arena.spawn_radius) / path_cell)) + 1;
+        (config.arena.center_y + config.arena.radius) / path_cell)) + 1;
     WaveSpawnerSystem wave_spawner;
     wave_spawner.set_config(&config);
     MovementSystem movement;
@@ -487,11 +490,13 @@ int main(int argc, char* argv[]) {
 
         game_hud.update(component_storage, blackboard);
 
-        // v2 Phase 4: screen shake. Decay trauma, then offset the fixed arena
-        // camera by shake_amplitude(trauma) in a seeded-random direction. The
-        // base look-at is always the arena centre; recomputing from it each frame
-        // means no separate "restore" step. Runs in every simulated phase so a
-        // lingering shake keeps decaying into the game-over/victory transition.
+        // v2 Phase 4 + Upgrade Phase 2: follow camera & screen shake. Decay
+        // trauma, then set look-at to the player's centre offset by
+        // shake_amplitude(trauma) in a seeded-random direction. Recomputing from
+        // the base each frame means no separate "restore" step. With no player
+        // (title / game-over) the base falls back to the arena centre. Runs in
+        // every simulated phase so a lingering shake keeps decaying into the
+        // game-over/victory transition.
         if (sim) {
             float trauma = feedback::decay_trauma(
                 blackboard.get_or<float>("feedback.trauma", 0.0f), dt,
@@ -505,16 +510,26 @@ int main(int argc, char* argv[]) {
                 ox = std::cos(ang) * amp;
                 oy = std::sin(ang) * amp;
             }
-            blackboard.set<float>("camera.lookat.x", config.arena.center_x + ox);
-            blackboard.set<float>("camera.lookat.y", config.arena.center_y + oy);
+            float base_x = config.arena.center_x, base_y = config.arena.center_y;
+            for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+                auto pos = component_storage.get_component<Position>(p);
+                auto sz = component_storage.get_component<Size>(p);
+                if (!pos.has_value() || !sz.has_value()) continue;
+                base_x = pos->get().x + sz->get().width * 0.5f;
+                base_y = pos->get().y + sz->get().height * 0.5f;
+                break;
+            }
+            blackboard.set<float>("camera.lookat.x", base_x + ox);
+            blackboard.set<float>("camera.lookat.y", base_y + oy);
         }
 
         // === Render ===
         camera.update(component_storage, blackboard);
 
-        // v2 Phase 5: parallax backdrops. The camera is fixed on the arena centre,
-        // so its only displacement is the seeded screen shake (camera.lookat minus
-        // centre); each layer is offset by parallax_offset(displacement, factor),
+        // v2 Phase 5: parallax backdrops. Camera displacement is camera.lookat
+        // minus the arena centre — since Upgrade Phase 2 that is mostly the
+        // follow camera tracking the drone, plus the seeded screen shake;
+        // each layer is offset by parallax_offset(displacement, factor),
         // so far layers barely move and near layers shake the most. Render-only —
         // no RNG, no sim state — so deterministic replay is untouched.
         std::vector<RenderSystem::TiledLayer> bg_layers;

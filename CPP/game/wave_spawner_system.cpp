@@ -78,11 +78,24 @@ void WaveSpawnerSystem::update(Blackboard& blackboard,
     type_index = std::max(0, std::min(type_index, static_cast<int>(cfg_->enemy_types.size()) - 1));
     const EnemyType& type = cfg_->enemy_types[static_cast<size_t>(type_index)];
 
-    // Ring spawn: random angle at spawn_radius around the arena center.
+    // Ring spawn: random angle at spawn_radius around the *player* (falling back
+    // to the arena centre when there is none), clamped inside the arena circle.
+    // Draw the angle first, unconditionally, so replays stay deterministic.
     std::uniform_real_distribution<float> angle_dist(0.0f, 6.28318530717958647692f);
     float angle = angle_dist(rng_);
-    float ring_x = cfg_->arena.center_x + cfg_->arena.spawn_radius * std::cos(angle);
-    float ring_y = cfg_->arena.center_y + cfg_->arena.spawn_radius * std::sin(angle);
+    float px = cfg_->arena.center_x, py = cfg_->arena.center_y;
+    for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+        auto pos = component_storage.get_component<Position>(p);
+        auto sz = component_storage.get_component<Size>(p);
+        if (!pos.has_value() || !sz.has_value()) continue;
+        px = pos->get().x + sz->get().width * 0.5f;
+        py = pos->get().y + sz->get().height * 0.5f;
+        break;
+    }
+    Vec2 ring = ring_spawn_point(px, py, angle, cfg_->arena.spawn_radius,
+                                 cfg_->arena.center_x, cfg_->arena.center_y,
+                                 cfg_->arena.radius);
+    float ring_x = ring.x, ring_y = ring.y;
     float half = type.size * 0.5f;
 
     Entity e = entity_manager.create_entity();

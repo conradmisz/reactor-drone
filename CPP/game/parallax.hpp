@@ -10,8 +10,9 @@
  *
  * so a far layer (scroll_factor near 1) barely moves and a near layer
  * (scroll_factor near 0) moves the most. `camera` is the camera's displacement
- * from its rest position on that axis (in this fixed-camera arena, the screen-
- * shake offset). Pure and side-effect free so it unit-tests without a game loop.
+ * from its rest position on that axis (the follow camera's distance from the
+ * arena centre, plus screen shake). Pure and side-effect free so it unit-tests
+ * without a game loop.
  */
 #ifndef PARALLAX_HPP
 #define PARALLAX_HPP

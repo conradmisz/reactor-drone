@@ -9,7 +9,7 @@ Snapshot for picking up the v2 visual overhaul. Read this, then
 
 Full plan: `~/.claude/plans/i-would-like-to-iterative-tarjan.md`. Goal: fix aim feel,
 expand the map ~22×, make terrain solid and sprite-based. One phase per session,
-`/clear` between them. **Phase 1 is done; Phase 2 is next.**
+`/clear` between them. **Phases 1–2 are done; Phase 3 is next.**
 
 ## Upgrade Phase 1 — Aim & movement feel ✅ COMPLETE
 
@@ -67,17 +67,63 @@ left and up confirm the drone's nose follows the cursor with no mirror flip.
   camera, so the world cursor jitters a few px during screen shake. That is
   geometrically correct — the cursor really is over that world point.
 
-## Upgrade Phase 2 — Big arena + follow camera (NEXT)
+## Upgrade Phase 2 — Big arena + follow camera ✅ COMPLETE
 
-See the plan file. In short: `arena.center` → (1600,1600), `radius` → 1400,
-`spawn_radius` → ~620 and re-interpreted as *distance from the player*; camera lookat
-follows the player centre (the existing shake block at `main.cpp:487-510` already
-recomputes lookat from a base each frame — swap the base); quadtree bounds and the A*
-grid dims switch from `spawn_radius` to `radius`; `wave_spawner_system.cpp:81-85`
-ring-spawns around the player clamped inside the arena. Parallax needs no code change
-but its "fixed camera" comments become false. Expect the map to look **empty** after
-this phase — the hand-authored obstacles all sit near (480,330) and are rewritten in
-Phase 4.
+**Changes.**
+- `assets/GameData.json:11-14` — `arena.radius` 300 → **1400**, `spawn_radius` 340 →
+  **620** (now *distance from the player*, not from the arena centre), `center_x/y`
+  (480,330) → **(1600,1600)**. `assets/GameData.json:98-99` — `player.start_x/y` →
+  1600,1600.
+- `CPP/game/main.cpp:137-142` — quadtree world bounds now `arena.radius + margin`
+  (was `spawn_radius + margin`).
+- `CPP/game/main.cpp:153-158` — A* grid dims use `center + radius` (was
+  `center + spawn_radius`). At `cell_size = 40` that is 76×76 cells.
+- `CPP/game/main.cpp:493-524` — **follow camera**: the Phase-4 shake block now takes
+  its base look-at from the `PlayerTag` entity's centre (arena centre when no player
+  exists — title / game-over), then adds the shake offset. No new machinery.
+- `CPP/game/wave_spawner_system.hpp` — new pure `ring_spawn_point(player_x, player_y,
+  angle, spawn_radius, center_x, center_y, arena_radius)` returning a `Vec2`
+  (`obstacles.hpp`): the point at `spawn_radius` from the player on `angle`, pulled
+  back onto the arena circle if it lands outside.
+- `CPP/game/wave_spawner_system.cpp:81-99` — ring-spawns around the player via that
+  function. **The RNG angle is drawn before the player lookup, unconditionally**, so
+  replay determinism is unchanged; keep it that way.
+- Comments corrected where they claimed a fixed camera: `main.cpp:117-119`,
+  `main.cpp:493-499`, `main.cpp:529-532`, `CPP/game/parallax.hpp:12-14`.
+- New test `CPP/game/tests/property/test_spawn_ring_properties.cpp` — for any player
+  position inside the arena and any angle, the spawn is inside `arena.radius`, and it
+  is exactly `spawn_radius` from the player whenever no clamp fired.
+- `CPP/game/tests/property/test_arena_properties.cpp:59-63` — that older spawn-ring
+  property left `cfg.arena.radius` at its 320 default while randomising
+  `spawn_radius` up to 400, so the new clamp fired and it failed. It now sets
+  `radius = spawn_radius + 100`. **Config invariant: `arena.radius > spawn_radius`.**
+
+**Verified.** Build clean under `-Wall -Wextra -Wpedantic` (only the accepted Lua
+`tmpnam` linker warning); `ctest` **8/8**; headless run to frame 600 shows no texture
+warnings and the drone screen-centred with enemies arriving from every direction.
+Camera follow was proven by temporarily setting `player.start_x` to 2100 (reverted):
+the drone still renders dead-centre and the parallax layers shift — under the old
+fixed camera it would have rendered 500px off-centre.
+
+**Gotcha for the next phase.** `--keys` only understands `ESC`, `SPACE` and `F1`
+(`main.cpp:347-351`) — there is **no directional key injection**, so you cannot drive
+the drone across the map headlessly. Use an off-centre `player.start_x/y` for
+camera/scroll checks instead.
+
+**Known-sparse, as planned.** The three arenas' obstacles/hazards are still authored
+around (480,330) — a full 1100+ units from the new arena centre and completely
+off-screen at spawn. The map reads as empty terrain. Phase 4 rewrites those layouts.
+
+*Skipped:* camera smoothing / look-ahead, camera bounds clamping at the arena edge.
+Add smoothing only if the hard follow reads as stiff.
+
+## Upgrade Phase 3 — Visible boundary wall (NEXT)
+
+See the plan file. In short: keep the circular clamp at `main.cpp:397-413`; spawn ~80
+decorative wall segments on the `arena.radius` circle inside `spawn_arena_props`
+(`main.cpp:213-236`) with `Position`/`Size`/`Images{v2/pillar_<theme>.png}`/
+`RenderLayer{2}` and **no `Collider`** — the clamp stays the real wall.
+`clear_arena_props()` already tears them down on arena swap.
 
 ---
 
