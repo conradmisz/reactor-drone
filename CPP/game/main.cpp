@@ -114,6 +114,13 @@ int main(int argc, char* argv[]) {
     const int win_w = blackboard.get_or<int>("window_width", 980);
     const int win_h = blackboard.get_or<int>("window_height", 660);
 
+    // v2 Upgrade Phase 5: one authority for "screen size". The renderer scales a fixed
+    // win_w x win_h logical surface to whatever the window actually is (fullscreen,
+    // resize, HiDPI), so CameraSystem / InputSystem / the HUD — which all read
+    // window_width/height from the blackboard — stay correct with no resize plumbing.
+    SDL_SetRenderLogicalPresentation(renderer.get(), win_w, win_h,
+                                     SDL_LOGICAL_PRESENTATION_LETTERBOX);
+
     // Camera starts on the arena centre; from here on it follows the player
     // (Upgrade Phase 2 — see the follow/shake block in the main loop).
     blackboard.set<float>("camera.lookat.x", config.arena.center_x);
@@ -243,6 +250,9 @@ int main(int argc, char* argv[]) {
             component_storage.add_component<Color>(e, Color{70, 96, 128, 255});
             component_storage.add_component<Collider>(e,
                 Collider{o.w, o.h, layers::OBSTACLE, layers::OBSTACLE_MASK});
+            // Images beats Color in render priority; Color stays as the load fallback.
+            if (!def.obstacle_image.empty())
+                component_storage.add_component<Images>(e, Images{{def.obstacle_image}, 0});
             component_storage.add_component<RenderLayer>(e, RenderLayer{2});
             arena_props.push_back(e);
         }
@@ -255,6 +265,8 @@ int main(int argc, char* argv[]) {
                 Collider{h.w, h.h, layers::HAZARD, layers::HAZARD_MASK});
             // Score/xp 0: hazards only bleed the drone, they never "die" or reward.
             component_storage.add_component<ContactDamage>(e, ContactDamage{h.damage, 0, 0});
+            if (!def.hazard_image.empty())
+                component_storage.add_component<Images>(e, Images{{def.hazard_image}, 0});
             component_storage.add_component<RenderLayer>(e, RenderLayer{1});
             arena_props.push_back(e);
         }
@@ -352,7 +364,7 @@ int main(int argc, char* argv[]) {
     bool running = true;
     while (running) {
         timer.start_frame();
-        input_system.process_events(component_storage, running, blackboard);
+        input_system.process_events(component_storage, running, blackboard, renderer.get());
         uint64_t frame = timer.get_frame_count();
 
         // Scripted input injection (headless testing).
@@ -437,12 +449,14 @@ int main(int argc, char* argv[]) {
             // v2 Phase 6: shove the drone out of any solid obstacle. Runs after
             // the arena clamp so "can't pass the wall" is the last word on where
             // the drone ends up (obstacles are kept interior, away from the ring).
+            // v2 Upgrade Phase 4: enemies get the same treatment, so walls are solid
+            // whether A* or the line-of-sight fast path was steering.
             if (active_arena >= 0) {
                 const auto& obs = config.arenas[static_cast<size_t>(active_arena)].obstacles;
-                for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+                auto push_out = [&](Entity p) {
                     auto pos = component_storage.get_component<Position>(p);
                     auto sz = component_storage.get_component<Size>(p);
-                    if (!pos.has_value() || !sz.has_value()) continue;
+                    if (!pos.has_value() || !sz.has_value()) return;
                     float r = sz->get().width * 0.5f;
                     float cx = pos->get().x + r, cy = pos->get().y + r;
                     for (const auto& o : obs) {
@@ -451,7 +465,9 @@ int main(int argc, char* argv[]) {
                     }
                     pos->get().x = cx - r;
                     pos->get().y = cy - r;
-                }
+                };
+                for (Entity p : component_storage.entities_with_component<PlayerTag>()) push_out(p);
+                for (Entity e : component_storage.entities_with_component<EnemyTag>()) push_out(e);
             }
 
             player_fire.update(component_storage, entity_manager, blackboard);

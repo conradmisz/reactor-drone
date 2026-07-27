@@ -17,6 +17,27 @@
 #include <map>
 #include <vector>
 
+namespace {
+/**
+ * The coordinate space everything is drawn in. When a logical presentation is
+ * active (see main.cpp) that is the logical size — SDL scales it to the window
+ * itself, so the Y-flip and the tiling loops must use the logical dimensions,
+ * NOT pixels. SDL_GetCurrentRenderOutputSize is deliberately not used here: with
+ * LETTERBOX it returns the scaled content area in pixels (e.g. 1484x1000 for a
+ * 980x660 logical surface in a 1600x1000 window), which flips Y about the wrong
+ * axis. With no logical presentation set it falls back to the real output size,
+ * so callers that never enable one are unaffected.
+ */
+void draw_surface_size(SDL_Renderer* renderer, int* w, int* h) {
+    SDL_RendererLogicalPresentation mode = SDL_LOGICAL_PRESENTATION_DISABLED;
+    if (SDL_GetRenderLogicalPresentation(renderer, w, h, &mode) &&
+        mode != SDL_LOGICAL_PRESENTATION_DISABLED && *w > 0 && *h > 0) {
+        return;
+    }
+    SDL_GetCurrentRenderOutputSize(renderer, w, h);
+}
+}  // namespace
+
 RenderSystem::RenderSystem(SDL_Renderer* renderer, ResourceManager& resource_manager)
     : renderer_(renderer), resource_manager_(resource_manager) {
 }
@@ -30,7 +51,7 @@ void RenderSystem::clear_background() {
         SDL_Texture* bg = resource_manager_.load_texture(background_texture_name_);
         if (bg) {
             int win_w, win_h;
-            SDL_GetRenderOutputSize(renderer_, &win_w, &win_h);
+            draw_surface_size(renderer_, &win_w, &win_h);
             float tex_w, tex_h;
             SDL_GetTextureSize(bg, &tex_w, &tex_h);
 
@@ -54,7 +75,7 @@ void RenderSystem::render_layers(const std::vector<TiledLayer>& layers) {
     SDL_RenderClear(renderer_);
 
     int win_w, win_h;
-    SDL_GetRenderOutputSize(renderer_, &win_w, &win_h);
+    draw_surface_size(renderer_, &win_w, &win_h);
 
     for (const auto& layer : layers) {
         SDL_Texture* tex = resource_manager_.load_texture(layer.texture);
@@ -190,7 +211,7 @@ void RenderSystem::draw_entity(float x, float y, float width, float height,
                                 bool flip_when_left) {
     // Get window height for Y-axis flip
     int window_width, window_height;
-    SDL_GetRenderOutputSize(renderer_, &window_width, &window_height);
+    draw_surface_size(renderer_, &window_width, &window_height);
 
     // Compute destination rectangle ONCE — shared by both paths
     // CRITICAL: Y-axis flip from bottom-left game coords to top-left SDL coords
@@ -276,7 +297,7 @@ void RenderSystem::draw_world_border(const Blackboard& blackboard) {
     float lookat_y = blackboard.get_or<float>("camera.lookat.y", 0.0f);
     float zoom     = blackboard.get_or<float>("camera.zoom", 1.0f);
     int win_w, win_h;
-    SDL_GetRenderOutputSize(renderer_, &win_w, &win_h);
+    draw_surface_size(renderer_, &win_w, &win_h);
 
     // Camera transform: world → screen (bottom-left origin)
     float cam_left   = lookat_x - (static_cast<float>(win_w) / zoom) / 2.0f;

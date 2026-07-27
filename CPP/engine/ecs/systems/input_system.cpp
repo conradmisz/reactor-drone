@@ -10,7 +10,8 @@
 #include "engine/ecs/systems/input_system.hpp"
 #include <iostream>
 
-void InputSystem::process_events(ComponentStorage& storage, bool& running, Blackboard& blackboard) {
+void InputSystem::process_events(ComponentStorage& storage, bool& running, Blackboard& blackboard,
+                                 SDL_Renderer* renderer) {
     // Reset per-frame mouse click state
     blackboard.set("mouse.clicked", false);
 
@@ -65,6 +66,11 @@ void InputSystem::process_events(ComponentStorage& storage, bool& running, Black
     //    Inverse of CameraSystem transform: screen → world
     float screen_x, screen_y;
     SDL_GetMouseState(&screen_x, &screen_y);
+    // SDL_GetMouseState is in *window* pixels; the blackboard size below is the
+    // renderer's logical size. Under a logical presentation (letterbox) those differ.
+    if (renderer) {
+        SDL_RenderCoordinatesFromWindow(renderer, screen_x, screen_y, &screen_x, &screen_y);
+    }
 
     int win_w = blackboard.get_or<int>("window_width", 800);
     int win_h = blackboard.get_or<int>("window_height", 600);

@@ -52,6 +52,8 @@ struct ArenaDef {
     std::string name;
     int first_wave = 1;
     std::string wall_image;        // boundary-ring segment sprite (relative to assets/images/)
+    std::string obstacle_image;    // obstacle sprite (empty = flat Color rect)
+    std::string hazard_image;      // hazard sprite (empty = flat Color rect)
     std::vector<BackdropLayer> backdrop_layers;
     std::vector<ObstacleDef> obstacles;
     std::vector<HazardDef> hazards;

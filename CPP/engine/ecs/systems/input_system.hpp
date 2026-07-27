@@ -41,8 +41,12 @@ public:
      * 
      * @param storage Component storage to query for entities and update Input components
      * @param running Reference to game loop running flag, set to false on quit event
+     * @param renderer Optional; when the renderer uses a logical presentation, the mouse
+     *                 position is mapped from window space into render space before
+     *                 unprojection. Null keeps the raw window coordinates.
      */
-    void process_events(ComponentStorage& storage, bool& running, Blackboard& blackboard);
+    void process_events(ComponentStorage& storage, bool& running, Blackboard& blackboard,
+                        SDL_Renderer* renderer = nullptr);
 
 private:
     /**

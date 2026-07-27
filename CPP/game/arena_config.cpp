@@ -50,7 +50,9 @@ GameConfig load_arena_config(const std::string& file_path) {
             ArenaDef def;
             def.name       = a.value("name", std::string());
             def.first_wave = a.value("first_wave", def.first_wave);
-            def.wall_image = a.value("wall_image", std::string());
+            def.wall_image     = a.value("wall_image", std::string());
+            def.obstacle_image = a.value("obstacle_image", std::string());
+            def.hazard_image   = a.value("hazard_image", std::string());
             def.backdrop_layers = parse_backdrop_layers(a);
             if (a.contains("obstacles")) {
                 for (const auto& o : a["obstacles"]) {
