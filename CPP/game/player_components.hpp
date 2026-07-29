@@ -6,7 +6,7 @@
 /**
  * "Reactor Drone" game-specific components (Class-110 final project).
  *
- * PlayerTag, Experience, and ContactDamage are the three genuinely new
+ * PlayerTag, ShipState, and ContactDamage are the three genuinely new
  * components from the design doc. WeaponStats is the design's "modified
  * TowerStats" — the same fire-rate/damage idea, attached to the moving player
  * and extended with the projectile parameters an aimed shooter needs.
@@ -20,36 +20,59 @@
 struct PlayerTag {};
 
 /**
- * Experience — the player's XP/level progression.
+ * ShipState — all per-run shop/economy state, on the player entity.
  *
- * xp accumulates from kills; when it reaches threshold the level increments and
- * threshold is raised by the xp_curve multiplier (see ExperienceSystem).
+ * Gameplay Phase 2 replaced the XP/level component that used to live in this
+ * storage slot (D1: one economy, not two). Deliberately one fat struct rather
+ * than eight small components: registering a component type costs edits in five
+ * files (component_storage.hpp/.cpp, destruction.cpp), so the whole shop economy
+ * pays that cost once. Phases 3-4 fill the currently-unused fields; they are
+ * declared now so no further engine edit is needed.
  */
-struct Experience {
-    float xp = 0.0f;         // XP accumulated toward the next level
-    int level = 1;           // Current level (starts at 1)
-    float threshold = 5.0f;  // XP required to reach the next level
-    float multiplier = 1.5f; // threshold *= multiplier on each level-up
+struct ShipState {
+    int currency = 0;
+    int keys = 0;                 // rare drop: opens the shop on demand (D2)
+    float shield = 0.0f, shield_max = 0.0f, shield_regen = 0.0f, shield_delay = 0.0f;
+    float speed_mult = 1.0f;
+    int item_id = -1;             // equipped passive item (Phase 4); -1 = none
+    int consumable_id = -1;       // held consumable (Phase 4); -1 = none
+    int buff_id = -1;             // active timed buff (Phase 4); -1 = none
+    float buff_timer = 0.0f;
+    int upg_counts[8] = {0};      // purchases per shop upgrade (escalating price)
+};
+
+/// Pickup.kind values. Currency is the common drop; Key is the rare one (D2).
+enum class PickupKind : int { Currency = 0, Key = 1 };
+
+/**
+ * Pickup — a collectible dropped by a dead enemy (D5).
+ *
+ * kind selects which ShipState counter it credits; value is how much. Collection
+ * and magnet steering are PickupSystem's job. magnet_speed is the pull speed the
+ * Magnet Core item (Phase 4) uses; it is carried per-pickup so drops can differ.
+ */
+struct Pickup {
+    int kind = static_cast<int>(PickupKind::Currency);
+    int value = 1;
+    float magnet_speed = 400.0f;
 };
 
 /**
  * ContactDamage — an enemy's combat payload.
  *
- * amount: health removed from the player on contact.
- * score:  points awarded to the player when this enemy dies.
- * xp:     experience granted to the player when this enemy dies.
- *
- * (The design's "ContactDamage" plus the per-enemy score/xp values from the
- * enemy_types data live together here as the enemy's combat numbers.)
+ * amount:   health removed from the player on contact.
+ * score:    points awarded to the player when this enemy dies.
+ * currency: value of each currency pickup this enemy drops (Phase 2; this field
+ *           used to be `xp`).
  */
 struct ContactDamage {
     float amount = 10.0f;
     int score = 10;
-    int xp = 1;
+    int currency = 1;
 };
 
 /**
- * WeaponStats — the player's gun, tuned live by UpgradeSystem.
+ * WeaponStats — the player's gun, tuned live by the shop (Phase 3).
  *
  * fire_rate:          shots per second (PlayerFireSystem gates on 1/fire_rate).
  * damage:             damage per projectile.

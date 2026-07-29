@@ -56,7 +56,9 @@ public:
         enemies_spawned_ = 0;
         elapsed_time_ = 0.0f;
         spawn_timer_ = 0.0f;
+        stall_timer_ = 0.0f;
         all_waves_complete_ = false;
+        wave_just_cleared_ = false;
     }
 
     int current_wave_index() const { return current_wave_; }
@@ -64,7 +66,14 @@ public:
     bool all_complete() const { return all_waves_complete_; }
     int total_waves() const;
 
+    /// True for the single update in which a wave finished and the arena went
+    /// empty. The shop phase hooks onto this edge.
+    bool wave_just_cleared() const { return wave_just_cleared_; }
+
 private:
+    void spawn_enemy(const WaveDef& wave, EntityManager& entity_manager,
+                     ComponentStorage& component_storage);
+
     const sidecar_loader::LoadedSprite* resolve_sprite(const std::string& sidecar,
                                                        const std::string& clip);
     std::unordered_map<std::string, sidecar_loader::LoadedSprite> sprite_cache_;
@@ -76,7 +85,9 @@ private:
     int enemies_spawned_ = 0;
     float elapsed_time_ = 0.0f;
     float spawn_timer_ = 0.0f;
+    float stall_timer_ = 0.0f;      // seconds a finished wave has waited on stragglers
     bool all_waves_complete_ = false;
+    bool wave_just_cleared_ = false;
 };
 
 #endif // WAVE_SPAWNER_SYSTEM_HPP

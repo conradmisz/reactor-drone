@@ -35,39 +35,9 @@ const sidecar_loader::LoadedSprite* WaveSpawnerSystem::resolve_sprite(
     }
 }
 
-void WaveSpawnerSystem::update(Blackboard& blackboard,
-                               EntityManager& entity_manager,
-                               ComponentStorage& component_storage) {
-    if (!cfg_ || cfg_->waves.empty() || cfg_->enemy_types.empty()) return;
-    if (!blackboard.has("delta_time")) return;
-
-    const int total = total_waves();
-    blackboard.set("total_waves", total);
-
-    if (all_waves_complete_) {
-        blackboard.set("wave", total);
-        return;
-    }
-
-    if (current_wave_ >= total) {
-        all_waves_complete_ = true;
-        blackboard.set("all_waves_complete", true);
-        blackboard.set("wave", total);
-        return;
-    }
-
-    blackboard.set("wave", current_wave_ + 1);  // 1-based for HUD
-
-    float dt = static_cast<float>(blackboard.get<double>("delta_time"));
-    const WaveDef& wave = cfg_->waves[static_cast<size_t>(current_wave_)];
-
-    elapsed_time_ += dt;
-    if (elapsed_time_ < wave.delay) return;
-
-    spawn_timer_ += dt;
-    if (spawn_timer_ < wave.spawn_interval) return;
-    spawn_timer_ -= wave.spawn_interval;
-
+void WaveSpawnerSystem::spawn_enemy(const WaveDef& wave,
+                                    EntityManager& entity_manager,
+                                    ComponentStorage& component_storage) {
     // Choose enemy type: cycle the wave's type list, or all types if none listed.
     int type_index;
     if (!wave.types.empty()) {
@@ -109,24 +79,90 @@ void WaveSpawnerSystem::update(Blackboard& blackboard,
         component_storage.add_component<Animation>(e, sprite->animation);
     }
     // PathFollower reused purely as the enemy's seek speed (EnemySeekSystem).
-    component_storage.add_component<PathFollower>(e, PathFollower{1, 0.0f, type.speed});
-    component_storage.add_component<Health>(e, Health{type.health, type.health});
+    // Per-wave multipliers scale the shared enemy_types (D10 — no new types).
+    component_storage.add_component<PathFollower>(e,
+        PathFollower{1, 0.0f, type.speed * wave.speed_mult});
+    float hp = type.health * wave.hp_mult;
+    component_storage.add_component<Health>(e, Health{hp, hp});
     component_storage.add_component<EnemyTag>(e, EnemyTag{});
+    // Enemies used to fall to layer 0 — behind the walls. At 64-78 px that reads
+    // as a bug, so they share the obstacle layer and still sit under the player(3).
+    component_storage.add_component<RenderLayer>(e, RenderLayer{2});
     component_storage.add_component<ContactDamage>(e,
-        ContactDamage{type.contact_damage, type.score, type.xp});
+        ContactDamage{type.contact_damage, type.score, type.currency});
     component_storage.add_component<Collider>(e,
         Collider{type.size, type.size, layers::ENEMY, layers::ENEMY_MASK});
     component_storage.add_component<CircleCollider>(e, CircleCollider{half, 0.0f, 0.0f});
 
     enemies_spawned_++;
-    if (enemies_spawned_ >= wave.count) {
-        current_wave_++;
-        enemies_spawned_ = 0;
-        elapsed_time_ = 0.0f;
-        spawn_timer_ = 0.0f;
-        if (current_wave_ >= total) {
+}
+
+void WaveSpawnerSystem::update(Blackboard& blackboard,
+                               EntityManager& entity_manager,
+                               ComponentStorage& component_storage) {
+    wave_just_cleared_ = false;
+    if (!cfg_ || cfg_->waves.empty() || cfg_->enemy_types.empty()) return;
+    if (!blackboard.has("delta_time")) return;
+
+    const int total = total_waves();
+    blackboard.set("total_waves", total);
+
+    if (all_waves_complete_ || current_wave_ >= total) {
+        if (!all_waves_complete_) {
             all_waves_complete_ = true;
             blackboard.set("all_waves_complete", true);
         }
+        blackboard.set("wave", total);
+        return;
+    }
+
+    blackboard.set("wave", current_wave_ + 1);  // 1-based for HUD
+
+    float dt = static_cast<float>(blackboard.get<double>("delta_time"));
+    const WaveDef& wave = cfg_->waves[static_cast<size_t>(current_wave_)];
+
+    elapsed_time_ += dt;
+
+    // Two wave modes: timed waves spawn for `duration` seconds after the delay,
+    // fixed-count waves spawn until `count` enemies exist.
+    bool quota_done = wave.duration > 0.0f
+        ? (elapsed_time_ - wave.delay) >= wave.duration
+        : enemies_spawned_ >= wave.count;
+
+    if (elapsed_time_ >= wave.delay && !quota_done) {
+        spawn_timer_ += dt;
+        if (spawn_timer_ >= wave.spawn_interval) {
+            spawn_timer_ -= wave.spawn_interval;
+            spawn_enemy(wave, entity_manager, component_storage);
+            if (wave.duration <= 0.0f && enemies_spawned_ >= wave.count) quota_done = true;
+        }
+    }
+
+    if (!quota_done) return;
+
+    // D4: a wave ends only on a *cleared* arena, so the shop always opens with
+    // nothing alive. R3: an enemy that somehow becomes unreachable would soft-lock
+    // the run forever, so stragglers are force-killed after the stall timeout
+    // (EnemyDeathSystem picks them up on the next frame like any other kill).
+    if (!component_storage.entities_with_component<EnemyTag>().empty()) {
+        stall_timer_ += dt;
+        if (stall_timer_ >= cfg_->wave_stall_timeout) {
+            for (Entity e : component_storage.entities_with_component<EnemyTag>()) {
+                auto h = component_storage.get_component<Health>(e);
+                if (h.has_value()) h->get().current = 0.0f;
+            }
+        }
+        return;
+    }
+
+    current_wave_++;
+    enemies_spawned_ = 0;
+    elapsed_time_ = 0.0f;
+    spawn_timer_ = 0.0f;
+    stall_timer_ = 0.0f;
+    wave_just_cleared_ = true;
+    if (current_wave_ >= total) {
+        all_waves_complete_ = true;
+        blackboard.set("all_waves_complete", true);
     }
 }

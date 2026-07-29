@@ -4,8 +4,8 @@
  * Forked from Class-090 (tower defense). You pilot a maintenance drone in a
  * circular reactor core; enemies spawn from the ring and seek you in escalating
  * waves. Move with the arrow keys, aim with the mouse, hold the mouse button or
- * space to fire. Kills give score + XP; each level auto-applies a weighted-random
- * weapon upgrade. Title -> play -> game-over/victory, click to (re)start.
+ * space to fire. Kills give score and drop currency pickups you walk over, which
+ * fund the shop. Title -> play -> game-over/victory, click to (re)start.
  *
  * World space is bottom-left origin (0,0 = bottom-left, +X right, +Y up); the
  * Y-flip lives only in RenderSystem::draw_entity().
@@ -57,9 +57,10 @@
 #include "projectile_hit_system.hpp"
 #include "damage_apply_system.hpp"
 #include "enemy_death_system.hpp"
-#include "experience_system.hpp"
-#include "upgrade_system.hpp"
+#include "pickup_system.hpp"
 #include "wave_spawner_system.hpp"
+#include "shop_system.hpp"
+#include "shield_system.hpp"
 #include "game_hud_system.hpp"
 #include "feedback.hpp"
 #include "flash_system.hpp"
@@ -73,7 +74,8 @@ using SDL_WindowPtr = std::unique_ptr<SDL_Window, SDL_WindowDeleter>;
 using SDL_RendererPtr = std::unique_ptr<SDL_Renderer, SDL_RendererDeleter>;
 
 // Game phases (Blackboard "phase").
-enum Phase { PHASE_TITLE = 0, PHASE_PLAYING = 1, PHASE_GAMEOVER = 2, PHASE_VICTORY = 3 };
+enum Phase { PHASE_TITLE = 0, PHASE_PLAYING = 1, PHASE_GAMEOVER = 2, PHASE_VICTORY = 3,
+             PHASE_SHOP = 4 };
 
 int main(int argc, char* argv[]) {
     auto opts = parse_command_line(argc, argv);
@@ -127,6 +129,9 @@ int main(int argc, char* argv[]) {
     blackboard.set<float>("camera.lookat.y", config.arena.center_y);
     blackboard.set<float>("camera.zoom", 1.0f);
     blackboard.set<float>("player.invuln_window", config.player.invuln_window);
+    // Gameplay Phase 3: PlayerDamageSystem restarts this countdown on every hit;
+    // tick_shields() spends it before refilling the shield.
+    blackboard.set<float>("ship.shield_regen_delay", config.shop.shield_regen_delay);
 
     // v2 Phase 4: hit-feedback tunables the producer systems read (mirrors how
     // player.invuln_window is pushed to the blackboard above). Shake tunables
@@ -172,9 +177,11 @@ int main(int argc, char* argv[]) {
     PlayerDamageSystem player_damage;
     DamageApplySystem damage_apply;
     EnemyDeathSystem enemy_death;
-    ExperienceSystem experience;
-    UpgradeSystem upgrade;
-    upgrade.set_pool(config.upgrades, config.seed);
+    enemy_death.set_economy(config.economy, config.seed);
+    PickupSystem pickups;
+    pickups.set_economy(config.economy);
+    ShopSystem shop;
+    shop.set_config(&config.shop);
     LifetimeSystem lifetime;
     AnimationSystem animation;
     ParticleSystem particles;  // v2: global 2000-particle budget
@@ -274,20 +281,22 @@ int main(int argc, char* argv[]) {
 
     // spawn_world: tear down everything and build a fresh run (player + HUD).
     auto spawn_world = [&]() {
+        shop.close(component_storage);   // drop stale row ids before the teardown
         for (Entity e : entity_manager.all_entities()) {
             component_storage.add_component<DestroyRequest>(e, DestroyRequest{});
         }
         destroy_marked_entities(entity_manager, component_storage);
 
         blackboard.set("score", 0);
-        blackboard.set("level", 1);
         blackboard.set("wave", 0);
-        blackboard.set("pending_xp", 0);
-        blackboard.set("pending_upgrades", 0);
         blackboard.set<float>("player.iframes", 0.0f);
-        blackboard.set<float>("upgrade_message_timer", 0.0f);
-        blackboard.set<std::string>("upgrade_message", std::string());
+        blackboard.set<float>("hud_message_timer", 0.0f);
+        blackboard.set<std::string>("hud_message", std::string());
         blackboard.set("all_waves_complete", false);
+        // D3: shop upgrades are per-run. Every other purchase lands on components
+        // that spawn_world rebuilds anyway; the barrel count is the one that lives
+        // on the blackboard, so it is the one that needs clearing by hand.
+        blackboard.set<int>("ship.extra_shots", 0);
         wave_spawner.reset();
 
         // Player entity.
@@ -310,8 +319,8 @@ int main(int argc, char* argv[]) {
             config.player.weapon.fire_rate, config.player.weapon.damage,
             config.player.weapon.projectile_speed, config.player.weapon.projectile_lifetime,
             config.player.weapon.spread, 0.0f});
-        component_storage.add_component<Experience>(player,
-            Experience{0.0f, 1, config.xp_level2, config.xp_multiplier});
+        // Per-run economy/shop state (D3: no persistence — a fresh one each run).
+        component_storage.add_component<ShipState>(player, ShipState{});
         component_storage.add_component<Collider>(player,
             Collider{psz, psz, layers::PLAYER, layers::PLAYER_MASK});
         component_storage.add_component<CircleCollider>(player, CircleCollider{psz * 0.5f, 0.0f, 0.0f});
@@ -356,7 +365,8 @@ int main(int argc, char* argv[]) {
     timer.update_blackboard(blackboard);
 
     bool debug_paused = false, step_requested = false;
-    bool f1_prev = false, f2_prev = false, space_prev = false;
+    bool f1_prev = false, f2_prev = false, space_prev = false, b_prev = false;
+    bool digit_prev[8] = {false};
     if (opts.paused) debug_paused = true;
 
     std::cout << "Reactor Drone v2 initialized. Arrows move, mouse aims, hold fire. ESC quits.\n";
@@ -378,10 +388,17 @@ int main(int argc, char* argv[]) {
             blackboard.set("mouse.y", static_cast<double>(hv.y));
         }
         bool scripted_fire = false, scripted_advance = false;
+        int scripted_digit = 0;
+        bool scripted_shop = false;
         for (const auto& ka : opts.keys) if (ka.frame == frame) {
             if (ka.key == "ESC") running = false;
             else if (ka.key == "SPACE") { scripted_fire = true; scripted_advance = true; }
             else if (ka.key == "F1") debug_paused = !debug_paused;
+            else if (ka.key == "B") scripted_shop = true;
+            // Gameplay Phase 3: digits buy shop rows, so a headless script can
+            // exercise a purchase (the shop is otherwise unreachable in tests).
+            else if (ka.key.size() == 1 && ka.key[0] >= '1' && ka.key[0] <= '8')
+                scripted_digit = ka.key[0] - '0';
         }
 
         // Debug keys (F1 pause, F2 step) + continuous-fire polling.
@@ -393,6 +410,18 @@ int main(int argc, char* argv[]) {
         bool space = keys[SDL_SCANCODE_SPACE];
         bool space_edge = (space && !space_prev) || scripted_advance;
         space_prev = space;
+
+        // Gameplay Phase 3 shop input: B opens/closes, 1-8 buy. Edge-detected here
+        // beside the other key edges; the shop itself never touches SDL (R7).
+        bool b_now = keys[SDL_SCANCODE_B];
+        bool b_edge = (b_now && !b_prev) || scripted_shop;
+        b_prev = b_now;
+        int digit = scripted_digit;
+        for (int d = 0; d < 8; ++d) {
+            bool down = keys[SDL_SCANCODE_1 + d];
+            if (down && !digit_prev[d]) digit = d + 1;
+            digit_prev[d] = down;
+        }
         float mx, my; Uint32 mbtn = SDL_GetMouseState(&mx, &my);
         blackboard.set("mouse.held", (mbtn & SDL_BUTTON_LMASK) != 0 || scripted_fire);
 
@@ -403,9 +432,24 @@ int main(int argc, char* argv[]) {
 
         // === State machine + gameplay ===
         if (phase == PHASE_PLAYING && sim) {
+            // Gameplay Phase 3: the Aux Thruster scales move speed, which used to be
+            // captured once in the ctor. Pushed in every frame so a purchase mid-run
+            // takes effect immediately and nothing caches a stale value.
+            for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+                if (auto s = component_storage.get_component<ShipState>(p); s.has_value())
+                    player_control.set_speed(config.player.move_speed * s->get().speed_mult);
+                break;
+            }
             player_control.update(component_storage);
             player_aim.update(component_storage, blackboard);
             wave_spawner.update(blackboard, entity_manager, component_storage);
+
+            // D15: wave_just_cleared() is a plain getter reset at the top of the
+            // *next* update(), so it has to be read here, in the same frame. The
+            // phase switch itself happens after the frame simulates, below.
+            const bool shop_due = wave_spawner.wave_just_cleared() &&
+                                  !wave_spawner.all_complete() &&
+                                  (wave_spawner.current_wave_index() % 4 == 0);
 
             // v2 Phase 6: swap the themed arena (backdrop + obstacle/hazard props)
             // when the wave crosses a configured activation. Keyed on the integer
@@ -428,11 +472,13 @@ int main(int argc, char* argv[]) {
             enemy_seek.update(component_storage, blackboard);
             movement.update(component_storage, blackboard);
 
-            // Clamp the player inside the arena circle.
-            for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+            // Clamp the player inside the arena circle. Gameplay Phase 1: enemies
+            // too — waves now advance only on a cleared arena, so an enemy drifting
+            // outside the ring would stall the run (R3).
+            auto clamp_to_arena = [&](Entity p) {
                 auto pos = component_storage.get_component<Position>(p);
                 auto sz = component_storage.get_component<Size>(p);
-                if (!pos.has_value() || !sz.has_value()) continue;
+                if (!pos.has_value() || !sz.has_value()) return;
                 float cx = pos->get().x + sz->get().width * 0.5f;
                 float cy = pos->get().y + sz->get().height * 0.5f;
                 float dx = cx - config.arena.center_x, dy = cy - config.arena.center_y;
@@ -444,7 +490,9 @@ int main(int argc, char* argv[]) {
                     pos->get().x = cx - sz->get().width * 0.5f;
                     pos->get().y = cy - sz->get().height * 0.5f;
                 }
-            }
+            };
+            for (Entity p : component_storage.entities_with_component<PlayerTag>()) clamp_to_arena(p);
+            for (Entity e : component_storage.entities_with_component<EnemyTag>()) clamp_to_arena(e);
 
             // v2 Phase 6: shove the drone out of any solid obstacle. Runs after
             // the arena clamp so "can't pass the wall" is the last word on where
@@ -473,11 +521,14 @@ int main(int argc, char* argv[]) {
             player_fire.update(component_storage, entity_manager, blackboard);
             collision.update(component_storage, blackboard);
             projectile_hit.update(entity_manager, component_storage, blackboard);
+            // Shields regen *before* damage resolves, so a hit this frame restarts
+            // the quiet timer with the last word (Phase 3).
+            tick_shields(component_storage,
+                         static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)));
             player_damage.update(entity_manager, component_storage, blackboard);
             damage_apply.update(entity_manager, component_storage);
             enemy_death.update(component_storage, entity_manager, blackboard);
-            experience.update(component_storage, blackboard);
-            upgrade.update(component_storage, blackboard);
+            pickups.update(component_storage, entity_manager, blackboard);
             lifetime.update(component_storage, blackboard);
             animation.update(component_storage, blackboard);
             flash_system.update(component_storage, blackboard);  // v2: tick hit flashes -> Tint
@@ -489,12 +540,40 @@ int main(int argc, char* argv[]) {
                 auto h = component_storage.get_component<Health>(p);
                 if (h.has_value() && h->get().current > 0.0f) player_alive = true;
             }
+            // D2: the shop opens on a cleared multiple-of-4 wave, or on demand when
+            // the player spends a key. Loss and victory outrank both.
+            bool key_entry = false;
+            if (b_edge && player_alive) {
+                for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+                    if (auto s = component_storage.get_component<ShipState>(p);
+                        s.has_value() && s->get().keys > 0) {
+                        s->get().keys -= 1;
+                        key_entry = true;
+                    }
+                    break;
+                }
+            }
+
             if (!player_alive) {
                 phase = PHASE_GAMEOVER;
             } else if (wave_spawner.all_complete() &&
                        component_storage.entities_with_component<EnemyTag>().empty()) {
                 phase = PHASE_VICTORY;
+            } else if (shop_due || key_entry) {
+                shop.open(component_storage, entity_manager, blackboard);
+                phase = PHASE_SHOP;
             }
+        } else if (phase == PHASE_SHOP && sim) {
+            // The arena is frozen while the shop is open — no spawner, no movement,
+            // no damage. Purchases and rendering are ShopSystem's (R7).
+            // Only B closes the shop: SPACE is the fire key, and a player holding it
+            // when the wave cleared would never see the shop at all.
+            if (shop.update(component_storage, blackboard, digit, b_edge)) {
+                shop.close(component_storage);
+                phase = PHASE_PLAYING;
+            }
+            animation.update(component_storage, blackboard);
+            destroy_marked_entities(entity_manager, component_storage);
         } else if (sim) {
             // Title / game-over / victory: keep effects animating, nothing else.
             animation.update(component_storage, blackboard);
@@ -521,10 +600,10 @@ int main(int argc, char* argv[]) {
             destroy_marked_entities(entity_manager, component_storage);
         }
 
-        // Tick the level-up message timer.
+        // Tick the transient HUD-message timer.
         float dt = static_cast<float>(blackboard.get_or<double>("delta_time", 0.0));
-        float mt = blackboard.get_or<float>("upgrade_message_timer", 0.0f);
-        if (mt > 0.0f) blackboard.set<float>("upgrade_message_timer", std::max(0.0f, mt - dt));
+        float mt = blackboard.get_or<float>("hud_message_timer", 0.0f);
+        if (mt > 0.0f) blackboard.set<float>("hud_message_timer", std::max(0.0f, mt - dt));
 
         game_hud.update(component_storage, blackboard);
 
@@ -600,8 +679,22 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    // Credits are on the ship, not the blackboard — but a headless run needs them
+    // in the summary line to be a usable balance/determinism canary (R2, R6).
+    int final_credits = 0;
+    for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+        if (auto s = component_storage.get_component<ShipState>(p); s.has_value()) {
+            final_credits = s->get().currency;
+        }
+        break;
+    }
+    // Phase 3 adds phase+wave to the line: with the shop able to freeze the run,
+    // "score stopped rising" is ambiguous between shopping, dying and stalling.
     std::cout << "Shutting down. Frames: " << timer.get_frame_count()
-              << "  Final score: " << blackboard.get_or<int>("score", 0) << std::endl;
+              << "  Final score: " << blackboard.get_or<int>("score", 0)
+              << "  Credits: " << final_credits
+              << "  Wave: " << blackboard.get_or<int>("wave", 0)
+              << "  Phase: " << phase << std::endl;
 
     resource_manager_ptr.reset();
     renderer.reset();

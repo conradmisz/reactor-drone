@@ -32,8 +32,23 @@ void PlayerDamageSystem::update(EntityManager& entity_manager,
 
             float amount = cd->get().amount;
 
-            Entity event_entity = entity_manager.create_entity();
-            storage.add_component<DamageEvent>(event_entity, DamageEvent{player, amount});
+            // Gameplay Phase 3: the Shield Capacitor soaks damage before the hull,
+            // and *any* hit restarts the regen delay — including one the shield ate
+            // whole, so chip damage can't be free.
+            if (auto s = storage.get_component<ShipState>(player); s.has_value()) {
+                ShipState& ship = s->get();
+                ship.shield_delay = blackboard.get_or<float>("ship.shield_regen_delay", 3.0f);
+                if (ship.shield > 0.0f) {
+                    float soaked = std::min(ship.shield, amount);
+                    ship.shield -= soaked;
+                    amount -= soaked;
+                }
+            }
+
+            if (amount > 0.0f) {
+                Entity event_entity = entity_manager.create_entity();
+                storage.add_component<DamageEvent>(event_entity, DamageEvent{player, amount});
+            }
 
             // v2 Phase 4: kick the camera and flash the drone red on the hit.
             float trauma = feedback::add_trauma(

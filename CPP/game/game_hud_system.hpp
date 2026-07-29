@@ -6,12 +6,12 @@
 #include "engine/ecs/blackboard.hpp"
 
 /**
- * GameHUDSystem — the arena HUD: score, wave, health, level, a large status
- * banner (title / game-over / victory), and the transient level-up message.
+ * GameHUDSystem — the arena HUD: score, wave, health, credits/keys, a large
+ * status banner (title / game-over / victory), and a transient message line.
  *
  * init() spawns the HUD Text entities once; update() refreshes their content
- * each frame from the Blackboard ("score", "wave"/"total_waves", "level",
- * "phase", "upgrade_message") and the player's Health component.
+ * each frame from the Blackboard ("score", "wave"/"total_waves",
+ * "phase", "hud_message") and the player's Health component.
  */
 class GameHUDSystem {
 public:
@@ -25,7 +25,7 @@ private:
     Entity score_entity_ = 0;
     Entity wave_entity_ = 0;
     Entity health_entity_ = 0;
-    Entity level_entity_ = 0;
+    Entity credits_entity_ = 0;
     Entity status_entity_ = 0;
     Entity message_entity_ = 0;
     bool initialized_ = false;

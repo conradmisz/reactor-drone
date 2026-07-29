@@ -696,7 +696,7 @@ template bool ComponentStorage::has_component<HealthBarTag>(Entity) const;
 template std::vector<Entity> ComponentStorage::entities_with_component<HealthBarTag>() const;
 
 // ---------------------------------------------------------------------------
-// Class-110 "Reactor Drone" game components: PlayerTag, Experience,
+// Class-110 "Reactor Drone" game components: PlayerTag, ShipState, Pickup,
 // ContactDamage, WeaponStats. get_storage() specializations + explicit
 // instantiations, mirroring the pattern used for the tower-defense components.
 // ---------------------------------------------------------------------------
@@ -707,9 +707,14 @@ template<>
 const std::unordered_map<Entity, PlayerTag>& ComponentStorage::get_storage<PlayerTag>() const { return player_tags_; }
 
 template<>
-std::unordered_map<Entity, Experience>& ComponentStorage::get_storage<Experience>() { return experiences_; }
+std::unordered_map<Entity, ShipState>& ComponentStorage::get_storage<ShipState>() { return ship_states_; }
 template<>
-const std::unordered_map<Entity, Experience>& ComponentStorage::get_storage<Experience>() const { return experiences_; }
+const std::unordered_map<Entity, ShipState>& ComponentStorage::get_storage<ShipState>() const { return ship_states_; }
+
+template<>
+std::unordered_map<Entity, Pickup>& ComponentStorage::get_storage<Pickup>() { return pickups_; }
+template<>
+const std::unordered_map<Entity, Pickup>& ComponentStorage::get_storage<Pickup>() const { return pickups_; }
 
 template<>
 std::unordered_map<Entity, ContactDamage>& ComponentStorage::get_storage<ContactDamage>() { return contact_damages_; }
@@ -737,7 +742,8 @@ CS110_INSTANTIATE(Tint)             // engine components (v2); registered via th
 CS110_INSTANTIATE(Particle)
 CS110_INSTANTIATE(ParticleEmitter)
 CS110_INSTANTIATE(PlayerTag)
-CS110_INSTANTIATE(Experience)
+CS110_INSTANTIATE(ShipState)
+CS110_INSTANTIATE(Pickup)
 CS110_INSTANTIATE(ContactDamage)
 CS110_INSTANTIATE(WeaponStats)
 CS110_INSTANTIATE(Flash)

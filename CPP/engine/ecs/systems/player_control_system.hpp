@@ -55,6 +55,15 @@ public:
      */
     void update(ComponentStorage& storage);
 
+    /**
+     * Set the movement speed after construction.
+     *
+     * The ctor value was the only way to set speed, which made a speed *upgrade*
+     * impossible (the game's shop scales it per purchase). Callers push the
+     * current value in each frame; systems own no gameplay state either way.
+     */
+    void set_speed(float speed) { speed_ = speed; }
+
 private:
     float speed_;  // Movement speed in pixels per second
 };

@@ -57,7 +57,8 @@ void destroy_marked_entities(EntityManager& em, ComponentStorage& storage) {
 
         // Game components — Class-110 "Reactor Drone"
         storage.remove_component<PlayerTag>(entity);
-        storage.remove_component<Experience>(entity);
+        storage.remove_component<ShipState>(entity);
+        storage.remove_component<Pickup>(entity);
         storage.remove_component<ContactDamage>(entity);
         storage.remove_component<WeaponStats>(entity);
         storage.remove_component<Flash>(entity);

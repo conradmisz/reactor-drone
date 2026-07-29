@@ -1,5 +1,5 @@
 #include "game_hud_system.hpp"
-#include "player_components.hpp"   // PlayerTag
+#include "player_components.hpp"   // PlayerTag, ShipState
 #include "enemy_components.hpp"    // Health
 #include <string>
 
@@ -27,7 +27,7 @@ void GameHUDSystem::init(ComponentStorage& component_storage,
 
     score_entity_   = make(20.0f, win_h - 36.0f, 24.0f, white, "Score: 0");
     health_entity_  = make(20.0f, win_h - 66.0f, 24.0f, white, "Health: 100");
-    level_entity_   = make(20.0f, win_h - 96.0f, 24.0f, white, "Level: 1");
+    credits_entity_ = make(20.0f, win_h - 96.0f, 24.0f, yellow, "Credits: 0");
     wave_entity_    = make(win_w - 200.0f, win_h - 36.0f, 24.0f, white, "Wave: 0/0");
     status_entity_  = make(win_w * 0.5f - 190.0f, win_h * 0.5f, 44.0f, yellow, "");
     message_entity_ = make(win_w * 0.5f - 170.0f, win_h * 0.5f - 60.0f, 28.0f, cyan, "");
@@ -42,21 +42,31 @@ void GameHUDSystem::update(ComponentStorage& component_storage, Blackboard& blac
         t->get().content = "Score: " + int_str(blackboard.get_or<int>("score", 0));
     }
 
-    // Health (from the player entity)
-    int hp = 0;
+    // Health + economy (from the player entity)
+    int hp = 0, credits = 0, keys = 0, shield = 0;
     for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
         if (auto h = component_storage.get_component<Health>(p); h.has_value()) {
             hp = static_cast<int>(h->get().current + 0.5f);
         }
+        if (auto s = component_storage.get_component<ShipState>(p); s.has_value()) {
+            credits = s->get().currency;
+            keys    = s->get().keys;
+            shield  = static_cast<int>(s->get().shield + 0.5f);
+        }
         break;
     }
+    // Shields only appear once a Shield Capacitor has been bought — same rule as
+    // the key count below: a permanent "Shield: 0" is noise for most of a run.
     if (auto t = component_storage.get_component<Text>(health_entity_); t.has_value()) {
-        t->get().content = "Health: " + int_str(hp);
+        t->get().content = "Health: " + int_str(hp) +
+                           (shield > 0 ? "   Shield: " + int_str(shield) : std::string());
     }
 
-    // Level
-    if (auto t = component_storage.get_component<Text>(level_entity_); t.has_value()) {
-        t->get().content = "Level: " + int_str(blackboard.get_or<int>("level", 1));
+    // Credits, with the key count only once one has actually dropped (D2 keys are
+    // rare enough that a permanent "Keys: 0" would just be noise).
+    if (auto t = component_storage.get_component<Text>(credits_entity_); t.has_value()) {
+        t->get().content = "Credits: " + int_str(credits) +
+                           (keys > 0 ? "   Keys: " + int_str(keys) : std::string());
     }
 
     // Wave
@@ -75,10 +85,10 @@ void GameHUDSystem::update(ComponentStorage& component_storage, Blackboard& blac
         t->get().content = status;
     }
 
-    // Transient level-up message (timer ticks down in main via delta_time).
+    // Transient message channel (timer ticks down in main via delta_time).
     std::string msg;
-    float msg_timer = blackboard.get_or<float>("upgrade_message_timer", 0.0f);
-    if (msg_timer > 0.0f) msg = blackboard.get_or<std::string>("upgrade_message", std::string());
+    float msg_timer = blackboard.get_or<float>("hud_message_timer", 0.0f);
+    if (msg_timer > 0.0f) msg = blackboard.get_or<std::string>("hud_message", std::string());
     if (auto t = component_storage.get_component<Text>(message_entity_); t.has_value()) {
         t->get().content = msg;
     }

@@ -3,6 +3,7 @@
 #include "tower_components.hpp"   // ProjectileTag, ProjectileData
 #include "collision_layers.hpp"
 #include "aim_math.hpp"
+#include <algorithm>
 
 void PlayerFireSystem::update(ComponentStorage& storage,
                               EntityManager& entity_manager,
@@ -45,38 +46,48 @@ void PlayerFireSystem::update(ComponentStorage& storage,
             std::uniform_real_distribution<float> jitter(-wpn.spread * 0.5f, wpn.spread * 0.5f);
             angle += jitter(rng_);
         }
-        Velocity vel = aim_math::velocity_from_angle(angle, wpn.projectile_speed);
-
         constexpr float PR = 6.0f;   // projectile half-size / radius
-        Entity shot = entity_manager.create_entity();
-        storage.add_component<Position>(shot, Position{cx - PR, cy - PR});
-        storage.add_component<Velocity>(shot, vel);
-        storage.add_component<Size>(shot, Size{PR * 2.0f, PR * 2.0f});
-        storage.add_component<Color>(shot, Color{120, 225, 255, 255});
-        storage.add_component<Collider>(shot,
-            Collider{PR * 2.0f, PR * 2.0f, layers::PROJECTILE, layers::PROJECTILE_MASK});
-        storage.add_component<CircleCollider>(shot, CircleCollider{PR, 0.0f, 0.0f});
-        storage.add_component<Lifetime>(shot, Lifetime{wpn.projectile_lifetime});
-        storage.add_component<ProjectileTag>(shot, ProjectileTag{});
-        storage.add_component<ProjectileData>(shot,
-            ProjectileData{NO_TARGET, wpn.projectile_speed, wpn.damage});
-        storage.add_component<RenderLayer>(shot, RenderLayer{5});
 
-        // v2: additive glow trail that rides the projectile. The emitter dies with
-        // the shot (destroyed on hit / lifetime); its live particles keep fading via
-        // their own lifetime. Offset by PR so particles spawn at the shot's centre.
-        ParticleEmitter trail;
-        trail.shape = EmitterShape::Point;
-        trail.additive = true;
-        trail.emission_rate = 70.0f;
-        trail.particle_lifetime = 0.35f;
-        trail.min_speed = 0.0f;
-        trail.max_speed = 24.0f;
-        trail.cone_half_angle = 180.0f;
-        trail.start_r = 120; trail.start_g = 225; trail.start_b = 255; trail.start_a = 220;
-        trail.end_r = 40;    trail.end_g = 90;    trail.end_b = 160;   trail.end_a = 0;
-        trail.start_size = 7.0f; trail.end_size = 0.0f;
-        trail.offset_x = PR;  trail.offset_y = PR;
-        storage.add_component<ParticleEmitter>(shot, trail);
+        // Gameplay Phase 3 (Twin Barrel): fire `barrels` shots in a fan centred on
+        // the aim angle. The count comes from the blackboard, written by the shop,
+        // so this system needs no catalogue knowledge. One spread jitter per
+        // volley, not per barrel — the fan is meant to be a shape, not a shotgun.
+        const int barrels = 1 + std::max(0, blackboard.get_or<int>("ship.extra_shots", 0));
+        constexpr float FAN_STEP = 0.09f;   // radians between barrels (~5 degrees)
+        for (int b = 0; b < barrels; ++b) {
+            float shot_angle = angle + (static_cast<float>(b) - (barrels - 1) * 0.5f) * FAN_STEP;
+            Velocity vel = aim_math::velocity_from_angle(shot_angle, wpn.projectile_speed);
+
+            Entity shot = entity_manager.create_entity();
+            storage.add_component<Position>(shot, Position{cx - PR, cy - PR});
+            storage.add_component<Velocity>(shot, vel);
+            storage.add_component<Size>(shot, Size{PR * 2.0f, PR * 2.0f});
+            storage.add_component<Color>(shot, Color{120, 225, 255, 255});
+            storage.add_component<Collider>(shot,
+                Collider{PR * 2.0f, PR * 2.0f, layers::PROJECTILE, layers::PROJECTILE_MASK});
+            storage.add_component<CircleCollider>(shot, CircleCollider{PR, 0.0f, 0.0f});
+            storage.add_component<Lifetime>(shot, Lifetime{wpn.projectile_lifetime});
+            storage.add_component<ProjectileTag>(shot, ProjectileTag{});
+            storage.add_component<ProjectileData>(shot,
+                ProjectileData{NO_TARGET, wpn.projectile_speed, wpn.damage});
+            storage.add_component<RenderLayer>(shot, RenderLayer{5});
+
+            // v2: additive glow trail that rides the projectile. The emitter dies with
+            // the shot (destroyed on hit / lifetime); its live particles keep fading via
+            // their own lifetime. Offset by PR so particles spawn at the shot's centre.
+            ParticleEmitter trail;
+            trail.shape = EmitterShape::Point;
+            trail.additive = true;
+            trail.emission_rate = 70.0f;
+            trail.particle_lifetime = 0.35f;
+            trail.min_speed = 0.0f;
+            trail.max_speed = 24.0f;
+            trail.cone_half_angle = 180.0f;
+            trail.start_r = 120; trail.start_g = 225; trail.start_b = 255; trail.start_a = 220;
+            trail.end_r = 40;    trail.end_g = 90;    trail.end_b = 160;   trail.end_a = 0;
+            trail.start_size = 7.0f; trail.end_size = 0.0f;
+            trail.offset_x = PR;  trail.offset_y = PR;
+            storage.add_component<ParticleEmitter>(shot, trail);
+        }
     }
 }

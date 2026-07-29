@@ -385,7 +385,8 @@ private:
 
     // Class-110 "Reactor Drone" game components.
     std::unordered_map<Entity, PlayerTag> player_tags_;
-    std::unordered_map<Entity, Experience> experiences_;
+    std::unordered_map<Entity, ShipState> ship_states_;
+    std::unordered_map<Entity, Pickup> pickups_;
     std::unordered_map<Entity, ContactDamage> contact_damages_;
     std::unordered_map<Entity, WeaponStats> weapon_stats_;
     std::unordered_map<Entity, Flash> flashes_;
@@ -489,8 +490,10 @@ template<> std::unordered_map<Entity, DamageEvent>& ComponentStorage::get_storag
 template<> const std::unordered_map<Entity, DamageEvent>& ComponentStorage::get_storage<DamageEvent>() const;
 template<> std::unordered_map<Entity, PlayerTag>& ComponentStorage::get_storage<PlayerTag>();
 template<> const std::unordered_map<Entity, PlayerTag>& ComponentStorage::get_storage<PlayerTag>() const;
-template<> std::unordered_map<Entity, Experience>& ComponentStorage::get_storage<Experience>();
-template<> const std::unordered_map<Entity, Experience>& ComponentStorage::get_storage<Experience>() const;
+template<> std::unordered_map<Entity, ShipState>& ComponentStorage::get_storage<ShipState>();
+template<> const std::unordered_map<Entity, ShipState>& ComponentStorage::get_storage<ShipState>() const;
+template<> std::unordered_map<Entity, Pickup>& ComponentStorage::get_storage<Pickup>();
+template<> const std::unordered_map<Entity, Pickup>& ComponentStorage::get_storage<Pickup>() const;
 template<> std::unordered_map<Entity, ContactDamage>& ComponentStorage::get_storage<ContactDamage>();
 template<> const std::unordered_map<Entity, ContactDamage>& ComponentStorage::get_storage<ContactDamage>() const;
 template<> std::unordered_map<Entity, WeaponStats>& ComponentStorage::get_storage<WeaponStats>();
@@ -820,7 +823,7 @@ extern template bool ComponentStorage::has_component<DamageEvent>(Entity) const;
 
 extern template std::vector<Entity> ComponentStorage::entities_with_component<DamageEvent>() const;
 
-// Class-110 game components (PlayerTag, Experience, ContactDamage, WeaponStats).
+// Class-110 game components (PlayerTag, ShipState, Pickup, ContactDamage, WeaponStats).
 #define CS110_EXTERN(T) \
     extern template void ComponentStorage::add_component<T>(Entity, const T&); \
     extern template std::optional<std::reference_wrapper<T>> ComponentStorage::get_component<T>(Entity); \
@@ -832,7 +835,8 @@ CS110_EXTERN(Tint)             // engine components (v2); registered via the sha
 CS110_EXTERN(Particle)
 CS110_EXTERN(ParticleEmitter)
 CS110_EXTERN(PlayerTag)
-CS110_EXTERN(Experience)
+CS110_EXTERN(ShipState)
+CS110_EXTERN(Pickup)
 CS110_EXTERN(ContactDamage)
 CS110_EXTERN(WeaponStats)
 CS110_EXTERN(Flash)

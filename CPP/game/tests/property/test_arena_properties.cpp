@@ -4,15 +4,17 @@
  * Uses GENERATE with the mandatory iteration counts. Properties covered:
  *  - aim round-trip: a velocity built from aim_angle points at the target;
  *  - ring spawn: every spawned enemy sits on the arena's spawn ring;
- *  - XP monotonicity: level never decreases and xp stays non-negative;
- *  - upgrade picker: always returns an in-bounds pool index.
+ *  - loot drops: a kill always drops between min_drops and max_drops pickups,
+ *    and the same seed always drops the same ones (R2).
  */
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 #include <catch2/generators/catch_generators_adapters.hpp>
 #include <catch2/generators/catch_generators_random.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <algorithm>
 #include <cmath>
+#include <tuple>
 
 #include "engine/ecs/entity_manager.hpp"
 #include "engine/ecs/component_storage.hpp"
@@ -22,8 +24,7 @@
 #include "game/player_components.hpp"
 #include "game/enemy_components.hpp"
 #include "game/arena_config.hpp"
-#include "game/upgrade_system.hpp"
-#include "game/experience_system.hpp"
+#include "game/enemy_death_system.hpp"
 #include "game/wave_spawner_system.hpp"
 
 using Catch::Matchers::WithinAbs;
@@ -87,40 +88,51 @@ TEST_CASE("Property: spawned enemies land on the arena spawn ring", "[Game][aren
     }
 }
 
-TEST_CASE("Property: XP grants keep level monotone and xp non-negative", "[Game][arena][property]") {
+TEST_CASE("Property: a kill drops min..max pickups, and the same seed drops the same ones",
+          "[Game][arena][property][economy]") {
     unsigned int seed = GENERATE(take(NUM_OUTER_TESTS, random(1u, 100000u)));
-    std::mt19937 rng(seed);
-    std::uniform_int_distribution<int> xp_dist(0, 40);
+    int max_drops = GENERATE(take(NUM_INNER_TESTS, random(1, 5)));
 
-    EntityManager em; ComponentStorage storage; Blackboard bb;
-    Entity p = em.create_entity();
-    storage.add_component<PlayerTag>(p, PlayerTag{});
-    storage.add_component<Experience>(p, Experience{0.0f, 1, 5.0f, 1.5f});
-    ExperienceSystem sys;
+    EconomyConfig ec;
+    ec.min_drops = 1;
+    ec.max_drops = max_drops;
+    ec.key_drop_chance = 0.5f;   // exercise the key branch often
 
-    int prev_level = 1;
-    for (int i = 0; i < NUM_INNER_TESTS + 3; ++i) {
-        bb.set("pending_xp", xp_dist(rng));
-        sys.update(storage, bb);
-        auto& exp = storage.get_component<Experience>(p)->get();
-        CHECK(exp.level >= prev_level);   // never decreases
-        CHECK(exp.xp >= 0.0f);            // never negative
-        prev_level = exp.level;
+    // Run the same kill twice from the same seed; the drops must match exactly.
+    auto run = [&]() {
+        EntityManager em; ComponentStorage storage; Blackboard bb;
+        Entity e = em.create_entity();
+        storage.add_component<EnemyTag>(e, EnemyTag{});
+        storage.add_component<Health>(e, Health{0.0f, 20.0f});
+        storage.add_component<Position>(e, Position{100.0f, 100.0f});
+        storage.add_component<Size>(e, Size{64.0f, 64.0f});
+        storage.add_component<ContactDamage>(e, ContactDamage{8.0f, 10, 3});
+
+        EnemyDeathSystem sys;
+        sys.set_economy(ec, seed);
+        sys.update(storage, em, bb);
+
+        std::vector<std::tuple<int, int, float, float>> drops;
+        for (Entity p : storage.entities_with_component<Pickup>()) {
+            const Pickup& pk = storage.get_component<Pickup>(p)->get();
+            const Position& po = storage.get_component<Position>(p)->get();
+            drops.emplace_back(pk.kind, pk.value, po.x, po.y);
+        }
+        std::sort(drops.begin(), drops.end());
+        return drops;
+    };
+
+    auto a = run();
+    auto b = run();
+    CHECK(a == b);                                  // R2: seeded drops are reproducible
+
+    int currency = 0, keys = 0;
+    for (const auto& [kind, value, x, y] : a) {
+        (void)x; (void)y;
+        if (kind == static_cast<int>(PickupKind::Key)) keys += 1;
+        else { currency += 1; CHECK(value == 3); }  // carries the type's currency
     }
-}
-
-TEST_CASE("Property: upgrade picker always returns an in-bounds index", "[Game][arena][property]") {
-    unsigned int seed = GENERATE(take(NUM_OUTER_TESTS, random(1u, 100000u)));
-    std::mt19937 rng(seed);
-    std::uniform_int_distribution<int> size_dist(1, 6);
-    std::uniform_real_distribution<float> weight_dist(0.0f, 5.0f);
-    std::uniform_real_distribution<float> roll_dist(0.0f, 1.0f);
-
-    for (int i = 0; i < NUM_INNER_TESTS; ++i) {
-        int n = size_dist(rng);
-        std::vector<Upgrade> pool;
-        for (int k = 0; k < n; ++k) pool.push_back(Upgrade{"s", 1.0f, weight_dist(rng), "L"});
-        size_t idx = UpgradeSystem::pick_index(pool, roll_dist(rng));
-        CHECK(idx < pool.size());
-    }
+    CHECK(currency >= ec.min_drops);
+    CHECK(currency <= ec.max_drops);
+    CHECK(keys <= 1);
 }

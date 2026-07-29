@@ -34,6 +34,7 @@ GameConfig load_arena_config(const std::string& file_path) {
 
     if (data.contains("seed")) cfg.seed = data["seed"].get<unsigned int>();
     if (data.contains("victory_wave")) cfg.victory_wave = data["victory_wave"].get<int>();
+    cfg.wave_stall_timeout = data.value("wave_stall_timeout", cfg.wave_stall_timeout);
 
     if (data.contains("arena")) {
         const auto& a = data["arena"];
@@ -106,7 +107,7 @@ GameConfig load_arena_config(const std::string& file_path) {
             t.contact_damage = e.value("contact_damage", t.contact_damage);
             t.size           = e.value("size", t.size);
             t.score          = e.value("score", t.score);
-            t.xp             = e.value("xp", t.xp);
+            t.currency       = e.value("currency", t.currency);
             cfg.enemy_types.push_back(std::move(t));
         }
     }
@@ -117,15 +118,12 @@ GameConfig load_arena_config(const std::string& file_path) {
             wd.count          = w.value("count", wd.count);
             wd.spawn_interval = w.value("spawn_interval", wd.spawn_interval);
             wd.delay          = w.value("delay", wd.delay);
+            wd.duration       = w.value("duration", wd.duration);
+            wd.hp_mult        = w.value("hp_mult", wd.hp_mult);
+            wd.speed_mult     = w.value("speed_mult", wd.speed_mult);
             if (w.contains("types")) wd.types = w["types"].get<std::vector<int>>();
             cfg.waves.push_back(std::move(wd));
         }
-    }
-
-    if (data.contains("xp_curve")) {
-        const auto& x = data["xp_curve"];
-        cfg.xp_level2     = x.value("level2", cfg.xp_level2);
-        cfg.xp_multiplier = x.value("multiplier", cfg.xp_multiplier);
     }
 
     if (data.contains("feedback")) {
@@ -160,14 +158,36 @@ GameConfig load_arena_config(const std::string& file_path) {
         cfg.pathfinding.clearance       = p.value("clearance", cfg.pathfinding.clearance);
     }
 
-    if (data.contains("upgrades")) {
-        for (const auto& u : data["upgrades"]) {
-            Upgrade up;
-            up.stat   = u.value("stat", std::string());
-            up.amount = u.value("amount", 0.0f);
-            up.weight = u.value("weight", 1.0f);
-            up.label  = u.value("label", up.stat);
-            cfg.upgrades.push_back(std::move(up));
+    if (data.contains("economy")) {
+        const auto& e = data["economy"];
+        EconomyConfig& ec = cfg.economy;
+        ec.min_drops            = e.value("min_drops", ec.min_drops);
+        ec.max_drops            = e.value("max_drops", ec.max_drops);
+        ec.key_drop_chance      = e.value("key_drop_chance", ec.key_drop_chance);
+        ec.pickup_lifetime      = e.value("pickup_lifetime", ec.pickup_lifetime);
+        ec.pickup_size          = e.value("pickup_size", ec.pickup_size);
+        ec.pickup_scatter       = e.value("pickup_scatter", ec.pickup_scatter);
+        ec.pickup_magnet_speed  = e.value("pickup_magnet_speed", ec.pickup_magnet_speed);
+        ec.pickup_magnet_radius = e.value("pickup_magnet_radius", ec.pickup_magnet_radius);
+    }
+
+    if (data.contains("shop")) {
+        const auto& s = data["shop"];
+        ShopConfig& sc = cfg.shop;
+        sc.price_growth       = s.value("price_growth", sc.price_growth);
+        sc.shield_regen_delay = s.value("shield_regen_delay", sc.shield_regen_delay);
+        if (s.contains("upgrades")) {
+            for (const auto& u : s["upgrades"]) {
+                ShopUpgradeDef d;
+                d.name       = u.value("name", d.name);
+                d.effect     = u.value("effect", d.effect);
+                d.price      = u.value("price", d.price);
+                d.amount     = u.value("amount", d.amount);
+                d.max_stacks = u.value("max_stacks", d.max_stacks);
+                cfg.shop.upgrades.push_back(std::move(d));
+            }
+            // upg_counts is 8 wide; extra rows would have nowhere to record a purchase.
+            if (cfg.shop.upgrades.size() > 8) cfg.shop.upgrades.resize(8);
         }
     }
 

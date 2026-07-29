@@ -31,7 +31,9 @@ const std::vector<std::string> VALID_KEY_NAMES = {
     "F1", "F2", "F9", "F10",
     "H", "J", "T", "C", "ESC",
     "PLUS", "MINUS",
-    "W", "A", "S", "D", "R", "P"
+    "W", "A", "S", "D", "R", "P",
+    // Gameplay Phase 3: shop keys, so a headless script can open the shop and buy.
+    "B", "1", "2", "3", "4", "5", "6", "7", "8"
 };
 
 // ---------------------------------------------------------------------------

@@ -88,14 +88,20 @@ struct EnemyType {
     float contact_damage = 10.0f;
     float size = 40.0f;
     int score = 10;
-    int xp = 1;
+    int currency = 1;   // value of each currency pickup this type drops
 };
 
 struct WaveDef {
-    int count = 5;                 // enemies in this wave
+    int count = 5;                 // enemies in this wave (fixed-count mode)
     float spawn_interval = 0.8f;   // seconds between spawns
     float delay = 1.0f;            // seconds before the wave starts
     std::vector<int> types;        // indices into enemy_types (empty = all)
+    // v2 Gameplay Phase 1: >0 turns the wave *timed* — spawn for `duration`
+    // seconds after the delay, ignoring `count`. hp/speed multipliers scale the
+    // shared enemy_types instead of needing new ones.
+    float duration = 0.0f;
+    float hp_mult = 1.0f;
+    float speed_mult = 1.0f;
 };
 
 /**
@@ -126,11 +132,47 @@ struct PathfindingConfig {
     float clearance = 24.0f;
 };
 
-struct Upgrade {
-    std::string stat;              // fire_rate | damage | projectile_speed | max_health | spread
-    float amount = 0.0f;
-    float weight = 1.0f;
-    std::string label;             // HUD text, e.g. "Rapid Fire"
+/**
+ * EconomyConfig — currency/key drop tuning (Gameplay Phase 2, D5). Every number
+ * the drop economy depends on lives here so it can be re-balanced without a
+ * rebuild (R6). Drop counts are inclusive bounds on a uniform roll.
+ */
+struct EconomyConfig {
+    int min_drops = 1;                  // currency pickups per kill, lower bound
+    int max_drops = 3;                  // ... upper bound
+    float key_drop_chance = 0.02f;      // P(a kill also drops a shop key)
+    float pickup_lifetime = 12.0f;      // seconds before an uncollected drop fades
+    float pickup_size = 16.0f;          // draw + collection radius basis (px)
+    float pickup_scatter = 26.0f;       // max offset from the corpse (px)
+    float pickup_magnet_speed = 420.0f; // Magnet Core pull speed (Phase 4)
+    float pickup_magnet_radius = 220.0f;// Magnet Core pull range (Phase 4)
+};
+
+/**
+ * ShopUpgradeDef — one row of the shop catalogue (Gameplay Phase 3).
+ *
+ * `effect` is the string ShopSystem switches on; the JSON order is also the slot
+ * in ShipState.upg_counts, so rows may be re-priced or renamed freely but
+ * re-ordering them re-labels a player's existing purchase counts. `price` is the
+ * first purchase; each later one costs price * ShopConfig::price_growth^count.
+ */
+struct ShopUpgradeDef {
+    std::string name = "Upgrade";
+    std::string effect;        // hull | shield | speed | fire_rate | damage | extra_shot
+    int price = 50;            // cost of the first purchase
+    float amount = 1.0f;       // effect magnitude per purchase
+    int max_stacks = 8;        // 0 = unlimited
+};
+
+/**
+ * ShopConfig — the shop catalogue and its two shared knobs (Phase 3, D1/R6).
+ * Everything the shop costs or grants is data; the code only knows the effect
+ * names. Max 8 upgrades — that is the width of ShipState.upg_counts.
+ */
+struct ShopConfig {
+    float price_growth = 1.5f;        // multiplier per repeat purchase
+    float shield_regen_delay = 3.0f;  // seconds without damage before shields regen
+    std::vector<ShopUpgradeDef> upgrades;
 };
 
 struct GameConfig {
@@ -138,14 +180,17 @@ struct GameConfig {
     PlayerConfig player;
     std::vector<EnemyType> enemy_types;
     std::vector<WaveDef> waves;
-    std::vector<Upgrade> upgrades;
     std::vector<ArenaDef> arenas;  // v2 Phase 6: themed arenas swapped by wave
     FeedbackConfig feedback;
     PathfindingConfig pathfinding;  // v2 Phase 7: enemy A* tuning
     int victory_wave = 0;          // 0 = survive all waves; N = win after clearing wave N
-    float xp_level2 = 5.0f;        // XP needed for level 2
-    float xp_multiplier = 1.5f;    // threshold growth per level
-    unsigned int seed = 1234u;     // RNG seed for spread/spawn/upgrades
+    // v2 Gameplay Phase 1: waves now advance only on a cleared arena, so an
+    // unreachable enemy would soft-lock the run. After this many seconds of a
+    // finished-but-uncleared wave, the stragglers are force-killed.
+    float wave_stall_timeout = 30.0f;
+    EconomyConfig economy;         // v2 Gameplay Phase 2: currency/key drops
+    ShopConfig shop;               // v2 Gameplay Phase 3: catalogue + prices
+    unsigned int seed = 1234u;     // RNG seed for spread/spawn/drops
 };
 
 /**
