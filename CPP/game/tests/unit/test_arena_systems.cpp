@@ -23,6 +23,7 @@
 #include "game/player_damage_system.hpp"
 #include "game/shop_system.hpp"
 #include "game/shield_system.hpp"
+#include "game/item_system.hpp"
 #include "engine/ecs/destruction.hpp"
 
 using Catch::Matchers::WithinAbs;
@@ -362,4 +363,223 @@ TEST_CASE("Shields soak damage before hull and regen only after a quiet delay",
     auto events = storage.entities_with_component<DamageEvent>();
     REQUIRE(events.size() == 1);
     CHECK_THAT(storage.get_component<DamageEvent>(events[0])->get().amount, WithinAbs(7.0f, 1e-4));
+}
+
+// v2 Gameplay Phase 4: items, consumables, and the one timed buff.
+
+static GameConfig gear_config() {
+    GameConfig cfg;
+    cfg.shop.repulsor_radius = 100.0f;
+    cfg.shop.upgrades = { {"Hull Plating", "hull", 50, 25.0f, 2} };
+    cfg.shop.items = {
+        {"Magnet Core",      "magnet",   120, 0.0f,  0},
+        {"Repulsor Field",   "repulsor", 120, 40.0f, 0},
+        {"Reactive Plating", "reactive", 120, 25.0f, 0},
+        {"Salvager",         "salvage",  120, 1.5f,  0},
+    };
+    cfg.shop.consumables = {
+        {"Repair Kit",  "repair",      45, 60.0f, 0},
+        {"Overdrive",   "overdrive",   45, 2.0f,  0, 8.0f},
+        {"EMP Burst",   "emp",         45, 45.0f, 0},
+        {"Phase Shift", "phase_shift", 45, 0.0f,  0, 3.0f},
+    };
+    return cfg;
+}
+
+TEST_CASE("The gear page equips one item and one consumable, replacing the slot",
+          "[Game][arena][items]") {
+    GameConfig cfg = gear_config();
+    EntityManager em; ComponentStorage storage; Blackboard bb;
+    bb.set<int>("window_width", 980); bb.set<int>("window_height", 660);
+
+    Entity p = em.create_entity();
+    storage.add_component<PlayerTag>(p, PlayerTag{});
+    storage.add_component<ShipState>(p, ShipState{});
+    ShipState& ship = storage.get_component<ShipState>(p)->get();
+    ship.currency = 500;
+
+    ShopSystem shop;
+    shop.set_config(&cfg.shop);
+    shop.open(storage, em, bb);
+
+    // Page 0 is upgrades: digit 1 must not equip anything.
+    shop.update(storage, bb, 1, false);
+    CHECK(ship.item_id == -1);
+    CHECK(ship.upg_counts[0] == 1);
+
+    shop.update(storage, bb, 0, false, /*toggle_page=*/true);   // -> gear page
+    shop.update(storage, bb, 4, false);                          // row 4 = Salvager
+    CHECK(ship.item_id == item_ids::SALVAGER);
+    CHECK_THAT(bb.get_or<float>("ship.item_amount", 0.0f), WithinAbs(1.5f, 1e-4));
+    CHECK(ship.currency == 500 - 50 - 120);
+
+    // Rows 5-8 are the consumables; equipping an item does not touch that slot.
+    shop.update(storage, bb, 6, false);                          // row 6 = Overdrive
+    CHECK(ship.item_id == item_ids::SALVAGER);
+    CHECK(ship.consumable_id == consumable_ids::OVERDRIVE);
+    CHECK(ship.currency == 500 - 50 - 120 - 45);
+
+    // One slot: a second item replaces the first, with no refund.
+    shop.update(storage, bb, 1, false);                          // row 1 = Magnet Core
+    CHECK(ship.item_id == item_ids::MAGNET_CORE);
+    CHECK(ship.item_id == PickupSystem::ITEM_MAGNET_CORE);       // the id PickupSystem gates on
+    CHECK(ship.currency == 500 - 50 - 120 - 45 - 120);
+
+    // Broke: the slot keeps what it had.
+    ship.currency = 10;
+    shop.update(storage, bb, 2, false);
+    CHECK(ship.item_id == item_ids::MAGNET_CORE);
+    CHECK(ship.currency == 10);
+}
+
+TEST_CASE("Magnet Core pulls loot in and Salvager pays more for it",
+          "[Game][arena][items]") {
+    EntityManager em; ComponentStorage storage; Blackboard bb;
+    bb.set<double>("delta_time", 0.1);
+
+    Entity p = em.create_entity();
+    storage.add_component<PlayerTag>(p, PlayerTag{});
+    storage.add_component<Position>(p, Position{100.0f, 100.0f});
+    storage.add_component<Size>(p, Size{40.0f, 40.0f});     // centre (120,120), r=20
+    storage.add_component<ShipState>(p, ShipState{});
+    ShipState& ship = storage.get_component<ShipState>(p)->get();
+
+    Entity loot = em.create_entity();
+    storage.add_component<Position>(loot, Position{212.0f, 112.0f});   // centre (220,120)
+    storage.add_component<Size>(loot, Size{16.0f, 16.0f});
+    storage.add_component<Pickup>(loot, Pickup{static_cast<int>(PickupKind::Currency), 1, 300.0f});
+
+    PickupSystem sys;                       // default economy: magnet radius 220
+    sys.update(storage, em, bb);
+    CHECK_THAT(storage.get_component<Position>(loot)->get().x, WithinAbs(212.0f, 1e-4));
+
+    // Equipped: 300 px/s for 0.1 s = 30 px closer, and never past the ship.
+    ship.item_id = item_ids::MAGNET_CORE;
+    sys.update(storage, em, bb);
+    CHECK_THAT(storage.get_component<Position>(loot)->get().x, WithinAbs(182.0f, 1e-3));
+    CHECK_FALSE(storage.has_component<DestroyRequest>(loot));
+    for (int i = 0; i < 10 && !storage.has_component<DestroyRequest>(loot); ++i)
+        sys.update(storage, em, bb);
+    CHECK(storage.has_component<DestroyRequest>(loot));
+    CHECK(ship.currency == 1);              // no Salvager: face value
+
+    // Salvager: x1.5 with a floor of +1, so the 1-credit common drop still gains.
+    ship.item_id = item_ids::SALVAGER;
+    bb.set<float>("ship.item_amount", 1.5f);
+    auto drop = [&](int value) {
+        Entity e = em.create_entity();
+        storage.add_component<Position>(e, Position{115.0f, 115.0f});
+        storage.add_component<Size>(e, Size{16.0f, 16.0f});
+        storage.add_component<Pickup>(e, Pickup{static_cast<int>(PickupKind::Currency), value, 0.0f});
+    };
+    drop(1); drop(4);
+    sys.update(storage, em, bb);
+    CHECK(ship.currency == 1 + 2 + 6);
+}
+
+TEST_CASE("Repulsor Field shoves enemies to the rim and no further",
+          "[Game][arena][items]") {
+    EntityManager em; ComponentStorage storage; Blackboard bb;
+
+    Entity p = em.create_entity();
+    storage.add_component<PlayerTag>(p, PlayerTag{});
+    storage.add_component<Position>(p, Position{100.0f, 100.0f});
+    storage.add_component<Size>(p, Size{40.0f, 40.0f});      // centre (120,120)
+    storage.add_component<ShipState>(p, ShipState{});
+    ShipState& ship = storage.get_component<ShipState>(p)->get();
+
+    Entity e = em.create_entity();
+    storage.add_component<EnemyTag>(e, EnemyTag{});
+    storage.add_component<Position>(e, Position{140.0f, 88.0f});   // centre (172,120): 52 away
+    storage.add_component<Size>(e, Size{64.0f, 64.0f});
+
+    bb.set<float>("ship.item_amount", 40.0f);
+    items::repulse_enemies(storage, bb, 100.0f, 0.5f);             // no item equipped
+    CHECK_THAT(storage.get_component<Position>(e)->get().x, WithinAbs(140.0f, 1e-4));
+
+    ship.item_id = item_ids::REPULSOR_FIELD;
+    items::repulse_enemies(storage, bb, 100.0f, 0.5f);             // 20 px outward
+    CHECK_THAT(storage.get_component<Position>(e)->get().x, WithinAbs(160.0f, 1e-3));
+
+    // Clamped at the rim: many seconds of push never exceed the radius.
+    for (int i = 0; i < 20; ++i) items::repulse_enemies(storage, bb, 100.0f, 0.5f);
+    CHECK_THAT(storage.get_component<Position>(e)->get().x, WithinAbs(188.0f, 1e-3));
+}
+
+TEST_CASE("Reactive Plating hits the attacker back, shield or no shield",
+          "[Game][arena][items]") {
+    EntityManager em; ComponentStorage storage; Blackboard bb;
+    bb.set<double>("delta_time", 0.016);
+    bb.set<float>("player.invuln_window", 0.8f);
+    bb.set<float>("ship.item_amount", 25.0f);
+
+    Entity enemy = em.create_entity();
+    storage.add_component<EnemyTag>(enemy, EnemyTag{});
+    storage.add_component<Health>(enemy, Health{20.0f, 20.0f});
+    storage.add_component<ContactDamage>(enemy, ContactDamage{12.0f, 10, 1});
+
+    Entity p = em.create_entity();
+    storage.add_component<PlayerTag>(p, PlayerTag{});
+    storage.add_component<Health>(p, Health{100.0f, 100.0f});
+    storage.add_component<CollidedWith>(p, CollidedWith{{enemy}});
+    storage.add_component<ShipState>(p, ShipState{});
+    ShipState& ship = storage.get_component<ShipState>(p)->get();
+    ship.item_id = item_ids::REACTIVE_PLATING;
+    ship.shield = ship.shield_max = 50.0f;    // the hit is fully absorbed
+
+    PlayerDamageSystem dmg;
+    dmg.update(em, storage, bb);
+
+    auto events = storage.entities_with_component<DamageEvent>();
+    REQUIRE(events.size() == 1);              // no hull event: only the reflect
+    CHECK(storage.get_component<DamageEvent>(events[0])->get().target_entity == enemy);
+    CHECK_THAT(storage.get_component<DamageEvent>(events[0])->get().amount, WithinAbs(25.0f, 1e-4));
+}
+
+TEST_CASE("Consumables fire once and Overdrive expires on its own",
+          "[Game][arena][consumables]") {
+    GameConfig cfg = gear_config();
+    EntityManager em; ComponentStorage storage; Blackboard bb;
+
+    Entity p = em.create_entity();
+    storage.add_component<PlayerTag>(p, PlayerTag{});
+    storage.add_component<Health>(p, Health{40.0f, 100.0f});
+    storage.add_component<ShipState>(p, ShipState{});
+    ShipState& ship = storage.get_component<ShipState>(p)->get();
+
+    // Empty slot: nothing happens.
+    CHECK_FALSE(items::use_consumable(storage, em, bb, cfg.shop));
+
+    ship.consumable_id = consumable_ids::REPAIR_KIT;
+    CHECK(items::use_consumable(storage, em, bb, cfg.shop));
+    CHECK_THAT(storage.get_component<Health>(p)->get().current, WithinAbs(100.0f, 1e-4));  // capped
+    CHECK(ship.consumable_id == -1);          // one use, then the slot is empty
+    CHECK_FALSE(items::use_consumable(storage, em, bb, cfg.shop));
+
+    ship.consumable_id = consumable_ids::OVERDRIVE;
+    CHECK(items::use_consumable(storage, em, bb, cfg.shop));
+    CHECK(ship.buff_id == consumable_ids::OVERDRIVE);
+    CHECK_THAT(ship.buff_timer, WithinAbs(8.0f, 1e-4));
+    CHECK_THAT(bb.get_or<float>("ship.buff_mult", 0.0f), WithinAbs(2.0f, 1e-4));
+    tick_buff(storage, 7.0f);
+    CHECK(ship.buff_id == consumable_ids::OVERDRIVE);
+    tick_buff(storage, 2.0f);
+    CHECK(ship.buff_id == -1);                // expired; no fire_rate to restore (D34)
+    CHECK_THAT(ship.buff_timer, WithinAbs(0.0f, 1e-4));
+
+    ship.consumable_id = consumable_ids::PHASE_SHIFT;
+    CHECK(items::use_consumable(storage, em, bb, cfg.shop));
+    CHECK_THAT(bb.get_or<float>("player.iframes", 0.0f), WithinAbs(3.0f, 1e-4));
+
+    // EMP damages every living enemy, once each.
+    for (int i = 0; i < 3; ++i) {
+        Entity e = em.create_entity();
+        storage.add_component<EnemyTag>(e, EnemyTag{});
+        storage.add_component<Health>(e, Health{i == 2 ? 0.0f : 30.0f, 30.0f});  // one corpse
+    }
+    ship.consumable_id = consumable_ids::EMP_BURST;
+    CHECK(items::use_consumable(storage, em, bb, cfg.shop));
+    auto events = storage.entities_with_component<DamageEvent>();
+    REQUIRE(events.size() == 2);              // the dead one is skipped
+    CHECK_THAT(storage.get_component<DamageEvent>(events[0])->get().amount, WithinAbs(45.0f, 1e-4));
 }

@@ -29,7 +29,14 @@ void PlayerFireSystem::update(ComponentStorage& storage,
         if (!firing || wpn.cooldown_remaining > 0.0f) continue;
 
         // Ready to fire: reset cooldown from fire rate (guard against 0).
-        wpn.cooldown_remaining = wpn.fire_rate > 0.0f ? 1.0f / wpn.fire_rate : 0.25f;
+        // Gameplay Phase 4: Overdrive scales the rate while its buff is live.
+        // Read here rather than written into WeaponStats on use, so a shop
+        // purchase during the buff can never be undone by the expiry (D34).
+        float rate = wpn.fire_rate;
+        if (auto s = storage.get_component<ShipState>(player);
+            s.has_value() && s->get().buff_id == consumable_ids::OVERDRIVE)
+            rate *= blackboard.get_or<float>("ship.buff_mult", 1.0f);
+        wpn.cooldown_remaining = rate > 0.0f ? 1.0f / rate : 0.25f;
 
         // Muzzle at the player's center.
         const Position& ppos = pos_opt->get();

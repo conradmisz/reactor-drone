@@ -26,6 +26,7 @@ private:
     Entity wave_entity_ = 0;
     Entity health_entity_ = 0;
     Entity credits_entity_ = 0;
+    Entity slots_entity_ = 0;      // Phase 4: equipped item / consumable / buff timer
     Entity status_entity_ = 0;
     Entity message_entity_ = 0;
     bool initialized_ = false;

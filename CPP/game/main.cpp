@@ -61,6 +61,7 @@
 #include "wave_spawner_system.hpp"
 #include "shop_system.hpp"
 #include "shield_system.hpp"
+#include "item_system.hpp"
 #include "game_hud_system.hpp"
 #include "feedback.hpp"
 #include "flash_system.hpp"
@@ -297,6 +298,12 @@ int main(int argc, char* argv[]) {
         // that spawn_world rebuilds anyway; the barrel count is the one that lives
         // on the blackboard, so it is the one that needs clearing by hand.
         blackboard.set<int>("ship.extra_shots", 0);
+        // Phase 4's equipment publishes the same way (the ids themselves live on
+        // the rebuilt ShipState, so only these four need clearing by hand).
+        blackboard.set<float>("ship.item_amount", 0.0f);
+        blackboard.set<float>("ship.buff_mult", 1.0f);
+        blackboard.set<std::string>("ship.item_name", std::string());
+        blackboard.set<std::string>("ship.consumable_name", std::string());
         wave_spawner.reset();
 
         // Player entity.
@@ -366,6 +373,7 @@ int main(int argc, char* argv[]) {
 
     bool debug_paused = false, step_requested = false;
     bool f1_prev = false, f2_prev = false, space_prev = false, b_prev = false;
+    bool tab_prev = false, q_prev = false;
     bool digit_prev[8] = {false};
     if (opts.paused) debug_paused = true;
 
@@ -389,12 +397,14 @@ int main(int argc, char* argv[]) {
         }
         bool scripted_fire = false, scripted_advance = false;
         int scripted_digit = 0;
-        bool scripted_shop = false;
+        bool scripted_shop = false, scripted_tab = false, scripted_use = false;
         for (const auto& ka : opts.keys) if (ka.frame == frame) {
             if (ka.key == "ESC") running = false;
             else if (ka.key == "SPACE") { scripted_fire = true; scripted_advance = true; }
             else if (ka.key == "F1") debug_paused = !debug_paused;
             else if (ka.key == "B") scripted_shop = true;
+            else if (ka.key == "TAB") scripted_tab = true;
+            else if (ka.key == "Q") scripted_use = true;
             // Gameplay Phase 3: digits buy shop rows, so a headless script can
             // exercise a purchase (the shop is otherwise unreachable in tests).
             else if (ka.key.size() == 1 && ka.key[0] >= '1' && ka.key[0] <= '8')
@@ -416,6 +426,13 @@ int main(int argc, char* argv[]) {
         bool b_now = keys[SDL_SCANCODE_B];
         bool b_edge = (b_now && !b_prev) || scripted_shop;
         b_prev = b_now;
+        // Gameplay Phase 4: TAB flips the shop page, Q spends the consumable.
+        bool tab_now = keys[SDL_SCANCODE_TAB];
+        bool tab_edge = (tab_now && !tab_prev) || scripted_tab;
+        tab_prev = tab_now;
+        bool q_now = keys[SDL_SCANCODE_Q];
+        bool q_edge = (q_now && !q_prev) || scripted_use;
+        q_prev = q_now;
         int digit = scripted_digit;
         for (int d = 0; d < 8; ++d) {
             bool down = keys[SDL_SCANCODE_1 + d];
@@ -518,6 +535,17 @@ int main(int argc, char* argv[]) {
                 for (Entity e : component_storage.entities_with_component<EnemyTag>()) push_out(e);
             }
 
+            // Gameplay Phase 4: the Repulsor Field runs after the arena clamp and
+            // the obstacle push-out, so "solid wall" still gets the last word on
+            // where an enemy ends up; a shoved enemy is re-clamped next frame.
+            items::repulse_enemies(component_storage, blackboard,
+                                   config.shop.repulsor_radius,
+                                   static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)));
+
+            // Q spends the held consumable. Nothing to do if the slot is empty.
+            if (q_edge) items::use_consumable(component_storage, entity_manager,
+                                              blackboard, config.shop);
+
             player_fire.update(component_storage, entity_manager, blackboard);
             collision.update(component_storage, blackboard);
             projectile_hit.update(entity_manager, component_storage, blackboard);
@@ -525,6 +553,9 @@ int main(int argc, char* argv[]) {
             // the quiet timer with the last word (Phase 3).
             tick_shields(component_storage,
                          static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)));
+            // Same shape, same place (D29): one countdown on ShipState.
+            tick_buff(component_storage,
+                      static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)));
             player_damage.update(entity_manager, component_storage, blackboard);
             damage_apply.update(entity_manager, component_storage);
             enemy_death.update(component_storage, entity_manager, blackboard);
@@ -568,7 +599,7 @@ int main(int argc, char* argv[]) {
             // no damage. Purchases and rendering are ShopSystem's (R7).
             // Only B closes the shop: SPACE is the fire key, and a player holding it
             // when the wave cleared would never see the shop at all.
-            if (shop.update(component_storage, blackboard, digit, b_edge)) {
+            if (shop.update(component_storage, blackboard, digit, b_edge, tab_edge)) {
                 shop.close(component_storage);
                 phase = PHASE_PLAYING;
             }

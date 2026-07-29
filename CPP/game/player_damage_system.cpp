@@ -43,6 +43,15 @@ void PlayerDamageSystem::update(EntityManager& entity_manager,
                     ship.shield -= soaked;
                     amount -= soaked;
                 }
+
+                // Gameplay Phase 4: Reactive Plating hits the attacker back. It
+                // fires on contact, not on hull loss, so it still works behind a
+                // full shield — the plating reacts to being *rammed*.
+                float reflect = blackboard.get_or<float>("ship.item_amount", 0.0f);
+                if (ship.item_id == item_ids::REACTIVE_PLATING && reflect > 0.0f) {
+                    Entity back = entity_manager.create_entity();
+                    storage.add_component<DamageEvent>(back, DamageEvent{other, reflect});
+                }
             }
 
             if (amount > 0.0f) {

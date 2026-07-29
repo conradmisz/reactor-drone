@@ -32,4 +32,24 @@ inline void tick_shields(ComponentStorage& storage, float dt) {
     }
 }
 
+/**
+ * tick_buff — expire the active timed consumable buff (Gameplay Phase 4, D29).
+ *
+ * The buff is *read* where it matters (PlayerFireSystem scales fire_rate while
+ * buff_id == consumable_ids::OVERDRIVE), so expiry is only "clear the id" — no
+ * save/restore step to get wrong when the shop edits the same stat mid-buff.
+ * Re-using a consumable resets the timer rather than stacking, which falls out
+ * of there being exactly one buff slot.
+ */
+inline void tick_buff(ComponentStorage& storage, float dt) {
+    for (Entity p : storage.entities_with_component<PlayerTag>()) {
+        auto s = storage.get_component<ShipState>(p);
+        if (!s.has_value()) continue;
+        ShipState& ship = s->get();
+        if (ship.buff_id < 0) continue;
+        ship.buff_timer -= dt;
+        if (ship.buff_timer <= 0.0f) { ship.buff_id = -1; ship.buff_timer = 0.0f; }
+    }
+}
+
 #endif // SHIELD_SYSTEM_HPP

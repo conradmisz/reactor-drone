@@ -1,5 +1,6 @@
 #include "pickup_system.hpp"
 #include "player_components.hpp"   // PlayerTag, ShipState, Pickup
+#include <algorithm>
 #include <cmath>
 
 void PickupSystem::update(ComponentStorage& component_storage,
@@ -29,9 +30,13 @@ void PickupSystem::update(ComponentStorage& component_storage,
     if (!ship_opt.has_value()) return;
     ShipState& ship = ship_opt->get();
 
-    // Magnet Core is granted in Phase 4; until then item_id is always -1 and this
-    // whole branch is inert.
     const bool magnet = (ship.item_id == ITEM_MAGNET_CORE);
+    // Salvager (Phase 4): every credit pickup is worth more. Values are small
+    // ints (1/2/4), so a bare multiply would round 1 x 1.25 straight back to 1 —
+    // the floor of +1 guarantees the item is never a no-op on the common drop.
+    const float salvage = (ship.item_id == item_ids::SALVAGER)
+                              ? blackboard.get_or<float>("ship.item_amount", 1.0f)
+                              : 1.0f;
 
     for (Entity e : component_storage.entities_with_component<Pickup>()) {
         if (component_storage.has_component<DestroyRequest>(e)) continue;
@@ -59,8 +64,13 @@ void PickupSystem::update(ComponentStorage& component_storage,
         if (dist > pr + half) continue;
 
         const Pickup& pk = component_storage.get_component<Pickup>(e)->get();
-        if (pk.kind == static_cast<int>(PickupKind::Key)) ship.keys += pk.value;
-        else                                              ship.currency += pk.value;
+        if (pk.kind == static_cast<int>(PickupKind::Key)) {
+            ship.keys += pk.value;
+        } else {
+            ship.currency += salvage > 1.0f
+                ? std::max(pk.value + 1, static_cast<int>(std::lround(pk.value * salvage)))
+                : pk.value;
+        }
 
         // One-shot pop: a short-lived host carrying a burst emitter, the same
         // pattern EnemyDeathSystem uses for the death burst.

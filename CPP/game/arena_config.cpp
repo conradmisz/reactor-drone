@@ -176,19 +176,31 @@ GameConfig load_arena_config(const std::string& file_path) {
         ShopConfig& sc = cfg.shop;
         sc.price_growth       = s.value("price_growth", sc.price_growth);
         sc.shield_regen_delay = s.value("shield_regen_delay", sc.shield_regen_delay);
-        if (s.contains("upgrades")) {
-            for (const auto& u : s["upgrades"]) {
+        sc.repulsor_radius    = s.value("repulsor_radius", sc.repulsor_radius);
+
+        auto read_rows = [&](const char* key, std::vector<ShopUpgradeDef>& out) {
+            if (!s.contains(key)) return;
+            for (const auto& u : s[key]) {
                 ShopUpgradeDef d;
                 d.name       = u.value("name", d.name);
                 d.effect     = u.value("effect", d.effect);
                 d.price      = u.value("price", d.price);
                 d.amount     = u.value("amount", d.amount);
                 d.max_stacks = u.value("max_stacks", d.max_stacks);
-                cfg.shop.upgrades.push_back(std::move(d));
+                d.duration   = u.value("duration", d.duration);
+                out.push_back(std::move(d));
             }
-            // upg_counts is 8 wide; extra rows would have nowhere to record a purchase.
-            if (cfg.shop.upgrades.size() > 8) cfg.shop.upgrades.resize(8);
-        }
+        };
+        read_rows("upgrades", sc.upgrades);
+        read_rows("items", sc.items);
+        read_rows("consumables", sc.consumables);
+
+        // upg_counts is 8 wide; extra rows would have nowhere to record a purchase.
+        if (sc.upgrades.size() > 8) sc.upgrades.resize(8);
+        // Items + consumables share the 1-8 keys on the shop's gear page.
+        if (sc.items.size() > 8) sc.items.resize(8);
+        if (sc.items.size() + sc.consumables.size() > 8)
+            sc.consumables.resize(8 - sc.items.size());
     }
 
     return cfg;

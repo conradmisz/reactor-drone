@@ -41,11 +41,12 @@ public:
 
     /**
      * One shop frame. `digit` is 1-8 for a purchase row (0 = nothing pressed),
-     * `leave` is the close key. Returns true when the player is done, at which
-     * point main.cpp switches back to PHASE_PLAYING.
+     * `leave` is the close key, `toggle_page` flips between the upgrade page and
+     * the Phase 4 gear page (items + consumables). Returns true when the player
+     * is done, at which point main.cpp switches back to PHASE_PLAYING.
      */
     bool update(ComponentStorage& storage, Blackboard& blackboard,
-                int digit, bool leave);
+                int digit, bool leave, bool toggle_page = false);
 
     /// Price of the next purchase of catalogue row `index` for a given count.
     int price_for(int index, int already_bought) const;
@@ -53,11 +54,19 @@ public:
 private:
     void apply(const ShopUpgradeDef& def, Entity player,
                ComponentStorage& storage, Blackboard& blackboard);
+    /// Equip an item (`is_item`) or a consumable. Flat price, replaces the slot.
+    void equip(const ShopUpgradeDef& def, bool is_item, Entity player,
+               ComponentStorage& storage, Blackboard& blackboard);
+    void buy_gear(int index, Entity player, ComponentStorage& storage,
+                  Blackboard& blackboard, ShipState& ship);
     void refresh_rows(ComponentStorage& storage, const ShipState& ship);
+    /// Rows the widest page needs, so a page flip only rewrites text.
+    size_t page_rows() const;
 
     const ShopConfig* cfg_ = nullptr;
-    std::vector<Entity> rows_;   // [0] title, [1] credits, then one per upgrade, then the footer
+    std::vector<Entity> rows_;   // [0] title, [1] credits, [2] slots, then page_rows(), then the footer
     bool open_ = false;
+    int page_ = 0;               // 0 = upgrades, 1 = gear (items + consumables)
 };
 
 #endif // SHOP_SYSTEM_HPP

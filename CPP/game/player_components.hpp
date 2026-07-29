@@ -41,6 +41,24 @@ struct ShipState {
     int upg_counts[8] = {0};      // purchases per shop upgrade (escalating price)
 };
 
+/**
+ * Equipment ids stored in ShipState (Gameplay Phase 4, D6/D7).
+ *
+ * These are *code* constants, not JSON row indices: ShopSystem maps a catalogue
+ * entry's `effect` string onto one of them (D26), so the catalogue can be
+ * re-ordered without silently changing what a saved id means. PickupSystem's
+ * ITEM_MAGNET_CORE aliases the first of them, which is what fixes it at 0.
+ *
+ * buff_id reuses the *consumable* ids — the only timed buff is Overdrive, so a
+ * second parallel enum would have exactly one entry.
+ */
+namespace item_ids {
+enum : int { MAGNET_CORE = 0, REPULSOR_FIELD = 1, REACTIVE_PLATING = 2, SALVAGER = 3 };
+}
+namespace consumable_ids {
+enum : int { REPAIR_KIT = 0, OVERDRIVE = 1, EMP_BURST = 2, PHASE_SHIFT = 3 };
+}
+
 /// Pickup.kind values. Currency is the common drop; Key is the rare one (D2).
 enum class PickupKind : int { Currency = 0, Key = 1 };
 

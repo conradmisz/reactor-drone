@@ -162,6 +162,10 @@ struct ShopUpgradeDef {
     int price = 50;            // cost of the first purchase
     float amount = 1.0f;       // effect magnitude per purchase
     int max_stacks = 8;        // 0 = unlimited
+    // Gameplay Phase 4: the same struct also describes an item or consumable row.
+    // Those are *equipped*, not stacked, so max_stacks is ignored for them and
+    // `duration` (seconds) is what Overdrive and Phase Shift run on.
+    float duration = 0.0f;
 };
 
 /**
@@ -173,6 +177,13 @@ struct ShopConfig {
     float price_growth = 1.5f;        // multiplier per repeat purchase
     float shield_regen_delay = 3.0f;  // seconds without damage before shields regen
     std::vector<ShopUpgradeDef> upgrades;
+    // Gameplay Phase 4 (D6/D7): the shop's second page. One item and one
+    // consumable can be equipped at a time, so these never stack and never
+    // escalate in price. `effect` maps to an item_ids/consumable_ids constant.
+    // Max 8 rows combined — that is what the 1-8 keys can reach.
+    std::vector<ShopUpgradeDef> items;
+    std::vector<ShopUpgradeDef> consumables;
+    float repulsor_radius = 140.0f;   // Repulsor Field reach (px); push speed is its `amount`
 };
 
 struct GameConfig {

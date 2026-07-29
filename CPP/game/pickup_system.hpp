@@ -5,6 +5,7 @@
 #include "engine/ecs/entity_manager.hpp"
 #include "engine/ecs/blackboard.hpp"
 #include "arena_config.hpp"       // EconomyConfig
+#include "player_components.hpp"  // item_ids
 
 /**
  * PickupSystem — collects dropped loot (D5) and steers it when the Magnet Core
@@ -27,8 +28,9 @@
  */
 class PickupSystem {
 public:
-    /// Item id of the Magnet Core in the Phase 4 item catalogue.
-    static constexpr int ITEM_MAGNET_CORE = 0;
+    /// Item id of the Magnet Core. Aliases the shared constant so the catalogue
+    /// mapping in item_system.hpp is the single source of truth.
+    static constexpr int ITEM_MAGNET_CORE = item_ids::MAGNET_CORE;
 
     void set_economy(const EconomyConfig& economy) { economy_ = economy; }
 

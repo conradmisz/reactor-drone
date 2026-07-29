@@ -1,6 +1,7 @@
 #include "game_hud_system.hpp"
 #include "player_components.hpp"   // PlayerTag, ShipState
 #include "enemy_components.hpp"    // Health
+#include <cstdio>
 #include <string>
 
 namespace {
@@ -28,6 +29,7 @@ void GameHUDSystem::init(ComponentStorage& component_storage,
     score_entity_   = make(20.0f, win_h - 36.0f, 24.0f, white, "Score: 0");
     health_entity_  = make(20.0f, win_h - 66.0f, 24.0f, white, "Health: 100");
     credits_entity_ = make(20.0f, win_h - 96.0f, 24.0f, yellow, "Credits: 0");
+    slots_entity_   = make(20.0f, win_h - 124.0f, 20.0f, cyan, "");
     wave_entity_    = make(win_w - 200.0f, win_h - 36.0f, 24.0f, white, "Wave: 0/0");
     status_entity_  = make(win_w * 0.5f - 190.0f, win_h * 0.5f, 44.0f, yellow, "");
     message_entity_ = make(win_w * 0.5f - 170.0f, win_h * 0.5f - 60.0f, 28.0f, cyan, "");
@@ -44,6 +46,8 @@ void GameHUDSystem::update(ComponentStorage& component_storage, Blackboard& blac
 
     // Health + economy (from the player entity)
     int hp = 0, credits = 0, keys = 0, shield = 0;
+    int item_id = -1, consumable_id = -1, buff_id = -1;
+    float buff_timer = 0.0f;
     for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
         if (auto h = component_storage.get_component<Health>(p); h.has_value()) {
             hp = static_cast<int>(h->get().current + 0.5f);
@@ -52,6 +56,10 @@ void GameHUDSystem::update(ComponentStorage& component_storage, Blackboard& blac
             credits = s->get().currency;
             keys    = s->get().keys;
             shield  = static_cast<int>(s->get().shield + 0.5f);
+            item_id = s->get().item_id;
+            consumable_id = s->get().consumable_id;
+            buff_id = s->get().buff_id;
+            buff_timer = s->get().buff_timer;
         }
         break;
     }
@@ -67,6 +75,28 @@ void GameHUDSystem::update(ComponentStorage& component_storage, Blackboard& blac
     if (auto t = component_storage.get_component<Text>(credits_entity_); t.has_value()) {
         t->get().content = "Credits: " + int_str(credits) +
                            (keys > 0 ? "   Keys: " + int_str(keys) : std::string());
+    }
+
+    // Gameplay Phase 4: equipped gear and the live buff countdown. The names are
+    // whatever ShopSystem published when the slot was filled, so the HUD needs no
+    // catalogue. Empty line when nothing is equipped — same "no noise" rule as
+    // the shield and key readouts.
+    if (auto t = component_storage.get_component<Text>(slots_entity_); t.has_value()) {
+        std::string line;
+        if (item_id >= 0)
+            line += blackboard.get_or<std::string>("ship.item_name", std::string("Item"));
+        if (consumable_id >= 0) {
+            if (!line.empty()) line += "   ";
+            line += "[Q] " +
+                blackboard.get_or<std::string>("ship.consumable_name", std::string("Consumable"));
+        }
+        if (buff_id >= 0) {
+            if (!line.empty()) line += "   ";
+            char buf[24];
+            std::snprintf(buf, sizeof(buf), "OVERDRIVE %.1fs", static_cast<double>(buff_timer));
+            line += buf;
+        }
+        t->get().content = line;
     }
 
     // Wave

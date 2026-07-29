@@ -239,6 +239,21 @@
       { "name": "Overclock",        "effect": "fire_rate",  "price": 70,  "amount": 0.6,  "max_stacks": 6 },
       { "name": "Heavy Rounds",     "effect": "damage",     "price": 60,  "amount": 8.0,  "max_stacks": 8 },
       { "name": "Twin Barrel",      "effect": "extra_shot", "price": 220, "amount": 1.0,  "max_stacks": 2 }
+    ],
+
+    "//gear": "PROVISIONAL PRICES, same caveat as the upgrades above and for the same reason: no full run has been played, so these are anchored to the upgrade rows rather than to a measured credits-per-wave curve. Uniform within each list on purpose — one slot each, so the choice should be about the effect, not the cost. `effect` maps to the fixed ids in player_components.hpp (item_ids / consumable_ids), NOT to row order; re-order these freely.",
+    "repulsor_radius": 140.0,
+    "items": [
+      { "name": "Magnet Core",      "effect": "magnet",   "price": 120, "amount": 0.0  },
+      { "name": "Repulsor Field",   "effect": "repulsor", "price": 120, "amount": 35.0 },
+      { "name": "Reactive Plating", "effect": "reactive", "price": 120, "amount": 25.0 },
+      { "name": "Salvager",         "effect": "salvage",  "price": 120, "amount": 1.5  }
+    ],
+    "consumables": [
+      { "name": "Repair Kit",  "effect": "repair",      "price": 45, "amount": 60.0 },
+      { "name": "Overdrive",   "effect": "overdrive",   "price": 45, "amount": 2.0, "duration": 8.0 },
+      { "name": "EMP Burst",   "effect": "emp",         "price": 45, "amount": 45.0 },
+      { "name": "Phase Shift", "effect": "phase_shift", "price": 45, "duration": 3.0 }
     ]
   }
 }
