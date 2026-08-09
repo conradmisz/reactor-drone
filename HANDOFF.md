@@ -261,7 +261,11 @@ that resizing works !"*, which has only been verified structurally.
    that reads like a build-system fault.
 2. **Engine `.cpp` files are listed explicitly in three CMake places**:
    `CPP/game/CMakeLists.txt` and twice in `CPP/engine/tests/CMakeLists.txt`.
-   Only `CPP/game/tests/CMakeLists.txt` globs, and even it needs a reconfigure.
+   **`CPP/game/*.cpp` and `CPP/game/tests/` both glob** — a new *game* source
+   file needs no CMake edit. But the glob is evaluated at configure time, so an
+   existing `CPP/build` links against a stale file list and fails with
+   `undefined reference` until you re-run `cmake -B CPP/build -S CPP`. That cost
+   time in this session; it reads exactly like a missing CMake entry.
 3. **`spawn_world()` destroys every entity.** It now explicitly skips entities
    carrying `UIScreen`/`UIElement`, because it was wiping the load-time menus
    from frame zero. Any future teardown must do the same.
