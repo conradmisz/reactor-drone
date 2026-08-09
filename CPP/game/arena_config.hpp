@@ -1,6 +1,8 @@
 #ifndef ARENA_CONFIG_HPP
 #define ARENA_CONFIG_HPP
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -51,12 +53,25 @@ struct HazardDef   { float x = 0.0f, y = 0.0f, w = 40.0f, h = 40.0f; float damag
 struct ArenaDef {
     std::string name;
     int first_wave = 1;
+    // v2 Phase 5a: enemy sprites are pure luminance, so their colour is this
+    // per-arena tint, applied at spawn (WaveSpawnerSystem) and never recomputed —
+    // which is what lets enemies alive across an arena shift keep the old colour.
+    // Defaults to white, i.e. the untinted sprite.
+    uint8_t enemy_r = 255, enemy_g = 255, enemy_b = 255;
+    // v2 Phase 5b: this arena's enemies hue-cycle instead of holding enemy_*
+    // (tick_enemy_tint in flash_system.hpp). The backdrop deliberately does not.
+    bool tie_dye = false;
     std::string wall_image;        // boundary-ring segment sprite (relative to assets/images/)
     std::string obstacle_image;    // obstacle sprite (empty = flat Color rect)
     std::string hazard_image;      // hazard sprite (empty = flat Color rect)
     std::vector<BackdropLayer> backdrop_layers;
     std::vector<ObstacleDef> obstacles;
     std::vector<HazardDef> hazards;
+    // Iteration 3 (D51): the specialty enemy this theme fields (#9), as an index
+    // into enemy_types; -1 = none. `specialty_tier` is what makes the SECOND pass
+    // over the same four themes (waves 26-50) harder than the first.
+    int specialty_unit = -1;
+    int specialty_tier = 1;
 };
 
 struct WeaponConfig {
@@ -88,7 +103,21 @@ struct EnemyType {
     float contact_damage = 10.0f;
     float size = 40.0f;
     int score = 10;
+    // --- Iteration 3 (D51): what this type DOES beyond seeking. `behavior` is an
+    // EnemyBehavior::kind name ("shooter", "spitter", "miner", "bulwark",
+    // "splitter", "boss"); empty = a plain seeker, i.e. every type shipped so far.
+    // Parsed in Phase 0 and inert until the lane that owns the kind lands. ---
+    std::string behavior;          // behavior_kinds name; empty = SEEKER
+    int   behavior_tier = 1;       // escalation step within the kind (moon_1/2/3)
+    float fire_interval = 0.0f;    // seconds between actions; 0 = the kind's default
+    float shot_speed = 260.0f;     // projectile speed for shooting kinds
+    float shot_damage = 8.0f;      // projectile contact damage for shooting kinds
     int currency = 1;   // value of each currency pickup this type drops
+    // v2 Phase 5: P(a kill of this type drops anything at all). Sparks pay
+    // rarely, hulks pay reliably, so target prioritisation has a reason to exist
+    // and credits stop falling off every single body. 1.0 = always (the default,
+    // i.e. pre-Phase-5 behaviour for any type that omits it).
+    float drop_chance = 1.0f;
 };
 
 struct WaveDef {
@@ -102,6 +131,10 @@ struct WaveDef {
     float duration = 0.0f;
     float hp_mult = 1.0f;
     float speed_mult = 1.0f;
+    // Iteration 3 (D51): this wave is a boss wave (every 10th). Parsed in Phase 0,
+    // authored by Lane A with the 50-wave table, and consumed by BossSystem in
+    // Phase 8 — so the wave table is written once, not twice.
+    bool boss = false;
 };
 
 /**
@@ -186,6 +219,84 @@ struct ShopConfig {
     float repulsor_radius = 140.0f;   // Repulsor Field reach (px); push speed is its `amount`
 };
 
+/**
+ * Iteration-3 config blocks (D51). All four are parsed in the scaffolding phase
+ * and consumed later by the lane that owns them, so no lane has to add a block to
+ * this shared header while another is editing it. Every value is a balance knob
+ * and every default is deliberately inert: a data file with none of these blocks
+ * behaves exactly like the pre-iteration-3 game.
+ */
+
+/// SustainConfig — periodic health/shield pickups (#10, Lane B).
+struct SustainConfig {
+    float interval = 0.0f;        // seconds between placements; 0 = feature off
+    int   max_live = 3;           // pickups of these kinds alive at once
+    float health_amount = 25.0f;  // hull restored by one green scrap
+    float shield_amount = 20.0f;  // shield restored by one cell
+    float shield_weight = 0.35f;  // P(a placement is a shield rather than health)
+    float min_player_dist = 220.0f;  // never place one in the player's lap
+};
+
+/// DashConfig — the thruster dash (#5, Lane B).
+struct DashConfig {
+    float speed = 900.0f;         // burst speed during the dash (px/s)
+    float duration = 0.15f;       // seconds the burst lasts
+    float cooldown = 2.5f;        // seconds before it is ready again
+    float damage = 30.0f;         // dealt to each enemy the dash passes through
+};
+
+/// MinimapConfig — the arena minimap (#7, Lane B).
+struct MinimapConfig {
+    bool  enabled = false;        // off until Lane B lands it
+    float x = 640.0f, y = 430.0f; // bottom-left corner in the 800x600 design canvas
+    float size = 140.0f;          // square edge length
+    int   max_blips = 120;        // hard cap; the overflow is logged, never silent
+};
+
+/// BossConfig — the every-10th-wave boss (#4, Lane D).
+struct BossConfig {
+    float health = 3000.0f;       // base HP at the first boss; scales per appearance
+    float health_growth = 1.6f;   // multiplier per subsequent boss
+    float size = 260.0f;
+    float contact_damage = 30.0f;
+    float summon_interval = 6.0f; // seconds between waves of adds
+    int   summon_count = 4;       // adds per summon
+    int   reward_choices = 3;     // actives offered on the kill
+};
+
+/// ActiveItemDef — one boss-reward active (#4/new-feature note, Lane D).
+struct ActiveItemDef {
+    std::string name = "Active";
+    std::string effect;           // missiles | laser | repulsor_field
+    float cooldown = 30.0f;       // the note fixes this at 30 s for all three
+    float amount = 40.0f;         // effect magnitude (damage, radius, heal)
+    float duration = 5.0f;        // for the effects that persist
+};
+
+/**
+ * DifficultyDef — one selectable run difficulty (Gameplay Phase B, D50).
+ *
+ * A difficulty is *only* a set of multipliers over the one authored wave table;
+ * there is no second table to keep in sync (the same reasoning as D10, which
+ * kept per-wave multipliers instead of new enemy types). Everything it scales is
+ * enemy-side: the user's call was explicitly that Hard must not make the player's
+ * economy harsher, so no player or shop field appears here.
+ *
+ * `type_lookahead` is the one non-scalar: it pulls each wave's enemy roster
+ * forward by N waves, which is how "enemy types unlock earlier" happens without
+ * authoring a second `types` list per difficulty.
+ */
+struct DifficultyDef {
+    std::string name = "Normal";
+    float count_mult = 1.0f;           // enemies per fixed-count wave
+    float spawn_interval_mult = 1.0f;  // <1 = a faster stream (same wave, less spacing)
+    float hp_mult = 1.0f;
+    float speed_mult = 1.0f;
+    float currency_mult = 1.0f;        // credit value of each drop
+    float hazard_damage_mult = 1.0f;
+    int   type_lookahead = 0;          // waves of enemy-type unlock pulled forward
+};
+
 struct GameConfig {
     ArenaConfig arena;
     PlayerConfig player;
@@ -201,6 +312,13 @@ struct GameConfig {
     float wave_stall_timeout = 30.0f;
     EconomyConfig economy;         // v2 Gameplay Phase 2: currency/key drops
     ShopConfig shop;               // v2 Gameplay Phase 3: catalogue + prices
+    std::vector<DifficultyDef> difficulties;  // Phase B: run difficulties, index 0 = default
+    // Iteration 3 (D51) — parsed now, consumed by the lane that owns each.
+    SustainConfig sustain;         // #10 health/shield pickups
+    DashConfig dash;               // #5 thruster dash
+    MinimapConfig minimap;         // #7 minimap
+    BossConfig boss;               // #4 boss every 10 waves
+    std::vector<ActiveItemDef> actives;  // boss-reward active items
     unsigned int seed = 1234u;     // RNG seed for spread/spawn/drops
 };
 
@@ -216,6 +334,61 @@ inline int active_arena_index(const std::vector<ArenaDef>& arenas, int wave) {
         if (arenas[static_cast<size_t>(i)].first_wave <= wave) idx = i;
     }
     return idx;
+}
+
+/**
+ * Scale a freshly-loaded GameConfig by a difficulty (Phase B, D50). In-place and
+ * NOT idempotent — the caller must always start from an unscaled copy of the
+ * loaded config, never re-apply on top of an already-scaled one.
+ *
+ * Pure apart from the mutation, so it unit-tests without a game loop.
+ */
+inline void apply_difficulty(GameConfig& cfg, const DifficultyDef& d) {
+    const size_t n = cfg.waves.size();
+
+    // Type unlocks first, and out of place: pulling wave i+k's roster forward has
+    // to read the *original* rosters, so it cannot fold into the scaling loop.
+    // An empty `types` already means "every type", so merging into one could only
+    // narrow it — those waves are left alone.
+    if (d.type_lookahead > 0) {
+        std::vector<std::vector<int>> rosters(n);
+        for (size_t i = 0; i < n; ++i) {
+            std::vector<int> t = cfg.waves[i].types;
+            if (!t.empty()) {
+                for (int k = 1; k <= d.type_lookahead; ++k) {
+                    size_t j = i + static_cast<size_t>(k);
+                    if (j >= n) break;
+                    const std::vector<int>& next = cfg.waves[j].types;
+                    if (next.empty()) { t.clear(); break; }  // "all types" wins
+                    t.insert(t.end(), next.begin(), next.end());
+                }
+                std::sort(t.begin(), t.end());
+                t.erase(std::unique(t.begin(), t.end()), t.end());
+            }
+            rosters[i] = std::move(t);
+        }
+        for (size_t i = 0; i < n; ++i) cfg.waves[i].types = std::move(rosters[i]);
+    }
+
+    for (WaveDef& w : cfg.waves) {
+        w.count = std::max(1, static_cast<int>(std::lround(
+            static_cast<double>(w.count) * static_cast<double>(d.count_mult))));
+        // Floored: a stream faster than one spawn per ~3 frames is a spike, not a
+        // difficulty, and the particle budget (2000) is not far above it.
+        w.spawn_interval = std::max(0.05f, w.spawn_interval * d.spawn_interval_mult);
+        w.hp_mult    *= d.hp_mult;
+        w.speed_mult *= d.speed_mult;
+    }
+    // Timed waves ignore `count`, so their extra pressure is all in the interval
+    // above — deliberate: stretching `duration` would lengthen the run instead.
+
+    for (EnemyType& t : cfg.enemy_types) {
+        t.currency = std::max(1, static_cast<int>(std::lround(
+            static_cast<double>(t.currency) * static_cast<double>(d.currency_mult))));
+    }
+    for (ArenaDef& a : cfg.arenas) {
+        for (HazardDef& h : a.hazards) h.damage *= d.hazard_damage_mult;
+    }
 }
 
 /// Parse GameData.json into a GameConfig. Missing fields fall back to defaults;
