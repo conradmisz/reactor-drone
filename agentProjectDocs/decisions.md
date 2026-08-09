@@ -365,3 +365,74 @@ Decisions seeded from the gameplay plan (D1–D12) and made during Phases 1-4
 - **Next step:** either a `player_drone_purple` sidecar from the offline
   generator (then it is a one-line `ships[1].sidecar` edit, no rebuild), or give
   `FlashSystem::base_tint` a per-entity resting tint so the player can own one.
+
+---
+
+## Iteration 3 — Lane E: arena transition VFX (#2)
+
+### D76 — One easing curve, in a header, not two lambdas  *(2026-08-09)*
+- **Decision:** the backdrop crossfade's `smoothstep` moved out of the render
+  block's lambda into `CPP/game/arena_vfx.hpp`, and the prop animation uses the
+  same function.
+- **Why:** the props animate *against* the backdrop fade. Two copies of the same
+  cubic drift the moment either is tuned, and the drift is exactly the "looks
+  like a glitch" failure the 1.2s → 5.0s stretch was meant to fix. The helper
+  also clamps, which the lambda did not — its callers had to remember
+  `std::min(1.0f, ...)`.
+- **Rejected:** a second smoothstep next to the props. The instruction to reuse
+  was explicit, and it would have been the same six characters of work.
+
+### D77 — Colliders die on the shift frame; pixels die five seconds later  *(2026-08-09)*
+- **Decision:** `clear_arena_props`' instant destruction is replaced, for the
+  shift path only, by `arena_vfx::teardown_props`: strip `Collider` first and
+  unconditionally, then attach a debris emitter and a `Lifetime`, then shrink
+  across the window. The initial-snap path still clears instantly.
+- **Why:** the two halves of "it is still there" have different owners. The
+  simulation must stop seeing a prop the instant the arena is no longer that
+  arena — otherwise a crumbling pillar blocks a shot, a dash or an A* path for
+  five seconds. The renderer should keep seeing it for exactly that long. Doing
+  both at one moment is what made the old behaviour a pop; doing both lazily
+  would be a gameplay bug. Verified live: a forced shift shows the prop collider
+  count drop to 0 on the shift frame while 121 props keep drawing.
+- **`ContactDamage` is left on hazards** rather than removed. With no `Collider`
+  it can never produce a `CollidedWith`, so it cannot fire — and
+  `remove_component<ContactDamage>` is not instantiated, which would have meant
+  editing `component_storage.*`, outside this lane.
+- **Incoming props keep their colliders from frame one**, but `scale_prop`
+  rewrites `Collider.width/height` alongside `Size`, so the collider is never
+  larger than the sprite. The symmetric bug (an invisible wall) closed for the
+  price of two lines.
+- **Rejected:** a `DyingProp` component. That is four code sites and three CMake
+  lists (the exact trap in HANDOFF.md), for a list that `main` already has.
+
+### D78 — The shift-start is a lambda, so the wave-50 boss can call it  *(2026-08-09)*
+- **Decision:** the body of the `want != active_arena` branch became
+  `begin_arena_shift(int want) -> bool`, declared right after
+  `apply_arena_props`. It has no dependence on `wave_cleared` or the spawner and
+  refuses out-of-range / already-live / pre-first-arena indices.
+- **Why:** Lane D's wave-50 boss shifts the arena **mid-fight**, and the effect
+  was previously reachable only from the cleared-wave edge. It is declared above
+  the `// === HOOK: boss ===` block, so Lane D can call it without touching any
+  Lane E code. Confirmed callable mid-wave: a forced `begin_arena_shift(1)` at
+  frame 600 of wave 1 (enemies alive) ran the whole transition cleanly.
+- **Rejected:** a blackboard "request a shift" key. Extra indirection, an extra
+  frame of latency, and no caller that needs the decoupling.
+
+### D79 — Debris rides the solid props only; measured, not estimated  *(2026-08-09)*
+- **Decision:** the debris emitter goes on props that had a `Collider` —
+  obstacles and hazards, ~28 in the worst arena — and never on the ~97 decorative
+  wall segments. 14 particles/s, 0.8s lifetime, for the length of the window.
+- **Why:** the wall ring sits at radius 1400 and is mostly off-camera; emitting
+  from all 125 props would have cost ~1300 concurrent particles against a 2000
+  cap that ENGINE.md §5 records as *already* truncating at wave 20. Using the
+  presence of a `Collider` as the filter means the emitter list and the
+  "solid thing" list can never disagree.
+- **Measured:** peak **336** live particles for a worst-arena destruction in
+  isolation (`test_arena_vfx.cpp` re-measures and fails above 500); **463** in a
+  live forced shift, where the debris overlaps the ~250-particle shift shockwave,
+  the drone thruster and the outgoing arena's hazard vents.
+- **`DEFAULT_MAX_PARTICLES` deliberately not raised** — that is an engine change
+  owned by Phase 10, which now has a real number to budget with.
+- **Rejected:** one big burst at the arena centre. Cheaper, but it reads as an
+  explosion happening *to* the arena rather than the arena coming apart, and at
+  radius 1400 the player would usually not see it.

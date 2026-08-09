@@ -47,6 +47,7 @@
 #include "script_loader.hpp"
 #include "debug_state.hpp"
 #include "arena_config.hpp"
+#include "arena_vfx.hpp"
 #include "player_components.hpp"
 #include "enemy_components.hpp"
 #include "collision_layers.hpp"
@@ -293,9 +294,34 @@ int main(int argc, char* argv[]) {
     constexpr float SHIFT_PROP_SWAP = 2.0f;
     constexpr float TIE_DYE_CYCLE_SECONDS = 3.0f;  // one full hue rotation per enemy
 
+    // Lane E (D77): props mid-animation. The mechanics live in arena_vfx.hpp so
+    // they can be unit-tested without a window; main only owns the timing.
+    std::vector<arena_vfx::AnimProp> dying_props;    // shrinking out, colliders gone
+    std::vector<arena_vfx::AnimProp> growing_props;  // scaling in with the new arena
+    // Fractions of the shift window. Outgoing props crumble across the whole of
+    // it; incoming ones arrive over the ~3s that is left after SHIFT_PROP_SWAP.
+    constexpr float DEATH_STAGGER = 0.55f;
+    constexpr float BIRTH_STAGGER = 0.55f;
+    constexpr float BIRTH_SECONDS = SHIFT_SECONDS - SHIFT_PROP_SWAP;
+
     auto clear_arena_props = [&]() {
         for (Entity e : arena_props) component_storage.add_component<DestroyRequest>(e, DestroyRequest{});
         destroy_marked_entities(entity_manager, component_storage);
+        arena_props.clear();
+        hazard_props.clear();
+    };
+
+    // Lane E (D77). The outgoing arena's props stop being *objects* on the frame
+    // the shift starts and stop being *pixels* five seconds later. Ordering is
+    // the whole point: the collider comes off first and unconditionally, so a
+    // pillar that is still visibly crumbling can never block a shot or a dash.
+    // Everything after that line is decoration.
+    auto begin_prop_teardown = [&](const ArenaDef& outgoing) {
+        auto batch = arena_vfx::teardown_props(component_storage, arena_props,
+                                               outgoing.enemy_r, outgoing.enemy_g,
+                                               outgoing.enemy_b, SHIFT_SECONDS);
+        dying_props.insert(dying_props.end(), batch.begin(), batch.end());
+        // The props are no longer the live arena's — the shift tick owns them now.
         arena_props.clear();
         hazard_props.clear();
     };
@@ -400,6 +426,63 @@ int main(int argc, char* argv[]) {
         enemy_seek.set_arena(&def.obstacles,
             enemy_path::build_obstacle_grid(path_cols, path_rows, path_cell,
                 def.obstacles, config.pathfinding.clearance));
+    };
+
+    // Lane E (D78): the shift-start was inlined in the cleared-wave branch, which
+    // made it unreachable from anywhere else. It is a lambda now with no
+    // dependence on `wave_cleared` or the spawner, so any caller — including the
+    // wave-50 boss that shifts the arena mid-fight — can fire one by index.
+    // Returns false if `want` is already live or out of range.
+    auto begin_arena_shift = [&](int want) {
+        if (want < 0 || want >= static_cast<int>(config.arenas.size())) return false;
+        if (want == active_arena || active_arena < 0) return false;
+        const ArenaDef& def = config.arenas[static_cast<size_t>(want)];
+        // Strip the outgoing colliders on THIS frame, before anything else. The
+        // props stay on screen for the whole crossfade, so from here on they are
+        // scenery the simulation cannot see.
+        begin_prop_teardown(config.arenas[static_cast<size_t>(active_arena)]);
+        outgoing_backdrop = active_backdrop;
+        active_backdrop = &def.backdrop_layers;
+        shift_timer = 0.0f;
+        shift_pending = want;
+        blackboard.set<std::string>("hud_message", def.name + " — arena shift");
+        blackboard.set<float>("hud_message_timer", SHIFT_SECONDS + 1.4f);
+
+        // Shockwave: a one-shot emitter host, the same pattern
+        // EnemyDeathSystem and PickupSystem already use. Sited on
+        // the drone rather than the arena centre — the camera
+        // follows the drone, and at radius 1400 a centre burst is
+        // usually off-screen. Measured budget: a shift only fires
+        // on a *cleared* wave, where the live particle count is
+        // ~13 of 2000, so this ~250-particle burst has room.
+        for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+            auto pp = component_storage.get_component<Position>(p);
+            auto ps = component_storage.get_component<Size>(p);
+            if (!pp.has_value() || !ps.has_value()) break;
+            Entity burst = entity_manager.create_entity();
+            component_storage.add_component<Position>(burst, Position{
+                pp->get().x + ps->get().width * 0.5f,
+                pp->get().y + ps->get().height * 0.5f});
+            ParticleEmitter ring;
+            ring.shape = EmitterShape::Point;
+            ring.additive = true;
+            ring.emission_rate = 900.0f;
+            ring.particle_lifetime = 0.9f;
+            ring.min_speed = 280.0f; ring.max_speed = 620.0f;
+            ring.cone_half_angle = 180.0f;
+            ring.start_size = 7.0f; ring.end_size = 0.0f;
+            ring.start_r = def.enemy_r; ring.start_g = def.enemy_g;
+            ring.start_b = def.enemy_b; ring.start_a = 220;
+            ring.end_r = 255; ring.end_g = 255; ring.end_b = 255;
+            ring.end_a = 0;
+            component_storage.add_component<ParticleEmitter>(burst, ring);
+            component_storage.add_component<Lifetime>(burst, Lifetime{0.28f});
+            break;
+        }
+        blackboard.set<float>("feedback.trauma",
+            feedback::add_trauma(blackboard.get_or<float>("feedback.trauma", 0.0f),
+                                 config.feedback.trauma_enemy_death));
+        return true;
     };
 
     // The Aux Thruster scales move speed, and a purchase must take effect on the
@@ -584,6 +667,8 @@ int main(int argc, char* argv[]) {
         outgoing_backdrop = nullptr;
         shift_timer = 0.0f;
         shift_pending = -1;
+        dying_props.clear();     // Lane E (D77): same reason — the entities are gone
+        growing_props.clear();
     };
 
     spawn_world();
@@ -936,50 +1021,7 @@ int main(int argc, char* argv[]) {
                     // one. The wave about to start is current_wave_index() + 1.
                     int want = active_arena_index(config.arenas,
                                                   wave_spawner.current_wave_index() + 1);
-                    if (want != active_arena) {
-                        const ArenaDef& def = config.arenas[static_cast<size_t>(want)];
-                        outgoing_backdrop = active_backdrop;
-                        active_backdrop = &def.backdrop_layers;
-                        shift_timer = 0.0f;
-                        shift_pending = want;
-                        blackboard.set<std::string>("hud_message", def.name + " — arena shift");
-                        blackboard.set<float>("hud_message_timer", SHIFT_SECONDS + 1.4f);
-
-                        // Shockwave: a one-shot emitter host, the same pattern
-                        // EnemyDeathSystem and PickupSystem already use. Sited on
-                        // the drone rather than the arena centre — the camera
-                        // follows the drone, and at radius 1400 a centre burst is
-                        // usually off-screen. Measured budget: a shift only fires
-                        // on a *cleared* wave, where the live particle count is
-                        // ~13 of 2000, so this ~250-particle burst has room.
-                        for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
-                            auto pp = component_storage.get_component<Position>(p);
-                            auto ps = component_storage.get_component<Size>(p);
-                            if (!pp.has_value() || !ps.has_value()) break;
-                            Entity burst = entity_manager.create_entity();
-                            component_storage.add_component<Position>(burst, Position{
-                                pp->get().x + ps->get().width * 0.5f,
-                                pp->get().y + ps->get().height * 0.5f});
-                            ParticleEmitter ring;
-                            ring.shape = EmitterShape::Point;
-                            ring.additive = true;
-                            ring.emission_rate = 900.0f;
-                            ring.particle_lifetime = 0.9f;
-                            ring.min_speed = 280.0f; ring.max_speed = 620.0f;
-                            ring.cone_half_angle = 180.0f;
-                            ring.start_size = 7.0f; ring.end_size = 0.0f;
-                            ring.start_r = def.enemy_r; ring.start_g = def.enemy_g;
-                            ring.start_b = def.enemy_b; ring.start_a = 220;
-                            ring.end_r = 255; ring.end_g = 255; ring.end_b = 255;
-                            ring.end_a = 0;
-                            component_storage.add_component<ParticleEmitter>(burst, ring);
-                            component_storage.add_component<Lifetime>(burst, Lifetime{0.28f});
-                            break;
-                        }
-                        blackboard.set<float>("feedback.trauma",
-                            feedback::add_trauma(blackboard.get_or<float>("feedback.trauma", 0.0f),
-                                                 config.feedback.trauma_enemy_death));
-                    }
+                    begin_arena_shift(want);
                 }
 
                 if (outgoing_backdrop != nullptr) {
@@ -987,6 +1029,10 @@ int main(int argc, char* argv[]) {
                         blackboard.get_or<double>("delta_time", 0.0));
                     if (shift_pending >= 0 && shift_timer >= SHIFT_PROP_SWAP) {
                         apply_arena_props(shift_pending);
+                        // Lane E (D77): the incoming props keep their colliders
+                        // from frame one, but animate() scales those too, so a
+                        // half-grown pillar is never an invisible wall.
+                        growing_props = arena_vfx::capture_props(component_storage, arena_props);
                         shift_pending = -1;
                     }
                     if (shift_timer >= SHIFT_SECONDS) outgoing_backdrop = nullptr;
@@ -996,6 +1042,25 @@ int main(int argc, char* argv[]) {
                 // Owner: the arena-transition VFX phase. Inside the shift tick, so
                 // the outgoing props' destruction and the incoming props' arrival
                 // animate against the same shift_timer the crossfade already runs on.
+                //
+                // D77. Two staggered passes over the same shift_timer the backdrop
+                // crossfade rides, using the same smoothstep (arena_vfx.hpp). No
+                // RNG here — the debris draws all happen inside ParticleSystem,
+                // which is seeded, so determinism is untouched.
+                if (!dying_props.empty() || !growing_props.empty()) {
+                    const float t_out = shift_timer / SHIFT_SECONDS;
+                    arena_vfx::animate(component_storage, dying_props, t_out,
+                                       DEATH_STAGGER, /*shrink=*/true);
+                    // t_out >= 1 means the window closed: nothing of the old
+                    // arena may survive it, animated or not.
+                    if (t_out >= 1.0f)
+                        arena_vfx::destroy_all(entity_manager, component_storage, dying_props);
+
+                    const float t_in = (shift_timer - SHIFT_PROP_SWAP) / BIRTH_SECONDS;
+                    arena_vfx::animate(component_storage, growing_props, t_in,
+                                       BIRTH_STAGGER, /*shrink=*/false);
+                    if (t_in >= 1.0f) growing_props.clear();  // left at authored size
+                }
                 // === END HOOK: arena-vfx ===
             }
 
@@ -1327,10 +1392,11 @@ int main(int argc, char* argv[]) {
             // Smoothstep rather than a linear ramp: a linear crossfade spends most
             // of its time in the muddy half-and-half middle, which is what made the
             // short version look like a glitch. This lingers at each end instead.
-            auto smoothstep = [](float t) { return t * t * (3.0f - 2.0f * t); };
+            // D76: the curve moved to arena_vfx.hpp so the props animate on
+            // exactly the same easing as the backdrop, not a copy of it.
             push_backdrop(active_backdrop,
                           outgoing_backdrop != nullptr
-                              ? smoothstep(std::min(1.0f, shift_timer / SHIFT_SECONDS))
+                              ? arena_vfx::smoothstep(shift_timer / SHIFT_SECONDS)
                               : 1.0f);
         }
         render_system.render_layers(bg_layers);
