@@ -16,6 +16,12 @@ struct EnemyTag {};
  *                 player is blocked; counts down by dt. 0 = repath this frame.
  * target_x/_y:    world point the enemy currently steers toward when pathing
  *                 (centre of the next path cell); refreshed on each repath.
+ * tint_phase:     hue offset in [0,1) for the tie-dye arena's colour cycle (v2,
+ *                 Phase 5b). Randomised at spawn from the spawner's seeded RNG so
+ *                 the swarm is a spread of hues rather than one marching colour,
+ *                 and so replays stay deterministic. Ignored outside tie-dye
+ *                 arenas. Lives here rather than on a new component because it is
+ *                 per-enemy state and PathFollower is already on every enemy.
  * waypoint_index/progress: unused in v2 (kept for the Class-090 path-follow API).
  */
 struct PathFollower {
@@ -25,6 +31,7 @@ struct PathFollower {
     float repath_timer = 0.0f;
     float target_x = 0.0f;
     float target_y = 0.0f;
+    float tint_phase = 0.0f;
 };
 
 /**
@@ -38,6 +45,68 @@ struct Health {
     float max_hp = 100.0f;
     float armor_multiplier = 1.0f;
 };
+
+/**
+ * EnemyShot — marker for a projectile FIRED BY an enemy (Iteration 3, D51).
+ *
+ * Deliberately a bare tag: an enemy shot is otherwise the same recipe as a player
+ * shot (Position/Velocity/Size/Collider/Lifetime/ParticleEmitter) with a
+ * `ContactDamage` and the `layers::ENEMY_SHOT` collider layer. That means the
+ * player takes damage from it through the path PlayerDamageSystem already runs —
+ * anything carrying ContactDamage hurts the drone — and no second damage system
+ * has to exist. The tag is only so EnemyFireSystem can find its own shots to
+ * expire them on contact.
+ */
+struct EnemyShot {};
+
+/**
+ * EnemyBehavior — what makes an enemy something other than a seeker (D51).
+ *
+ * One struct for every non-default enemy in the iteration-3 plan: the moon
+ * shooters, the four per-arena specialty units, and the boss. One fat struct
+ * rather than one component per behaviour for the same reason ShipState is one:
+ * registering a component type is an edit in three shared files, so the whole
+ * behaviour axis pays that cost once, here, and the lanes that follow add only
+ * `kind` values.
+ *
+ * kind:     behaviour_kinds constant (see below). SEEKER is the plain enemy.
+ * tier:     escalation step for the same kind — moon_1/2/3, and the harder
+ *           second-pass specialty units (waves 26-50).
+ * timer:    seconds until this enemy's next action (fire, drop, summon). A plain
+ *           float countdown, never an RNG draw, so replays stay deterministic.
+ * cooldown: seconds between actions; `timer` is reset to it.
+ * aim:      the behaviour's working angle (radians) — facing for the bulwark's
+ *           frontal armour, current sweep angle for the boss.
+ */
+struct EnemyBehavior {
+    int kind = 0;
+    int tier = 1;
+    float timer = 0.0f;
+    float cooldown = 2.0f;
+    float aim = 0.0f;
+};
+
+/**
+ * EnemyBehavior::kind values. Code constants, never JSON row indices — the same
+ * discipline as item_ids (D26), so re-ordering GameData.json can never silently
+ * turn a mine-dropper into a boss. The loader maps a `behavior` string onto one
+ * of these.
+ *
+ * Lane ownership: SHOOTER is Phase 6, SPITTER/MINER/BULWARK/SPLITTER are Phase 7,
+ * BOSS is Phase 8. They are all declared here in Phase 0 so no later lane has to
+ * edit this shared header.
+ */
+namespace behavior_kinds {
+enum : int {
+    SEEKER   = 0,   // default: no behaviour, EnemySeekSystem is the whole enemy
+    SHOOTER  = 1,   // moon types: fires EnemyShot projectiles on a timer
+    SPITTER  = 2,   // Bio-lab: leaves a short-lived damaging patch behind it
+    MINER    = 3,   // Foundry: drops proximity mines
+    BULWARK  = 4,   // Core: frontal damage reduction, slow turn rate
+    SPLITTER = 5,   // Prism: splits into two smaller units on death (PROPOSED)
+    BOSS     = 6,   // every 10th wave; summons adds, themed to the live arena
+};
+}
 
 /**
  * HealthBarTag — empty marker for the floating health-bar entities.

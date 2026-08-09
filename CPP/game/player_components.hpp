@@ -39,6 +39,16 @@ struct ShipState {
     int buff_id = -1;             // active timed buff (Phase 4); -1 = none
     float buff_timer = 0.0f;
     int upg_counts[8] = {0};      // purchases per shop upgrade (escalating price)
+
+    // --- Iteration 3 (D51). Declared in the scaffolding phase so the dash, the
+    // gear-upgrade and the boss-active lanes never have to edit this shared
+    // header (and re-register the component) in parallel. All inert until the
+    // lane that owns them lands. ---
+    float dash_cd = 0.0f;         // seconds until the thruster dash is ready
+    float dash_timer = 0.0f;      // seconds of dash remaining (>0 = dashing)
+    int   active_id = -1;         // boss-reward active item; -1 = none
+    float active_cd = 0.0f;       // seconds until the active can fire again
+    int   gear_levels[8] = {0};   // upgrade level per owned gear row (#11)
 };
 
 /**
@@ -60,7 +70,10 @@ enum : int { REPAIR_KIT = 0, OVERDRIVE = 1, EMP_BURST = 2, PHASE_SHIFT = 3 };
 }
 
 /// Pickup.kind values. Currency is the common drop; Key is the rare one (D2).
-enum class PickupKind : int { Currency = 0, Key = 1 };
+/// Health and Shield (Iteration 3, D51) are not drops at all — SustainSpawnSystem
+/// places them around the arena on a timer — but they ride the same component and
+/// the same collection path, so they are kinds rather than a second pickup type.
+enum class PickupKind : int { Currency = 0, Key = 1, Health = 2, Shield = 3 };
 
 /**
  * Pickup — a collectible dropped by a dead enemy (D5).
@@ -87,6 +100,10 @@ struct ContactDamage {
     float amount = 10.0f;
     int score = 10;
     int currency = 1;
+    // v2 Phase 5: this enemy type's EnemyType::drop_chance, carried to the kill
+    // site so EnemyDeathSystem does not have to re-derive which type died. 1.0 on
+    // hazards, which carry a ContactDamage but never die, so it is inert there.
+    float drop_chance = 1.0f;
 };
 
 /**

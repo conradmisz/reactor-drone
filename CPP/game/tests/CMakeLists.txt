@@ -45,10 +45,17 @@ if(GAME_UNIT_TESTS)
     )
     
     # Set include directories
-    target_include_directories(game_unit_tests PRIVATE 
+    target_include_directories(game_unit_tests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../..
     )
-    
+
+    # Iteration 3 (D51): test_scaffolding.cpp reads main.cpp as text to prove the
+    # per-lane hook blocks still exist. main.cpp is excluded from this target (one
+    # main() per binary), so the path has to come in as a definition.
+    target_compile_definitions(game_unit_tests PRIVATE
+        GAME_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/.."
+    )
+
     # Register with CTest
     add_test(NAME Game_Unit_Tests COMMAND game_unit_tests)
 endif()
