@@ -94,6 +94,25 @@ struct PlayerConfig {
     WeaponConfig weapon;
 };
 
+/**
+ * ShipDef — one selectable player ship (Lane F, D82).
+ *
+ * A ship is exactly a variant of the three PlayerConfig fields that describe
+ * "what you fly": its sprite, its idle clip and its weapon. No new component,
+ * no ship system — `apply_ship` overlays it onto PlayerConfig at run start, the
+ * same place and the same discipline as apply_difficulty.
+ *
+ * `unlock_score` is compared against the *lifetime* score in saves/meta.json
+ * (see meta_save.hpp); 0 = always available.
+ */
+struct ShipDef {
+    std::string name = "Standard";
+    std::string sidecar;
+    std::string idle_clip = "idle";
+    WeaponConfig weapon;
+    int unlock_score = 0;
+};
+
 struct EnemyType {
     std::string name = "drone";
     std::string sidecar;           // sprite sidecar (relative to assets/)
@@ -313,6 +332,7 @@ struct GameConfig {
     EconomyConfig economy;         // v2 Gameplay Phase 2: currency/key drops
     ShopConfig shop;               // v2 Gameplay Phase 3: catalogue + prices
     std::vector<DifficultyDef> difficulties;  // Phase B: run difficulties, index 0 = default
+    std::vector<ShipDef> ships;    // Lane F: selectable ships, index 0 = the default hull
     // Iteration 3 (D51) — parsed now, consumed by the lane that owns each.
     SustainConfig sustain;         // #10 health/shield pickups
     DashConfig dash;               // #5 thruster dash
@@ -343,6 +363,21 @@ inline int active_arena_index(const std::vector<ArenaDef>& arenas, int wave) {
  *
  * Pure apart from the mutation, so it unit-tests without a game loop.
  */
+/**
+ * Overlay a ship onto the player config (Lane F, D82). Like apply_difficulty it
+ * must run on a fresh copy of the loaded config, never on top of another ship —
+ * the caller re-copies `base_config` first, so there is exactly one place where
+ * either overlay happens.
+ *
+ * Empty sidecar / idle_clip mean "keep the base ship's", so a ship entry that
+ * only changes the weapon needs no art fields.
+ */
+inline void apply_ship(PlayerConfig& player, const ShipDef& s) {
+    if (!s.sidecar.empty())   player.sidecar   = s.sidecar;
+    if (!s.idle_clip.empty()) player.idle_clip = s.idle_clip;
+    player.weapon = s.weapon;
+}
+
 inline void apply_difficulty(GameConfig& cfg, const DifficultyDef& d) {
     const size_t n = cfg.waves.size();
 

@@ -240,3 +240,72 @@ Decisions seeded from the gameplay plan (D1–D12) and made during Phases 1-4
   the same entity twice; `EnemyBehavior.kind` is one int.
 - **Rejected:** letting each lane add its own component type and CMake entry when
   it needs one. That is precisely the merge conflict this phase exists to avoid.
+
+### D80 — Persistence is one number, not a run snapshot  *(2026-08-09)*
+- **Decision:** `saves/meta.json` holds a single field, `lifetime_score`. It is
+  read once at startup (`meta_load`) and written once per run end (`meta_write`)
+  — death, victory, quit-from-pause, or closing the window mid-run, all routed
+  through one `bank_run_score` lambda guarded by a `run_banked` flag so a run is
+  never counted twice.
+- **Why:** the ask was "persistent score storing", not "resume my run". The
+  older plan's run-state save (entity snapshot, `SerializationRegistry`,
+  `LoadSystem`) is an order of magnitude more code and every bit of it is a
+  determinism hazard. One number needs no registry and cannot half-restore.
+- **Tolerant by construction:** a missing file, an empty file, malformed JSON, a
+  wrong-typed field and a negative total all yield the default. A save file the
+  player edited must never be able to stop a run from starting.
+- **Rejected:** atomic temp-file + rename. The file is one integer written once
+  per run; a torn write costs the player one run's progress and the corrupt-file
+  path already recovers from it. Add it if the file ever grows.
+
+### D81 — Unlocks are derived from lifetime score, never stored  *(2026-08-09)*
+- **Decision:** `ship_unlocked(ship, lifetime) == lifetime >= ship.unlock_score`.
+  The save file records no unlock list.
+- **Why:** two records of the same fact desync. Retuning the 4000 threshold in
+  `GameData.json` takes effect immediately for every player, and no save file can
+  claim a ship the data no longer grants (or lose one it does).
+- **Cost, accepted:** lowering a threshold retroactively unlocks; raising one
+  retroactively re-locks. For a single-player arcade score that is the intuitive
+  behaviour, not a bug.
+
+### D82 — A ship is a `PlayerConfig` overlay, applied where difficulty is  *(2026-08-09)*
+- **Decision:** `ShipDef` (name, sidecar, idle_clip, weapon, unlock_score) in
+  `arena_config.hpp` with a `ships` block in `GameData.json`; `apply_ship`
+  overlays it onto `PlayerConfig` inside `start_run`, immediately after the
+  pristine `base_config` is re-copied and before `apply_difficulty`.
+- **Why:** a ship differs from another ship in exactly the fields `PlayerConfig`
+  already has. No ship component, no ship system, no second application site —
+  `apply_ship` is as non-idempotent as `apply_difficulty` and follows the same
+  discipline (D50). `ShipState::ship_id` records the choice for the HUD and
+  tests; the stats are already baked into `config` by the time the player spawns.
+- **Determinism:** the meta-save influences only what the title menu *offers*.
+  The chosen ship is deliberately not persisted, so the replay canary for a given
+  seed is byte-identical whether or not `saves/meta.json` exists — verified with
+  and without the file.
+- **UI:** one widget, `menu_ship`, is both selector and lock readout — it reads
+  "SHIP: <name> (click to change)" once more than one ship is unlocked, and
+  "<name> unlocks at 4000 pts (lifetime N)" while only one is. Cycling walks only
+  unlocked ships (`next_unlocked_ship`), so a locked hull is unreachable rather
+  than refused. Resolved by name through `ui.widget_id.<name>`, the HUD's
+  existing pattern.
+- **Rejected:** hiding a second widget when locked — `UIElement` has no visibility
+  flag, and adding one is an engine change for a label that can simply say
+  something else.
+- **Numbers (provisional, unplayed):** Standard 4.0/s x 20 = 80 DPS; Purple
+  Gatling 12.0/s x 6 = 72 DPS — 3x cadence for 90% of the sustained damage, the
+  10% being the price of a far more forgiving weapon. Spread 0.06 -> 0.12,
+  projectile lifetime 1.0 -> 0.8s to bound the on-screen projectile count.
+
+### D83 — The purple ship is purple in name only, for now  *(2026-08-09)*
+- **Decision:** the Purple Gatling reuses `player_drone.json`. No tint, no new
+  sprite, this change.
+- **Why:** a persistent `Tint` on the player does not survive a hit —
+  `FlashSystem` *removes* the Tint when a flash expires for anything that is not
+  an `EnemyTag` with a `Color`, so the hull would turn purple until first damage
+  and then stay standard. Making it stick means editing `flash_system.cpp`
+  (outside this lane's file ownership), and generating real purple art means
+  `assets/generator/v2/`, which needs Pillow — not installed here, and generators
+  never run at build time.
+- **Next step:** either a `player_drone_purple` sidecar from the offline
+  generator (then it is a one-line `ships[1].sidecar` edit, no rebuild), or give
+  `FlashSystem::base_tint` a per-entity resting tint so the player can own one.

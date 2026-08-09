@@ -74,6 +74,7 @@
 #include "parallax.hpp"
 #include "obstacles.hpp"
 #include "enemy_path.hpp"
+#include "meta_save.hpp"
 
 struct SDL_WindowDeleter { void operator()(SDL_Window* w) const { if (w) SDL_DestroyWindow(w); } };
 struct SDL_RendererDeleter { void operator()(SDL_Renderer* r) const { if (r) SDL_DestroyRenderer(r); } };
@@ -128,6 +129,13 @@ int main(int argc, char* argv[]) {
     // to, so difficulty is applied by re-copying this pristine one over it at the
     // start of a run. apply_difficulty is not idempotent — never scale in place.
     const GameConfig base_config = config;
+
+    // Lane F (D80/D82): the only state that outlives a run. Read once, here, and
+    // never again — it decides what the title menu offers and nothing else, so a
+    // replay of a given seed and ship is identical with or without a save file.
+    // The ship *choice* is deliberately not persisted, for the same reason.
+    MetaSave meta = meta_load(meta_save_path());
+    int selected_ship = 0;
 
     const int win_w = blackboard.get_or<int>("window_width", 980);
     const int win_h = blackboard.get_or<int>("window_height", 660);
@@ -238,13 +246,19 @@ int main(int argc, char* argv[]) {
     std::uniform_real_distribution<float> shake_angle(0.0f, 6.28318530718f);
 
     // Load the player sprite once (optional; falls back to a Color rectangle).
+    // Lane F: a lambda rather than a one-off, because a ship can carry its own
+    // sidecar — start_run reloads it after overlaying the chosen ship, so picking
+    // a hull with different art does not silently keep the previous sprite.
     std::optional<sidecar_loader::LoadedSprite> player_sprite;
-    if (!config.player.sidecar.empty()) {
+    auto load_player_sprite = [&]() {
+        player_sprite.reset();
+        if (config.player.sidecar.empty()) return;
         try {
             player_sprite = sidecar_loader::load(
                 project_paths::assets_dir() + "/" + config.player.sidecar, config.player.idle_clip);
         } catch (...) { player_sprite.reset(); }
-    }
+    };
+    load_player_sprite();
 
     // v2 Phase 6: themed-arena state. arena_props holds the current arena's
     // obstacle + hazard entities so they can be swept on an arena swap;
@@ -514,7 +528,11 @@ int main(int argc, char* argv[]) {
             config.player.weapon.projectile_speed, config.player.weapon.projectile_lifetime,
             config.player.weapon.spread, 0.0f});
         // Per-run economy/shop state (D3: no persistence — a fresh one each run).
-        component_storage.add_component<ShipState>(player, ShipState{});
+        // The ship's stats are already baked into `config` by start_run; ship_id
+        // just records which hull this run is flying.
+        ShipState ship_state{};
+        ship_state.ship_id = selected_ship;
+        component_storage.add_component<ShipState>(player, ship_state);
         component_storage.add_component<Collider>(player,
             Collider{psz, psz, layers::PLAYER, layers::PLAYER_MASK});
         component_storage.add_component<CircleCollider>(player, CircleCollider{psz * 0.5f, 0.0f, 0.0f});
@@ -576,8 +594,27 @@ int main(int argc, char* argv[]) {
     // makes the choice re-selectable across runs — scaling `config` in place
     // would compound Hard onto Hard. set_config re-seeds the spawn RNG, so two
     // runs of the same --seed and difficulty stay identical.
+    // Lane F (D80): this run's score is added to the lifetime total exactly once,
+    // at run end — death, victory, or quitting out of the pause menu. `banked`
+    // guards the double call (game over, then quit from the same screen).
+    bool run_banked = true;   // no run in progress at the title
+    auto bank_run_score = [&](const Blackboard& bb) {
+        if (run_banked) return;
+        run_banked = true;
+        meta.lifetime_score += bb.get_or<int>("score", 0);
+        meta_write(meta_save_path(), meta);
+    };
+
     auto start_run = [&](size_t difficulty_index) {
         config = base_config;
+        // Lane F (D82): the ship overlay lands here, in the one place the pristine
+        // base_config is re-copied — apply_ship is no more idempotent than
+        // apply_difficulty, so there must never be a second application site.
+        if (selected_ship >= 0 && selected_ship < static_cast<int>(config.ships.size())) {
+            apply_ship(config.player, config.ships[static_cast<size_t>(selected_ship)]);
+            load_player_sprite();
+        }
+        run_banked = false;
         std::string label = "Normal";
         if (difficulty_index < config.difficulties.size()) {
             const DifficultyDef& d = config.difficulties[difficulty_index];
@@ -587,10 +624,51 @@ int main(int argc, char* argv[]) {
         blackboard.set<std::string>("difficulty", label);
         // The one visible proof of the choice in a headless run — the menu itself
         // is the only place it shows on screen.
-        std::cout << "Run start: difficulty " << label << "\n";
+        // Lane F adds the ship: it is the only headless proof of which hull flew,
+        // and it sits on this line rather than the summary so the replay canary's
+        // comparison target is unchanged.
+        std::cout << "Run start: difficulty " << label << "  ship "
+                  << (selected_ship >= 0 && selected_ship < static_cast<int>(config.ships.size())
+                          ? config.ships[static_cast<size_t>(selected_ship)].name
+                          : std::string("Standard"))
+                  << "\n";
         wave_spawner.set_config(&config);
         spawn_world();
         phase = PHASE_PLAYING;
+    };
+
+    // Lane F (D82): the `menu_ship` widget is both the ship selector and the lock
+    // readout. Resolved by name through ui.widget_id.<name>, the same path the HUD
+    // gauges use — there is deliberately no second widget-lookup mechanism.
+    Entity ship_widget = 0;
+    bool ship_widget_resolved = false;
+    auto refresh_ship_widget = [&]() {
+        if (!ship_widget_resolved) {
+            const double v = blackboard.get_or<double>("ui.widget_id.menu_ship", -1.0);
+            ship_widget = v < 0.0 ? 0 : static_cast<Entity>(v);
+            ship_widget_resolved = true;   // widget ids are load-time and survive spawn_world
+        }
+        if (ship_widget == 0) return;      // no main_menu authored — nothing to say
+        auto el = component_storage.get_component<UIElement>(ship_widget);
+        if (!el.has_value()) return;
+        const int unlocked = unlocked_ship_count(config.ships, meta.lifetime_score);
+        if (unlocked > 1 && selected_ship < static_cast<int>(config.ships.size())) {
+            el->get().label_text = "SHIP: " + config.ships[static_cast<size_t>(selected_ship)].name
+                                 + "   (click to change)";
+            el->get().style_id = "default_button";
+            return;
+        }
+        // Only one hull available: show the next threshold instead of a dead button.
+        el->get().style_id = "subtitle";
+        el->get().label_text.clear();
+        for (const ShipDef& s : config.ships) {
+            if (!ship_unlocked(s, meta.lifetime_score)) {
+                el->get().label_text = s.name + " unlocks at " + std::to_string(s.unlock_score)
+                                     + " pts  (lifetime "
+                                     + std::to_string(meta.lifetime_score) + ")";
+                break;
+            }
+        }
     };
 
     // The title *is* the main menu, so it is pushed before the first frame; the
@@ -732,6 +810,7 @@ int main(int argc, char* argv[]) {
                 blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
             } else if (pause_click == "on_quit_click") {
                 blackboard.remove(UISystem::UI_CLICK_KEY);
+                bank_run_score(blackboard);   // Lane F: quitting still ends the run
                 running = false;
             }
         }
@@ -1022,9 +1101,11 @@ int main(int argc, char* argv[]) {
 
             if (!player_alive) {
                 phase = PHASE_GAMEOVER;
+                bank_run_score(blackboard);   // Lane F: the run ended, so it counts
             } else if (wave_spawner.all_complete() &&
                        component_storage.entities_with_component<EnemyTag>().empty()) {
                 phase = PHASE_VICTORY;
+                bank_run_score(blackboard);
             } else if (shop_due || key_entry) {
                 // The shop no longer opens itself. The same trigger now raises the
                 // between-waves prompt, and the player picks: shop, or push on.
@@ -1117,6 +1198,16 @@ int main(int argc, char* argv[]) {
                 int chosen = -1;
                 if (menu_click == "on_start_normal_click") chosen = 0;
                 else if (menu_click == "on_start_hard_click") chosen = 1;
+                else if (menu_click == "on_ship_cycle") {
+                    // Lane F (D82): cycle to the next *unlocked* ship. A locked one
+                    // is never landed on, so there is no "you can't fly that" case
+                    // to report — with only one ship unlocked this is a no-op and
+                    // the widget is a lock readout rather than a selector.
+                    selected_ship = next_unlocked_ship(config.ships, selected_ship,
+                                                       meta.lifetime_score);
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                }
+                refresh_ship_widget();
                 if (chosen >= 0) blackboard.remove(UISystem::UI_CLICK_KEY);
                 else if (space_edge) chosen = 0;
                 if (chosen >= 0) {
@@ -1126,6 +1217,7 @@ int main(int argc, char* argv[]) {
             } else if (advance && (phase == PHASE_GAMEOVER || phase == PHASE_VICTORY)) {
                 // Restart keeps the difficulty the run was started at — `config`
                 // is already scaled, so only the world is rebuilt.
+                run_banked = false;   // Lane F: a new run to bank at its end
                 spawn_world();
                 phase = PHASE_PLAYING;
             }
@@ -1260,6 +1352,10 @@ int main(int argc, char* argv[]) {
             running = false;
         }
     }
+
+    // Lane F: closing the window mid-run is also a run end. bank_run_score is
+    // idempotent, so a run that already died or won is not counted twice.
+    bank_run_score(blackboard);
 
     // Credits are on the ship, not the blackboard — but a headless run needs them
     // in the summary line to be a usable balance/determinism canary (R2, R6).
