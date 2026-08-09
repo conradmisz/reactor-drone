@@ -13,11 +13,24 @@ Run: python make_backdrops.py
 from __future__ import annotations
 
 import random
+import zlib
 
 from PIL import Image, ImageDraw, ImageFilter
 
 from common import add_halo, save_png
-from palette import CORE, FOUNDRY, BIOLAB, lerp
+from palette import CORE, FOUNDRY, BIOLAB, PRISM, lerp
+
+
+def seed_for(name: str) -> int:
+    """Stable per-arena RNG seed.
+
+    This used to be hash(name), which Python randomises per process (PYTHONHASHSEED)
+    — so "seeded RNG so regeneration is deterministic" was not actually true and a
+    re-run silently produced different backdrops. crc32 is stable across processes
+    and versions. The committed PNGs predate this fix, so the first regeneration of
+    core/foundry/biolab will change them once; every run after that is identical.
+    """
+    return zlib.crc32(name.encode()) & 0xffffffff
 
 T = 512  # tile size
 
@@ -120,8 +133,8 @@ def vent(pal):
 
 def main():
     print("make_backdrops:")
-    for pal in (CORE, FOUNDRY, BIOLAB):
-        rng = random.Random(hash(pal.name) & 0xffffffff)
+    for pal in (CORE, FOUNDRY, BIOLAB, PRISM):
+        rng = random.Random(seed_for(pal.name))
         save_png(f"bg_{pal.name}_far", far_layer(pal, rng))
         save_png(f"bg_{pal.name}_mid", mid_layer(pal, rng))
         save_png(f"bg_{pal.name}_near", near_layer(pal, rng))

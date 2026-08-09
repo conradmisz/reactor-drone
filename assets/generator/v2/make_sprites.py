@@ -18,7 +18,7 @@ import math
 from PIL import Image, ImageDraw, ImageFilter
 
 from common import add_halo, write_sprite
-from palette import CORE, FOUNDRY, BIOLAB
+from palette import CORE, FOUNDRY, BIOLAB, MONO
 
 S = 128  # frame size
 
@@ -245,12 +245,17 @@ def main():
     write_sprite("player_drone", player_frames(6), 3,
                  {"march": {"start_frame": 0, "frame_count": 6,
                             "frame_duration": 0.09, "looping": True}})
-    # Enemies: march (loop) + death (oneshot) concatenated
+    # Enemies: march (loop) + death (oneshot) concatenated.
+    # v2 Phase 5a: drawn against MONO, i.e. pure luminance. These used to bake an
+    # arena's own primary (runner=BIOLAB green, hulk=FOUNDRY orange), which made
+    # those enemies invisible in the arena they belonged to. The colour now comes
+    # from ArenaDef::enemy_tint at spawn, via SDL colour-mod, so one sprite set
+    # serves every arena — and the tie-dye hue cycle in Prism.
     enemies = [
-        ("enemy_spark", spark_shape, CORE, CORE.secondary),
-        ("enemy_runner", runner_shape, BIOLAB, BIOLAB.primary),
-        ("enemy_hulk", hulk_shape, FOUNDRY, FOUNDRY.primary),
-        ("enemy_warden", warden_shape, CORE, CORE.secondary),
+        ("enemy_spark", spark_shape, MONO, MONO.primary),
+        ("enemy_runner", runner_shape, MONO, MONO.primary),
+        ("enemy_hulk", hulk_shape, MONO, MONO.primary),
+        ("enemy_warden", warden_shape, MONO, MONO.primary),
     ]
     for name, shape, pal, col in enemies:
         march, death = enemy_frames(shape, pal, col, 8)
