@@ -47,6 +47,15 @@ class WaveSpawnerSystem {
 public:
     void set_config(const GameConfig* cfg);
 
+    /// v2 Phase 5a: the colour newly-spawned enemies are tinted. main.cpp pushes
+    /// the active ArenaDef's enemy_tint here on every arena swap. A setter rather
+    /// than a config/arena-index lookup because "which arena is live" is main's
+    /// state, and captured-at-spawn is what makes enemies alive across a shift
+    /// keep their old colour for free.
+    void set_enemy_tint(uint8_t r, uint8_t g, uint8_t b) {
+        enemy_r_ = r; enemy_g_ = g; enemy_b_ = b;
+    }
+
     void update(Blackboard& blackboard,
                 EntityManager& entity_manager,
                 ComponentStorage& component_storage);
@@ -80,6 +89,7 @@ private:
 
     const GameConfig* cfg_ = nullptr;
     std::mt19937 rng_{1234u};
+    uint8_t enemy_r_ = 255, enemy_g_ = 255, enemy_b_ = 255;  // active arena's enemy tint
 
     int current_wave_ = 0;
     int enemies_spawned_ = 0;

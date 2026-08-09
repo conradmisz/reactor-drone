@@ -14,9 +14,12 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 
+#include "engine/ecs/blackboard.hpp"
 #include "engine/ecs/component_storage.hpp"
 #include "engine/ecs/entity_manager.hpp"
+#include "game/enemy_components.hpp"
 #include "game/feedback.hpp"
+#include "game/flash_system.hpp"
 
 // ===========================================================================
 // clamp_trauma
@@ -129,6 +132,33 @@ TEST_CASE("feedback::flash_tint at half life is halfway to identity", "[Game][fe
     CHECK(t.a == 255);
 }
 
+// v2 Phase 5a: enemies own a persistent per-arena Tint, so a flash must fade back
+// to *that* colour, not to white. The identity-base cases above are the same
+// function with the default argument, so they pin the pre-5a behaviour too.
+TEST_CASE("feedback::flash_tint fades back to a non-identity base",
+          "[Game][feedback][unit]") {
+    const Tint base{255, 70, 200, 255, false};   // Core arena's magenta enemies
+    Flash f{0.12f, 0.12f, 255, 255, 255};        // full-life white flash
+
+    Tint full = feedback::flash_tint(f, base);
+    CHECK(full.r == 255);
+    CHECK(full.g == 255);
+    CHECK(full.b == 255);
+
+    f.time_left = 0.0f;
+    Tint gone = feedback::flash_tint(f, base);
+    CHECK(gone.r == base.r);
+    CHECK(gone.g == base.g);
+    CHECK(gone.b == base.b);
+    CHECK(gone.a == 255);
+    CHECK(gone.additive == false);
+
+    f.time_left = 0.06f;                          // halfway: base -> white
+    Tint half = feedback::flash_tint(f, base);
+    CHECK(half.g == 163);                         // 70 + (255 - 70) * 0.5, rounded
+    CHECK(half.b == 228);                         // 200 + (255 - 200) * 0.5, rounded
+}
+
 TEST_CASE("feedback::flash_tint with non-positive duration is the identity tint",
           "[Game][feedback][unit]") {
     // Guards the division; a zero-duration Flash is a no-op, not a crash.
@@ -174,4 +204,82 @@ TEST_CASE("Flash round-trips through ComponentStorage", "[Game][feedback][unit]"
 
     storage.remove_component<Flash>(e);
     CHECK_FALSE(storage.has_component<Flash>(e));
+}
+
+// ===========================================================================
+// FlashSystem — what a finished flash leaves behind (v2, Phase 5a)
+//
+// This is the branch the whole per-arena enemy tint depends on. Before Phase 5a
+// FlashSystem removed the Tint outright on expiry, which would have erased an
+// enemy's arena colour the first time it was shot.
+// ===========================================================================
+
+TEST_CASE("FlashSystem restores an enemy's base tint when the flash expires",
+          "[Game][feedback][unit]") {
+    ComponentStorage storage;
+    EntityManager em;
+    Blackboard bb;
+    bb.set<double>("delta_time", 0.2);   // longer than the flash
+
+    Entity enemy = em.create_entity();
+    storage.add_component<EnemyTag>(enemy, EnemyTag{});
+    storage.add_component<Color>(enemy, Color{70, 210, 255, 255});   // Foundry cyan
+    storage.add_component<Flash>(enemy, Flash{0.12f, 0.12f, 255, 255, 255});
+
+    FlashSystem flash;
+    flash.update(storage, bb);
+
+    CHECK_FALSE(storage.has_component<Flash>(enemy));
+    REQUIRE(storage.has_component<Tint>(enemy));
+    auto t = storage.get_component<Tint>(enemy);
+    REQUIRE(t.has_value());
+    CHECK(t->get().r == 70);
+    CHECK(t->get().g == 210);
+    CHECK(t->get().b == 255);
+    CHECK(t->get().a == 255);
+}
+
+TEST_CASE("FlashSystem still removes the Tint from a non-enemy on expiry",
+          "[Game][feedback][unit]") {
+    // The player carries a Color too (a fallback rect it never renders), so the
+    // restore branch is gated on EnemyTag. Without that gate the drone's sprite
+    // would come out of every hit permanently tinted green.
+    ComponentStorage storage;
+    EntityManager em;
+    Blackboard bb;
+    bb.set<double>("delta_time", 0.2);
+
+    Entity player = em.create_entity();
+    storage.add_component<Color>(player, Color{90, 200, 160, 255});
+    storage.add_component<Flash>(player, Flash{0.12f, 0.12f, 255, 70, 70});
+
+    FlashSystem flash;
+    flash.update(storage, bb);
+
+    CHECK_FALSE(storage.has_component<Flash>(player));
+    CHECK_FALSE(storage.has_component<Tint>(player));
+}
+
+TEST_CASE("FlashSystem fades a mid-life enemy flash toward its base, not white",
+          "[Game][feedback][unit]") {
+    ComponentStorage storage;
+    EntityManager em;
+    Blackboard bb;
+    bb.set<double>("delta_time", 0.06);   // half the flash
+
+    Entity enemy = em.create_entity();
+    storage.add_component<EnemyTag>(enemy, EnemyTag{});
+    storage.add_component<Color>(enemy, Color{255, 70, 200, 255});   // Core magenta
+    storage.add_component<Flash>(enemy, Flash{0.12f, 0.12f, 255, 255, 255});
+
+    FlashSystem flash;
+    flash.update(storage, bb);
+
+    REQUIRE(storage.has_component<Flash>(enemy));       // still running
+    auto t = storage.get_component<Tint>(enemy);
+    REQUIRE(t.has_value());
+    // Halfway from the magenta base to the white flash colour.
+    CHECK(t->get().r == 255);
+    CHECK(t->get().g == 163);
+    CHECK(t->get().b == 228);
 }

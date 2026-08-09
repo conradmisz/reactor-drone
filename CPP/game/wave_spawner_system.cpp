@@ -53,6 +53,11 @@ void WaveSpawnerSystem::spawn_enemy(const WaveDef& wave,
     // Draw the angle first, unconditionally, so replays stay deterministic.
     std::uniform_real_distribution<float> angle_dist(0.0f, 6.28318530717958647692f);
     float angle = angle_dist(rng_);
+    // R2: the tie-dye hue offset is drawn here, unconditionally, on every spawn in
+    // every arena — never inside an `if (tie_dye)`. A conditional draw would make
+    // the RNG sequence depend on which arena is live and break replay determinism.
+    std::uniform_real_distribution<float> unit(0.0f, 1.0f);
+    float tint_phase = unit(rng_);
     float px = cfg_->arena.center_x, py = cfg_->arena.center_y;
     for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
         auto pos = component_storage.get_component<Position>(p);
@@ -71,7 +76,14 @@ void WaveSpawnerSystem::spawn_enemy(const WaveDef& wave,
     Entity e = entity_manager.create_entity();
     component_storage.add_component<Position>(e, Position{ring_x - half, ring_y - half});
     component_storage.add_component<Size>(e, Size{type.size, type.size});
-    component_storage.add_component<Color>(e, Color{220, 60, 60, 255});  // fallback
+    // v2 Phase 5a: enemy sprites are pure luminance, so the arena's enemy tint is
+    // what gives them a colour. Color doubles as the no-sprite fallback rect *and*
+    // as the record of the entity's resting tint, which is what FlashSystem
+    // restores when a hit flash expires (feedback::flash_tint's `base`).
+    // ponytail: on the fallback path Color and Tint multiply, so a sprite-load
+    // failure renders a darker rect than the sprite would. Failure path only.
+    component_storage.add_component<Color>(e, Color{enemy_r_, enemy_g_, enemy_b_, 255});
+    component_storage.add_component<Tint>(e, Tint{enemy_r_, enemy_g_, enemy_b_, 255, false});
     component_storage.add_component<Velocity>(e, Velocity{0.0f, 0.0f});
     const sidecar_loader::LoadedSprite* sprite = resolve_sprite(type.sidecar, type.clip);
     if (sprite != nullptr) {
@@ -81,7 +93,7 @@ void WaveSpawnerSystem::spawn_enemy(const WaveDef& wave,
     // PathFollower reused purely as the enemy's seek speed (EnemySeekSystem).
     // Per-wave multipliers scale the shared enemy_types (D10 — no new types).
     component_storage.add_component<PathFollower>(e,
-        PathFollower{1, 0.0f, type.speed * wave.speed_mult});
+        PathFollower{1, 0.0f, type.speed * wave.speed_mult, 0.0f, 0.0f, 0.0f, tint_phase});
     float hp = type.health * wave.hp_mult;
     component_storage.add_component<Health>(e, Health{hp, hp});
     component_storage.add_component<EnemyTag>(e, EnemyTag{});
@@ -89,7 +101,7 @@ void WaveSpawnerSystem::spawn_enemy(const WaveDef& wave,
     // as a bug, so they share the obstacle layer and still sit under the player(3).
     component_storage.add_component<RenderLayer>(e, RenderLayer{2});
     component_storage.add_component<ContactDamage>(e,
-        ContactDamage{type.contact_damage, type.score, type.currency});
+        ContactDamage{type.contact_damage, type.score, type.currency, type.drop_chance});
     component_storage.add_component<Collider>(e,
         Collider{type.size, type.size, layers::ENEMY, layers::ENEMY_MASK});
     component_storage.add_component<CircleCollider>(e, CircleCollider{half, 0.0f, 0.0f});

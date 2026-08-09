@@ -49,23 +49,30 @@ inline float decay_trauma(float trauma, float dt, float rate_per_sec) {
 
 /**
  * Tint for a flash: each channel interpolates from the flash colour (at full
- * life) back to 255 (at expiry), so an expired Flash yields exactly the identity
- * tint {255,255,255,255} and removing the component is visually a no-op.
+ * life) back to `base` (at expiry), so an expired Flash yields exactly the
+ * entity's resting tint and removing the component is visually a no-op.
+ *
+ * `base` defaults to the identity tint {255,255,255,255}, which is what an
+ * entity with no persistent tint of its own wants. v2 Phase 5a passes the
+ * enemy's per-arena colour instead: without it, a flash would fade to white and
+ * then snap back, and FlashSystem's remove-on-expiry would erase the arena
+ * colour on the first hit.
  *
  * Deliberately opaque and non-additive. Fading the *alpha* to zero instead —
  * the obvious "additive glow" reading — makes the flashed entity disappear on
  * both render paths (SDL_SetTextureAlphaMod on the sprite path, modulate_color
  * on the colour-rect path) and then pop back the frame the Flash is removed.
- * Colour-modulating toward identity is continuous and never hides the entity.
+ * Colour-modulating toward the base is continuous and never hides the entity.
  */
-inline Tint flash_tint(const Flash& f) {
+inline Tint flash_tint(const Flash& f, Tint base = Tint{255, 255, 255, 255, false}) {
     float frac = (f.duration > 0.0f) ? (f.time_left / f.duration) : 0.0f;
     frac = std::max(0.0f, std::min(1.0f, frac));
 
-    auto toward_identity = [frac](uint8_t c) -> uint8_t {
-        return static_cast<uint8_t>(255.0f + (static_cast<float>(c) - 255.0f) * frac + 0.5f);
+    auto toward_base = [frac](uint8_t c, uint8_t b) -> uint8_t {
+        float bf = static_cast<float>(b);
+        return static_cast<uint8_t>(bf + (static_cast<float>(c) - bf) * frac + 0.5f);
     };
-    return Tint{toward_identity(f.r), toward_identity(f.g), toward_identity(f.b),
+    return Tint{toward_base(f.r, base.r), toward_base(f.g, base.g), toward_base(f.b, base.b),
                 255, /*additive=*/false};
 }
 

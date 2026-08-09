@@ -21,18 +21,22 @@ const sidecar_loader::LoadedSprite* EnemyDeathSystem::effect_sprite() {
 
 void EnemyDeathSystem::drop_loot(ComponentStorage& component_storage,
                                  EntityManager& entity_manager,
-                                 float cx, float cy, int currency_value) {
+                                 float cx, float cy, int currency_value,
+                                 float drop_chance) {
     const EconomyConfig& ec = economy_;
     const int lo = std::max(0, ec.min_drops);
     const int hi = std::max(lo, ec.max_drops);
 
     // R2: every draw below happens on every kill, in the same order, whatever the
     // outcome. `count` decides how many of the pre-rolled scatter offsets are
-    // *used*, never how many are drawn.
+    // *used*, never how many are drawn. Phase 5's per-type drop_chance is the same
+    // discipline: drawn unconditionally, in a fixed position, and only *then*
+    // allowed to decide that nothing drops.
     std::uniform_int_distribution<int> count_dist(lo, hi);
     std::uniform_real_distribution<float> unit(0.0f, 1.0f);
     std::uniform_real_distribution<float> angle_dist(0.0f, 6.28318530717958647692f);
 
+    const float drop_roll = unit(rng_);
     const int count = count_dist(rng_);
     const float key_roll = unit(rng_);
 
@@ -50,15 +54,20 @@ void EnemyDeathSystem::drop_loot(ComponentStorage& component_storage,
         component_storage.add_component<RenderLayer>(e, RenderLayer{4});
     };
 
+    const bool drops = drop_roll < drop_chance;
+
     for (int i = 0; i < hi; ++i) {
         float a = angle_dist(rng_);
         float d = unit(rng_) * ec.pickup_scatter;
-        if (i >= count) continue;   // rolled, not used — the draws still happened
+        // rolled, not used — the draws still happened. Note the loop is never
+        // short-circuited, so a no-drop kill consumes exactly as much of the RNG
+        // stream as a paying one.
+        if (!drops || i >= count) continue;
         make_pickup(cx + std::cos(a) * d, cy + std::sin(a) * d,
                     PickupKind::Currency, currency_value, 255, 210, 90);
     }
 
-    if (key_roll < ec.key_drop_chance) {
+    if (drops && key_roll < ec.key_drop_chance) {
         make_pickup(cx, cy, PickupKind::Key, 1, 255, 130, 245);
     }
 }
@@ -77,9 +86,11 @@ void EnemyDeathSystem::update(ComponentStorage& component_storage,
         // Reward: score now, currency as physical loot below (D5).
         auto cd = component_storage.get_component<ContactDamage>(enemy);
         int currency_value = 1;
+        float drop_chance = 1.0f;
         if (cd.has_value()) {
             score += cd->get().score;
             currency_value = cd->get().currency;
+            drop_chance = cd->get().drop_chance;
         } else {
             score += 10;
         }
@@ -93,7 +104,7 @@ void EnemyDeathSystem::update(ComponentStorage& component_storage,
                 lx = pos->get().x + (sz.has_value() ? sz->get().width * 0.5f : 0.0f);
                 ly = pos->get().y + (sz.has_value() ? sz->get().height * 0.5f : 0.0f);
             }
-            drop_loot(component_storage, entity_manager, lx, ly, currency_value);
+            drop_loot(component_storage, entity_manager, lx, ly, currency_value, drop_chance);
         }
 
         // Spawn the one-shot explosion at the enemy's position.

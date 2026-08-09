@@ -40,11 +40,13 @@ private:
     EconomyConfig economy_;
     std::mt19937 rng_{1234u};
 
-    /// Spawn this kill's loot at (cx, cy). Always consumes exactly 2 + 2*max_drops
-    /// RNG draws regardless of outcome — see the determinism note above.
+    /// Spawn this kill's loot at (cx, cy). `drop_chance` is P(this kill drops
+    /// anything at all) — the dead enemy type's EnemyType::drop_chance, carried in
+    /// on its ContactDamage. Always consumes exactly 3 + 2*max_drops RNG draws
+    /// regardless of outcome — see the determinism note above.
     void drop_loot(ComponentStorage& component_storage,
                    EntityManager& entity_manager,
-                   float cx, float cy, int currency_value);
+                   float cx, float cy, int currency_value, float drop_chance);
 
     // Explosion sprite, loaded once on first death.
     std::optional<sidecar_loader::LoadedSprite> effect_;
