@@ -1,6 +1,7 @@
 #include "engine/ecs/systems/particle_system.hpp"
 #include <cmath>
 #include <algorithm>
+#include <vector>
 
 namespace {
 
@@ -94,12 +95,14 @@ Velocity sample_velocity(const ParticleEmitter& emitter, std::mt19937& rng) {
 ParticleSystem::ParticleSystem(int max_particles, uint32_t seed)
     : max_particles_(max_particles), rng_(seed) {}
 
-void ParticleSystem::update(ComponentStorage& storage, EntityManager& entity_manager, float dt) {
+void ParticleSystem::update(ComponentStorage& storage, EntityManager& entity_manager, float dt,
+                            bool emit) {
     // --- 1. Count live particles (for the global budget) ---
     int live = static_cast<int>(storage.entities_with_component<Particle>().size());
 
     // --- 2. Emit from each active emitter ---
-    auto emitters = storage.entities_with_component<ParticleEmitter>();
+    auto emitters = emit ? storage.entities_with_component<ParticleEmitter>()
+                         : std::vector<Entity>{};
     for (Entity host : emitters) {
         auto emitter_opt = storage.get_component<ParticleEmitter>(host);
         if (!emitter_opt.has_value()) continue;

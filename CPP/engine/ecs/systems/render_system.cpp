@@ -84,6 +84,12 @@ void RenderSystem::render_layers(const std::vector<TiledLayer>& layers) {
         SDL_GetTextureSize(tex, &tw, &th);
         if (tw <= 0.0f || th <= 0.0f) continue;
 
+        // Textures are cached and shared by the ResourceManager, so an alpha mod
+        // left behind here would leak into every later draw of the same texture.
+        // Set it, tile, put it back.
+        float a = layer.alpha < 0.0f ? 0.0f : (layer.alpha > 1.0f ? 1.0f : layer.alpha);
+        SDL_SetTextureAlphaMod(tex, static_cast<Uint8>(a * 255.0f + 0.5f));
+
         // Wrap the offset into [0,tw)/[0,th) and tile from just off-screen so the
         // window is fully covered regardless of the offset's sign.
         float sx = std::fmod(layer.offset_x, tw); if (sx < 0.0f) sx += tw;
@@ -94,6 +100,7 @@ void RenderSystem::render_layers(const std::vector<TiledLayer>& layers) {
                 SDL_RenderTexture(renderer_, tex, nullptr, &dst);
             }
         }
+        SDL_SetTextureAlphaMod(tex, 255);
     }
 }
 

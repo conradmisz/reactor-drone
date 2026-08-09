@@ -65,11 +65,16 @@ public:
      * One tiled backdrop layer: a texture wrapped across the whole window with a
      * per-axis pixel offset (offsets come from parallax math; sign is arbitrary
      * since the tile wraps). Screen-space only — no camera transform, no Y-flip.
+     *
+     * `alpha` in [0,1] scales the layer's opacity, which is what the v2 Phase 5b
+     * arena crossfade rides on: the outgoing arena's layers are pushed at 1.0 and
+     * the incoming arena's on top at a rising alpha.
      */
     struct TiledLayer {
         std::string texture;
         float offset_x = 0.0f;
         float offset_y = 0.0f;
+        float alpha = 1.0f;
     };
 
     /**

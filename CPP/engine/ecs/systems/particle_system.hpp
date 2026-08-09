@@ -91,8 +91,15 @@ public:
      * Advance the particle simulation by dt seconds: emit from active emitters,
      * age existing particles, interpolate color/size, apply gravity, and mark
      * expired particles for deferred destruction.
+     *
+     * `emit` = false ages and retires existing particles without spawning any new
+     * ones. Callers that keep ticking the simulation in a phase where entity
+     * lifetimes are *not* ticking need this: an emitter host that would normally
+     * have expired stays alive and, left emitting, saturates the particle budget
+     * for as long as that phase lasts.
      */
-    void update(ComponentStorage& storage, EntityManager& entity_manager, float dt);
+    void update(ComponentStorage& storage, EntityManager& entity_manager, float dt,
+                bool emit = true);
 
     int max_particles() const { return max_particles_; }
 
