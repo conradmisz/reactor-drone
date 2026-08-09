@@ -1,12 +1,18 @@
 {
-  "window": { "title": "Reactor Drone", "width": 980, "height": 660 },
-  "camera": { "lookat_x": 480.0, "lookat_y": 330.0, "zoom": 1.0 },
+  "window": {
+    "title": "Reactor Drone",
+    "width": 980,
+    "height": 660
+  },
+  "camera": {
+    "lookat_x": 480.0,
+    "lookat_y": 330.0,
+    "zoom": 1.0
+  },
   "entities": [],
   "hud_entities": [],
-
   "seed": 1234,
   "victory_wave": 0,
-
   "arena": {
     "radius": 1400.0,
     "spawn_radius": 620.0,
@@ -14,155 +20,820 @@
     "center_y": 1600.0,
     "backdrop": "",
     "backdrop_layers": [
-      { "image": "v2/bg_core_far.png",  "scroll_factor": 0.9 },
-      { "image": "v2/bg_core_mid.png",  "scroll_factor": 0.6 },
-      { "image": "v2/bg_core_near.png", "scroll_factor": 0.25 }
+      {
+        "image": "v2/bg_core_far.png",
+        "scroll_factor": 0.9
+      },
+      {
+        "image": "v2/bg_core_mid.png",
+        "scroll_factor": 0.6
+      },
+      {
+        "image": "v2/bg_core_near.png",
+        "scroll_factor": 0.25
+      }
     ]
   },
-
   "arenas": [
     {
       "name": "Core",
       "first_wave": 1,
+      "enemy_tint": {
+        "r": 255,
+        "g": 70,
+        "b": 200
+      },
       "wall_image": "v2/pillar_core.png",
       "obstacle_image": "v2/pillar_core.png",
       "hazard_image": "v2/vent_core.png",
       "backdrop_layers": [
-        { "image": "v2/bg_core_far.png", "scroll_factor": 0.9 },
-        { "image": "v2/bg_core_mid.png", "scroll_factor": 0.6 },
-        { "image": "v2/bg_core_near.png", "scroll_factor": 0.25 }
+        {
+          "image": "v2/bg_core_far.png",
+          "scroll_factor": 0.9
+        },
+        {
+          "image": "v2/bg_core_mid.png",
+          "scroll_factor": 0.6
+        },
+        {
+          "image": "v2/bg_core_near.png",
+          "scroll_factor": 0.25
+        }
       ],
       "obstacles": [
-        { "x": 1975.0, "y": 1555.0, "w": 90.0, "h": 90.0 },
-        { "x": 1765.0, "y": 1919.0, "w": 90.0, "h": 90.0 },
-        { "x": 1345.0, "y": 1919.0, "w": 90.0, "h": 90.0 },
-        { "x": 1135.0, "y": 1555.0, "w": 90.0, "h": 90.0 },
-        { "x": 1345.0, "y": 1191.0, "w": 90.0, "h": 90.0 },
-        { "x": 1765.0, "y": 1191.0, "w": 90.0, "h": 90.0 },
-        { "x": 2282.0, "y": 1857.0, "w": 110.0, "h": 110.0 },
-        { "x": 1846.0, "y": 2286.0, "w": 110.0, "h": 110.0 },
-        { "x": 1233.0, "y": 2282.0, "w": 110.0, "h": 110.0 },
-        { "x": 804.0, "y": 1846.0, "w": 110.0, "h": 110.0 },
-        { "x": 808.0, "y": 1233.0, "w": 110.0, "h": 110.0 },
-        { "x": 1244.0, "y": 804.0, "w": 110.0, "h": 110.0 },
-        { "x": 1857.0, "y": 808.0, "w": 110.0, "h": 110.0 },
-        { "x": 2286.0, "y": 1244.0, "w": 110.0, "h": 110.0 },
-        { "x": 2341.0, "y": 2365.0, "w": 120.0, "h": 120.0 },
-        { "x": 715.0, "y": 2341.0, "w": 120.0, "h": 120.0 },
-        { "x": 739.0, "y": 715.0, "w": 120.0, "h": 120.0 },
-        { "x": 2365.0, "y": 739.0, "w": 120.0, "h": 120.0 }
+        {
+          "x": 1975.0,
+          "y": 1555.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 1765.0,
+          "y": 1919.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 1345.0,
+          "y": 1919.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 1135.0,
+          "y": 1555.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 1345.0,
+          "y": 1191.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 1765.0,
+          "y": 1191.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 2282.0,
+          "y": 1857.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1846.0,
+          "y": 2286.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1233.0,
+          "y": 2282.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 804.0,
+          "y": 1846.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 808.0,
+          "y": 1233.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1244.0,
+          "y": 804.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1857.0,
+          "y": 808.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 2286.0,
+          "y": 1244.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 2341.0,
+          "y": 2365.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 715.0,
+          "y": 2341.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 739.0,
+          "y": 715.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 2365.0,
+          "y": 739.0,
+          "w": 120.0,
+          "h": 120.0
+        }
       ],
       "hazards": [
-        { "x": 1811.0, "y": 2133.0, "w": 140.0, "h": 40.0, "damage": 8.0 },
-        { "x": 911.0, "y": 1547.0, "w": 140.0, "h": 40.0, "damage": 8.0 },
-        { "x": 1868.0, "y": 1060.0, "w": 140.0, "h": 40.0, "damage": 8.0 },
-        { "x": 2535.0, "y": 1725.0, "w": 50.0, "h": 140.0, "damage": 8.0 },
-        { "x": 926.0, "y": 2264.0, "w": 50.0, "h": 140.0, "damage": 8.0 },
-        { "x": 1263.0, "y": 601.0, "w": 50.0, "h": 140.0, "damage": 8.0 }
+        {
+          "x": 1811.0,
+          "y": 2133.0,
+          "w": 140.0,
+          "h": 40.0,
+          "damage": 8.0
+        },
+        {
+          "x": 911.0,
+          "y": 1547.0,
+          "w": 140.0,
+          "h": 40.0,
+          "damage": 8.0
+        },
+        {
+          "x": 1868.0,
+          "y": 1060.0,
+          "w": 140.0,
+          "h": 40.0,
+          "damage": 8.0
+        },
+        {
+          "x": 2535.0,
+          "y": 1725.0,
+          "w": 50.0,
+          "h": 140.0,
+          "damage": 8.0
+        },
+        {
+          "x": 926.0,
+          "y": 2264.0,
+          "w": 50.0,
+          "h": 140.0,
+          "damage": 8.0
+        },
+        {
+          "x": 1263.0,
+          "y": 601.0,
+          "w": 50.0,
+          "h": 140.0,
+          "damage": 8.0
+        }
       ]
     },
     {
       "name": "Foundry",
-      "first_wave": 3,
+      "first_wave": 6,
+      "enemy_tint": {
+        "r": 70,
+        "g": 210,
+        "b": 255
+      },
       "wall_image": "v2/pillar_foundry.png",
       "obstacle_image": "v2/pillar_foundry.png",
       "hazard_image": "v2/vent_foundry.png",
       "backdrop_layers": [
-        { "image": "v2/bg_foundry_far.png", "scroll_factor": 0.9 },
-        { "image": "v2/bg_foundry_mid.png", "scroll_factor": 0.6 },
-        { "image": "v2/bg_foundry_near.png", "scroll_factor": 0.25 }
+        {
+          "image": "v2/bg_foundry_far.png",
+          "scroll_factor": 0.9
+        },
+        {
+          "image": "v2/bg_foundry_mid.png",
+          "scroll_factor": 0.6
+        },
+        {
+          "image": "v2/bg_foundry_near.png",
+          "scroll_factor": 0.25
+        }
       ],
       "obstacles": [
-        { "x": 1910.0, "y": 1575.0, "w": 180.0, "h": 50.0 },
-        { "x": 1510.0, "y": 1975.0, "w": 180.0, "h": 50.0 },
-        { "x": 1110.0, "y": 1575.0, "w": 180.0, "h": 50.0 },
-        { "x": 1510.0, "y": 1175.0, "w": 180.0, "h": 50.0 },
-        { "x": 1858.0, "y": 1793.0, "w": 50.0, "h": 180.0 },
-        { "x": 1292.0, "y": 1793.0, "w": 50.0, "h": 180.0 },
-        { "x": 1292.0, "y": 1227.0, "w": 50.0, "h": 180.0 },
-        { "x": 1858.0, "y": 1227.0, "w": 50.0, "h": 180.0 },
-        { "x": 2250.0, "y": 1803.0, "w": 190.0, "h": 55.0 },
-        { "x": 1678.0, "y": 2333.0, "w": 190.0, "h": 55.0 },
-        { "x": 933.0, "y": 2103.0, "w": 190.0, "h": 55.0 },
-        { "x": 760.0, "y": 1342.0, "w": 190.0, "h": 55.0 },
-        { "x": 1332.0, "y": 812.0, "w": 190.0, "h": 55.0 },
-        { "x": 2077.0, "y": 1042.0, "w": 190.0, "h": 55.0 },
-        { "x": 2494.0, "y": 2137.0, "w": 60.0, "h": 190.0 },
-        { "x": 1485.0, "y": 2622.0, "w": 60.0, "h": 190.0 },
-        { "x": 560.0, "y": 1989.0, "w": 60.0, "h": 190.0 },
-        { "x": 646.0, "y": 873.0, "w": 60.0, "h": 190.0 },
-        { "x": 1655.0, "y": 388.0, "w": 60.0, "h": 190.0 },
-        { "x": 2580.0, "y": 1021.0, "w": 60.0, "h": 190.0 }
+        {
+          "x": 1910.0,
+          "y": 1575.0,
+          "w": 180.0,
+          "h": 50.0
+        },
+        {
+          "x": 1510.0,
+          "y": 1975.0,
+          "w": 180.0,
+          "h": 50.0
+        },
+        {
+          "x": 1110.0,
+          "y": 1575.0,
+          "w": 180.0,
+          "h": 50.0
+        },
+        {
+          "x": 1510.0,
+          "y": 1175.0,
+          "w": 180.0,
+          "h": 50.0
+        },
+        {
+          "x": 1858.0,
+          "y": 1793.0,
+          "w": 50.0,
+          "h": 180.0
+        },
+        {
+          "x": 1292.0,
+          "y": 1793.0,
+          "w": 50.0,
+          "h": 180.0
+        },
+        {
+          "x": 1292.0,
+          "y": 1227.0,
+          "w": 50.0,
+          "h": 180.0
+        },
+        {
+          "x": 1858.0,
+          "y": 1227.0,
+          "w": 50.0,
+          "h": 180.0
+        },
+        {
+          "x": 2250.0,
+          "y": 1803.0,
+          "w": 190.0,
+          "h": 55.0
+        },
+        {
+          "x": 1678.0,
+          "y": 2333.0,
+          "w": 190.0,
+          "h": 55.0
+        },
+        {
+          "x": 933.0,
+          "y": 2103.0,
+          "w": 190.0,
+          "h": 55.0
+        },
+        {
+          "x": 760.0,
+          "y": 1342.0,
+          "w": 190.0,
+          "h": 55.0
+        },
+        {
+          "x": 1332.0,
+          "y": 812.0,
+          "w": 190.0,
+          "h": 55.0
+        },
+        {
+          "x": 2077.0,
+          "y": 1042.0,
+          "w": 190.0,
+          "h": 55.0
+        },
+        {
+          "x": 2494.0,
+          "y": 2137.0,
+          "w": 60.0,
+          "h": 190.0
+        },
+        {
+          "x": 1485.0,
+          "y": 2622.0,
+          "w": 60.0,
+          "h": 190.0
+        },
+        {
+          "x": 560.0,
+          "y": 1989.0,
+          "w": 60.0,
+          "h": 190.0
+        },
+        {
+          "x": 646.0,
+          "y": 873.0,
+          "w": 60.0,
+          "h": 190.0
+        },
+        {
+          "x": 1655.0,
+          "y": 388.0,
+          "w": 60.0,
+          "h": 190.0
+        },
+        {
+          "x": 2580.0,
+          "y": 1021.0,
+          "w": 60.0,
+          "h": 190.0
+        }
       ],
       "hazards": [
-        { "x": 1959.0, "y": 1967.0, "w": 200.0, "h": 40.0, "damage": 10.0 },
-        { "x": 1113.0, "y": 2039.0, "w": 200.0, "h": 40.0, "damage": 10.0 },
-        { "x": 1041.0, "y": 1193.0, "w": 200.0, "h": 40.0, "damage": 10.0 },
-        { "x": 1887.0, "y": 1121.0, "w": 200.0, "h": 40.0, "damage": 10.0 },
-        { "x": 2500.0, "y": 1650.0, "w": 90.0, "h": 90.0, "damage": 10.0 },
-        { "x": 1460.0, "y": 2500.0, "w": 90.0, "h": 90.0, "damage": 10.0 },
-        { "x": 610.0, "y": 1460.0, "w": 90.0, "h": 90.0, "damage": 10.0 },
-        { "x": 1650.0, "y": 610.0, "w": 90.0, "h": 90.0, "damage": 10.0 }
+        {
+          "x": 1959.0,
+          "y": 1967.0,
+          "w": 200.0,
+          "h": 40.0,
+          "damage": 10.0
+        },
+        {
+          "x": 1113.0,
+          "y": 2039.0,
+          "w": 200.0,
+          "h": 40.0,
+          "damage": 10.0
+        },
+        {
+          "x": 1041.0,
+          "y": 1193.0,
+          "w": 200.0,
+          "h": 40.0,
+          "damage": 10.0
+        },
+        {
+          "x": 1887.0,
+          "y": 1121.0,
+          "w": 200.0,
+          "h": 40.0,
+          "damage": 10.0
+        },
+        {
+          "x": 2500.0,
+          "y": 1650.0,
+          "w": 90.0,
+          "h": 90.0,
+          "damage": 10.0
+        },
+        {
+          "x": 1460.0,
+          "y": 2500.0,
+          "w": 90.0,
+          "h": 90.0,
+          "damage": 10.0
+        },
+        {
+          "x": 610.0,
+          "y": 1460.0,
+          "w": 90.0,
+          "h": 90.0,
+          "damage": 10.0
+        },
+        {
+          "x": 1650.0,
+          "y": 610.0,
+          "w": 90.0,
+          "h": 90.0,
+          "damage": 10.0
+        }
       ]
     },
     {
       "name": "Bio-lab",
-      "first_wave": 5,
+      "first_wave": 11,
+      "enemy_tint": {
+        "r": 190,
+        "g": 120,
+        "b": 255
+      },
       "wall_image": "v2/pillar_biolab.png",
       "obstacle_image": "v2/pillar_biolab.png",
       "hazard_image": "v2/vent_biolab.png",
       "backdrop_layers": [
-        { "image": "v2/bg_biolab_far.png", "scroll_factor": 0.9 },
-        { "image": "v2/bg_biolab_mid.png", "scroll_factor": 0.6 },
-        { "image": "v2/bg_biolab_near.png", "scroll_factor": 0.25 }
+        {
+          "image": "v2/bg_biolab_far.png",
+          "scroll_factor": 0.9
+        },
+        {
+          "image": "v2/bg_biolab_mid.png",
+          "scroll_factor": 0.6
+        },
+        {
+          "image": "v2/bg_biolab_near.png",
+          "scroll_factor": 0.25
+        }
       ],
       "obstacles": [
-        { "x": 1986.0, "y": 1661.0, "w": 100.0, "h": 100.0 },
-        { "x": 1579.0, "y": 1999.0, "w": 100.0, "h": 100.0 },
-        { "x": 1132.0, "y": 1716.0, "w": 100.0, "h": 100.0 },
-        { "x": 1263.0, "y": 1204.0, "w": 100.0, "h": 100.0 },
-        { "x": 1791.0, "y": 1170.0, "w": 100.0, "h": 100.0 },
-        { "x": 2286.0, "y": 1948.0, "w": 120.0, "h": 120.0 },
-        { "x": 1560.0, "y": 2390.0, "w": 120.0, "h": 120.0 },
-        { "x": 814.0, "y": 1982.0, "w": 120.0, "h": 120.0 },
-        { "x": 794.0, "y": 1132.0, "w": 120.0, "h": 120.0 },
-        { "x": 1520.0, "y": 690.0, "w": 120.0, "h": 120.0 },
-        { "x": 2266.0, "y": 1098.0, "w": 120.0, "h": 120.0 },
-        { "x": 2724.0, "y": 1668.0, "w": 100.0, "h": 100.0 },
-        { "x": 1432.0, "y": 2724.0, "w": 100.0, "h": 100.0 },
-        { "x": 376.0, "y": 1432.0, "w": 100.0, "h": 100.0 },
-        { "x": 1668.0, "y": 376.0, "w": 100.0, "h": 100.0 }
+        {
+          "x": 1986.0,
+          "y": 1661.0,
+          "w": 100.0,
+          "h": 100.0
+        },
+        {
+          "x": 1579.0,
+          "y": 1999.0,
+          "w": 100.0,
+          "h": 100.0
+        },
+        {
+          "x": 1132.0,
+          "y": 1716.0,
+          "w": 100.0,
+          "h": 100.0
+        },
+        {
+          "x": 1263.0,
+          "y": 1204.0,
+          "w": 100.0,
+          "h": 100.0
+        },
+        {
+          "x": 1791.0,
+          "y": 1170.0,
+          "w": 100.0,
+          "h": 100.0
+        },
+        {
+          "x": 2286.0,
+          "y": 1948.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 1560.0,
+          "y": 2390.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 814.0,
+          "y": 1982.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 794.0,
+          "y": 1132.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 1520.0,
+          "y": 690.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 2266.0,
+          "y": 1098.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 2724.0,
+          "y": 1668.0,
+          "w": 100.0,
+          "h": 100.0
+        },
+        {
+          "x": 1432.0,
+          "y": 2724.0,
+          "w": 100.0,
+          "h": 100.0
+        },
+        {
+          "x": 376.0,
+          "y": 1432.0,
+          "w": 100.0,
+          "h": 100.0
+        },
+        {
+          "x": 1668.0,
+          "y": 376.0,
+          "w": 100.0,
+          "h": 100.0
+        }
       ],
       "hazards": [
-        { "x": 1924.0, "y": 2084.0, "w": 160.0, "h": 50.0, "damage": 12.0 },
-        { "x": 1011.0, "y": 1979.0, "w": 160.0, "h": 50.0, "damage": 12.0 },
-        { "x": 1116.0, "y": 1066.0, "w": 160.0, "h": 50.0, "damage": 12.0 },
-        { "x": 2029.0, "y": 1171.0, "w": 160.0, "h": 50.0, "damage": 12.0 },
-        { "x": 2484.0, "y": 1888.0, "w": 110.0, "h": 110.0, "damage": 12.0 },
-        { "x": 1509.0, "y": 2544.0, "w": 110.0, "h": 110.0, "damage": 12.0 },
-        { "x": 583.0, "y": 1820.0, "w": 110.0, "h": 110.0, "damage": 12.0 },
-        { "x": 987.0, "y": 715.0, "w": 110.0, "h": 110.0, "damage": 12.0 },
-        { "x": 2161.0, "y": 758.0, "w": 110.0, "h": 110.0, "damage": 12.0 }
+        {
+          "x": 1924.0,
+          "y": 2084.0,
+          "w": 160.0,
+          "h": 50.0,
+          "damage": 12.0
+        },
+        {
+          "x": 1011.0,
+          "y": 1979.0,
+          "w": 160.0,
+          "h": 50.0,
+          "damage": 12.0
+        },
+        {
+          "x": 1116.0,
+          "y": 1066.0,
+          "w": 160.0,
+          "h": 50.0,
+          "damage": 12.0
+        },
+        {
+          "x": 2029.0,
+          "y": 1171.0,
+          "w": 160.0,
+          "h": 50.0,
+          "damage": 12.0
+        },
+        {
+          "x": 2484.0,
+          "y": 1888.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 12.0
+        },
+        {
+          "x": 1509.0,
+          "y": 2544.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 12.0
+        },
+        {
+          "x": 583.0,
+          "y": 1820.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 12.0
+        },
+        {
+          "x": 987.0,
+          "y": 715.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 12.0
+        },
+        {
+          "x": 2161.0,
+          "y": 758.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 12.0
+        }
+      ]
+    },
+    {
+      "name": "Prism",
+      "first_wave": 16,
+      "tie_dye": true,
+      "enemy_tint": {
+        "r": 255,
+        "g": 255,
+        "b": 255
+      },
+      "wall_image": "v2/pillar_prism.png",
+      "obstacle_image": "v2/pillar_prism.png",
+      "hazard_image": "v2/vent_prism.png",
+      "backdrop_layers": [
+        {
+          "image": "v2/bg_prism_far.png",
+          "scroll_factor": 0.9
+        },
+        {
+          "image": "v2/bg_prism_mid.png",
+          "scroll_factor": 0.6
+        },
+        {
+          "image": "v2/bg_prism_near.png",
+          "scroll_factor": 0.25
+        }
+      ],
+      "obstacles": [
+        {
+          "x": 1975.0,
+          "y": 1545.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1760.0,
+          "y": 1917.4,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1330.0,
+          "y": 1917.4,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1115.0,
+          "y": 1545.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1330.0,
+          "y": 1172.6,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1760.0,
+          "y": 1172.6,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 2301.8,
+          "y": 1852.6,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 1852.6,
+          "y": 2301.8,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 1217.4,
+          "y": 2301.8,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 768.2,
+          "y": 1852.6,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 768.2,
+          "y": 1217.4,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 1217.4,
+          "y": 768.2,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 1852.6,
+          "y": 768.2,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 2301.8,
+          "y": 1217.4,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 2576.9,
+          "y": 2145.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 1555.0,
+          "y": 2735.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 533.1,
+          "y": 2145.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 533.1,
+          "y": 965.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 1555.0,
+          "y": 375.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 2576.9,
+          "y": 965.0,
+          "w": 90.0,
+          "h": 90.0
+        }
+      ],
+      "hazards": [
+        {
+          "x": 1967.5,
+          "y": 2030.0,
+          "w": 170.0,
+          "h": 45.0,
+          "damage": 14.0
+        },
+        {
+          "x": 1062.5,
+          "y": 2030.0,
+          "w": 170.0,
+          "h": 45.0,
+          "damage": 14.0
+        },
+        {
+          "x": 1062.5,
+          "y": 1125.0,
+          "w": 170.0,
+          "h": 45.0,
+          "damage": 14.0
+        },
+        {
+          "x": 1967.5,
+          "y": 1125.0,
+          "w": 170.0,
+          "h": 45.0,
+          "damage": 14.0
+        },
+        {
+          "x": 2560.0,
+          "y": 1550.0,
+          "w": 100.0,
+          "h": 100.0,
+          "damage": 14.0
+        },
+        {
+          "x": 1550.0,
+          "y": 2560.0,
+          "w": 100.0,
+          "h": 100.0,
+          "damage": 14.0
+        },
+        {
+          "x": 540.0,
+          "y": 1550.0,
+          "w": 100.0,
+          "h": 100.0,
+          "damage": 14.0
+        },
+        {
+          "x": 1550.0,
+          "y": 540.0,
+          "w": 100.0,
+          "h": 100.0,
+          "damage": 14.0
+        }
       ]
     }
   ],
-
   "feedback": {
     "max_shake_px": 18.0,
     "trauma_decay_per_sec": 1.6,
     "trauma_player_hit": 0.6,
     "trauma_enemy_death": 0.25,
     "flash_duration": 0.12,
-    "player_flash": { "r": 255, "g": 70, "b": 70 },
-    "enemy_flash": { "r": 255, "g": 255, "b": 255 }
+    "player_flash": {
+      "r": 255,
+      "g": 70,
+      "b": 70
+    },
+    "enemy_flash": {
+      "r": 255,
+      "g": 255,
+      "b": 255
+    }
   },
-
   "pathfinding": {
     "repath_interval": 0.35,
     "cell_size": 40,
     "clearance": 24.0
   },
-
   "player": {
     "start_health": 100.0,
     "move_speed": 260.0,
@@ -180,44 +851,295 @@
       "spread": 0.06
     }
   },
-
   "enemy_types": [
-    { "name": "spark",  "sidecar": "images/v2/enemy_spark.json",  "clip": "march", "speed": 95.0, "health": 20.0, "contact_damage": 8.0,  "size": 64.0, "score": 10, "currency": 1 },
-    { "name": "runner", "sidecar": "images/v2/enemy_runner.json", "clip": "march", "speed": 70.0, "health": 40.0, "contact_damage": 10.0, "size": 70.0, "score": 15, "currency": 2 },
-    { "name": "hulk",   "sidecar": "images/v2/enemy_hulk.json",   "clip": "march", "speed": 45.0, "health": 90.0, "contact_damage": 16.0, "size": 78.0, "score": 30, "currency": 4 }
+    {
+      "name": "spark",
+      "sidecar": "images/v2/enemy_spark.json",
+      "clip": "march",
+      "speed": 119.0,
+      "health": 20.0,
+      "contact_damage": 8.0,
+      "size": 64.0,
+      "score": 10,
+      "currency": 1,
+      "drop_chance": 0.35
+    },
+    {
+      "name": "runner",
+      "sidecar": "images/v2/enemy_runner.json",
+      "clip": "march",
+      "speed": 88.0,
+      "health": 40.0,
+      "contact_damage": 10.0,
+      "size": 70.0,
+      "score": 15,
+      "currency": 2,
+      "drop_chance": 0.65
+    },
+    {
+      "name": "hulk",
+      "sidecar": "images/v2/enemy_hulk.json",
+      "clip": "march",
+      "speed": 56.0,
+      "health": 90.0,
+      "contact_damage": 16.0,
+      "size": 78.0,
+      "score": 30,
+      "currency": 4,
+      "drop_chance": 1.0
+    }
   ],
-
   "wave_stall_timeout": 30.0,
-
-  "//waves": "Waves 1-11 are fixed-count; 12-20 are timed (duration > 0 ignores count). hp_mult/speed_mult scale the shared enemy_types instead of adding types (D10).",
-
+  "//waves": "Waves 1-11 are fixed-count; 12-20 are timed (duration > 0 ignores count). hp_mult/speed_mult scale the shared enemy_types instead of adding types (D10). PROVISIONAL (Phase B): the early-wave counts/intervals are the 'aggressive' target the user picked and have not been playtested.",
   "waves": [
-    { "count": 6,  "spawn_interval": 0.80, "delay": 1.0, "types": [0] },
-    { "count": 8,  "spawn_interval": 0.70, "delay": 2.0, "types": [0, 1] },
-    { "count": 10, "spawn_interval": 0.60, "delay": 2.0, "types": [0, 1] },
-    { "count": 12, "spawn_interval": 0.55, "delay": 2.0, "types": [1, 2] },
-    { "count": 14, "spawn_interval": 0.50, "delay": 2.0, "types": [0, 1, 2] },
-    { "count": 18, "spawn_interval": 0.40, "delay": 2.0, "types": [0, 1, 2] },
-    { "count": 20, "spawn_interval": 0.40, "delay": 2.0, "types": [0, 1, 2], "hp_mult": 1.10 },
-    { "count": 22, "spawn_interval": 0.38, "delay": 2.0, "types": [0, 1, 2], "hp_mult": 1.15 },
-    { "count": 24, "spawn_interval": 0.36, "delay": 2.0, "types": [0, 1, 2], "hp_mult": 1.20 },
-    { "count": 26, "spawn_interval": 0.34, "delay": 2.0, "types": [0, 1, 2], "hp_mult": 1.25 },
-    { "count": 28, "spawn_interval": 0.32, "delay": 2.0, "types": [0, 1, 2], "hp_mult": 1.30 },
-    { "duration": 20.0, "spawn_interval": 0.55, "delay": 2.0, "types": [0, 1, 2], "hp_mult": 1.40, "speed_mult": 1.10 },
-    { "duration": 22.0, "spawn_interval": 0.52, "delay": 2.0, "types": [0, 1, 2], "hp_mult": 1.50, "speed_mult": 1.13 },
-    { "duration": 24.0, "spawn_interval": 0.49, "delay": 2.0, "types": [0, 1, 2], "hp_mult": 1.60, "speed_mult": 1.15 },
-    { "duration": 26.0, "spawn_interval": 0.46, "delay": 2.0, "types": [0, 1, 2], "hp_mult": 1.70, "speed_mult": 1.18 },
-    { "duration": 28.0, "spawn_interval": 0.43, "delay": 2.0, "types": [0, 1, 2], "hp_mult": 1.80, "speed_mult": 1.20 },
-    { "duration": 30.0, "spawn_interval": 0.39, "delay": 2.0, "types": [0, 1, 2], "hp_mult": 1.90, "speed_mult": 1.23 },
-    { "duration": 32.0, "spawn_interval": 0.36, "delay": 2.0, "types": [0, 1, 2], "hp_mult": 2.00, "speed_mult": 1.25 },
-    { "duration": 34.0, "spawn_interval": 0.33, "delay": 2.0, "types": [0, 1, 2], "hp_mult": 2.10, "speed_mult": 1.28 },
-    { "duration": 36.0, "spawn_interval": 0.30, "delay": 2.0, "types": [0, 1, 2], "hp_mult": 2.20, "speed_mult": 1.30 }
+    {
+      "count": 12,
+      "spawn_interval": 0.45,
+      "delay": 1.0,
+      "types": [
+        0,
+        1
+      ]
+    },
+    {
+      "count": 16,
+      "spawn_interval": 0.4,
+      "delay": 2.0,
+      "types": [
+        0,
+        1
+      ]
+    },
+    {
+      "count": 20,
+      "spawn_interval": 0.35,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "count": 26,
+      "spawn_interval": 0.3,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "count": 30,
+      "spawn_interval": 0.3,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "count": 34,
+      "spawn_interval": 0.28,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "count": 38,
+      "spawn_interval": 0.28,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.1
+    },
+    {
+      "count": 40,
+      "spawn_interval": 0.26,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.15
+    },
+    {
+      "count": 42,
+      "spawn_interval": 0.26,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.2
+    },
+    {
+      "count": 44,
+      "spawn_interval": 0.25,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.25
+    },
+    {
+      "count": 46,
+      "spawn_interval": 0.25,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.3
+    },
+    {
+      "duration": 20.0,
+      "spawn_interval": 0.3,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.4,
+      "speed_mult": 1.1
+    },
+    {
+      "duration": 22.0,
+      "spawn_interval": 0.29,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.5,
+      "speed_mult": 1.13
+    },
+    {
+      "duration": 24.0,
+      "spawn_interval": 0.28,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.6,
+      "speed_mult": 1.15
+    },
+    {
+      "duration": 26.0,
+      "spawn_interval": 0.27,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.7,
+      "speed_mult": 1.18
+    },
+    {
+      "duration": 28.0,
+      "spawn_interval": 0.26,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.8,
+      "speed_mult": 1.2
+    },
+    {
+      "duration": 30.0,
+      "spawn_interval": 0.25,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.9,
+      "speed_mult": 1.23
+    },
+    {
+      "duration": 32.0,
+      "spawn_interval": 0.24,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 2.0,
+      "speed_mult": 1.25
+    },
+    {
+      "duration": 34.0,
+      "spawn_interval": 0.22,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 2.1,
+      "speed_mult": 1.28
+    },
+    {
+      "duration": 36.0,
+      "spawn_interval": 0.2,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 2.2,
+      "speed_mult": 1.3
+    }
   ],
-
+  "//difficulties": "Selectable run difficulties (Phase B, D50). Index 0 is the default. Every field is enemy-side on purpose: Hard must not make the player's economy harsher. type_lookahead pulls each wave's enemy roster forward by N waves. PROVISIONAL.",
+  "difficulties": [
+    {
+      "name": "Normal",
+      "count_mult": 1.0,
+      "spawn_interval_mult": 1.0,
+      "hp_mult": 1.0,
+      "speed_mult": 1.0,
+      "currency_mult": 1.0,
+      "hazard_damage_mult": 1.0,
+      "type_lookahead": 0
+    },
+    {
+      "name": "Hard",
+      "count_mult": 1.5,
+      "spawn_interval_mult": 0.7,
+      "hp_mult": 1.3,
+      "speed_mult": 1.15,
+      "currency_mult": 1.4,
+      "hazard_damage_mult": 1.5,
+      "type_lookahead": 2
+    }
+  ],
   "//economy": "Currency/key drop tuning (Gameplay Phase 2). Drop counts are inclusive bounds on a uniform roll; pickup_size doubles as the collection-radius basis.",
-
   "economy": {
-    "min_drops": 1,
+    "min_drops": 0,
     "max_drops": 3,
     "key_drop_chance": 0.005,
     "pickup_lifetime": 12.0,
@@ -226,34 +1148,1150 @@
     "pickup_magnet_speed": 420.0,
     "pickup_magnet_radius": 220.0
   },
-
-  "//shop": "PROVISIONAL PRICES — not yet validated against a real credits-per-wave curve (handoff-phase-3.md §8). price_growth compounds per repeat purchase. Row order is the ShipState.upg_counts slot order: re-price or rename freely, re-ordering re-labels existing purchases.",
-
+  "//shop": "PROVISIONAL PRICES \u2014 not yet validated against a real credits-per-wave curve (handoff-phase-3.md \u00a78). price_growth compounds per repeat purchase. Row order is the ShipState.upg_counts slot order: re-price or rename freely, re-ordering re-labels existing purchases.",
   "shop": {
     "price_growth": 1.5,
     "shield_regen_delay": 3.0,
     "upgrades": [
-      { "name": "Hull Plating",     "effect": "hull",       "price": 50,  "amount": 25.0, "max_stacks": 8 },
-      { "name": "Shield Capacitor", "effect": "shield",     "price": 90,  "amount": 30.0, "max_stacks": 5 },
-      { "name": "Aux Thruster",     "effect": "speed",      "price": 70,  "amount": 0.12, "max_stacks": 5 },
-      { "name": "Overclock",        "effect": "fire_rate",  "price": 70,  "amount": 0.6,  "max_stacks": 6 },
-      { "name": "Heavy Rounds",     "effect": "damage",     "price": 60,  "amount": 8.0,  "max_stacks": 8 },
-      { "name": "Twin Barrel",      "effect": "extra_shot", "price": 220, "amount": 1.0,  "max_stacks": 2 }
+      {
+        "name": "Hull Plating",
+        "effect": "hull",
+        "price": 50,
+        "amount": 25.0,
+        "max_stacks": 8
+      },
+      {
+        "name": "Shield Capacitor",
+        "effect": "shield",
+        "price": 90,
+        "amount": 30.0,
+        "max_stacks": 5
+      },
+      {
+        "name": "Aux Thruster",
+        "effect": "speed",
+        "price": 70,
+        "amount": 0.12,
+        "max_stacks": 5
+      },
+      {
+        "name": "Overclock",
+        "effect": "fire_rate",
+        "price": 70,
+        "amount": 0.6,
+        "max_stacks": 6
+      },
+      {
+        "name": "Heavy Rounds",
+        "effect": "damage",
+        "price": 60,
+        "amount": 8.0,
+        "max_stacks": 8
+      },
+      {
+        "name": "Twin Barrel",
+        "effect": "extra_shot",
+        "price": 220,
+        "amount": 1.0,
+        "max_stacks": 2
+      }
     ],
-
-    "//gear": "PROVISIONAL PRICES, same caveat as the upgrades above and for the same reason: no full run has been played, so these are anchored to the upgrade rows rather than to a measured credits-per-wave curve. Uniform within each list on purpose — one slot each, so the choice should be about the effect, not the cost. `effect` maps to the fixed ids in player_components.hpp (item_ids / consumable_ids), NOT to row order; re-order these freely.",
+    "//gear": "PROVISIONAL PRICES, same caveat as the upgrades above and for the same reason: no full run has been played, so these are anchored to the upgrade rows rather than to a measured credits-per-wave curve. Uniform within each list on purpose \u2014 one slot each, so the choice should be about the effect, not the cost. `effect` maps to the fixed ids in player_components.hpp (item_ids / consumable_ids), NOT to row order; re-order these freely.",
     "repulsor_radius": 140.0,
     "items": [
-      { "name": "Magnet Core",      "effect": "magnet",   "price": 120, "amount": 0.0  },
-      { "name": "Repulsor Field",   "effect": "repulsor", "price": 120, "amount": 35.0 },
-      { "name": "Reactive Plating", "effect": "reactive", "price": 120, "amount": 25.0 },
-      { "name": "Salvager",         "effect": "salvage",  "price": 120, "amount": 1.5  }
+      {
+        "name": "Magnet Core",
+        "effect": "magnet",
+        "price": 120,
+        "amount": 0.0
+      },
+      {
+        "name": "Repulsor Field",
+        "effect": "repulsor",
+        "price": 120,
+        "amount": 35.0
+      },
+      {
+        "name": "Reactive Plating",
+        "effect": "reactive",
+        "price": 120,
+        "amount": 25.0
+      },
+      {
+        "name": "Salvager",
+        "effect": "salvage",
+        "price": 120,
+        "amount": 1.5
+      }
     ],
     "consumables": [
-      { "name": "Repair Kit",  "effect": "repair",      "price": 45, "amount": 60.0 },
-      { "name": "Overdrive",   "effect": "overdrive",   "price": 45, "amount": 2.0, "duration": 8.0 },
-      { "name": "EMP Burst",   "effect": "emp",         "price": 45, "amount": 45.0 },
-      { "name": "Phase Shift", "effect": "phase_shift", "price": 45, "duration": 3.0 }
+      {
+        "name": "Repair Kit",
+        "effect": "repair",
+        "price": 45,
+        "amount": 60.0
+      },
+      {
+        "name": "Overdrive",
+        "effect": "overdrive",
+        "price": 45,
+        "amount": 2.0,
+        "duration": 8.0
+      },
+      {
+        "name": "EMP Burst",
+        "effect": "emp",
+        "price": 45,
+        "amount": 45.0
+      },
+      {
+        "name": "Phase Shift",
+        "effect": "phase_shift",
+        "price": 45,
+        "duration": 3.0
+      }
     ]
+  },
+  "//iteration3": "Iteration-3 scaffolding (D51). Each block below is OWNED BY ONE LANE and every value here is an inert default: the game plays exactly as it did before iteration 3 until the owning lane fills its block in. Do not let two lanes edit the same block.",
+  "//sustain": "Lane B / note #10 - periodic health & shield pickups. interval 0 = feature off.",
+  "sustain": {
+    "interval": 0.0,
+    "max_live": 3,
+    "health_amount": 25.0,
+    "shield_amount": 20.0,
+    "shield_weight": 0.35,
+    "min_player_dist": 220.0
+  },
+  "//dash": "Lane B / note #5 - thruster dash. Damage is dealt to every enemy the dash passes through.",
+  "dash": {
+    "speed": 900.0,
+    "duration": 0.15,
+    "cooldown": 2.5,
+    "damage": 30.0
+  },
+  "//minimap": "Lane B / note #7 - arena minimap. x/y/size are in the 800x600 design canvas; enabled=false until the lane lands.",
+  "minimap": {
+    "enabled": false,
+    "x": 640.0,
+    "y": 430.0,
+    "size": 140.0,
+    "max_blips": 120
+  },
+  "//boss": "Lane D / note #4 - the every-10th-wave boss. health_growth compounds per appearance; the boss is themed to whichever arena is live.",
+  "boss": {
+    "health": 3000.0,
+    "health_growth": 1.6,
+    "size": 260.0,
+    "contact_damage": 30.0,
+    "summon_interval": 6.0,
+    "summon_count": 4,
+    "reward_choices": 3
+  },
+  "//actives": "Lane D - boss-reward active items. All three sit on the 30s cooldown the design note fixes. Empty until the boss phase lands.",
+  "actives": [],
+  "//ui": "UI & menu layer (Option-040 port). Rects are authored in the 800x600 design canvas; ui_canvas_transform letterboxes them onto the live window.",
+  "ui_styles": {
+    "panel": {
+      "normal": {
+        "bg": [
+          10,
+          14,
+          30,
+          225
+        ],
+        "text": [
+          120,
+          225,
+          255,
+          160
+        ]
+      },
+      "hovered": {
+        "bg": [
+          10,
+          14,
+          30,
+          225
+        ],
+        "text": [
+          120,
+          225,
+          255,
+          160
+        ]
+      },
+      "pressed": {
+        "bg": [
+          10,
+          14,
+          30,
+          225
+        ],
+        "text": [
+          120,
+          225,
+          255,
+          160
+        ]
+      },
+      "disabled": {
+        "bg": [
+          10,
+          14,
+          30,
+          225
+        ],
+        "text": [
+          120,
+          225,
+          255,
+          160
+        ]
+      }
+    },
+    "title": {
+      "normal": {
+        "bg": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "text": [
+          120,
+          225,
+          255,
+          255
+        ]
+      },
+      "hovered": {
+        "bg": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "text": [
+          120,
+          225,
+          255,
+          255
+        ]
+      },
+      "pressed": {
+        "bg": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "text": [
+          120,
+          225,
+          255,
+          255
+        ]
+      },
+      "disabled": {
+        "bg": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "text": [
+          120,
+          225,
+          255,
+          255
+        ]
+      }
+    },
+    "subtitle": {
+      "normal": {
+        "bg": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "text": [
+          235,
+          235,
+          245,
+          190
+        ]
+      },
+      "hovered": {
+        "bg": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "text": [
+          235,
+          235,
+          245,
+          190
+        ]
+      },
+      "pressed": {
+        "bg": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "text": [
+          235,
+          235,
+          245,
+          190
+        ]
+      },
+      "disabled": {
+        "bg": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "text": [
+          235,
+          235,
+          245,
+          190
+        ]
+      }
+    },
+    "shop_button": {
+      "normal": {
+        "bg": [
+          120,
+          20,
+          90,
+          235
+        ],
+        "text": [
+          255,
+          220,
+          90,
+          255
+        ]
+      },
+      "hovered": {
+        "bg": [
+          200,
+          55,
+          150,
+          255
+        ],
+        "text": [
+          255,
+          245,
+          210,
+          255
+        ]
+      },
+      "pressed": {
+        "bg": [
+          255,
+          70,
+          200,
+          255
+        ],
+        "text": [
+          20,
+          10,
+          30,
+          255
+        ]
+      },
+      "disabled": {
+        "bg": [
+          45,
+          40,
+          55,
+          180
+        ],
+        "text": [
+          120,
+          115,
+          130,
+          200
+        ]
+      }
+    },
+    "default_button": {
+      "normal": {
+        "bg": [
+          18,
+          40,
+          60,
+          230
+        ],
+        "text": [
+          120,
+          225,
+          255,
+          255
+        ]
+      },
+      "hovered": {
+        "bg": [
+          30,
+          75,
+          110,
+          255
+        ],
+        "text": [
+          225,
+          250,
+          255,
+          255
+        ]
+      },
+      "pressed": {
+        "bg": [
+          120,
+          225,
+          255,
+          255
+        ],
+        "text": [
+          8,
+          16,
+          30,
+          255
+        ]
+      },
+      "disabled": {
+        "bg": [
+          30,
+          32,
+          40,
+          180
+        ],
+        "text": [
+          110,
+          115,
+          125,
+          200
+        ]
+      }
+    },
+    "hud_bar_bg": {
+      "normal": {
+        "bg": [
+          6,
+          10,
+          20,
+          200
+        ],
+        "text": [
+          120,
+          225,
+          255,
+          90
+        ]
+      },
+      "hovered": {
+        "bg": [
+          6,
+          10,
+          20,
+          200
+        ],
+        "text": [
+          120,
+          225,
+          255,
+          90
+        ]
+      },
+      "pressed": {
+        "bg": [
+          6,
+          10,
+          20,
+          200
+        ],
+        "text": [
+          120,
+          225,
+          255,
+          90
+        ]
+      },
+      "disabled": {
+        "bg": [
+          6,
+          10,
+          20,
+          200
+        ],
+        "text": [
+          120,
+          225,
+          255,
+          90
+        ]
+      }
+    },
+    "hud_chip": {
+      "normal": {
+        "bg": [
+          255,
+          60,
+          60,
+          230
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "hovered": {
+        "bg": [
+          255,
+          60,
+          60,
+          230
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pressed": {
+        "bg": [
+          255,
+          60,
+          60,
+          230
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "disabled": {
+        "bg": [
+          255,
+          60,
+          60,
+          230
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "hud_hp_ok": {
+      "normal": {
+        "bg": [
+          80,
+          240,
+          160,
+          245
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "hovered": {
+        "bg": [
+          80,
+          240,
+          160,
+          245
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pressed": {
+        "bg": [
+          80,
+          240,
+          160,
+          245
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "disabled": {
+        "bg": [
+          80,
+          240,
+          160,
+          245
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "hud_hp_warn": {
+      "normal": {
+        "bg": [
+          255,
+          200,
+          70,
+          245
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "hovered": {
+        "bg": [
+          255,
+          200,
+          70,
+          245
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pressed": {
+        "bg": [
+          255,
+          200,
+          70,
+          245
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "disabled": {
+        "bg": [
+          255,
+          200,
+          70,
+          245
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "hud_hp_crit": {
+      "normal": {
+        "bg": [
+          255,
+          70,
+          70,
+          245
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "hovered": {
+        "bg": [
+          255,
+          70,
+          70,
+          245
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pressed": {
+        "bg": [
+          255,
+          70,
+          70,
+          245
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "disabled": {
+        "bg": [
+          255,
+          70,
+          70,
+          245
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "hud_shield": {
+      "normal": {
+        "bg": [
+          120,
+          200,
+          255,
+          235
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "hovered": {
+        "bg": [
+          120,
+          200,
+          255,
+          235
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pressed": {
+        "bg": [
+          120,
+          200,
+          255,
+          235
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "disabled": {
+        "bg": [
+          120,
+          200,
+          255,
+          235
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "hud_label": {
+      "normal": {
+        "bg": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "text": [
+          150,
+          175,
+          195,
+          220
+        ]
+      },
+      "hovered": {
+        "bg": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "text": [
+          150,
+          175,
+          195,
+          220
+        ]
+      },
+      "pressed": {
+        "bg": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "text": [
+          150,
+          175,
+          195,
+          220
+        ]
+      },
+      "disabled": {
+        "bg": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "text": [
+          150,
+          175,
+          195,
+          220
+        ]
+      }
+    }
+  },
+  "screens": {
+    "main_menu": {
+      "active": false,
+      "widgets": [
+        {
+          "element_type": "panel",
+          "rect": {
+            "x": 130,
+            "y": 170,
+            "w": 540,
+            "h": 260
+          },
+          "label_text": "",
+          "style_id": "panel",
+          "z_order": 0
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 250,
+            "y": 380,
+            "w": 300,
+            "h": 40
+          },
+          "label_text": "REACTOR DRONE",
+          "style_id": "title",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 210,
+            "y": 344,
+            "w": 380,
+            "h": 28
+          },
+          "label_text": "Choose your difficulty.",
+          "style_id": "subtitle",
+          "z_order": 10
+        },
+        {
+          "element_type": "button",
+          "name": "menu_normal",
+          "rect": {
+            "x": 170,
+            "y": 250,
+            "w": 220,
+            "h": 66
+          },
+          "label_text": "NORMAL",
+          "style_id": "default_button",
+          "on_click_fn": "on_start_normal_click",
+          "pulse_hz": 1.1,
+          "z_order": 10
+        },
+        {
+          "element_type": "button",
+          "name": "menu_hard",
+          "rect": {
+            "x": 410,
+            "y": 250,
+            "w": 220,
+            "h": 66
+          },
+          "label_text": "HARD",
+          "style_id": "shop_button",
+          "on_click_fn": "on_start_hard_click",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 210,
+            "y": 205,
+            "w": 380,
+            "h": 20
+          },
+          "label_text": "Arrows move, mouse aims, hold fire. SPACE = Normal.",
+          "style_id": "subtitle",
+          "z_order": 10
+        }
+      ]
+    },
+    "wave_intermission": {
+      "active": false,
+      "widgets": [
+        {
+          "element_type": "panel",
+          "rect": {
+            "x": 130,
+            "y": 190,
+            "w": 540,
+            "h": 220
+          },
+          "label_text": "",
+          "style_id": "panel",
+          "z_order": 0
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 250,
+            "y": 355,
+            "w": 300,
+            "h": 40
+          },
+          "label_text": "WAVE CLEARED",
+          "style_id": "title",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 210,
+            "y": 320,
+            "w": 380,
+            "h": 28
+          },
+          "label_text": "Spend your credits, or push on.",
+          "style_id": "subtitle",
+          "z_order": 10
+        },
+        {
+          "element_type": "button",
+          "name": "shop_button",
+          "rect": {
+            "x": 160,
+            "y": 225,
+            "w": 240,
+            "h": 66
+          },
+          "label_text": "SHOP OPEN",
+          "style_id": "shop_button",
+          "on_click_fn": "on_shop_open_click",
+          "pulse_hz": 1.1,
+          "z_order": 10
+        },
+        {
+          "element_type": "button",
+          "name": "continue_button",
+          "rect": {
+            "x": 420,
+            "y": 225,
+            "w": 220,
+            "h": 66
+          },
+          "label_text": "NEXT WAVE",
+          "style_id": "default_button",
+          "on_click_fn": "on_continue_click",
+          "z_order": 10
+        }
+      ]
+    },
+    "gameplay": {
+      "active": true,
+      "widgets": [
+        {
+          "element_type": "label",
+          "name": "hud_hp_label",
+          "rect": {
+            "x": 16.0,
+            "y": 578.0,
+            "w": 120.0,
+            "h": 16.0
+          },
+          "label_text": "HULL",
+          "style_id": "hud_label",
+          "z_order": 10
+        },
+        {
+          "element_type": "panel",
+          "name": "hud_hp_bg",
+          "rect": {
+            "x": 14.0,
+            "y": 554.0,
+            "w": 244.0,
+            "h": 22.0
+          },
+          "label_text": "",
+          "style_id": "hud_bar_bg",
+          "z_order": 10
+        },
+        {
+          "element_type": "panel",
+          "name": "hud_hp_chip",
+          "rect": {
+            "x": 16.0,
+            "y": 556.0,
+            "w": 240.0,
+            "h": 18.0
+          },
+          "label_text": "",
+          "style_id": "hud_chip",
+          "z_order": 11
+        },
+        {
+          "element_type": "panel",
+          "name": "hud_hp_fill",
+          "rect": {
+            "x": 16.0,
+            "y": 556.0,
+            "w": 240.0,
+            "h": 18.0
+          },
+          "label_text": "",
+          "style_id": "hud_hp_ok",
+          "z_order": 12
+        },
+        {
+          "element_type": "panel",
+          "name": "hud_sh_bg",
+          "rect": {
+            "x": 14.0,
+            "y": 534.0,
+            "w": 244.0,
+            "h": 16.0
+          },
+          "label_text": "",
+          "style_id": "hud_bar_bg",
+          "z_order": 10
+        },
+        {
+          "element_type": "panel",
+          "name": "hud_sh_fill",
+          "rect": {
+            "x": 16.0,
+            "y": 536.0,
+            "w": 240.0,
+            "h": 12.0
+          },
+          "label_text": "",
+          "style_id": "hud_shield",
+          "z_order": 12
+        }
+      ]
+    },
+    "pause": {
+      "active": false,
+      "widgets": [
+        {
+          "element_type": "panel",
+          "rect": {
+            "x": 250.0,
+            "y": 170.0,
+            "w": 300.0,
+            "h": 260.0
+          },
+          "label_text": "",
+          "style_id": "panel",
+          "z_order": 0
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 300.0,
+            "y": 380.0,
+            "w": 200.0,
+            "h": 40.0
+          },
+          "label_text": "PAUSED",
+          "style_id": "title",
+          "z_order": 10
+        },
+        {
+          "element_type": "button",
+          "name": "pause_resume",
+          "rect": {
+            "x": 300.0,
+            "y": 320.0,
+            "w": 200.0,
+            "h": 46.0
+          },
+          "label_text": "RESUME",
+          "style_id": "default_button",
+          "on_click_fn": "on_resume_click",
+          "z_order": 10
+        },
+        {
+          "element_type": "button",
+          "name": "pause_quit",
+          "rect": {
+            "x": 300.0,
+            "y": 262.0,
+            "w": 200.0,
+            "h": 46.0
+          },
+          "label_text": "QUIT",
+          "style_id": "default_button",
+          "on_click_fn": "on_quit_click",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 268.0,
+            "y": 210.0,
+            "w": 264.0,
+            "h": 20.0
+          },
+          "label_text": "Save and Options arrive with those systems",
+          "style_id": "subtitle",
+          "z_order": 10
+        }
+      ]
+    }
   }
 }
