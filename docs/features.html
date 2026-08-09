@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="en" data-arena="core">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reactor Drone — Field Manual</title>
+<!--
+  ============================================================================
+  HOW TO UPDATE THIS PAGE
+  ============================================================================
+  This is a PLAYER'S GUIDE, not a spec. Someone should be able to read it and
+  know how to play. No engineering detail (ECS, determinism, tests) — that
+  belongs on a separate page if it is ever wanted.
+
+  Editing rules:
+    1. Every section sits between a pair of HTML comment fences reading
+       "SECTION: name" and "/SECTION". Edit inside the fence; do not move
+       the fences. (They are not written out literally here, because a
+       nested comment-close would end this comment early.)
+    2. Describe tuning in RELATIVE terms ("costs climb steeply", "much tougher
+       past the midpoint"). Exact numbers only for structural facts that rarely
+       move: 20 waves, 4 arenas, 3 enemy types, 6 upgrades, 4 items,
+       4 consumables, 1 item slot + 1 consumable slot.
+       Reason: balance values in assets/GameData.json are still provisional and
+       will change. Relative prose never goes stale.
+    3. Arena colours live in the :root / [data-arena=...] token blocks and are
+       copied from assets/generator/v2/palette.py. If a palette changes there,
+       change it here too.
+    4. Only describe what is actually playable. As of this writing the
+       dash / minimap / boss / sustain / actives blocks in GameData.json are
+       inert scaffolding with HOOK comments in main.cpp — they are NOT in the
+       game and are NOT documented here. Move them into the guide when the
+       lane that owns them lands.
+
+  MEDIA SLOTS — currently placeholders. To fill one, replace the
+  <div class="feed-frame"> ... </div> inside a <figure class="feed"> with:
+      <img src="media/NAME.png" alt="describe what is happening">
+    or
+      <video src="media/NAME.mp4" autoplay muted loop playsinline></video>
+  Keep the <figcaption>. Put files in docs/media/. 16:9 crops best.
+  ============================================================================
+-->
+<style>
+/* ---------------------------------------------------------------------------
+   TOKENS
+   :root carries the Core palette in full; each [data-arena] block overrides the
+   same token names. Values copied from assets/generator/v2/palette.py.
+   This page commits to a single visual world (a dark neon arcade screen), so
+   there is no light theme — every colour is painted explicitly instead of
+   inherited, and the page holds on any host background.
+--------------------------------------------------------------------------- */
+:root{
+  --ground:#0a0a14; --ground-2:#0d0d1e;
+  --neon:#3ce6ff; --neon-2:#ff46c8; --hazard:#ff5aa0; --pale:#b4f5ff;
+  --ink:#e7f1f8; --ink-dim:#94a7bc; --line:#1e2d47;
+
+  --sans:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  --mono:"DejaVuGame",ui-monospace,"DejaVu Sans Mono","JetBrains Mono",Menlo,Consolas,monospace;
+
+  --step--1:.82rem; --step-0:1.02rem; --step-1:1.18rem; --step-2:1.45rem;
+  --step-3:clamp(1.55rem,1.15rem + 1.7vw,2.15rem);
+  --step-4:clamp(2.1rem,1.25rem + 3.8vw,3.8rem);
+
+  --rail:16rem; --measure:66ch; --pad:clamp(1.25rem,4vw,3rem);
+}
+[data-arena="foundry"]{
+  --ground:#140a06; --ground-2:#1d1009;
+  --neon:#ff9628; --neon-2:#ffd246; --hazard:#ff781e; --pale:#ffe6a0;
+  --ink:#f9f0e4; --ink-dim:#bda285; --line:#43290f;
+}
+[data-arena="biolab"]{
+  --ground:#06140c; --ground-2:#081d12;
+  --neon:#50ff8c; --neon-2:#b478ff; --hazard:#8cff5a; --pale:#c8ffd2;
+  --ink:#e6f8ec; --ink-dim:#8fb39c; --line:#18402d;
+}
+[data-arena="prism"]{
+  --ground:#0e0a16; --ground-2:#161020;
+  --neon:#c8beff; --neon-2:#ffffff; --hazard:#ff5078; --pale:#f0f0ff;
+  --ink:#f1eef9; --ink-dim:#a79fc0; --line:#2c2646;
+}
+:root{
+  --surface:color-mix(in srgb, var(--neon) 5%, var(--ground-2));
+  --surface-2:color-mix(in srgb, var(--neon) 10%, var(--ground-2));
+  --edge:color-mix(in srgb, var(--neon) 28%, transparent);
+  --edge-soft:color-mix(in srgb, var(--neon) 14%, transparent);
+  --glow:0 0 14px color-mix(in srgb, var(--neon) 42%, transparent);
+  --glow-soft:0 0 30px color-mix(in srgb, var(--neon) 16%, transparent);
+}
+
+/* The game's own typeface, used for readouts. Falls back cleanly. */
+@font-face{
+  font-family:"DejaVuGame";
+  src:url("../assets/fonts/default.ttf") format("truetype");
+  font-display:swap;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.001ms !important;transition-duration:.001ms !important}
+}
+
+body{
+  margin:0;
+  background:var(--ground);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:var(--step-0);
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+  transition:background .5s ease, color .5s ease;
+}
+
+a{color:var(--neon)}
+a:focus-visible,button:focus-visible{
+  outline:2px solid var(--neon);outline-offset:3px;border-radius:2px;
+}
+.skip{position:absolute;left:-999px;top:0;background:var(--neon);color:var(--ground);
+  padding:.6rem 1rem;font-family:var(--mono);z-index:99}
+.skip:focus{left:.5rem;top:.5rem}
+
+/* ---------------------------------------------------------------------------
+   THE RAIL — navigation drawn as a reactor readout. The wave ladder is not
+   decoration: its 20 ticks are the 20 waves, banded by which arena is live.
+--------------------------------------------------------------------------- */
+.layout{display:grid;grid-template-columns:var(--rail) minmax(0,1fr);gap:0}
+.rail{
+  position:sticky;top:0;align-self:start;height:100vh;
+  display:flex;flex-direction:column;gap:1.4rem;
+  padding:1.6rem 1.1rem;
+  border-right:1px solid var(--line);
+  background:linear-gradient(180deg,var(--ground-2),var(--ground));
+  overflow-y:auto;
+}
+.brand{display:flex;flex-direction:column;gap:.15rem}
+.brand b{
+  font-size:1.02rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--neon);text-shadow:var(--glow);
+}
+.brand span{font-family:var(--mono);font-size:.68rem;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--ink-dim)}
+
+.railnav{display:flex;flex-direction:column;gap:.1rem}
+.railnav a{
+  display:flex;align-items:baseline;gap:.6rem;
+  padding:.34rem .5rem;border-left:2px solid transparent;
+  color:var(--ink-dim);text-decoration:none;font-size:.9rem;
+  transition:color .18s, border-color .18s, background .18s;
+}
+.railnav a i{font-family:var(--mono);font-size:.68rem;font-style:normal;opacity:.55;
+  font-variant-numeric:tabular-nums}
+.railnav a:hover{color:var(--ink);background:var(--surface)}
+.railnav a[aria-current="true"]{
+  color:var(--neon);border-left-color:var(--neon);
+  background:color-mix(in srgb,var(--neon) 8%,transparent);
+}
+
+.switch{display:flex;flex-direction:column;gap:.45rem}
+.switch>b{font-family:var(--mono);font-size:.66rem;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--ink-dim);font-weight:400}
+.arenas{display:grid;grid-template-columns:1fr 1fr;gap:.4rem}
+.arenas button{
+  font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;
+  padding:.5rem .3rem;cursor:pointer;color:var(--ink-dim);
+  background:var(--surface);border:1px solid var(--line);border-radius:2px;
+  transition:color .18s, border-color .18s, box-shadow .18s;
+}
+.arenas button:hover{color:var(--ink);border-color:var(--edge)}
+.arenas button[aria-pressed="true"]{
+  color:var(--ground);background:var(--neon);border-color:var(--neon);
+  box-shadow:var(--glow);font-weight:700;
+}
+
+.ladder{display:flex;flex-direction:column;gap:.5rem;margin-top:auto}
+.ladder>b{font-family:var(--mono);font-size:.66rem;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--ink-dim);font-weight:400}
+.ticks{display:grid;grid-template-columns:repeat(20,1fr);gap:2px;align-items:end;height:34px}
+.ticks span{background:var(--line);border-radius:1px;transition:background .5s ease,height .3s}
+.ticks span[data-band="core"]{height:40%}
+.ticks span[data-band="foundry"]{height:60%}
+.ticks span[data-band="biolab"]{height:80%}
+.ticks span[data-band="prism"]{height:100%}
+.ticks span.lit{background:var(--neon);box-shadow:var(--glow)}
+.ladder small{font-family:var(--mono);font-size:.62rem;color:var(--ink-dim);
+  display:flex;justify-content:space-between}
+
+/* --------------------------------------------------------------------------- */
+main{padding:0 var(--pad) 6rem;min-width:0}
+section{max-width:var(--measure);margin-inline:auto;padding-block:3.4rem;scroll-margin-top:1rem}
+section+section{border-top:1px solid var(--line)}
+
+h1,h2,h3{text-wrap:balance;margin:0;font-weight:800}
+h1{font-size:var(--step-4);line-height:1.02;letter-spacing:-.02em;text-transform:uppercase}
+h2{
+  font-size:var(--step-3);line-height:1.12;letter-spacing:-.01em;text-transform:uppercase;
+  color:var(--neon);text-shadow:var(--glow);
+}
+h3{font-size:var(--step-1);letter-spacing:.01em;margin-top:2rem}
+p{margin:.9rem 0}
+.eyebrow{
+  font-family:var(--mono);font-size:.7rem;letter-spacing:.28em;text-transform:uppercase;
+  color:var(--ink-dim);margin:0 0 .5rem;
+}
+.lede{font-size:var(--step-1);color:var(--ink);opacity:.92}
+.dim{color:var(--ink-dim)}
+
+/* HERO */
+.hero{padding-top:3.4rem;border-top:0}
+.hero-frame{
+  position:relative;padding:2.2rem var(--pad);margin-inline:calc(var(--pad)*-1);
+  background:
+    radial-gradient(120% 90% at 12% 0%, color-mix(in srgb,var(--neon) 12%,transparent), transparent 62%),
+    repeating-linear-gradient(0deg,transparent 0 3px,color-mix(in srgb,var(--neon) 4%,transparent) 3px 4px),
+    var(--ground-2);
+  border-block:1px solid var(--edge-soft);
+}
+h1 .sub{display:block;font-size:.3em;letter-spacing:.34em;color:var(--neon);
+  text-shadow:var(--glow);margin-bottom:.7rem;font-weight:400;font-family:var(--mono)}
+.tagline{font-size:var(--step-2);line-height:1.35;max-width:30ch;margin:1.1rem 0 0}
+
+/* QUICK START */
+.quick{
+  margin:2rem 0 0;padding:1.3rem 1.4rem;
+  background:var(--surface-2);border:1px solid var(--edge);border-radius:3px;
+  box-shadow:var(--glow-soft);
+}
+.quick h2{font-size:var(--step-1);margin-bottom:.7rem}
+.quick ol{margin:0;padding-left:1.1rem;display:flex;flex-direction:column;gap:.4rem}
+.quick li::marker{color:var(--neon);font-family:var(--mono);font-size:.8rem}
+
+/* KEYCAPS + CHIPS */
+kbd{
+  font-family:var(--mono);font-size:.78em;line-height:1;
+  padding:.28em .5em;border-radius:3px;
+  color:var(--pale);background:var(--surface-2);
+  border:1px solid var(--edge);box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--neon) 20%,transparent);
+  white-space:nowrap;
+}
+.chip{
+  display:inline-block;font-family:var(--mono);font-size:.66rem;letter-spacing:.12em;
+  text-transform:uppercase;padding:.2em .55em;border-radius:2px;
+  border:1px solid var(--edge);color:var(--neon);background:var(--surface);
+}
+.chip.warn{color:var(--hazard);border-color:color-mix(in srgb,var(--hazard) 45%,transparent)}
+.chip.alt{color:var(--neon-2);border-color:color-mix(in srgb,var(--neon-2) 45%,transparent)}
+
+/* TABLES */
+.tablewrap{overflow-x:auto;margin:1.2rem 0}
+table{border-collapse:collapse;width:100%;font-size:.94rem;min-width:32rem}
+caption{text-align:left;font-family:var(--mono);font-size:.68rem;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--ink-dim);padding-bottom:.6rem}
+th,td{text-align:left;padding:.62rem .8rem;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{
+  font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink-dim);font-weight:400;border-bottom-color:var(--edge);
+}
+tbody tr:hover{background:var(--surface)}
+td.num,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td:first-child{color:var(--ink);font-weight:600}
+
+/* CARDS */
+.cards{display:grid;gap:.9rem;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));margin:1.3rem 0}
+.card{
+  position:relative;padding:1rem 1.1rem;background:var(--surface);
+  border:1px solid var(--line);border-radius:3px;
+  transition:border-color .2s, box-shadow .2s, transform .2s;
+}
+.card:hover{border-color:var(--edge);box-shadow:var(--glow-soft);transform:translateY(-2px)}
+.card::before,.card::after{
+  content:"";position:absolute;width:9px;height:9px;border:1px solid var(--edge);
+}
+.card::before{top:-1px;left:-1px;border-right:0;border-bottom:0}
+.card::after{bottom:-1px;right:-1px;border-left:0;border-top:0}
+.card b{display:block;color:var(--neon);font-size:1rem;letter-spacing:.01em}
+.card p{margin:.4rem 0 0;font-size:.92rem;color:var(--ink-dim)}
+.card .chip{margin-bottom:.55rem}
+
+/* MEDIA SLOTS */
+.feed{margin:1.6rem 0;padding:0}
+.feed-frame,.feed img,.feed video{
+  display:block;width:100%;aspect-ratio:16/9;border-radius:3px;
+  border:1px solid var(--edge);background:var(--ground-2);object-fit:cover;
+}
+.feed-frame{
+  display:grid;place-content:center;gap:.5rem;text-align:center;padding:1rem;
+  background:
+    repeating-linear-gradient(0deg,transparent 0 3px,color-mix(in srgb,var(--neon) 5%,transparent) 3px 4px),
+    var(--ground-2);
+  box-shadow:inset 0 0 40px color-mix(in srgb,var(--neon) 10%,transparent);
+}
+.feed-frame span{font-family:var(--mono);font-size:.66rem;letter-spacing:.3em;
+  text-transform:uppercase;color:var(--neon);opacity:.75}
+.feed-frame p{margin:0;font-size:.86rem;color:var(--ink-dim);max-width:38ch}
+figcaption{font-size:.84rem;color:var(--ink-dim);padding-top:.55rem;font-style:italic}
+
+/* CALLOUT */
+.note{
+  margin:1.4rem 0;padding:.9rem 1.1rem;border-left:2px solid var(--neon);
+  background:var(--surface);font-size:.94rem;
+}
+.note b{color:var(--neon)}
+.note.danger{border-left-color:var(--hazard)}
+.note.danger b{color:var(--hazard)}
+
+/* STEPS — a real sequence, so it is numbered */
+.steps{list-style:none;counter-reset:s;margin:1.4rem 0;padding:0;
+  display:flex;flex-direction:column;gap:.85rem}
+.steps li{counter-increment:s;display:grid;grid-template-columns:2.2rem 1fr;gap:.9rem;align-items:start}
+.steps li::before{
+  content:counter(s,decimal-leading-zero);
+  font-family:var(--mono);font-size:.78rem;color:var(--neon);
+  border:1px solid var(--edge);border-radius:2px;text-align:center;padding:.25rem 0;
+  background:var(--surface);
+}
+.steps b{color:var(--ink)}
+
+footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px solid var(--line);
+  font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+
+/* MOBILE — rail becomes a scrolling chip strip pinned to the top */
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr}
+  .rail{
+    position:sticky;top:0;height:auto;flex-direction:row;align-items:center;gap:.8rem;
+    padding:.6rem .8rem;border-right:0;border-bottom:1px solid var(--edge-soft);
+    overflow-x:auto;overflow-y:hidden;z-index:20;
+    background:color-mix(in srgb,var(--ground-2) 92%,transparent);
+    backdrop-filter:blur(8px);
+  }
+  .brand span,.ladder,.switch>b{display:none}
+  .brand{flex:0 0 auto}
+  .railnav{flex-direction:row;gap:.15rem;flex:1 1 auto}
+  .railnav a{white-space:nowrap;border-left:0;border-bottom:2px solid transparent;padding:.3rem .55rem}
+  .railnav a i{display:none}
+  .railnav a[aria-current="true"]{border-left:0;border-bottom-color:var(--neon);background:transparent}
+  .switch{flex:0 0 auto}
+  .arenas{display:flex;gap:.35rem}
+  .arenas button{width:1.6rem;height:1.6rem;padding:0;font-size:0;border-radius:50%;
+    background:var(--neon);opacity:.35}
+  .arenas button[aria-pressed="true"]{opacity:1;box-shadow:var(--glow)}
+  section{padding-block:2.6rem}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="layout">
+
+<!-- SECTION: rail -->
+<nav class="rail" aria-label="Contents">
+  <div class="brand">
+    <b>Reactor Drone</b>
+    <span>Field Manual</span>
+  </div>
+
+  <div class="railnav">
+    <a href="#start"><i>01</i>Quick start</a>
+    <a href="#controls"><i>02</i>Controls</a>
+    <a href="#loop"><i>03</i>A run, start to finish</a>
+    <a href="#survival"><i>04</i>Staying alive</a>
+    <a href="#enemies"><i>05</i>What's shooting at you</a>
+    <a href="#waves"><i>06</i>Waves &amp; difficulty</a>
+    <a href="#loot"><i>07</i>Credits &amp; loot</a>
+    <a href="#shop"><i>08</i>The shop</a>
+    <a href="#upgrades"><i>09</i>Upgrades</a>
+    <a href="#gear"><i>10</i>Gear</a>
+    <a href="#arenas"><i>11</i>The four arenas</a>
+    <a href="#reference"><i>12</i>Reference card</a>
+  </div>
+
+  <div class="switch">
+    <b>Arena palette</b>
+    <div class="arenas" role="group" aria-label="Preview an arena palette">
+      <button type="button" data-set="core" aria-pressed="true">Core</button>
+      <button type="button" data-set="foundry" aria-pressed="false">Foundry</button>
+      <button type="button" data-set="biolab" aria-pressed="false">Bio-lab</button>
+      <button type="button" data-set="prism" aria-pressed="false">Prism</button>
+    </div>
+  </div>
+
+  <div class="ladder">
+    <b>The 20-wave arc</b>
+    <div class="ticks" id="ticks" aria-hidden="true"></div>
+    <small><span>Wave 1</span><span>Wave 20</span></small>
+  </div>
+</nav>
+<!-- /SECTION -->
+
+<main id="main">
+
+<!-- SECTION: hero -->
+<section class="hero" id="top">
+  <div class="hero-frame">
+    <h1><span class="sub">Arena survival</span>Reactor<br>Drone</h1>
+    <p class="tagline">One maintenance drone. Twenty waves. Four arenas that each want you dead in a different colour.</p>
+  </div>
+
+  <figure class="feed">
+    <div class="feed-frame">
+      <span>Clip · Hero</span>
+      <p>Thirty seconds of a mid-run wave: drone circling, trails, a swarm closing, one big explosion.</p>
+    </div>
+    <figcaption>The drone at work in the Core arena.</figcaption>
+  </figure>
+
+  <p class="lede">You fly a small drone inside a failing reactor. Enemies pour in from the rim in waves,
+  you shoot them, they drop credits, and every few waves the run pauses and lets you spend those credits
+  on something that makes you harder to kill. Clear twenty waves and you win. Lose your hull and you don't.</p>
+</section>
+<!-- /SECTION -->
+
+<!-- SECTION: quickstart -->
+<section id="start">
+  <p class="eyebrow">Section 01</p>
+  <h2>Quick start</h2>
+  <p>Enough to start playing right now. Everything after this is detail.</p>
+
+  <div class="quick">
+    <h2>In ten seconds</h2>
+    <ol>
+      <li>Pick <b>Normal</b> or <b>Hard</b> on the title screen — or just press <kbd>Space</kbd> for Normal.</li>
+      <li>Move with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrow keys.</li>
+      <li>Aim with the mouse. The drone always faces your cursor.</li>
+      <li>Hold <b>left mouse</b> to fire. You can hold it down the whole run.</li>
+      <li>Walk over the credits enemies drop. Spend them when the run pauses.</li>
+    </ol>
+  </div>
+
+  <p>Two things kill new players: standing still, and forgetting that touching an enemy hurts.
+  Keep moving, and treat every enemy as a thing you must not bump into.</p>
+</section>
+<!-- /SECTION -->
+
+<!-- SECTION: controls -->
+<section id="controls">
+  <p class="eyebrow">Section 02</p>
+  <h2>Controls</h2>
+  <p>There are only six things to know. The shop keys only matter while the shop is open.</p>
+
+  <div class="tablewrap">
+    <table>
+      <caption>Every input in the game</caption>
+      <thead>
+        <tr><th>Input</th><th>Does</th><th>When</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows</td><td>Move. Diagonals are the same speed as straight lines, so there's no advantage to strafing at an angle.</td><td>Flying</td></tr>
+        <tr><td>Mouse</td><td>Aim. The drone turns to face the cursor and fires where it points.</td><td>Flying</td></tr>
+        <tr><td>Hold left mouse</td><td>Fire continuously. There's no ammo and no reload — only a rate of fire.</td><td>Flying</td></tr>
+        <tr><td><kbd>Q</kbd></td><td>Use your consumable, if you're carrying one. One press spends it.</td><td>Flying</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Pause. Resume or quit from there.</td><td>Any time after the title</td></tr>
+        <tr><td><kbd>Space</kbd></td><td>Start a Normal run from the title, and restart after a run ends. Also fires, if you'd rather not hold the mouse.</td><td>Menus and flying</td></tr>
+        <tr><td><kbd>B</kbd></td><td>Open the shop mid-run — but only if you're holding a shop key. Pressing it again closes the shop and launches the next wave.</td><td>Flying, and in the shop</td></tr>
+        <tr><td><kbd>1</kbd>–<kbd>8</kbd></td><td>Buy the numbered row.</td><td>Shop only</td></tr>
+        <tr><td><kbd>Tab</kbd></td><td>Flip between the two shop pages: upgrades and gear.</td><td>Shop only</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    <b>Menus are clickable.</b> The title screen, the pause screen and the between-waves prompt are all
+    buttons you click with the mouse. The keyboard shortcuts exist so you never have to.
+  </div>
+</section>
+<!-- /SECTION -->
+
+<!-- SECTION: loop -->
+<section id="loop">
+  <p class="eyebrow">Section 03</p>
+  <h2>A run, start to finish</h2>
+  <p>Every run is the same shape. Learning where the pauses fall is most of learning the game.</p>
+
+  <ol class="steps">
+    <li><div><b>Choose a difficulty.</b> Normal or Hard, once, at the title. The run keeps that setting even if you restart from a death.</div></li>
+    <li><div><b>Fight a wave.</b> Enemies spawn out at the rim of the arena and come for you. Early waves send a set number of them; later ones just keep coming for a fixed stretch of time.</div></li>
+    <li><div><b>Clear the arena.</b> A wave isn't over when the last one spawns — it's over when the last one <em>dies</em>. Stragglers hiding at the far rim are still your problem. If something gets truly stuck, the reactor eventually scraps it for you.</div></li>
+    <li><div><b>Take the pause.</b> Every fourth cleared wave the run stops and asks: open the shop, or push straight on? Nothing moves until you choose.</div></li>
+    <li><div><b>Spend, or don't.</b> Banking credits for something expensive is a real strategy. So is buying a cheap hull patch right now because you're at a sliver of health.</div></li>
+    <li><div><b>Change arenas.</b> Every five waves the whole arena crossfades into a new one — new colours, new obstacle layout, new hazards, and enemies re-tinted to match.</div></li>
+    <li><div><b>Reach wave twenty.</b> Clear it and the run is a win. Lose your hull anywhere along the way and it's over — click or press <kbd>Space</kbd> to start again.</div></li>
+  </ol>
+
+  <figure class="feed">
+    <div class="feed-frame">
+      <span>Clip · The pause</span>
+      <p>A wave clearing, the arena freezing, and the SHOP OPEN / NEXT WAVE prompt coming up.</p>
+    </div>
+    <figcaption>The between-waves prompt. Nothing advances until you pick one.</figcaption>
+  </figure>
+</section>
+<!-- /SECTION -->
+
+<!-- SECTION: survival -->
+<section id="survival">
+  <p class="eyebrow">Section 04</p>
+  <h2>Staying alive</h2>
+
+  <h3>Hull</h3>
+  <p>Your health. It does not regenerate on its own — the only ways back up are a Hull Plating purchase
+  (which repairs as well as raises your maximum) and a Repair Kit. Treat every point as spent for good
+  until you reach a shop.</p>
+
+  <h3>Shields</h3>
+  <p>Bought, not given. Once you own a Shield Capacitor you get a pool that soaks damage <em>before</em>
+  your hull does, and it refills on its own — but only after you've gone a few seconds without being hit.
+  Shields reward disengaging. Take a hit, break away, come back topped up.</p>
+  <p class="dim">Being saved by your shield still counts as being hit: you still flash, the screen still
+  shakes, and the regen delay still resets. A shield is a buffer, not invulnerability.</p>
+
+  <h3>Contact damage</h3>
+  <p>Enemies hurt you by touching you — there are no enemy projectiles. Every archetype does a different
+  amount on contact, and the big slow ones hurt most.</p>
+
+  <h3>Invulnerability window</h3>
+  <p>After a hit you get a brief window where you can't be hurt again. It's short, and it's the reason
+  brushing through a crowd is survivable while sitting inside one is not.</p>
+
+  <div class="note danger">
+    <b>Hazards don't move, and they don't care.</b> Every arena has fixed hazard patches — vents, pools,
+    glowing floor. They damage you on contact exactly like an enemy does, they're always there, and on
+    Hard they hurt considerably more. Learn where they are in each arena; a panicked reverse into one is
+    a very common death.
+  </div>
+
+  <h3>Obstacles and the wall</h3>
+  <p>The pillars and blocks scattered through each arena are solid. You can't fly through them and neither
+  can your shots — but neither can enemies, and they have to walk around. Used well, an obstacle is cover.
+  Used badly, it's the thing you back into while a swarm closes. The arena's outer wall is a hard boundary:
+  you cannot leave, and there is no corner to hide in.</p>
+
+  <figure class="feed">
+    <div class="feed-frame">
+      <span>Clip · Taking a hit</span>
+      <p>A contact hit: red flash on the drone, screen shake, hull chip dropping on the HUD.</p>
+    </div>
+    <figcaption>Hits are loud on purpose — the screen shakes so you never miss one.</figcaption>
+  </figure>
+</section>
+<!-- /SECTION -->
+
+<!-- SECTION: enemies -->
+<section id="enemies">
+  <p class="eyebrow">Section 05</p>
+  <h2>What's shooting at you</h2>
+  <p>Nothing, technically — everything in the reactor kills by running into you. There are three
+  archetypes, and they trade speed against toughness in the obvious way.</p>
+
+  <div class="cards">
+    <div class="card">
+      <span class="chip">Fast · fragile</span>
+      <b>Spark</b>
+      <p>The quickest thing in the arena and the flimsiest. Dies to a couple of shots, but closes distance
+      faster than you can back away in a straight line. Worth the least.</p>
+    </div>
+    <div class="card">
+      <span class="chip">Middle</span>
+      <b>Runner</b>
+      <p>The default. Tougher than a Spark, slower than one, and worth more when it dies. Most of a wave
+      is usually these.</p>
+    </div>
+    <div class="card">
+      <span class="chip warn">Slow · tanky</span>
+      <b>Hulk</b>
+      <p>Big, ponderous and by far the hardest to kill. Hurts most on contact and pays out most on death —
+      it's the one enemy that reliably drops loot. Kite it; don't trade with it.</p>
+    </div>
+  </div>
+
+  <p>They all seek you directly when they can see you, and route <em>around</em> obstacles when they can't.
+  You can't lose them behind a pillar — you can only slow them down and make them arrive strung out
+  instead of all at once, which is usually the whole fight.</p>
+
+  <div class="note">
+    <b>Enemies wear the arena's colour.</b> Their shape tells you what they are; the palette tells you
+    where you are. In the fourth arena they cycle through the whole spectrum continuously, which is
+    exactly as legible as it sounds and exactly as intended.
+  </div>
+</section>
+<!-- /SECTION -->
+
+<!-- SECTION: waves -->
+<section id="waves">
+  <p class="eyebrow">Section 06</p>
+  <h2>Waves &amp; difficulty</h2>
+
+  <h3>Twenty waves, two kinds</h3>
+  <p>The first stretch of the run sends a <b>fixed number</b> of enemies: kill them all and the wave is done.
+  The back half switches to <b>timed</b> waves — enemies keep arriving for a set stretch of time, and the
+  wave only ends once the stream stops <em>and</em> you've cleared what's left. Timed waves are where runs
+  usually end, because you can't rush them; you can only survive them.</p>
+
+  <p>Difficulty climbs continuously across the twenty: more enemies, arriving closer together, with more
+  health and more speed, and the tougher archetypes start appearing in the mix earlier than they did.
+  By the last few waves you're facing the whole roster at once, considerably tougher than it started.</p>
+
+  <h3>Normal and Hard</h3>
+  <div class="tablewrap">
+    <table>
+      <caption>What Hard changes</caption>
+      <thead><tr><th>Aspect</th><th>On Hard</th></tr></thead>
+      <tbody>
+        <tr><td>Enemy count</td><td>Noticeably more per wave</td></tr>
+        <tr><td>Spawn pacing</td><td>Tighter — less breathing room between arrivals</td></tr>
+        <tr><td>Enemy health &amp; speed</td><td>Both up; Hulks in particular become a real commitment</td></tr>
+        <tr><td>Hazard damage</td><td>Substantially higher. This is the one that surprises people.</td></tr>
+        <tr><td>Enemy variety</td><td>Tougher types show up earlier in the run</td></tr>
+        <tr><td>Credits</td><td>Up as well — Hard pays better, so the shop keeps pace</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="dim">Hard is not just a health multiplier: the extra credits mean you can buy more, so it plays
+  faster and richer rather than simply grindier.</p>
+</section>
+<!-- /SECTION -->
+
+<!-- SECTION: loot -->
+<section id="loot">
+  <p class="eyebrow">Section 07</p>
+  <h2>Credits &amp; loot</h2>
+
+  <p>Dead enemies scatter credit pickups on the floor. You collect them by <b>flying over them</b> —
+  nothing is collected automatically, and nothing is collected from across the arena. That single design
+  choice is what makes the economy interesting: the credits are always lying exactly where the fighting
+  just was, and going to get them means going back in.</p>
+
+  <p>Not every kill drops something. Tougher enemies drop more reliably and are worth more when they do.
+  Pickups sit on the floor for a while and then expire, so loot you ignore during a hectic wave is
+  genuinely gone.</p>
+
+  <div class="note">
+    <b>Shop keys.</b> Rarely — and it is rare — an enemy drops a key instead. A key lets you open the shop
+    whenever you like with <kbd>B</kbd>, without waiting for the next scheduled pause. Spending one mid-wave
+    freezes the fight where it stands, so a key is an emergency repair as much as it is a shopping trip.
+  </div>
+
+  <figure class="feed">
+    <div class="feed-frame">
+      <span>Clip · Loot</span>
+      <p>A Hulk dying and scattering pickups; the drone sweeping through to collect them.</p>
+    </div>
+    <figcaption>Credits land where the fight was. Collecting them means going back in.</figcaption>
+  </figure>
+</section>
+<!-- /SECTION -->
+
+<!-- SECTION: shop -->
+<section id="shop">
+  <p class="eyebrow">Section 08</p>
+  <h2>The shop</h2>
+
+  <p>The shop opens at the between-waves pause, every fourth cleared wave — or any time you spend a key.
+  While it's open the arena is completely frozen: nothing spawns, nothing moves, nothing can hurt you.
+  Take as long as you want.</p>
+
+  <ol class="steps">
+    <li><div><b>Press <kbd>Tab</kbd> to switch pages.</b> Page one is <b>upgrades</b>, page two is <b>gear</b>.</div></li>
+    <li><div><b>Press the row number to buy.</b> Keys <kbd>1</kbd> through <kbd>8</kbd> map to the rows on the page you're looking at.</div></li>
+    <li><div><b>Press <kbd>B</kbd> to leave.</b> That launches the next wave. (<kbd>Space</kbd> deliberately does nothing here — you're probably still holding it.)</div></li>
+  </ol>
+
+  <h3>How pricing works</h3>
+  <p>Upgrades are <b>permanent and stackable</b>, and each copy of a given upgrade costs meaningfully more
+  than the last. Buying your fifth Hull Plating is an expensive decision in a way the first one wasn't.
+  Each upgrade also has a cap — you cannot stack any single one forever.</p>
+  <p>Gear works differently: items and consumables are <b>equipped, not stacked</b>, so they have a flat
+  price and no escalation. You hold one item and one consumable at a time, and buying a new one replaces
+  what you were carrying.</p>
+
+  <div class="note">
+    <b>Prices are still being tuned.</b> The whole catalogue is provisional while the balance settles, so
+    treat the relative costs here as the shape of the thing rather than fixed numbers.
+  </div>
+</section>
+<!-- /SECTION -->
+
+<!-- SECTION: upgrades -->
+<section id="upgrades">
+  <p class="eyebrow">Section 09</p>
+  <h2>Upgrades</h2>
+  <p>Six permanent upgrades, page one of the shop. All stackable up to a cap, all more expensive each time.</p>
+
+  <div class="cards">
+    <div class="card"><span class="chip">Survivability</span><b>Hull Plating</b>
+      <p>Raises maximum hull <em>and</em> repairs you on the spot. The only in-shop healing that isn't a consumable, which makes it the reflex buy when you arrive hurt.</p></div>
+    <div class="card"><span class="chip">Survivability</span><b>Shield Capacitor</b>
+      <p>Grants (and deepens) the regenerating shield pool. The first one changes how the game plays more than anything else in the shop.</p></div>
+    <div class="card"><span class="chip">Mobility</span><b>Aux Thruster</b>
+      <p>Permanently faster. Speed is defence in a game where everything kills by touching you, and it makes collecting loot mid-wave far safer.</p></div>
+    <div class="card"><span class="chip alt">Damage</span><b>Overclock</b>
+      <p>Fire faster. Scales with everything else you own and never stops being useful.</p></div>
+    <div class="card"><span class="chip alt">Damage</span><b>Heavy Rounds</b>
+      <p>Each shot hits harder. Better than fire rate against Hulks, worse against a swarm of Sparks.</p></div>
+    <div class="card"><span class="chip alt">Damage</span><b>Twin Barrel</b>
+      <p>An extra projectile per shot. Easily the most expensive row and capped low — a late-run investment, not an opener.</p></div>
+  </div>
+
+  <figure class="feed">
+    <div class="feed-frame">
+      <span>Shot · Shop</span>
+      <p>The upgrades page open over the frozen arena, with credits visible in the corner.</p>
+    </div>
+    <figcaption>Page one. <kbd>Tab</kbd> from here for gear.</figcaption>
+  </figure>
+</section>
+<!-- /SECTION -->
+
+<!-- SECTION: gear -->
+<section id="gear">
+  <p class="eyebrow">Section 10</p>
+  <h2>Gear</h2>
+  <p>Page two. You carry <b>one item</b> and <b>one consumable</b>. Buying another of either replaces what
+  you're holding, so gear is a choice rather than a collection.</p>
+
+  <h3>Items — passive, permanent, always on</h3>
+  <div class="cards">
+    <div class="card"><b>Magnet Core</b>
+      <p>Credits within a generous radius fly toward you instead of waiting to be walked over. Turns the whole loot problem down a notch.</p></div>
+    <div class="card"><b>Repulsor Field</b>
+      <p>Constantly pushes nearby enemies away from you. A gentle shove, not a wall — it buys you room to turn, it does not make you untouchable.</p></div>
+    <div class="card"><b>Reactive Plating</b>
+      <p>Anything that rams you takes damage for it. Works even when your shield ate the hit, so it keeps paying out on a well-shielded build.</p></div>
+    <div class="card"><b>Salvager</b>
+      <p>Every credit pickup is worth more. Compounds over a whole run, which makes it strongest bought early and weakest bought late.</p></div>
+  </div>
+
+  <h3>Consumables — one use, spent with <kbd>Q</kbd></h3>
+  <div class="cards">
+    <div class="card"><span class="chip">Emergency</span><b>Repair Kit</b>
+      <p>Restores a big chunk of hull instantly. The reason to keep a consumable slot filled even when nothing else tempts you.</p></div>
+    <div class="card"><span class="chip alt">Offence</span><b>Overdrive</b>
+      <p>A burst of dramatically increased fire rate for a few seconds. Best saved for the moment a timed wave stops being survivable.</p></div>
+    <div class="card"><span class="chip alt">Offence</span><b>EMP Burst</b>
+      <p>Damages every living enemy in the arena at once. On an early wave it's a wipe; on a late one it's a dent that buys you space.</p></div>
+    <div class="card"><span class="chip">Escape</span><b>Phase Shift</b>
+      <p>A few seconds of complete invulnerability. Fly straight through the crowd you were trapped in.</p></div>
+  </div>
+
+  <div class="note">
+    <b>Don't hoard it.</b> A consumable you die holding did nothing. There's no penalty for using one early
+    and buying another at the next stop.
+  </div>
+</section>
+<!-- /SECTION -->
+
+<!-- SECTION: arenas -->
+<section id="arenas">
+  <p class="eyebrow">Section 11</p>
+  <h2>The four arenas</h2>
+  <p>The run moves through four arenas, one every five waves, crossfading from one into the next mid-run.
+  Each has its own palette, its own obstacle layout and its own hazard placement — and enemies are
+  re-tinted to whichever one is live, always in a colour that contrasts with the floor.</p>
+
+  <p class="dim">Use the palette buttons in the sidebar to recolour this page to any of them.</p>
+
+  <div class="cards">
+    <div class="card"><span class="chip">Waves 1–5</span><b>Core</b>
+      <p>Cyan and magenta, the cleanest layout of the four. Where you learn the game — open sightlines and forgiving hazard placement.</p></div>
+    <div class="card"><span class="chip">Waves 6–10</span><b>Foundry</b>
+      <p>Orange and amber, and the most cluttered floor: more obstacles to route around and more hazards between you and your loot.</p></div>
+    <div class="card"><span class="chip">Waves 11–15</span><b>Bio-lab</b>
+      <p>Green and violet, fewer obstacles but the heaviest hazard coverage in the game. Space to fly, less of it safe.</p></div>
+    <div class="card"><span class="chip">Waves 16–20</span><b>Prism</b>
+      <p>A near-white void where the enemies cycle continuously through every colour. Deliberately disorienting, and the arena you finish in.</p></div>
+  </div>
+
+  <figure class="feed">
+    <div class="feed-frame">
+      <span>Clip · Arena shift</span>
+      <p>The crossfade between two arenas mid-run, with the shockwave and the props swapping over.</p>
+    </div>
+    <figcaption>Arenas don't cut — they dissolve into each other while you're still flying.</figcaption>
+  </figure>
+</section>
+<!-- /SECTION -->
+
+<!-- SECTION: reference -->
+<section id="reference">
+  <p class="eyebrow">Section 12</p>
+  <h2>Reference card</h2>
+  <p>Everything worth remembering, in one place.</p>
+
+  <div class="tablewrap">
+    <table>
+      <caption>Keys</caption>
+      <thead><tr><th>Key</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows</td><td>Move</td></tr>
+        <tr><td>Mouse</td><td>Aim</td></tr>
+        <tr><td>Left mouse / <kbd>Space</kbd></td><td>Fire</td></tr>
+        <tr><td><kbd>Q</kbd></td><td>Use consumable</td></tr>
+        <tr><td><kbd>B</kbd></td><td>Open shop with a key · close shop and launch</td></tr>
+        <tr><td><kbd>Tab</kbd></td><td>Flip shop page</td></tr>
+        <tr><td><kbd>1</kbd>–<kbd>8</kbd></td><td>Buy row</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Pause</td></tr>
+        <tr><td><kbd>Space</kbd></td><td>Start Normal · restart after a run ends</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <caption>Rules that catch people out</caption>
+      <thead><tr><th>Rule</th><th>Why it matters</th></tr></thead>
+      <tbody>
+        <tr><td>A wave ends when the arena is empty</td><td>Not when the last enemy spawns. Hunt the stragglers.</td></tr>
+        <tr><td>Loot is walked over, and expires</td><td>Credits you leave on the floor are lost.</td></tr>
+        <tr><td>Hull never regenerates by itself</td><td>Only Hull Plating and Repair Kits bring it back.</td></tr>
+        <tr><td>Shields only refill after a quiet spell</td><td>Disengaging is a mechanic, not a retreat.</td></tr>
+        <tr><td>A shielded hit is still a hit</td><td>It resets your regen delay and shakes the screen.</td></tr>
+        <tr><td>Hazards are permanent terrain</td><td>They don't chase you — you reverse into them.</td></tr>
+        <tr><td>Obstacles block your shots too</td><td>Cover works both ways.</td></tr>
+        <tr><td>One item, one consumable</td><td>Buying a second replaces the first.</td></tr>
+        <tr><td>Repeat upgrades cost more each time</td><td>Spreading purchases is often cheaper than stacking one.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>Reactor Drone · player's field manual · this page follows the game and will change with it</footer>
+</section>
+<!-- /SECTION -->
+
+</main>
+</div>
+
+<script>
+/* ---------------------------------------------------------------------------
+   1. Arena palette switch — sets data-arena on <html>; all colour lives in
+      CSS custom properties, so one attribute repaints the page.
+   2. Scrollspy for the rail.
+   3. The wave ladder: 20 ticks banded into four arenas of five.
+--------------------------------------------------------------------------- */
+(function () {
+  "use strict";
+
+  var BANDS = ["core", "core", "core", "core", "core",
+               "foundry", "foundry", "foundry", "foundry", "foundry",
+               "biolab", "biolab", "biolab", "biolab", "biolab",
+               "prism", "prism", "prism", "prism", "prism"];
+
+  var root = document.documentElement;
+  var buttons = Array.prototype.slice.call(document.querySelectorAll(".arenas button"));
+  var ticksEl = document.getElementById("ticks");
+
+  // --- wave ladder ---------------------------------------------------------
+  BANDS.forEach(function (band, i) {
+    var t = document.createElement("span");
+    t.setAttribute("data-band", band);
+    t.title = "Wave " + (i + 1);
+    ticksEl.appendChild(t);
+  });
+
+  function paint(set) {
+    root.setAttribute("data-arena", set);
+    buttons.forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.set === set));
+    });
+    Array.prototype.forEach.call(ticksEl.children, function (t) {
+      t.classList.toggle("lit", t.getAttribute("data-band") === set);
+    });
+    try { localStorage.setItem("rd-arena", set); } catch (e) { /* private mode */ }
+  }
+
+  buttons.forEach(function (b) {
+    b.addEventListener("click", function () { paint(b.dataset.set); });
+  });
+
+  var saved;
+  try { saved = localStorage.getItem("rd-arena"); } catch (e) { saved = null; }
+  paint(saved && BANDS.indexOf(saved) !== -1 ? saved : "core");
+
+  // --- scrollspy -----------------------------------------------------------
+  var links = Array.prototype.slice.call(document.querySelectorAll(".railnav a"));
+  var sections = links
+    .map(function (a) { return document.querySelector(a.getAttribute("href")); })
+    .filter(Boolean);
+
+  if ("IntersectionObserver" in window) {
+    var seen = new Map();
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { seen.set(e.target.id, e.intersectionRatio); });
+      var best = null, bestRatio = 0;
+      seen.forEach(function (ratio, id) {
+        if (ratio > bestRatio) { bestRatio = ratio; best = id; }
+      });
+      links.forEach(function (a) {
+        a.setAttribute("aria-current", String(a.getAttribute("href") === "#" + best));
+      });
+    }, { rootMargin: "-10% 0px -60% 0px", threshold: [0, 0.25, 0.5, 1] });
+    sections.forEach(function (s) { io.observe(s); });
+  }
+}());
+</script>
+</body>
+</html>

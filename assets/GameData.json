@@ -2303,6 +2303,35 @@
       "type_lookahead": 2
     }
   ],
+  "//ships": "Selectable ships (Lane F, D82). A ship is a variant of the player block's sidecar/idle_clip/weapon, overlaid onto PlayerConfig at run start. unlock_score is compared against the LIFETIME score in saves/meta.json; 0 = always available. Purple is a gatling: 12/s x 6 dmg = 72 DPS against Standard's 4/s x 20 = 80, i.e. 3x the cadence for 90% of the sustained damage. PROVISIONAL and unplayed. Purple reuses the standard drone art for now (D83).",
+  "ships": [
+    {
+      "name": "Standard",
+      "sidecar": "images/v2/player_drone.json",
+      "idle_clip": "march",
+      "unlock_score": 0,
+      "weapon": {
+        "fire_rate": 4.0,
+        "damage": 20.0,
+        "projectile_speed": 520.0,
+        "projectile_lifetime": 1.0,
+        "spread": 0.06
+      }
+    },
+    {
+      "name": "Purple Gatling",
+      "sidecar": "images/v2/player_drone.json",
+      "idle_clip": "march",
+      "unlock_score": 4000,
+      "weapon": {
+        "fire_rate": 12.0,
+        "damage": 6.0,
+        "projectile_speed": 560.0,
+        "projectile_lifetime": 0.8,
+        "spread": 0.12
+      }
+    }
+  ],
   "//economy": "Currency/key drop tuning (Gameplay Phase 2). Drop counts are inclusive bounds on a uniform roll; pickup_size doubles as the collection-radius basis.",
   "economy": {
     "min_drops": 0,
@@ -3163,9 +3192,9 @@
           "element_type": "panel",
           "rect": {
             "x": 130,
-            "y": 170,
+            "y": 132,
             "w": 540,
-            "h": 260
+            "h": 298
           },
           "label_text": "",
           "style_id": "panel",
@@ -3225,10 +3254,25 @@
           "z_order": 10
         },
         {
+          "//": "Lane F (D82): ship selector AND lock readout, deliberately one widget. main.cpp rewrites its label every title frame: 'SHIP: <name>' with the button style while more than one ship is unlocked (a click cycles), or '<name>: <n> pts' in the flat subtitle style while every other ship is locked (a click does nothing, because a locked ship is never selectable).",
+          "element_type": "button",
+          "name": "menu_ship",
+          "rect": {
+            "x": 210,
+            "y": 190,
+            "w": 380,
+            "h": 38
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "on_click_fn": "on_ship_cycle",
+          "z_order": 10
+        },
+        {
           "element_type": "label",
           "rect": {
             "x": 210,
-            "y": 205,
+            "y": 152,
             "w": 380,
             "h": 20
           },

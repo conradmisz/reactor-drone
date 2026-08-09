@@ -113,6 +113,28 @@ GameConfig load_arena_config(const std::string& file_path) {
         }
     }
 
+    // Lane F (D82): selectable ships. Each entry defaults to the player block it
+    // overlays, so a ship that only retunes the weapon authors only the weapon.
+    if (data.contains("ships")) {
+        for (const auto& s : data["ships"]) {
+            ShipDef ship;
+            ship.name         = s.value("name", ship.name);
+            ship.sidecar      = s.value("sidecar", std::string());
+            ship.idle_clip    = s.value("idle_clip", std::string());
+            ship.unlock_score = s.value("unlock_score", ship.unlock_score);
+            ship.weapon       = cfg.player.weapon;
+            if (s.contains("weapon")) {
+                const auto& w = s["weapon"];
+                ship.weapon.fire_rate           = w.value("fire_rate", ship.weapon.fire_rate);
+                ship.weapon.damage              = w.value("damage", ship.weapon.damage);
+                ship.weapon.projectile_speed    = w.value("projectile_speed", ship.weapon.projectile_speed);
+                ship.weapon.projectile_lifetime = w.value("projectile_lifetime", ship.weapon.projectile_lifetime);
+                ship.weapon.spread              = w.value("spread", ship.weapon.spread);
+            }
+            cfg.ships.push_back(ship);
+        }
+    }
+
     if (data.contains("enemy_types")) {
         for (const auto& e : data["enemy_types"]) {
             EnemyType t;

@@ -49,6 +49,11 @@ struct ShipState {
     int   active_id = -1;         // boss-reward active item; -1 = none
     float active_cd = 0.0f;       // seconds until the active can fire again
     int   gear_levels[8] = {0};   // upgrade level per owned gear row (#11)
+
+    // Lane F (D82): which GameConfig::ships entry this run is flying. The stats
+    // themselves are already baked into the config at run start; this records the
+    // choice for anything that needs to ask (HUD, tests, future per-ship rules).
+    int   ship_id = 0;
 };
 
 /**
