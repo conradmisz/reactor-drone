@@ -3,3 +3,4 @@ CPP/build/
 logs/
 scripts/local/
 *.bmp
+__pycache__/

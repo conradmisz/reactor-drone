@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "project-kickoff": {
+      "source": "conradmisz/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/project-kickoff/SKILL.md",
+      "computedHash": "a7b9f81d7a8ddd028a8d6f1b981c7a67cd9c98057508d1c020db25f58e53762c"
+    }
+  }
+}

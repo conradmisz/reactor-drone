@@ -1,0 +1,51 @@
+# Reactor Drone v2 — Project Context
+
+C++17 / SDL3 top-down arena survival shooter on the CS-5850 ECS engine.
+Context files live in `agentProjectDocs/`. Load them conditionally — do not
+read all of them for every task.
+
+## Always Read (every session)
+
+1. `agentProjectDocs/progress-tracker.md` — current state, next step, open
+   questions
+2. `agentProjectDocs/architecture.md` — the **Invariants** section at minimum
+3. `ENGINE.md` — before touching `CPP/engine/`, adding a system, or changing the
+   `main.cpp` frame order. It is the architecture doc and is updated in the same
+   commit as the change.
+
+## Read Before Specific Work
+
+| Before...                             | Read                                    |
+| ------------------------------------- | --------------------------------------- |
+| Product or scope decisions            | `agentProjectDocs/project-overview.md`  |
+| Any UI, menu, palette or HUD work     | `agentProjectDocs/ui-context.md`        |
+| Writing or modifying code             | `agentProjectDocs/code-standards.md`    |
+| Planning or starting a phase          | `agentProjectDocs/ai-workflow-rules.md` |
+| Revisiting a settled design choice    | `agentProjectDocs/decisions.md`         |
+| Implementing a planned feature        | Its spec in `agentProjectDocs/specs/`   |
+| Frame order, provenance, known traps  | `ENGINE.md`                             |
+
+## Commands
+
+- Interactive menu (build / test / run): `python run.py`
+- Configure + build: `cmake -B CPP/build -S CPP && cmake --build CPP/build -j$(nproc)`
+- All tests: `python runTestsAll.py`
+- Engine tests only: `python runEngineTests.py` (`ctest -R "^(Engine|ResourceManager)"`)
+- Game tests only: `python runGameTests.py` (`ctest -R "^Game"`)
+- Single test case: `./CPP/build/game/tests/game_unit_tests "[items],[consumables]"`
+- Run the game: `python run.py -- --seed 42`
+- Headless run: `SDL_VIDEODRIVER=dummy ./CPP/build/game/game --seed 42 --keys 5:SPACE --stopframe 3000`
+- Replay canary: run the line above twice — the summary must be identical.
+- Warning check: build and grep the log for `warning:` — only Lua's vendored
+  `tmpnam` is allowed.
+- Regenerate assets (offline, needs Pillow): `python assets/generator/v2/make_sprites.py`
+
+## Keeping Context in Sync
+
+- Update `progress-tracker.md` after every meaningful change.
+- Append design calls (with the *why* and what was rejected) to `decisions.md`.
+  Ids are stable and cited from code — next free id is **D52**.
+- One line per shipped feature in `project-overview.md` → Features.
+- Any engine change updates `ENGINE.md` **in the same commit**.
+- Before a non-trivial feature, write a spec from `specs/feature-template.md`.
+- State which verification actually ran. Tests passing is not a playtest.
