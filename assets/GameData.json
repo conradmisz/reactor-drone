@@ -213,11 +213,12 @@
           "h": 140.0,
           "damage": 8.0
         }
-      ]
+      ],
+      "specialty_tier": 1
     },
     {
       "name": "Foundry",
-      "first_wave": 6,
+      "first_wave": 7,
       "enemy_tint": {
         "r": 70,
         "g": 210,
@@ -419,11 +420,12 @@
           "h": 90.0,
           "damage": 10.0
         }
-      ]
+      ],
+      "specialty_tier": 1
     },
     {
       "name": "Bio-lab",
-      "first_wave": 11,
+      "first_wave": 13,
       "enemy_tint": {
         "r": 190,
         "g": 120,
@@ -602,11 +604,12 @@
           "h": 110.0,
           "damage": 12.0
         }
-      ]
+      ],
+      "specialty_tier": 1
     },
     {
       "name": "Prism",
-      "first_wave": 16,
+      "first_wave": 20,
       "tie_dye": true,
       "enemy_tint": {
         "r": 255,
@@ -809,7 +812,788 @@
           "h": 100.0,
           "damage": 14.0
         }
-      ]
+      ],
+      "specialty_tier": 1
+    },
+    {
+      "name": "Core II",
+      "first_wave": 26,
+      "enemy_tint": {
+        "r": 255,
+        "g": 70,
+        "b": 200
+      },
+      "wall_image": "v2/pillar_core.png",
+      "obstacle_image": "v2/pillar_core.png",
+      "hazard_image": "v2/vent_core.png",
+      "backdrop_layers": [
+        {
+          "image": "v2/bg_core_far.png",
+          "scroll_factor": 0.9
+        },
+        {
+          "image": "v2/bg_core_mid.png",
+          "scroll_factor": 0.6
+        },
+        {
+          "image": "v2/bg_core_near.png",
+          "scroll_factor": 0.25
+        }
+      ],
+      "obstacles": [
+        {
+          "x": 1555.0,
+          "y": 1135.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 1919.0,
+          "y": 1345.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 1919.0,
+          "y": 1765.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 1555.0,
+          "y": 1975.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 1191.0,
+          "y": 1765.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 1191.0,
+          "y": 1345.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 1857.0,
+          "y": 808.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 2286.0,
+          "y": 1244.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 2282.0,
+          "y": 1857.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1846.0,
+          "y": 2286.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1233.0,
+          "y": 2282.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 804.0,
+          "y": 1846.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 808.0,
+          "y": 1233.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1244.0,
+          "y": 804.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 2365.0,
+          "y": 739.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 2341.0,
+          "y": 2365.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 715.0,
+          "y": 2341.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 739.0,
+          "y": 715.0,
+          "w": 120.0,
+          "h": 120.0
+        }
+      ],
+      "hazards": [
+        {
+          "x": 2133.0,
+          "y": 1249.0,
+          "w": 40.0,
+          "h": 140.0,
+          "damage": 8.0
+        },
+        {
+          "x": 1547.0,
+          "y": 2149.0,
+          "w": 40.0,
+          "h": 140.0,
+          "damage": 8.0
+        },
+        {
+          "x": 1060.0,
+          "y": 1192.0,
+          "w": 40.0,
+          "h": 140.0,
+          "damage": 8.0
+        },
+        {
+          "x": 1725.0,
+          "y": 615.0,
+          "w": 140.0,
+          "h": 50.0,
+          "damage": 8.0
+        },
+        {
+          "x": 2264.0,
+          "y": 2224.0,
+          "w": 140.0,
+          "h": 50.0,
+          "damage": 8.0
+        },
+        {
+          "x": 601.0,
+          "y": 1887.0,
+          "w": 140.0,
+          "h": 50.0,
+          "damage": 8.0
+        }
+      ],
+      "specialty_tier": 2
+    },
+    {
+      "name": "Foundry II",
+      "first_wave": 32,
+      "enemy_tint": {
+        "r": 70,
+        "g": 210,
+        "b": 255
+      },
+      "wall_image": "v2/pillar_foundry.png",
+      "obstacle_image": "v2/pillar_foundry.png",
+      "hazard_image": "v2/vent_foundry.png",
+      "backdrop_layers": [
+        {
+          "image": "v2/bg_foundry_far.png",
+          "scroll_factor": 0.9
+        },
+        {
+          "image": "v2/bg_foundry_mid.png",
+          "scroll_factor": 0.6
+        },
+        {
+          "image": "v2/bg_foundry_near.png",
+          "scroll_factor": 0.25
+        }
+      ],
+      "obstacles": [
+        {
+          "x": 1575.0,
+          "y": 1110.0,
+          "w": 50.0,
+          "h": 180.0
+        },
+        {
+          "x": 1975.0,
+          "y": 1510.0,
+          "w": 50.0,
+          "h": 180.0
+        },
+        {
+          "x": 1575.0,
+          "y": 1910.0,
+          "w": 50.0,
+          "h": 180.0
+        },
+        {
+          "x": 1175.0,
+          "y": 1510.0,
+          "w": 50.0,
+          "h": 180.0
+        },
+        {
+          "x": 1793.0,
+          "y": 1292.0,
+          "w": 180.0,
+          "h": 50.0
+        },
+        {
+          "x": 1793.0,
+          "y": 1858.0,
+          "w": 180.0,
+          "h": 50.0
+        },
+        {
+          "x": 1227.0,
+          "y": 1858.0,
+          "w": 180.0,
+          "h": 50.0
+        },
+        {
+          "x": 1227.0,
+          "y": 1292.0,
+          "w": 180.0,
+          "h": 50.0
+        },
+        {
+          "x": 1803.0,
+          "y": 760.0,
+          "w": 55.0,
+          "h": 190.0
+        },
+        {
+          "x": 2333.0,
+          "y": 1332.0,
+          "w": 55.0,
+          "h": 190.0
+        },
+        {
+          "x": 2103.0,
+          "y": 2077.0,
+          "w": 55.0,
+          "h": 190.0
+        },
+        {
+          "x": 1342.0,
+          "y": 2250.0,
+          "w": 55.0,
+          "h": 190.0
+        },
+        {
+          "x": 812.0,
+          "y": 1678.0,
+          "w": 55.0,
+          "h": 190.0
+        },
+        {
+          "x": 1042.0,
+          "y": 933.0,
+          "w": 55.0,
+          "h": 190.0
+        },
+        {
+          "x": 2137.0,
+          "y": 646.0,
+          "w": 190.0,
+          "h": 60.0
+        },
+        {
+          "x": 2622.0,
+          "y": 1655.0,
+          "w": 190.0,
+          "h": 60.0
+        },
+        {
+          "x": 1989.0,
+          "y": 2580.0,
+          "w": 190.0,
+          "h": 60.0
+        },
+        {
+          "x": 873.0,
+          "y": 2494.0,
+          "w": 190.0,
+          "h": 60.0
+        },
+        {
+          "x": 388.0,
+          "y": 1485.0,
+          "w": 190.0,
+          "h": 60.0
+        },
+        {
+          "x": 1021.0,
+          "y": 560.0,
+          "w": 190.0,
+          "h": 60.0
+        }
+      ],
+      "hazards": [
+        {
+          "x": 1967.0,
+          "y": 1041.0,
+          "w": 40.0,
+          "h": 200.0,
+          "damage": 10.0
+        },
+        {
+          "x": 2039.0,
+          "y": 1887.0,
+          "w": 40.0,
+          "h": 200.0,
+          "damage": 10.0
+        },
+        {
+          "x": 1193.0,
+          "y": 1959.0,
+          "w": 40.0,
+          "h": 200.0,
+          "damage": 10.0
+        },
+        {
+          "x": 1121.0,
+          "y": 1113.0,
+          "w": 40.0,
+          "h": 200.0,
+          "damage": 10.0
+        },
+        {
+          "x": 1650.0,
+          "y": 610.0,
+          "w": 90.0,
+          "h": 90.0,
+          "damage": 10.0
+        },
+        {
+          "x": 2500.0,
+          "y": 1650.0,
+          "w": 90.0,
+          "h": 90.0,
+          "damage": 10.0
+        },
+        {
+          "x": 1460.0,
+          "y": 2500.0,
+          "w": 90.0,
+          "h": 90.0,
+          "damage": 10.0
+        },
+        {
+          "x": 610.0,
+          "y": 1460.0,
+          "w": 90.0,
+          "h": 90.0,
+          "damage": 10.0
+        }
+      ],
+      "specialty_tier": 2
+    },
+    {
+      "name": "Bio-lab II",
+      "first_wave": 38,
+      "enemy_tint": {
+        "r": 190,
+        "g": 120,
+        "b": 255
+      },
+      "wall_image": "v2/pillar_biolab.png",
+      "obstacle_image": "v2/pillar_biolab.png",
+      "hazard_image": "v2/vent_biolab.png",
+      "backdrop_layers": [
+        {
+          "image": "v2/bg_biolab_far.png",
+          "scroll_factor": 0.9
+        },
+        {
+          "image": "v2/bg_biolab_mid.png",
+          "scroll_factor": 0.6
+        },
+        {
+          "image": "v2/bg_biolab_near.png",
+          "scroll_factor": 0.25
+        }
+      ],
+      "obstacles": [
+        {
+          "x": 1661.0,
+          "y": 1114.0,
+          "w": 100.0,
+          "h": 100.0
+        },
+        {
+          "x": 1999.0,
+          "y": 1521.0,
+          "w": 100.0,
+          "h": 100.0
+        },
+        {
+          "x": 1716.0,
+          "y": 1968.0,
+          "w": 100.0,
+          "h": 100.0
+        },
+        {
+          "x": 1204.0,
+          "y": 1837.0,
+          "w": 100.0,
+          "h": 100.0
+        },
+        {
+          "x": 1170.0,
+          "y": 1309.0,
+          "w": 100.0,
+          "h": 100.0
+        },
+        {
+          "x": 1948.0,
+          "y": 794.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 2390.0,
+          "y": 1520.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 1982.0,
+          "y": 2266.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 1132.0,
+          "y": 2286.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 690.0,
+          "y": 1560.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 1098.0,
+          "y": 814.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 1668.0,
+          "y": 376.0,
+          "w": 100.0,
+          "h": 100.0
+        },
+        {
+          "x": 2724.0,
+          "y": 1668.0,
+          "w": 100.0,
+          "h": 100.0
+        },
+        {
+          "x": 1432.0,
+          "y": 2724.0,
+          "w": 100.0,
+          "h": 100.0
+        },
+        {
+          "x": 376.0,
+          "y": 1432.0,
+          "w": 100.0,
+          "h": 100.0
+        }
+      ],
+      "hazards": [
+        {
+          "x": 2084.0,
+          "y": 1116.0,
+          "w": 50.0,
+          "h": 160.0,
+          "damage": 12.0
+        },
+        {
+          "x": 1979.0,
+          "y": 2029.0,
+          "w": 50.0,
+          "h": 160.0,
+          "damage": 12.0
+        },
+        {
+          "x": 1066.0,
+          "y": 1924.0,
+          "w": 50.0,
+          "h": 160.0,
+          "damage": 12.0
+        },
+        {
+          "x": 1171.0,
+          "y": 1011.0,
+          "w": 50.0,
+          "h": 160.0,
+          "damage": 12.0
+        },
+        {
+          "x": 1888.0,
+          "y": 606.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 12.0
+        },
+        {
+          "x": 2544.0,
+          "y": 1581.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 12.0
+        },
+        {
+          "x": 1820.0,
+          "y": 2507.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 12.0
+        },
+        {
+          "x": 715.0,
+          "y": 2103.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 12.0
+        },
+        {
+          "x": 758.0,
+          "y": 929.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 12.0
+        }
+      ],
+      "specialty_tier": 2
+    },
+    {
+      "name": "Prism II",
+      "first_wave": 45,
+      "tie_dye": true,
+      "enemy_tint": {
+        "r": 255,
+        "g": 255,
+        "b": 255
+      },
+      "wall_image": "v2/pillar_prism.png",
+      "obstacle_image": "v2/pillar_prism.png",
+      "hazard_image": "v2/vent_prism.png",
+      "backdrop_layers": [
+        {
+          "image": "v2/bg_prism_far.png",
+          "scroll_factor": 0.9
+        },
+        {
+          "image": "v2/bg_prism_mid.png",
+          "scroll_factor": 0.6
+        },
+        {
+          "image": "v2/bg_prism_near.png",
+          "scroll_factor": 0.25
+        }
+      ],
+      "obstacles": [
+        {
+          "x": 1545.0,
+          "y": 1115.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1917.4,
+          "y": 1330.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1917.4,
+          "y": 1760.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1545.0,
+          "y": 1975.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1172.6,
+          "y": 1760.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1172.6,
+          "y": 1330.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1852.6,
+          "y": 768.2,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 2301.8,
+          "y": 1217.4,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 2301.8,
+          "y": 1852.6,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 1852.6,
+          "y": 2301.8,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 1217.4,
+          "y": 2301.8,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 768.2,
+          "y": 1852.6,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 768.2,
+          "y": 1217.4,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 1217.4,
+          "y": 768.2,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 2145.0,
+          "y": 533.1,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 2735.0,
+          "y": 1555.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 2145.0,
+          "y": 2576.9,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 965.0,
+          "y": 2576.9,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 375.0,
+          "y": 1555.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 965.0,
+          "y": 533.1,
+          "w": 90.0,
+          "h": 90.0
+        }
+      ],
+      "hazards": [
+        {
+          "x": 2030.0,
+          "y": 1062.5,
+          "w": 45.0,
+          "h": 170.0,
+          "damage": 14.0
+        },
+        {
+          "x": 2030.0,
+          "y": 1967.5,
+          "w": 45.0,
+          "h": 170.0,
+          "damage": 14.0
+        },
+        {
+          "x": 1125.0,
+          "y": 1967.5,
+          "w": 45.0,
+          "h": 170.0,
+          "damage": 14.0
+        },
+        {
+          "x": 1125.0,
+          "y": 1062.5,
+          "w": 45.0,
+          "h": 170.0,
+          "damage": 14.0
+        },
+        {
+          "x": 1550.0,
+          "y": 540.0,
+          "w": 100.0,
+          "h": 100.0,
+          "damage": 14.0
+        },
+        {
+          "x": 2560.0,
+          "y": 1550.0,
+          "w": 100.0,
+          "h": 100.0,
+          "damage": 14.0
+        },
+        {
+          "x": 1550.0,
+          "y": 2560.0,
+          "w": 100.0,
+          "h": 100.0,
+          "damage": 14.0
+        },
+        {
+          "x": 540.0,
+          "y": 1550.0,
+          "w": 100.0,
+          "h": 100.0,
+          "damage": 14.0
+        }
+      ],
+      "specialty_tier": 2
     }
   ],
   "feedback": {
@@ -890,120 +1674,307 @@
     }
   ],
   "wave_stall_timeout": 30.0,
-  "//waves": "Waves 1-11 are fixed-count; 12-20 are timed (duration > 0 ignores count). hp_mult/speed_mult scale the shared enemy_types instead of adding types (D10). PROVISIONAL (Phase B): the early-wave counts/intervals are the 'aggressive' target the user picked and have not been playtested.",
+  "//waves": "50-wave arc (Iteration 3, Lane A, D53). Waves 1-25 are fixed-count, 26-50 are timed (duration > 0 ignores count). Waves 10/20/30/40/50 are boss waves (flag parsed now, consumed by BossSystem). Generated from a linear formula so pressure is monotone by construction: count and duration never fall, spawn_interval never rises, hp_mult and speed_mult never fall. Flatter than the old 20-wave table on purpose (#13) \u2014 wave 1 is 10 @0.50s where it used to be 12 @0.45s \u2014 so the every-5th-wave shop can keep up. PROVISIONAL: unplayed.",
   "waves": [
     {
-      "count": 12,
-      "spawn_interval": 0.45,
+      "count": 10,
+      "spawn_interval": 0.5,
       "delay": 1.0,
       "types": [
         0,
         1
-      ]
+      ],
+      "hp_mult": 1.0,
+      "speed_mult": 1.0
     },
     {
-      "count": 16,
-      "spawn_interval": 0.4,
+      "count": 11,
+      "spawn_interval": 0.492,
       "delay": 2.0,
       "types": [
         0,
         1
-      ]
+      ],
+      "hp_mult": 1.02,
+      "speed_mult": 1.0
+    },
+    {
+      "count": 13,
+      "spawn_interval": 0.484,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.04,
+      "speed_mult": 1.0
+    },
+    {
+      "count": 14,
+      "spawn_interval": 0.476,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.06,
+      "speed_mult": 1.0
+    },
+    {
+      "count": 16,
+      "spawn_interval": 0.468,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.08,
+      "speed_mult": 1.0
+    },
+    {
+      "count": 17,
+      "spawn_interval": 0.46,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.1,
+      "speed_mult": 1.0
+    },
+    {
+      "count": 19,
+      "spawn_interval": 0.452,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.12,
+      "speed_mult": 1.0
     },
     {
       "count": 20,
-      "spawn_interval": 0.35,
+      "spawn_interval": 0.444,
       "delay": 2.0,
       "types": [
         0,
         1,
         2
-      ]
+      ],
+      "hp_mult": 1.14,
+      "speed_mult": 1.0
+    },
+    {
+      "count": 22,
+      "spawn_interval": 0.436,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.16,
+      "speed_mult": 1.0
+    },
+    {
+      "count": 23,
+      "spawn_interval": 0.428,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.18,
+      "speed_mult": 1.0,
+      "boss": true
+    },
+    {
+      "count": 24,
+      "spawn_interval": 0.42,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.2,
+      "speed_mult": 1.0
     },
     {
       "count": 26,
-      "spawn_interval": 0.3,
+      "spawn_interval": 0.412,
       "delay": 2.0,
       "types": [
         0,
         1,
         2
-      ]
+      ],
+      "hp_mult": 1.22,
+      "speed_mult": 1.0
+    },
+    {
+      "count": 27,
+      "spawn_interval": 0.404,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.24,
+      "speed_mult": 1.0
+    },
+    {
+      "count": 29,
+      "spawn_interval": 0.396,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.26,
+      "speed_mult": 1.0
     },
     {
       "count": 30,
-      "spawn_interval": 0.3,
+      "spawn_interval": 0.388,
       "delay": 2.0,
       "types": [
         0,
         1,
         2
-      ]
+      ],
+      "hp_mult": 1.28,
+      "speed_mult": 1.0
     },
     {
-      "count": 34,
-      "spawn_interval": 0.28,
+      "count": 32,
+      "spawn_interval": 0.38,
       "delay": 2.0,
       "types": [
         0,
         1,
         2
-      ]
+      ],
+      "hp_mult": 1.3,
+      "speed_mult": 1.0
+    },
+    {
+      "count": 33,
+      "spawn_interval": 0.372,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.32,
+      "speed_mult": 1.0
+    },
+    {
+      "count": 35,
+      "spawn_interval": 0.364,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.34,
+      "speed_mult": 1.0
+    },
+    {
+      "count": 36,
+      "spawn_interval": 0.356,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.36,
+      "speed_mult": 1.0
     },
     {
       "count": 38,
-      "spawn_interval": 0.28,
+      "spawn_interval": 0.348,
       "delay": 2.0,
       "types": [
         0,
         1,
         2
       ],
-      "hp_mult": 1.1
+      "hp_mult": 1.38,
+      "speed_mult": 1.0,
+      "boss": true
+    },
+    {
+      "count": 39,
+      "spawn_interval": 0.34,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.4,
+      "speed_mult": 1.0
     },
     {
       "count": 40,
-      "spawn_interval": 0.26,
+      "spawn_interval": 0.332,
       "delay": 2.0,
       "types": [
         0,
         1,
         2
       ],
-      "hp_mult": 1.15
+      "hp_mult": 1.42,
+      "speed_mult": 1.0
     },
     {
       "count": 42,
-      "spawn_interval": 0.26,
+      "spawn_interval": 0.324,
       "delay": 2.0,
       "types": [
         0,
         1,
         2
       ],
-      "hp_mult": 1.2
+      "hp_mult": 1.44,
+      "speed_mult": 1.0
     },
     {
-      "count": 44,
-      "spawn_interval": 0.25,
+      "count": 43,
+      "spawn_interval": 0.316,
       "delay": 2.0,
       "types": [
         0,
         1,
         2
       ],
-      "hp_mult": 1.25
+      "hp_mult": 1.46,
+      "speed_mult": 1.0
     },
     {
-      "count": 46,
-      "spawn_interval": 0.25,
+      "count": 45,
+      "spawn_interval": 0.308,
       "delay": 2.0,
       "types": [
         0,
         1,
         2
       ],
-      "hp_mult": 1.3
+      "hp_mult": 1.48,
+      "speed_mult": 1.0
     },
     {
       "duration": 20.0,
@@ -1014,20 +1985,57 @@
         1,
         2
       ],
-      "hp_mult": 1.4,
-      "speed_mult": 1.1
+      "hp_mult": 1.5,
+      "speed_mult": 1.0
     },
     {
-      "duration": 22.0,
-      "spawn_interval": 0.29,
+      "duration": 20.8,
+      "spawn_interval": 0.296,
       "delay": 2.0,
       "types": [
         0,
         1,
         2
       ],
-      "hp_mult": 1.5,
-      "speed_mult": 1.13
+      "hp_mult": 1.536,
+      "speed_mult": 1.012
+    },
+    {
+      "duration": 21.6,
+      "spawn_interval": 0.292,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.572,
+      "speed_mult": 1.024
+    },
+    {
+      "duration": 22.4,
+      "spawn_interval": 0.288,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.608,
+      "speed_mult": 1.036
+    },
+    {
+      "duration": 23.2,
+      "spawn_interval": 0.284,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.644,
+      "speed_mult": 1.048,
+      "boss": true
     },
     {
       "duration": 24.0,
@@ -1038,20 +2046,56 @@
         1,
         2
       ],
-      "hp_mult": 1.6,
-      "speed_mult": 1.15
+      "hp_mult": 1.68,
+      "speed_mult": 1.06
     },
     {
-      "duration": 26.0,
-      "spawn_interval": 0.27,
+      "duration": 24.8,
+      "spawn_interval": 0.276,
       "delay": 2.0,
       "types": [
         0,
         1,
         2
       ],
-      "hp_mult": 1.7,
-      "speed_mult": 1.18
+      "hp_mult": 1.716,
+      "speed_mult": 1.072
+    },
+    {
+      "duration": 25.6,
+      "spawn_interval": 0.272,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.752,
+      "speed_mult": 1.084
+    },
+    {
+      "duration": 26.4,
+      "spawn_interval": 0.268,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.788,
+      "speed_mult": 1.096
+    },
+    {
+      "duration": 27.2,
+      "spawn_interval": 0.264,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.824,
+      "speed_mult": 1.108
     },
     {
       "duration": 28.0,
@@ -1062,20 +2106,57 @@
         1,
         2
       ],
-      "hp_mult": 1.8,
-      "speed_mult": 1.2
+      "hp_mult": 1.86,
+      "speed_mult": 1.12
     },
     {
-      "duration": 30.0,
-      "spawn_interval": 0.25,
+      "duration": 28.8,
+      "spawn_interval": 0.256,
       "delay": 2.0,
       "types": [
         0,
         1,
         2
       ],
-      "hp_mult": 1.9,
-      "speed_mult": 1.23
+      "hp_mult": 1.896,
+      "speed_mult": 1.132
+    },
+    {
+      "duration": 29.6,
+      "spawn_interval": 0.252,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.932,
+      "speed_mult": 1.144
+    },
+    {
+      "duration": 30.4,
+      "spawn_interval": 0.248,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 1.968,
+      "speed_mult": 1.156
+    },
+    {
+      "duration": 31.2,
+      "spawn_interval": 0.244,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 2.004,
+      "speed_mult": 1.168,
+      "boss": true
     },
     {
       "duration": 32.0,
@@ -1086,11 +2167,59 @@
         1,
         2
       ],
-      "hp_mult": 2.0,
-      "speed_mult": 1.25
+      "hp_mult": 2.04,
+      "speed_mult": 1.18
     },
     {
-      "duration": 34.0,
+      "duration": 32.8,
+      "spawn_interval": 0.236,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 2.076,
+      "speed_mult": 1.192
+    },
+    {
+      "duration": 33.6,
+      "spawn_interval": 0.232,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 2.112,
+      "speed_mult": 1.204
+    },
+    {
+      "duration": 34.4,
+      "spawn_interval": 0.228,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 2.148,
+      "speed_mult": 1.216
+    },
+    {
+      "duration": 35.2,
+      "spawn_interval": 0.224,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 2.184,
+      "speed_mult": 1.228
+    },
+    {
+      "duration": 36.0,
       "spawn_interval": 0.22,
       "delay": 2.0,
       "types": [
@@ -1098,20 +2227,57 @@
         1,
         2
       ],
-      "hp_mult": 2.1,
-      "speed_mult": 1.28
+      "hp_mult": 2.22,
+      "speed_mult": 1.24
     },
     {
-      "duration": 36.0,
-      "spawn_interval": 0.2,
+      "duration": 36.8,
+      "spawn_interval": 0.216,
       "delay": 2.0,
       "types": [
         0,
         1,
         2
       ],
-      "hp_mult": 2.2,
-      "speed_mult": 1.3
+      "hp_mult": 2.256,
+      "speed_mult": 1.252
+    },
+    {
+      "duration": 37.6,
+      "spawn_interval": 0.212,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 2.292,
+      "speed_mult": 1.264
+    },
+    {
+      "duration": 38.4,
+      "spawn_interval": 0.208,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 2.328,
+      "speed_mult": 1.276
+    },
+    {
+      "duration": 39.2,
+      "spawn_interval": 0.204,
+      "delay": 2.0,
+      "types": [
+        0,
+        1,
+        2
+      ],
+      "hp_mult": 2.364,
+      "speed_mult": 1.288,
+      "boss": true
     }
   ],
   "//difficulties": "Selectable run difficulties (Phase B, D50). Index 0 is the default. Every field is enemy-side on purpose: Hard must not make the player's economy harsher. type_lookahead pulls each wave's enemy roster forward by N waves. PROVISIONAL.",
@@ -1151,7 +2317,8 @@
   "//shop": "PROVISIONAL PRICES \u2014 not yet validated against a real credits-per-wave curve (handoff-phase-3.md \u00a78). price_growth compounds per repeat purchase. Row order is the ShipState.upg_counts slot order: re-price or rename freely, re-ordering re-labels existing purchases.",
   "shop": {
     "price_growth": 1.5,
-    "shield_regen_delay": 3.0,
+    "shield_regen_delay": 5.0,
+    "shield_regen_frac": 0.08,
     "upgrades": [
       {
         "name": "Hull Plating",
@@ -2282,12 +3449,12 @@
         {
           "element_type": "label",
           "rect": {
-            "x": 268.0,
-            "y": 210.0,
-            "w": 264.0,
-            "h": 20.0
+            "x": 250.0,
+            "y": 208.0,
+            "w": 300.0,
+            "h": 24.0
           },
-          "label_text": "Save and Options arrive with those systems",
+          "label_text": "Save & Options: coming soon",
           "style_id": "subtitle",
           "z_order": 10
         }

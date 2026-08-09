@@ -13,7 +13,7 @@
  *
  * The shop is a game phase, not an overlay: main.cpp switches to PHASE_SHOP and
  * calls update() instead of the gameplay block, so the arena is frozen while it
- * is open. Entry is either a cleared wave whose number is a multiple of 4, or the
+ * is open. Entry is either a cleared wave whose number is a multiple of 5, or the
  * player spending a key mid-run; both are decided in main.cpp, which owns the
  * phase variable. Everything else — catalogue, prices, rendering, purchases —
  * lives here (R7: main.cpp gets calls, not logic).

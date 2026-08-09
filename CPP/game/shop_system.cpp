@@ -247,8 +247,9 @@ void ShopSystem::apply(const ShopUpgradeDef& def, Entity player,
     } else if (def.effect == "shield") {
         s.shield_max += def.amount;
         // Regen is derived, not a second catalogue number: a bigger bank refills
-        // proportionally, so a full recharge always takes ~5 s of not being hit.
-        s.shield_regen = s.shield_max * 0.2f;
+        // proportionally, so a full recharge always takes the same wall time. That
+        // rate is now data (D54) — 0.08 is ~12 s, where the old hardcoded 0.2 was 5 s.
+        s.shield_regen = s.shield_max * (cfg_ ? cfg_->shield_regen_frac : 0.08f);
         s.shield = s.shield_max;              // the purchase arrives charged
     } else if (def.effect == "speed") {
         s.speed_mult += def.amount;

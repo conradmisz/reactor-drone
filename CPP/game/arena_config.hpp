@@ -208,7 +208,11 @@ struct ShopUpgradeDef {
  */
 struct ShopConfig {
     float price_growth = 1.5f;        // multiplier per repeat purchase
-    float shield_regen_delay = 3.0f;  // seconds without damage before shields regen
+    float shield_regen_delay = 5.0f;  // seconds without damage before shields regen
+    // Iteration 3 (#12, D54): regen per second as a fraction of shield_max. Was a
+    // hardcoded 0.2 in shop_system.cpp, which refilled a full bank in 5 s and made
+    // shields the only stat that mattered. 0.08 is ~12 s.
+    float shield_regen_frac = 0.08f;
     std::vector<ShopUpgradeDef> upgrades;
     // Gameplay Phase 4 (D6/D7): the shop's second page. One item and one
     // consumable can be equipped at a time, so these never stack and never

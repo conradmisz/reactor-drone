@@ -268,6 +268,7 @@ GameConfig load_arena_config(const std::string& file_path) {
         ShopConfig& sc = cfg.shop;
         sc.price_growth       = s.value("price_growth", sc.price_growth);
         sc.shield_regen_delay = s.value("shield_regen_delay", sc.shield_regen_delay);
+        sc.shield_regen_frac  = s.value("shield_regen_frac", sc.shield_regen_frac);
         sc.repulsor_radius    = s.value("repulsor_radius", sc.repulsor_radius);
 
         auto read_rows = [&](const char* key, std::vector<ShopUpgradeDef>& out) {

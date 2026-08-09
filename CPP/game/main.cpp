@@ -835,7 +835,7 @@ int main(int argc, char* argv[]) {
             const bool wave_cleared = wave_spawner.wave_just_cleared();
             const bool shop_due = wave_cleared &&
                                   !wave_spawner.all_complete() &&
-                                  (wave_spawner.current_wave_index() % 4 == 0);
+                                  (wave_spawner.current_wave_index() % 5 == 0);
 
             // v2 Phase 6 / 5b: swap the themed arena (backdrop + obstacle/hazard
             // props) when the wave crosses a configured activation. Keyed on the

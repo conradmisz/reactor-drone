@@ -97,9 +97,8 @@ TEST_CASE("the scaffolded config blocks parse from the shipped GameData",
     CHECK_FALSE(cfg.minimap.enabled);                          // no minimap drawn
     CHECK(cfg.actives.empty());                                // no actives offered
 
-    // The wave table has no boss waves yet (Lane A authors them with the 50-wave
-    // arc), and no enemy type has a behaviour (Lane D authors those).
-    for (const WaveDef& w : cfg.waves) CHECK_FALSE(w.boss);
+    // Boss flags are live as of Lane A (D53) — asserted in test_wave_arc.cpp.
+    // No enemy type has a behaviour yet (Lane D authors those).
     for (const EnemyType& t : cfg.enemy_types) CHECK(t.behavior.empty());
     for (const ArenaDef& a : cfg.arenas) CHECK(a.specialty_unit == -1);
 }

@@ -240,3 +240,60 @@ Decisions seeded from the gameplay plan (D1–D12) and made during Phases 1-4
   the same entity twice; `EnemyBehavior.kind` is one int.
 - **Rejected:** letting each lane add its own component type and CMake entry when
   it needs one. That is precisely the merge conflict this phase exists to avoid.
+
+### D52 — Coin/pickup despawn stays; the plan's "coins never despawn" is reversed  *(2026-08-09)*
+- **Decision:** `economy.pickup_lifetime` stays **12.0**. Uncollected drops keep
+  expiring on their own `Lifetime`, and there is **no** intermission sweep.
+- **Why:** the iteration-3 plan lists "#8 coins never despawn" as a locked-in
+  interview answer. The user reversed it afterwards: *"actually, i like that
+  money despawns after a while. it adds some risk/reward to deciding to get it or
+  not."* Walking into a firefight to reach a coin before it fades is a real
+  decision; an immortal pile of credits is not.
+- **Consequence:** the intermission block in `main.cpp` still ticks
+  `lifetime.update` on purpose — that comment is load-bearing, not incidental.
+- **Read this before the plan.** Anyone re-reading
+  `plans/create-a-plan-to-polymorphic-gosling.md` will find the stale locked-in
+  answer and its Phase 1 bullet. This entry supersedes both.
+
+### D53 — The 50-wave table is generated from a formula, not hand-authored  *(2026-08-09)*
+- **Decision:** waves 1-50 come from a linear ramp (#13): 1-25 fixed-count
+  (10 → 45 enemies, spawn_interval 0.50 → 0.308, hp_mult 1.0 → 1.48), 26-50 timed
+  (duration 20 → 39.2 s, spawn_interval 0.30 → 0.204, hp_mult 1.5 → 2.364,
+  speed_mult 1.0 → 1.288). Waves 10/20/30/40/50 carry `boss: true`.
+- **Why:** monotone pressure is then true *by construction* rather than by
+  proofreading 50 hand-typed rows, and `test_wave_arc.cpp` can assert it. The
+  ramp is deliberately flatter than the old 20-wave table — wave 1 drops from 12
+  @0.45 s to 10 @0.50 s — because that table front-loaded mob count against a
+  shop the player could not yet afford.
+- **Arenas cycle twice**, `first_wave` 1/7/13/20/26/32/38/45. The second pass
+  reuses every image, tint and backdrop and changes only the layout and
+  `specialty_tier` (1 → 2), so 50 waves cost zero new art.
+- **Second-pass layouts are PROVISIONAL and mechanical:** each pass-2 obstacle
+  and hazard is its pass-1 twin rotated 90° about the arena centre (1600,1600)
+  with w/h swapped. In-bounds by construction, recognisably the same theme,
+  genuinely different cover. Chosen over hand-designing four arenas blind — the
+  game has still never been played past wave ~8.
+- **Rejected:** a `victory_wave` change. The HUD reads `total_waves` from
+  `waves.size()`, so the "20-wave cap" was never a cap; `victory_wave` stays 0.
+
+### D54 — Shield regen rate is data (`shop.shield_regen_frac`)  *(2026-08-09)*
+- **Decision:** `s.shield_regen = s.shield_max * cfg_->shield_regen_frac`
+  (0.08 → ~12 s for a full bank) replaces the hardcoded `* 0.2f` in
+  `shop_system.cpp`, and `shield_regen_delay` goes 3.0 → 5.0 s.
+- **Why:** #12. At 0.2/s with a 3 s delay, shields fully refilled in 5 s of
+  disengagement, which made Shield Capacitor strictly the best buy and chip
+  damage meaningless. 12 s + 5 s makes backing off a commitment.
+- **Read off `ShopSystem::cfg_`**, which the system already holds — no new
+  Blackboard key and no second `main.cpp` edit competing with another lane. The
+  default lives in `ShopConfig`, so a data file without the key behaves the new
+  way rather than the old way.
+
+### D55 — Full shop every 5th wave, superseding D31's `% 4`  *(2026-08-09)*
+- **Decision:** `main.cpp`'s shop trigger becomes
+  `current_wave_index() % 5 == 0`. **This supersedes D31.**
+- **Why:** #4, and it follows from D53. Over 50 waves `% 4` is 12 stops; `% 5` is
+  10, one per boss cycle, so a shop stop always lands two waves before a boss.
+- **Still hardcoded, still not a JSON knob** — D31's reasoning holds: the cadence
+  is a design rhythm the wave table is authored around, not a balance number.
+- **Note for the reader:** `progress-tracker.md`'s "temporarily change the `% 4`
+  shop trigger to reach a late wave" tip now means `% 5` → `% 1`.
