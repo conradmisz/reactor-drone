@@ -62,6 +62,19 @@ void destroy_marked_entities(EntityManager& em, ComponentStorage& storage) {
         storage.remove_component<ContactDamage>(entity);
         storage.remove_component<WeaponStats>(entity);
         storage.remove_component<Flash>(entity);
+        // Iteration 3 (D51). Same ghost-component hazard as the UI block below:
+        // a dead shot that kept its EnemyShot tag would make the next entity to
+        // reuse that id look like a live projectile.
+        storage.remove_component<EnemyShot>(entity);
+        storage.remove_component<EnemyBehavior>(entity);
+
+        // UI & menu layer (Option-040 port). Without these a destroyed widget
+        // leaves its UIElement/UIState behind on a recycled entity id, and the
+        // next entity to reuse that id inherits a ghost widget.
+        storage.remove_component<UIElement>(entity);
+        storage.remove_component<UIState>(entity);
+        storage.remove_component<UIScreen>(entity);
+        storage.remove_component<ScreenMembership>(entity);
 
         // DestroyRequest itself (must be last)
         storage.remove_component<DestroyRequest>(entity);

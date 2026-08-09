@@ -53,6 +53,23 @@ add_executable(engine_unit_tests
     unit/test_tint.cpp
     unit/test_particle_system.cpp
 
+    # UI & menu layer (Option-040 port)
+    unit/test_ui_components_storage.cpp
+    unit/test_ui_components_destruction.cpp
+    unit/test_ui_style.cpp
+    unit/test_ui_render_math.cpp
+    unit/test_ui_widget_render_math.cpp
+    unit/test_screen_stack_system.cpp
+    unit/test_screen_stack_capture.cpp
+    unit/test_ui_system.cpp
+    unit/test_ui_bindings.cpp
+    unit/test_ui_fade_math.cpp
+    unit/test_ui_value_interaction.cpp
+    unit/test_ui_focus.cpp
+    unit/test_ui_canvas_transform.cpp
+    unit/test_ui_focus_math.cpp
+    unit/test_ui_pulse.cpp
+
     # Engine implementation files needed by tests
     ../ecs/entity_manager.cpp
     ../ecs/component_storage.cpp
@@ -78,6 +95,13 @@ add_executable(engine_unit_tests
     ../ecs/systems/script_system.cpp
     ../ecs/systems/animation_system.cpp
     ../lua_bindings.cpp
+    ../ecs/systems/screen_stack_system.cpp
+    ../ecs/systems/screen_fade_system.cpp
+    ../ecs/systems/ui_system.cpp
+    ../ui_style.cpp
+    # register_all_components lives in game/debug_adapters.cpp; the UI component
+    # property tests exercise the production registration, not a test double.
+    ../../game/debug_adapters.cpp
 )
 
 target_link_libraries(engine_unit_tests PRIVATE
@@ -157,6 +181,17 @@ add_executable(engine_property_tests
     property/test_sidecar_loader_properties.cpp
     property/test_particle_properties.cpp
 
+    # UI & menu layer (Option-040 port)
+    property/test_ui_components_properties.cpp
+    property/test_ui_render_properties.cpp
+    property/test_ui_widget_render_properties.cpp
+    property/test_ui_interaction_properties.cpp
+    property/test_screen_stack_properties.cpp
+    property/test_ui_fade_properties.cpp
+    property/test_ui_value_interaction_properties.cpp
+    property/test_ui_focus_properties.cpp
+    property/test_ui_canvas_transform_properties.cpp
+
     # Engine implementation files needed by tests
     ../ecs/entity_manager.cpp
     ../ecs/component_storage.cpp
@@ -179,11 +214,20 @@ add_executable(engine_property_tests
     ../ecs/systems/script_system.cpp
     ../ecs/systems/animation_system.cpp
     ../lua_bindings.cpp
+    ../ecs/systems/screen_stack_system.cpp
+    ../ecs/systems/screen_fade_system.cpp
+    ../ecs/systems/ui_system.cpp
+    ../ui_style.cpp
+    # register_all_components lives in game/debug_adapters.cpp; the UI component
+    # property tests exercise the production registration, not a test double.
+    ../../game/debug_adapters.cpp
 )
 
 target_link_libraries(engine_property_tests PRIVATE
     Catch2::Catch2WithMain
     SDL3::SDL3
+    SDL3_image::SDL3_image
+    SDL3_ttf::SDL3_ttf
     nlohmann_json::nlohmann_json
     lua_static
 )

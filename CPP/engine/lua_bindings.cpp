@@ -2,6 +2,8 @@
 #include "engine/ecs/component_storage.hpp"
 #include "engine/ecs/entity_manager.hpp"
 #include "engine/ecs/blackboard.hpp"
+#include "engine/ecs/components.hpp"
+#include "engine/ecs/systems/screen_stack_system.hpp"
 
 extern "C" {
 #include "lua.h"
@@ -11,6 +13,7 @@ extern "C" {
 
 #include <cmath>
 #include <algorithm>
+#include <iostream>
 #include <string>
 
 // Registry key constants
@@ -469,6 +472,91 @@ static int l_distance(lua_State* L) {
 }
 
 // ============================================================================
+// Phase 6 (o-040-06-lua-screens): ui.* bindings
+//
+// A second global table, `ui`, registered alongside `engine`. Screen
+// transitions route through the existing ui.cmd.* Blackboard keys consumed by
+// ScreenStackSystem::process_commands (single writer of the stack and every
+// UIScreen.active flag), so ScreenStackSystem stays frozen. The label / value /
+// disabled bindings perform immediate, idempotent component reads/writes, safe
+// to call mid-frame from a UISystem callback.
+// ============================================================================
+
+// ui.push_screen(name) -> nil. Sets ui.cmd.push so process_commands pushes the
+// named screen next frame. Empty/missing name is a no-op (mirrors process_commands).
+static int l_ui_push_screen(lua_State* L) {
+    const char* name = luaL_optstring(L, 1, "");
+    if (name && name[0] != '\0') {
+        get_blackboard(L)->set<std::string>(ScreenStackSystem::CMD_PUSH, std::string(name));
+    }
+    return 0;
+}
+
+// ui.pop_screen() -> nil. At base depth (<=1) this is a safe no-op that logs a
+// warning; otherwise it sets ui.cmd.pop so process_commands pops the top.
+static int l_ui_pop_screen(lua_State* L) {
+    auto* bb = get_blackboard(L);
+    if (ScreenStackSystem::depth(*bb) <= 1) {
+        std::cerr << "[ui.pop_screen] ignored: stack already at base depth"
+                  << std::endl;
+        return 0;
+    }
+    bb->set<bool>(ScreenStackSystem::CMD_POP, true);
+    return 0;
+}
+
+// ui.set_label(id, text) -> nil. Mutates UIElement.label_text; missing component
+// is a no-op (no crash). UIRenderSystem rebuilds text each frame, so the next
+// render reflects it.
+static int l_ui_set_label(lua_State* L) {
+    Entity id = static_cast<Entity>(luaL_checkinteger(L, 1));
+    const char* text = luaL_checkstring(L, 2);
+    auto* storage = get_storage(L);
+    auto el = storage->get_component<UIElement>(id);
+    if (el.has_value()) {
+        el->get().label_text = text;
+    }
+    return 0;
+}
+
+// ui.get_value(id) -> number. Returns UIState.value, or 0.0 when absent.
+static int l_ui_get_value(lua_State* L) {
+    Entity id = static_cast<Entity>(luaL_checkinteger(L, 1));
+    auto* storage = get_storage(L);
+    auto st = storage->get_component<UIState>(id);
+    lua_pushnumber(L, st.has_value() ? st->get().value : 0.0f);
+    return 1;
+}
+
+// ui.set_disabled(id, disabled) -> nil. Sets UIState.disabled; missing component
+// is a no-op.
+static int l_ui_set_disabled(lua_State* L) {
+    Entity id = static_cast<Entity>(luaL_checkinteger(L, 1));
+    bool disabled = lua_toboolean(L, 2);
+    auto* storage = get_storage(L);
+    auto st = storage->get_component<UIState>(id);
+    if (st.has_value()) {
+        st->get().disabled = disabled;
+    }
+    return 0;
+}
+
+// ui.widget_id(name) -> int | nil. Resolves a widget name published by the JSON
+// loader (ui.widget_id.<name> double) to its entity id; nil when unknown.
+static int l_ui_widget_id(lua_State* L) {
+    const char* name = luaL_checkstring(L, 1);
+    auto* bb = get_blackboard(L);
+    try {
+        double id = bb->get<double>(std::string("ui.widget_id.") + name);
+        lua_pushinteger(L, static_cast<lua_Integer>(id));
+        return 1;
+    } catch (...) {
+        lua_pushnil(L);
+        return 1;
+    }
+}
+
+// ============================================================================
 // Registration and pointer storage
 // ============================================================================
 
@@ -531,6 +619,17 @@ void register_bindings(lua_State* L) {
     lua_setfield(L, -2, "distance");
 
     lua_setglobal(L, "engine");
+
+    // Phase 6: the ui.* table (screen transitions + widget label/value/disabled).
+    // Registered on the same state in the same call, reusing the registry helpers.
+    lua_newtable(L);
+    lua_pushcfunction(L, l_ui_push_screen);  lua_setfield(L, -2, "push_screen");
+    lua_pushcfunction(L, l_ui_pop_screen);   lua_setfield(L, -2, "pop_screen");
+    lua_pushcfunction(L, l_ui_set_label);    lua_setfield(L, -2, "set_label");
+    lua_pushcfunction(L, l_ui_get_value);    lua_setfield(L, -2, "get_value");
+    lua_pushcfunction(L, l_ui_set_disabled); lua_setfield(L, -2, "set_disabled");
+    lua_pushcfunction(L, l_ui_widget_id);    lua_setfield(L, -2, "widget_id");
+    lua_setglobal(L, "ui");
 }
 
 void store_engine_pointers(lua_State* L,

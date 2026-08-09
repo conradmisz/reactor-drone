@@ -2,6 +2,7 @@
 #include "engine/tile_map.hpp"
 #include "engine/sidecar_loader.hpp"
 #include "engine/project_paths.hpp"
+#include "engine/ui_style.hpp"        // StyleTable, parse_ui_styles (Option-040 port)
 #include "game/wave_config.hpp"
 #include "game/tower_type_config.hpp"
 #include <nlohmann/json.hpp>
@@ -123,6 +124,169 @@ static void process_entity_array(const json& arr,
 
         if (element.contains("components")) {
             parse_components(element["components"], entity, component_storage);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Helper: validate one widget's shared required fields — Phase 2/4
+// ---------------------------------------------------------------------------
+// Validates that a single widget JSON object carries every required field:
+// element_type, label_text, style_id, z_order, and a rect {x,y,w,h} with w>0
+// and h>0. Throws std::runtime_error (naming the given screen_name) on any
+// failure, using the loader's established error channel. The error messages are
+// identical in shape to the original strict main_menu validation, so behavior
+// for the "main_menu" screen is unchanged.
+static void validate_ui_widget_fields(const json& w,
+                                      size_t i,
+                                      const std::string& screen_name) {
+    const std::string prefix =
+        "UI screens: the '" + screen_name + "' screen could not be loaded ";
+
+    if (!w.contains("element_type") ||
+        !w.contains("label_text") ||
+        !w.contains("style_id") ||
+        !w.contains("z_order")) {
+        throw std::runtime_error(
+            prefix + "(widget " + std::to_string(i) +
+            " is missing a required field)");
+    }
+
+    if (!w.contains("rect")) {
+        throw std::runtime_error(
+            prefix + "(widget " + std::to_string(i) + " is missing 'rect')");
+    }
+    const auto& rect = w["rect"];
+    if (!rect.contains("x") || !rect.contains("y") ||
+        !rect.contains("w") || !rect.contains("h")) {
+        throw std::runtime_error(
+            prefix + "(widget " + std::to_string(i) + " rect is missing x/y/w/h)");
+    }
+    float rw = rect["w"].get<float>();
+    float rh = rect["h"].get<float>();
+    if (rw <= 0.0f || rh <= 0.0f) {
+        throw std::runtime_error(
+            prefix + "(widget " + std::to_string(i) + " rect must have w>0 and h>0)");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Helper: create a UIElement + UIState + ScreenMembership entity — Phase 2/4/5
+// ---------------------------------------------------------------------------
+// Assumes the widget has already passed validate_ui_widget_fields. Creates one
+// UIElement entity (reading element_type, rect, label_text, style_id,
+// on_click_fn defaulting to "", z_order), attaches a UIState (value read from
+// the optional "value" field defaulting to 0.0, with hovered/pressed/disabled
+// initialized to false — Phase 5 R3.4 so the renderer can position a slider
+// knob / show a checkbox check), and attaches a ScreenMembership tying the
+// widget to screen_name.
+static void create_ui_widget_entity(const json& w,
+                                    const std::string& screen_name,
+                                    EntityManager& entity_manager,
+                                    ComponentStorage& component_storage,
+                                    Blackboard& blackboard) {
+    const auto& rect = w["rect"];
+
+    UIElement element;
+    element.element_type = w["element_type"].get<std::string>();
+    element.rect = UIRect{
+        rect["x"].get<float>(),
+        rect["y"].get<float>(),
+        rect["w"].get<float>(),
+        rect["h"].get<float>()
+    };
+    element.label_text = w["label_text"].get<std::string>();
+    element.style_id = w["style_id"].get<std::string>();
+    element.on_click_fn = w.value("on_click_fn", std::string(""));
+    element.z_order = w["z_order"].get<int>();
+    // v2: optional flashing hint; absent -> 0.0f (static), the pre-v2 behaviour.
+    element.pulse_hz = w.value("pulse_hz", 0.0f);
+
+    Entity widget_entity = entity_manager.create_entity();
+    component_storage.add_component<UIElement>(widget_entity, element);
+
+    // Phase 5 (R3.4): attach a UIState so the renderer can read slider/checkbox
+    // value. value <- optional JSON "value" (default 0.0); flags start false.
+    UIState state;
+    state.hovered = false;
+    state.pressed = false;
+    state.disabled = false;
+    state.value = w.value("value", 0.0f);
+    component_storage.add_component<UIState>(widget_entity, state);
+
+    component_storage.add_component<ScreenMembership>(widget_entity,
+        ScreenMembership{screen_name});
+
+    // Phase 6 (o-040-06-lua-screens): publish a name -> entity-id map so Lua can
+    // resolve named widgets via ui.widget_id(name). Stored as a double under
+    // "ui.widget_id.<name>" so the numeric Blackboard/Lua path returns it. This
+    // is a JSON-only, load-time key — no component field is added. Unnamed
+    // widgets are unaffected.
+    if (w.contains("name") && w["name"].is_string()) {
+        std::string name = w["name"].get<std::string>();
+        blackboard.set<double>("ui.widget_id." + name,
+                               static_cast<double>(widget_entity));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Helper: load UI screens ("screens" block) — Phase 5 generic two-pass loader
+// ---------------------------------------------------------------------------
+// Processes EVERY screen in the "screens" block uniformly, with no
+// screen-specific widget-count or named-button checks (R1.5, R4). The loader
+// keeps the Validate-All-Then-Create discipline now spanning ALL screens:
+//
+//   PASS 1 (validate, create nothing): for each screen, when a "widgets" key is
+//     present it must be a JSON array (else std::runtime_error naming the
+//     screen); each widget is checked via validate_ui_widget_fields. A screen
+//     with no "widgets" key or an empty array is valid (R4.5).
+//   PASS 2 (create, only after Pass 1 fully passed): for each screen create one
+//     UIScreen{screen_name, active = screen_def.value("active", false)} (R1.1,
+//     R1.2, R1.4) plus, per widget, one UIElement + one UIState +
+//     ScreenMembership via create_ui_widget_entity (R1.3, R3).
+//
+// Because Pass 1 throws before Pass 2 begins, a single bad widget anywhere
+// leaves ZERO UIScreen/UIElement/UIState/ScreenMembership entities created
+// (R2.5). The std::runtime_error channel names the offending screen (R2.3,
+// R2.4). load_ui_screens is invoked only when the top-level "screens" key is
+// present (unchanged call site).
+static void load_ui_screens(const json& screens_obj,
+                            EntityManager& entity_manager,
+                            ComponentStorage& component_storage,
+                            Blackboard& blackboard) {
+    // ---- PASS 1: validate every widget of every screen; create NOTHING ----
+    for (auto& [screen_name, screen_def] : screens_obj.items()) {
+        if (screen_def.contains("widgets")) {
+            if (!screen_def["widgets"].is_array()) {
+                throw std::runtime_error(
+                    "UI screens: the '" + screen_name + "' screen could not be "
+                    "loaded ('widgets' must be an array)");
+            }
+            const auto& widgets = screen_def["widgets"];
+            for (size_t i = 0; i < widgets.size(); ++i) {
+                validate_ui_widget_fields(widgets[i], i, screen_name);
+            }
+        }
+        // A screen with no "widgets" key or an empty array is valid (R4.5).
+    }
+
+    // ---- PASS 2: all screens validated -> create entities ----
+    for (auto& [screen_name, screen_def] : screens_obj.items()) {
+        bool active = screen_def.value("active", false);  // default false (R1.2)
+
+        Entity screen_entity = entity_manager.create_entity();
+        component_storage.add_component<UIScreen>(screen_entity, UIScreen{
+            screen_name,
+            active
+        });
+
+        if (screen_def.contains("widgets")) {
+            const auto& widgets = screen_def["widgets"];
+            for (size_t i = 0; i < widgets.size(); ++i) {
+                create_ui_widget_entity(widgets[i], screen_name,
+                                        entity_manager, component_storage,
+                                        blackboard);
+            }
         }
     }
 }
@@ -544,7 +708,25 @@ void load_game_data(const std::string& file_path,
                              entity_manager, component_storage, blackboard);
     }
 
-    // 7-11: Game-specific entity loading removed (Asteroids code stripped for Class-070)
+    // 7. UI styles (optional, Option-040 port). Present -> parse into a
+    //    StyleTable on the Blackboard; absent -> no key, and UIRenderSystem
+    //    treats every lookup as the UI_DEFAULT_COLOR sentinel.
+    if (data.contains("ui_styles")) {
+        auto table = std::make_shared<StyleTable>(parse_ui_styles(data["ui_styles"]));
+        blackboard.set<std::shared_ptr<StyleTable>>("ui_styles", table);
+    }
+
+    // 8. UI screens (optional, Option-040 port). A data file WITHOUT a "screens"
+    //    block creates no UI entities and raises no error, so every existing
+    //    loader fixture keeps loading unchanged. When present, load_ui_screens
+    //    validates every widget of every screen before creating anything, so a
+    //    single malformed widget leaves zero UI entities behind.
+    if (data.contains("screens")) {
+        load_ui_screens(data["screens"], entity_manager,
+                        component_storage, blackboard);
+    }
+
+    // 9-11: Game-specific entity loading removed (Asteroids code stripped for Class-070)
     // Game-specific loaders (ship, bullet, asteroids, spawn, lives) are added
     // by each game's main.cpp or a game-specific loader, not the engine.
 }

@@ -363,6 +363,71 @@ struct Animation {
     bool finished = false;        // True when a one-shot animation has completed
 };
 
+// ---------------------------------------------------------------------------
+// UI & menu layer (ported from Option-040). Widgets are authored as data in
+// GameData.json's "screens" block; UISystem drives interaction, UIRenderSystem
+// draws them, and ScreenStackSystem is the single writer of UIScreen::active.
+// ---------------------------------------------------------------------------
+
+/**
+ * UIRect — widget rectangle in bottom-left-origin design-canvas units.
+ * Sub-struct of UIElement. x,y is the bottom-left corner; w,h are extents.
+ */
+struct UIRect {
+    float x = 0.0f;  // left edge
+    float y = 0.0f;  // bottom edge
+    float w = 0.0f;  // width
+    float h = 0.0f;  // height
+};
+
+/**
+ * UIElement — describes one widget: what it is, where it sits, what it says,
+ * which style resolves its colours, and which Lua global a confirmed click calls.
+ */
+struct UIElement {
+    std::string element_type = "";  // "button"|"slider"|"checkbox"|"label"|"panel"
+    UIRect rect = {};               // widget rectangle (x, y, w, h)
+    std::string label_text = "";    // display text
+    std::string style_id = "";      // key into the Blackboard "ui_styles" StyleTable
+    std::string on_click_fn = "";   // Lua callback name fired on a confirmed click
+    int z_order = 0;                // draw order; higher = on top
+    // v2: >0 makes the widget's bg+text alpha pulse at this rate, so a widget can
+    // invite a click without any per-frame game code driving it. 0 = static.
+    // Render-only (see pulse_alpha_scale in ui_render_math.hpp) — it never touches
+    // hit-testing or sim state, so replay determinism is unaffected.
+    float pulse_hz = 0.0f;
+};
+
+/**
+ * UIState — per-frame interaction state for a widget. UISystem is the single
+ * writer of every field here.
+ */
+struct UIState {
+    bool hovered = false;   // pointer over widget
+    bool pressed = false;   // pointer-down inside widget
+    bool disabled = false;  // widget ignores input
+    float value = 0.0f;     // slider/checkbox normalized value
+    bool focused = false;   // keyboard focus; single writer is UISystem.
+                            // MUST stay last so positional UIState{...} inits stay valid.
+};
+
+/**
+ * UIScreen — marks an entity as a screen container. `active` is reconciled from
+ * the Blackboard screen stack by ScreenStackSystem and by nothing else.
+ */
+struct UIScreen {
+    std::string screen_name = "";  // logical screen id, e.g. "wave_intermission"
+    bool active = false;           // whether the screen is currently active
+};
+
+/**
+ * ScreenMembership — associates a widget entity with the named screen it belongs
+ * to. A widget renders and reacts only when its membership names an active screen.
+ */
+struct ScreenMembership {
+    std::string screen_name = "";  // owning screen id
+};
+
 /**
  * RenderLayer component
  *

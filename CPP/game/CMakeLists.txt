@@ -29,6 +29,10 @@ set(ENGINE_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/rotation_system.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/screenshot_system.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/script_system.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/screen_fade_system.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/screen_stack_system.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/ui_render_system.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/ui_system.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/uniform_grid_strategy.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/wrap_system.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/gamedata_loader.cpp"
@@ -37,6 +41,7 @@ set(ENGINE_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/resource_manager.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/sidecar_loader.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/timer.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ui_style.cpp"
 )
 
 # Collect game source files

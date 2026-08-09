@@ -24,10 +24,14 @@ void register_all_components(PropertyAccessorAdapter& accessor,
     accessor.register_component<ProjectileTag>("ProjectileTag");
     accessor.register_component<Rotation>("Rotation");
     accessor.register_component<ScreenPosition>("ScreenPosition");
+    accessor.register_component<ScreenMembership>("ScreenMembership");
     accessor.register_component<Script>("Script");
     accessor.register_component<Size>("Size");
     accessor.register_component<SpriteSheet>("SpriteSheet");
     accessor.register_component<Text>("Text");
+    accessor.register_component<UIElement>("UIElement");
+    accessor.register_component<UIScreen>("UIScreen");
+    accessor.register_component<UIState>("UIState");
     accessor.register_component<TowerStats>("TowerStats");
     accessor.register_component<TowerTag>("TowerTag");
     accessor.register_component<Velocity>("Velocity");
@@ -431,6 +435,82 @@ void register_all_components(PropertyAccessorAdapter& accessor,
             Value val;
             val.type = Value::Type::Object;
             std::unordered_map<std::string, std::unique_ptr<Value>> obj;
+            val.data = std::move(obj);
+            return val;
+        });
+
+    // UI & menu layer (Option-040 port)
+    // ScreenMembership
+    introspector.register_struct("ScreenMembership",
+        {{"screen_name", "string"}},
+        [](const std::any& v) -> Value {
+            const auto& sm = std::any_cast<const ScreenMembership&>(v);
+            Value val;
+            val.type = Value::Type::Object;
+            std::unordered_map<std::string, std::unique_ptr<Value>> obj;
+            obj["screen_name"] = make_string_value(sm.screen_name);
+            val.data = std::move(obj);
+            return val;
+        });
+
+    // UIElement (with nested UIRect rect {x, y, w, h})
+    introspector.register_struct("UIElement",
+        {{"element_type", "string"}, {"rect", "object"}, {"label_text", "string"},
+         {"style_id", "string"}, {"on_click_fn", "string"}, {"z_order", "int"},
+         {"pulse_hz", "float"}},
+        [](const std::any& v) -> Value {
+            const auto& ui = std::any_cast<const UIElement&>(v);
+            Value val;
+            val.type = Value::Type::Object;
+            std::unordered_map<std::string, std::unique_ptr<Value>> obj;
+            obj["element_type"] = make_string_value(ui.element_type);
+            // Nested UIRect as object {x, y, w, h} (same idiom as Text.color)
+            auto rect_obj = std::make_unique<Value>();
+            rect_obj->type = Value::Type::Object;
+            std::unordered_map<std::string, std::unique_ptr<Value>> rect_fields;
+            rect_fields["x"] = make_float_value(static_cast<double>(ui.rect.x));
+            rect_fields["y"] = make_float_value(static_cast<double>(ui.rect.y));
+            rect_fields["w"] = make_float_value(static_cast<double>(ui.rect.w));
+            rect_fields["h"] = make_float_value(static_cast<double>(ui.rect.h));
+            rect_obj->data = std::move(rect_fields);
+            obj["rect"] = std::move(rect_obj);
+            obj["label_text"] = make_string_value(ui.label_text);
+            obj["style_id"] = make_string_value(ui.style_id);
+            obj["on_click_fn"] = make_string_value(ui.on_click_fn);
+            obj["z_order"] = make_int_value(static_cast<int64_t>(ui.z_order));
+            obj["pulse_hz"] = make_float_value(static_cast<double>(ui.pulse_hz));
+            val.data = std::move(obj);
+            return val;
+        });
+
+    // UIScreen
+    introspector.register_struct("UIScreen",
+        {{"screen_name", "string"}, {"active", "bool"}},
+        [](const std::any& v) -> Value {
+            const auto& ui = std::any_cast<const UIScreen&>(v);
+            Value val;
+            val.type = Value::Type::Object;
+            std::unordered_map<std::string, std::unique_ptr<Value>> obj;
+            obj["screen_name"] = make_string_value(ui.screen_name);
+            obj["active"] = make_bool_value(ui.active);
+            val.data = std::move(obj);
+            return val;
+        });
+
+    // UIState
+    introspector.register_struct("UIState",
+        {{"hovered", "bool"}, {"pressed", "bool"}, {"disabled", "bool"},
+         {"value", "float"}, {"focused", "bool"}},
+        [](const std::any& v) -> Value {
+            const auto& ui = std::any_cast<const UIState&>(v);
+            Value val;
+            val.type = Value::Type::Object;
+            std::unordered_map<std::string, std::unique_ptr<Value>> obj;
+            obj["hovered"] = make_bool_value(ui.hovered);
+            obj["pressed"] = make_bool_value(ui.pressed);
+            obj["disabled"] = make_bool_value(ui.disabled);
+            obj["value"] = make_float_value(static_cast<double>(ui.value));
+            obj["focused"] = make_bool_value(ui.focused);
             val.data = std::move(obj);
             return val;
         });

@@ -294,6 +294,12 @@ inline void refresh_entity_mapper(EntityMapperAdapter& mapper,
     collect(cs.entities_with_component<DestroyRequest>());
     collect(cs.entities_with_component<CollidedWith>());
     collect(cs.entities_with_component<Script>());
+    // UI & menu layer (Option-040 port): a widget entity carries no Position or
+    // Size, so without these a frame dump would show the screen as empty.
+    collect(cs.entities_with_component<UIElement>());
+    collect(cs.entities_with_component<UIState>());
+    collect(cs.entities_with_component<UIScreen>());
+    collect(cs.entities_with_component<ScreenMembership>());
     collect(cs.entities_with_component<SpriteSheet>());
     collect(cs.entities_with_component<Animation>());
     collect(cs.entities_with_component<EnemyTag>());

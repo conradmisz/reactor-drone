@@ -21,17 +21,18 @@
 #include <string>
 
 // ===========================================================================
-// All 26 component types are registered
+// All 30 component types are registered
+// (26 + the four UI & menu components ported from Option-040)
 // ===========================================================================
 
-TEST_CASE("PropertyAccessorAdapter registers all 26 component types",
+TEST_CASE("PropertyAccessorAdapter registers all 30 component types",
           "[Game][debug]") {
     PropertyAccessorAdapter accessor;
     TypeIntrospectorAdapter introspector;
     register_all_components(accessor, introspector);
 
     auto components = accessor.registered_components();
-    REQUIRE(components.size() == 26);
+    REQUIRE(components.size() == 30);
 }
 
 // ===========================================================================

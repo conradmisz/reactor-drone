@@ -1,0 +1,405 @@
+# ENGINE.md — Reactor Drone v2 engine architecture
+
+The living architecture document for this repo's engine. It exists because two things are
+otherwise undocumented and expensive to rediscover: **what is actually ours versus the
+class baseline**, and **the order the frame runs in**. Both are load-bearing and neither
+is derivable from a quick read of `main.cpp`.
+
+**Maintenance rule:** any change under `CPP/engine/`, any new game system, or any change to
+the `main.cpp` frame order updates this file *in the same commit*. Provenance is regenerated
+by re-running the sweep in §2, never from memory.
+
+---
+
+## 1. Layers
+
+```
+                         [=] class original, untouched
+                         [~] class original, modified by v2
+                         [+] added by v2
+
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  DATA                                                                │
+  │  assets/GameData.json  [=] loader / [+] game-side GameConfig         │
+  │  assets/images/v2/*.png + *.json sidecars   [+]                     │
+  │  assets/generator/v2/*.py — OFFLINE, never runs at build time [+]   │
+  │  GameData.json "ui_styles" + "screens" — menus are DATA [+]         │
+  └──────────────────────────────────────────────────────────────────────┘
+                                     │
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  GAME SYSTEMS (CPP/game/)                                            │
+  │  wave_spawner [~]   enemy_seek [~]   enemy_death [~]                │
+  │  player_aim [=]     player_fire [~]  player_damage [~]              │
+  │  projectile_hit [~] damage_apply [=] game_hud [~]                   │
+  │  shop [+]  pickup [+]  item [+]  shield [+]  flash [+]              │
+  │  pure headers: feedback [+] parallax [+] obstacles [+]              │
+  │                enemy_path [+] aim_math [=]                          │
+  └──────────────────────────────────────────────────────────────────────┘
+                                     │
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  ENGINE SYSTEMS (CPP/engine/ecs/systems/)                            │
+  │  render [~]  input [~]  player_control [~]  particle [+]            │
+  │  movement [=] collision [=] (+ brute_force / quadtree / uniform_grid │
+  │  strategies [=])  lifetime [=]  animation [=]  rotation [=]         │
+  │  camera [=]  camera_control [=]  hud [=]  debug_hud [=]             │
+  │  screenshot [=]  script [=]  wrap [=]                               │
+  │  UI & MENU (ported from Option-040) [+]                             │
+  │    screens: gameplay (HUD gauges) / wave_intermission / pause [+]    │
+  │    ui [+]  ui_render [+]  screen_stack [+]  screen_fade [+]         │
+  │    pure headers: ui_render_math [+] ui_focus_math [+]               │
+  │                  ui_fade_math [+]  ui_style [+]                     │
+  └──────────────────────────────────────────────────────────────────────┘
+                                     │
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  ENGINE CORE (CPP/engine/)                                           │
+  │  EntityManager [=]   ComponentStorage [~]   Blackboard [=]          │
+  │  destruction [~]  Timer [=]  ResourceManager [=]  sidecar_loader [=]│
+  │  gamedata_loader [=]  project_paths [=]  pathfinding [=] tile_map [=]│
+  └──────────────────────────────────────────────────────────────────────┘
+                                     │
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  SDL3 + SDL3_ttf  (SDL3-only; no SDL2 compat shim anywhere)          │
+  └──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. Provenance — measured, not remembered
+
+Baseline: `../110-finalproject-conradmisz/CPP/`. Regenerate with:
+
+```bash
+cd CPP
+find . -path ./build -prune -o -type f \( -name '*.cpp' -o -name '*.hpp' \) -print |
+while read -r f; do
+  b="../../110-finalproject-conradmisz/CPP/${f#./}"
+  if   [ ! -e "$b" ];    then echo "NEW      $f"
+  elif cmp -s "$f" "$b"; then echo "IDENT    $f"
+  else                        echo "MODIFIED $f"; fi
+done | sort
+```
+
+Current measured state: **150 identical · 31 modified · 27 new** (208 source files).
+
+### Engine — new in v2
+
+| File | What it is |
+|---|---|
+| `ecs/systems/particle_system.{hpp,cpp}` | The whole particle simulation: emitters, per-particle lerp, `DEFAULT_MAX_PARTICLES` budget, and the `emit` flag that separates ageing from spawning (see §5) |
+| `tests/unit/test_particle_system.cpp`, `tests/property/test_particle_properties.cpp` | Its tests |
+| `tests/unit/test_tint.cpp` | `modulate_color` / Tint semantics |
+| `ui_style.{hpp,cpp}` | `StyleTable`, `WidgetState`, `parse_ui_styles` — widget colours as pure data (Option-040 port) |
+| `ui_focus_math.hpp`, `ui_fade_math.hpp` | Tab-order and fade-curve helpers (Option-040 port) |
+| `ecs/systems/ui_render_math.hpp` | Widget-state precedence, the design→window canvas transform, inclusive hit-test, z-order sort — **plus the v2-only `pulse_alpha_scale` / `apply_alpha_scale`** |
+| `ecs/systems/ui_system.{hpp,cpp}` | Hover/press/confirmed-click + Tab/Enter focus. **v2 addition:** publishes a confirmed click's `on_click_fn` to the Blackboard under `UISystem::UI_CLICK_KEY`, so a game with no Lua menu layer can consume its own buttons |
+| `ecs/systems/ui_render_system.{hpp,cpp}` | Draws panels/labels/buttons/sliders/checkboxes. **v2 addition:** a render-local `elapsed_` clock driving `UIElement::pulse_hz` |
+| `ecs/systems/screen_stack_system.{hpp,cpp}` | The single writer of the screen stack and of every `UIScreen::active` flag |
+| `ecs/systems/screen_fade_system.{hpp,cpp}` | Fade-through-black on a screen transition |
+| `tests/unit/test_ui_pulse.cpp` | The pulse helpers, incl. the exact-identity guarantee for `pulse_hz == 0` |
+| `tests/{unit,property}/test_ui_*`, `test_screen_stack_*` | The Option-040 suite, ported unmodified except for two `-Wall -Wextra` fixes (see §5) |
+
+### Engine — modified from the class original
+
+| File | What it gained |
+|---|---|
+| `ecs/components.hpp` | `Tint` (rgba + `additive`), `Particle`, `ParticleEmitter` + `EmitterShape`, `RenderLayer`, `Rotation::flip_when_left`, and the UI layer's `UIRect` / `UIElement` / `UIState` / `UIScreen` / `ScreenMembership` (`UIElement::pulse_hz` is v2-only) |
+| `ecs/component_storage.{hpp,cpp}` | Storage maps + `get_storage<>` specialisations for `Tint`, `Particle`, `ParticleEmitter`, the four UI components, and the v2 game components (`ShipState`, `Pickup`, `Flash`); `Experience` removed |
+| `ecs/destruction.cpp` | Sweeps the same new component types on entity destruction, UI components included — without that, a destroyed widget's `UIElement` survives onto a recycled entity id |
+| `ecs/systems/input_system.{hpp,cpp}` | Takes an `SDL_Renderer*` and runs `SDL_RenderCoordinatesFromWindow` so mouse coords are logical-space, not window-space; WASD aliases the arrow keys; publishes the per-frame UI edges (`mouse.down`/`mouse.up`, `ui.escape_pressed`/`tab`/`enter`) and the logical-space `mouse.screen_x/y`. **Escape is now an edge, not an immediate quit** — `main.cpp` decides what it means |
+| `gamedata_loader.cpp` | Parses the optional top-level `ui_styles` and `screens` blocks. Both are gated on the key being present, so a data file without them creates zero UI entities and raises no error |
+| `lua_bindings.cpp` | The `ui.*` global table (`push_screen`, `pop_screen`, `set_label`, `get_value`, `set_disabled`, `widget_id`). Unused by this game — see §5 |
+| `ecs/systems/player_control_system.{hpp,cpp}` | `set_speed()` (so a shop purchase applies mid-run) and diagonal normalisation |
+| `ecs/systems/render_system.{hpp,cpp}` | Colour-mod / alpha-mod from `Tint`, additive blend mode, `RenderLayer` bucketing, rotation with `flip_when_left`, and `render_layers()` + `TiledLayer` (tiled parallax backdrops, with `alpha` for the v2 Phase 5b arena crossfade) |
+
+### Engine — byte-identical class originals (~150 files)
+
+Everything else: the collision strategy family, Lua, `pathfinding.hpp`, `tile_map.hpp`,
+camera, resource manager, timer, sidecar loader, and the entire inherited test suite.
+
+### Game — new in v2
+
+`enemy_path.hpp` · `feedback.hpp` · `flash_system.{hpp,cpp}` · `item_system.hpp` ·
+`obstacles.hpp` · `parallax.hpp` · `pickup_system.{hpp,cpp}` · `shield_system.hpp` ·
+`shop_system.{hpp,cpp}` — plus 10 new test files.
+
+`debug_adapters.{hpp,cpp}` additionally register the four UI components, so a `J`/`T`
+frame dump shows the live menu instead of an apparently empty screen.
+
+### Game — unchanged class originals
+
+`aim_math.hpp` · `damage_apply_system.*` · `debug_*` · `player_aim_system.*` ·
+`script_loader.*` · `tower_components.hpp` · `tower_type_config.hpp` ·
+`wave_config.hpp` (**dead** — superseded by `WaveDef` in `arena_config.hpp`)
+
+---
+
+## 3. Frame order
+
+The single most load-bearing undocumented fact in the codebase. Sequence as written in
+`main.cpp`; line numbers drift, the order does not.
+
+```
+input_system.process_events                 — every phase, incl. the renderer coord fix
+(scripted keys injected here — the Escape handling below MUST follow them)
+Escape edge -> push/pop "pause"             — depth<=1 opens pause, else pops the top
+menu_paused = (top screen == "pause")       — NOT is_modal(): the intermission is modal
+                                              too and must keep running
+sim = (!debug_paused && !menu_paused) || step
+screen_stack.process_commands               — consumes LAST frame's ui.cmd.push/pop, so
+                                              UIScreen::active is settled before anything
+                                              hit-tests or reads a click
+ui_system.update                            — hover/press/confirmed click; publishes
+                                              UI_CLICK_KEY, which the phase machine reads
+
+if PHASE_PLAYING && sim:
+  player_control.set_speed(...)             — pushed every frame; nothing caches move speed
+  player_control.update
+  [HOOK: dash]                              — iteration 3 (D51); see §6
+  player_aim.update                         — writes Rotation.angle
+  [Phase 5c] thruster cone + item aura      — must follow player_aim; reads that angle
+  wave_spawner.update
+  [HOOK: boss]                              — iteration 3 (D51); see §6
+  wave_just_cleared()  ── READ HERE ──      — a plain getter, reset at the top of the NEXT
+                                              update(); shop_due and the arena shift both
+                                              depend on reading it in the same frame
+  arena shift tick                          — crossfade timer; props swap mid-fade
+    [HOOK: arena-vfx]                       — iteration 3 (D51); see §6
+  enemy_seek.update
+  [HOOK: enemy-fire]                        — iteration 3 (D51); see §6
+  [HOOK: specialty]                         — iteration 3 (D51); see §6
+  movement.update
+  arena circle clamp  (player + enemies)
+  obstacle push-out   (player + enemies)    — solid walls get the last word on position
+  items::repulse_enemies                    — runs after the push-out, so a shoved enemy is
+                                              re-clamped next frame rather than through a wall
+  items::use_consumable (on Q)
+  [HOOK: actives]                           — iteration 3 (D51); see §6
+  player_fire.update
+  collision.update
+  projectile_hit.update
+  tick_shields                              — BEFORE damage, so a hit this frame restarts
+                                              the quiet timer with the last word
+  tick_buff
+  player_damage.update
+  damage_apply.update
+  enemy_death.update                        — drop_loot() runs before any sprite/particle
+                                              work, so the RNG stream never depends on
+                                              whether a sidecar happened to load
+  pickups.update
+  [HOOK: sustain-spawn]                     — iteration 3 (D51); see §6
+  lifetime.update                           — NOTE: does not run in PHASE_SHOP (see §5)
+  animation.update
+  tick_enemy_tint                           — tie-dye arena only; BEFORE flash_system so a
+                                              hit flash still wins for its 0.12s
+  flash_system.update                       — last writer of Tint
+  destroy_marked_entities
+  win/lose/shop decision
+
+else if PHASE_INTERMISSION && sim:          — the between-waves prompt. The drone still
+                                              FLIES here (see §5); only combat is held
+  apply_move_speed, tick_hazard_glow
+  player_control / player_aim / movement
+  clamp_to_arena + push_out_of_solids       — player only; no enemies are alive
+  pickups.update                            — the whole reason this phase is not frozen
+  lifetime.update, flash_system.update
+  read UI_CLICK_KEY (or the B key)          — "SHOP OPEN" -> PHASE_SHOP, "NEXT WAVE" ->
+                                              PHASE_PLAYING; the key is consumed so it
+                                              cannot re-fire on the following frame
+  animation.update, destroy_marked_entities
+else if PHASE_SHOP && sim:  shop.update, [HOOK: shop-menu], animation.update,
+                            destroy_marked_entities
+else if sim:                animation.update, destroy_marked_entities, title/restart input
+
+every phase, if sim:
+  particles.update(emit = PLAYING || INTERMISSION) + destroy_marked_entities
+                                            — ages everywhere so trails finish animating on
+                                              title/game-over, but only SPAWNS while
+                                              playing; lifetimes don't tick outside
+                                              PHASE_PLAYING, so emitting there is unbounded
+  hud_message_timer tick
+  game_hud.update
+  [HOOK: minimap]                           — iteration 3 (D51); see §6
+  camera trauma decay + follow-camera lookat
+
+render:
+  camera.update
+  render_system.render_layers(bg_layers)    — outgoing arena at alpha 1, incoming fading in
+  render_system.render
+  hud_system.render
+  ui_render_system.render                   — menus composite last, over world AND HUD
+  screenshot_system.update
+  render_system.present
+```
+
+---
+
+## 4. Invariants and gates
+
+- **Y-flip lives in exactly one place *for world space***: `RenderSystem::draw_entity()`.
+  World space is bottom-left origin (0,0 bottom-left, +X right, +Y up). Nothing else flips
+  world coordinates. The UI layer is a **second, separate coordinate space** with its own
+  single flip, `to_sdl_y()` in `ui_render_math.hpp`, used by `UIRenderSystem` (drawing) and
+  by `UISystem` via `to_ui_y()` (hit-testing). It applies no camera, zoom or lookat, so the
+  two spaces never mix. Two spaces, one flip each — not a violation of the rule, but do not
+  read the rule as "one flip in the whole codebase".
+- **SDL3 only.** No SDL2 compatibility shim.
+- **Zero warnings** under `-Wall -Wextra -Wpedantic` (vendored deps exempt — Lua's `tmpnam`
+  linker warning is expected and is not ours).
+- **100% ctest**, `^(Engine|ResourceManager)` and `^Game`.
+- **Determinism is a project invariant.** Every RNG draw happens on every code path in a
+  fixed order; conditionals decide how many draws are *used*, never how many are *taken*.
+  See `EnemyDeathSystem::drop_loot` and `WaveSpawnerSystem::spawn_enemy`. The canary is two
+  runs of `./CPP/build/game/game --seed 42 --keys 5:SPACE --stopframe 3000` printing an
+  identical summary line.
+- **`DEFAULT_MAX_PARTICLES` is 2000 and truncates silently.** Measure before adding an
+  emitter. See §5 — the live budget is not as free as it looks.
+- **Generators are offline.** `assets/generator/v2/*.py` are run by hand and their output is
+  committed. They must never run at build time. They need Pillow, which is not installed
+  system-wide here.
+- **Enemy sprites are pure luminance.** Their colour comes from `ArenaDef::enemy_tint` at
+  spawn (`Color` records it, `Tint` applies it). Never bake an arena colour into enemy art —
+  that is the bug Phase 5a fixed.
+
+---
+
+## 5. Known discrepancies and traps
+
+- **`--dump` and `--trace` are parsed but never consumed.** `CliOptions::dump_frames` /
+  `trace_frames` are populated by `cli_parser.cpp` and `main.cpp` never reads them. There is
+  no state dump. `--screenshot` *does* work.
+- **The 2000-particle budget is already exhausted, in two distinct ways.** Measured over a
+  full 20-wave headless run (seed 42, sampled every 120 frames):
+
+  | Situation | Live particles |
+  |---|---|
+  | Ordinary combat, any wave | ~13-300 |
+  | Mass death, early waves (~12 enemies) | 300-500 |
+  | Mass death, wave 20 (~96 enemies) | **2000 — capped, silently truncating** |
+  | Any frame with the shop open after a mass kill | ~1900-2000 indefinitely — **fixed**, now 0 |
+
+  The shop case was a leak, fixed in Phase 5: `lifetime.update` runs only in
+  `PHASE_PLAYING`, but `particles.update` runs in every simulated phase, so the one-shot FX
+  hosts (death bursts, pickup pops, the arena shockwave) that carry a `Lifetime` never
+  expired while the shop was open and kept emitting. `ParticleSystem::update` now takes an
+  `emit` flag, and `main.cpp` passes `phase == PHASE_PLAYING` — particles still age and
+  retire in every phase (so trails finish animating on the title/game-over screens), but
+  nothing new spawns outside play. Running `lifetime.update` in the shop branch would have
+  been the smaller diff and the wrong fix: it would also expire the player's uncollected
+  loot while they shop.
+
+  The wave-20 case is **not** a leak and is left alone: it is simply more simultaneous
+  bursts than the budget holds, and it only occurs via the 30s stall force-kill wiping a
+  whole wave in one frame. Truncation there is graceful — a slightly thinner explosion.
+  Fixing it would mean a bigger global cap or capping death bursts; neither is worth it for
+  a degenerate path.
+
+  **Consequence for new emitters:** measure at the moment yours actually fires, not on
+  average. The Phase 5b arena-shift shockwave is safe precisely because a shift only fires
+  on a *cleared* wave, where the live count is ~13.
+- **`make_backdrops.py` used to be non-reproducible.** It seeded from `hash(pal.name)`,
+  which Python randomises per process. Now `zlib.crc32`. The committed core/foundry/biolab
+  PNGs predate the fix, so the first full regeneration will change them once.
+- **`wave_config.hpp` is dead code**, superseded by `WaveDef` in `arena_config.hpp`.
+- **The blackboard `"wave"` is stale on the cleared-wave frame.** The spawner publishes it
+  before it may increment `current_wave_`, so code running on `wave_just_cleared()` must use
+  `current_wave_index() + 1`.
+- **There is no audio.** Eight `.wav` files are committed under `assets/Audio/` and nothing
+  plays them. No mixer, no `SDL_INIT_AUDIO`. Phase 7.
+- **There is no persistence.** No save/load anywhere; every run starts fresh. The pause
+  screen says so rather than showing a dead Save button.
+- **`PHASE_INTERMISSION` deliberately does NOT freeze the arena.** It was frozen at first,
+  copying `PHASE_SHOP`, and that stranded every credit the wave's last kill had dropped:
+  visible on the floor, unreachable, gone when the run moved on. It now runs the movement
+  half of a frame (control, aim, movement, clamps, pickups, lifetimes, flash) and none of
+  the combat half. A cleared wave has no live enemies, so there is nothing to fight anyway.
+- **Pause freezes the frame COUNTER, not just the sim.** `timer.end_frame_no_advance()`
+  runs whenever `!sim`, which is the pre-existing F1 debug-pause behaviour. Consequence for
+  headless tests: a script that pauses and never resumes will never reach `--stopframe` and
+  will hang. Worse, scripted `--keys` are frame-indexed, so a *resume* key scheduled after
+  the pause frame can never fire. Pause is testable headlessly; resume is not.
+- **Hazards cost ~120 permanent particles.** Each hazard carries a 12/s ember emitter with
+  a 1.1s lifetime, and the worst arena (Bio-lab) has 9. Against the 2000 global budget that
+  is ~6% held for the whole run, on top of combat. Factored into the §5 numbers above.
+- **Window resize needs no plumbing, and must not grow any.** `SDL_LOGICAL_PRESENTATION_
+  LETTERBOX` fixes the logical surface at 980x660, and the loader is the only writer of
+  `window_width`/`window_height`. `UIRenderSystem` uses its constructor copies and
+  `UISystem` reads the Blackboard — both see the same numbers, so the drawn rect and the
+  clickable rect are guaranteed identical at any window size. Writing a live window size
+  into those keys on a resize event would break exactly that guarantee.
+- **The `ui.*` Lua bindings are dead code in this game.** They are ported and tested, but
+  `main.cpp` instantiates a `LuaManager` purely to satisfy `UISystem`'s constructor and
+  keeps no menu scripts. Button clicks are read off the Blackboard via
+  `UISystem::UI_CLICK_KEY` instead. An empty Lua state resolves every `on_click_fn` to nil,
+  which `UISystem` treats as "no callback", so the Lua path is inert rather than broken.
+  Adding a `menu_callbacks.lua` later needs no engine change.
+- **UI screens are authored in the 800x600 design canvas**, not in window pixels.
+  `ui_canvas_transform` scales and centres that canvas onto the live 980x660 logical
+  surface (scale 1.1, x-offset 50). Both `UIRenderSystem` and `UISystem` apply it, so the
+  drawn rect and the clickable rect can never drift apart.
+- **`UIElement::pulse_hz` is render-only and deliberately not Blackboard-driven.**
+  `UIRenderSystem` accumulates its own `elapsed_` from `delta_time`. Putting that clock on
+  the Blackboard would let a game system observe it, and a replay could then diverge on
+  presentation state. `pulse_hz == 0` returns an exactly-`1.0f` multiplier, so every
+  non-pulsing widget renders byte-identically.
+- **Two Option-040 test files needed `-Wall -Wextra` fixes on import**, since Class-040 did
+  not enforce the zero-warning gate: a tautological `uint8_t <= 255` range check in
+  `test_ui_render_properties.cpp` (now a `static_assert` on the channel type plus a
+  meaningful sentinel check) and a `-Wdangling-reference` from chaining `.value().get()`
+  off a returned temporary optional in `test_ui_interaction_properties.cpp`.
+- **Running the game picks up real desktop mouse input.** A windowed run on the live display
+  will absorb genuine clicks and silently corrupt a scripted run.
+  `SDL_VIDEODRIVER=offscreen` isolates it but supplies no mouse, so the drone never aims and
+  never lands a shot — a zero-score offscreen run is expected, not a bug.
+
+---
+
+## 6. Iteration-3 lane hooks (D51)
+
+Iteration 3 is built by several agents at once, so every shared-file edit was made
+**once, up front**, and each feature lane owns exactly one comment-delimited block
+in `main.cpp`:
+
+```
+// === HOOK: <name> ===
+...the owning lane's calls go here, and nothing else's...
+// === END HOOK: <name> ===
+```
+
+| Hook | Frame-order slot | Owner |
+|---|---|---|
+| `dash` | after `player_control.update`, before `player_aim` | thruster dash (#5) |
+| `boss` | straight after `wave_spawner.update` | boss every 10 waves (#4) |
+| `arena-vfx` | inside the arena shift tick | blockade destroy/arrive animation (#2) |
+| `enemy-fire` | after `enemy_seek.update`, before `movement` | enemy projectiles / moon types (#3) |
+| `specialty` | after `enemy-fire` | per-arena specialty units (#9) |
+| `actives` | after `items::use_consumable` | boss-reward actives |
+| `sustain-spawn` | after `pickups.update` | health/shield pickups (#10) |
+| `shop-menu` | in the `PHASE_SHOP` block | clickable shop + gear upgrades (#1, #11) |
+| `minimap` | after `game_hud.update`, every phase | minimap (#7) |
+
+`test_scaffolding.cpp` reads `main.cpp` as text and fails if a hook is missing or
+renamed, because a lane whose hook has vanished has nowhere to land.
+
+**What the scaffolding added, and why it is where it is:**
+
+- **`EnemyShot`** (tag) and **`EnemyBehavior`** (`kind`/`tier`/`timer`/`cooldown`/`aim`)
+  in `game/enemy_components.hpp`, registered in `component_storage.{hpp,cpp}` and swept in
+  `destruction.cpp`. One behaviour struct covers the moon shooters, all four
+  specialty units and the boss — `behavior_kinds` is the enum, and a `kind` is a
+  code constant mapped from a string, never a JSON row index (the D26 rule).
+- **`layers::ENEMY_SHOT` (0x20)**, with `PLAYER_MASK` and `OBSTACLE_MASK` widened
+  to accept it. Enemy projectiles therefore need **no damage system of their own**:
+  they carry `ContactDamage`, and `PlayerDamageSystem` already hurts the drone for
+  anything carrying it. A separate bit rather than reusing `PROJECTILE`, whose mask
+  is exactly what stops player shots hitting the player.
+- **`ShipState`** gained `dash_cd`, `dash_timer`, `active_id`, `active_cd`,
+  `gear_levels[8]`; **`PickupKind`** gained `Health` and `Shield`. Both avoid a new
+  component type, which is the expensive kind of edit here.
+- **`GameConfig`** gained `SustainConfig`, `DashConfig`, `MinimapConfig`,
+  `BossConfig` and `std::vector<ActiveItemDef>`, plus `WaveDef::boss`,
+  `ArenaDef::specialty_unit/_tier` and the `EnemyType` behaviour fields — all
+  parsed in `arena_config.cpp` in the same phase.
+
+Every default is **inert** (`sustain.interval 0`, `minimap.enabled false`,
+`actives []`, no wave flagged `boss`, no type carrying a `behavior`), which is why
+the phase could be verified by the replay canary staying byte-identical.

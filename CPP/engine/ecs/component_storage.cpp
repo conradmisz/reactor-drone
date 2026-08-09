@@ -272,6 +272,27 @@ const std::unordered_map<Entity, RenderLayer>& ComponentStorage::get_storage<Ren
     return render_layers_;
 }
 
+// UI & menu layer (Option-040 port).
+template<>
+std::unordered_map<Entity, UIElement>& ComponentStorage::get_storage<UIElement>() { return ui_elements_; }
+template<>
+const std::unordered_map<Entity, UIElement>& ComponentStorage::get_storage<UIElement>() const { return ui_elements_; }
+
+template<>
+std::unordered_map<Entity, UIState>& ComponentStorage::get_storage<UIState>() { return ui_states_; }
+template<>
+const std::unordered_map<Entity, UIState>& ComponentStorage::get_storage<UIState>() const { return ui_states_; }
+
+template<>
+std::unordered_map<Entity, UIScreen>& ComponentStorage::get_storage<UIScreen>() { return ui_screens_; }
+template<>
+const std::unordered_map<Entity, UIScreen>& ComponentStorage::get_storage<UIScreen>() const { return ui_screens_; }
+
+template<>
+std::unordered_map<Entity, ScreenMembership>& ComponentStorage::get_storage<ScreenMembership>() { return screen_memberships_; }
+template<>
+const std::unordered_map<Entity, ScreenMembership>& ComponentStorage::get_storage<ScreenMembership>() const { return screen_memberships_; }
+
 template<>
 std::unordered_map<Entity, Tint>& ComponentStorage::get_storage<Tint>() { return tints_; }
 template<>
@@ -673,11 +694,35 @@ template std::vector<Entity> ComponentStorage::entities_with_component<TowerAimi
 
 // RenderLayer — draw-order hint consumed by RenderSystem.
 template void ComponentStorage::add_component<RenderLayer>(Entity, const RenderLayer&);
+template void ComponentStorage::add_component<UIElement>(Entity, const UIElement&);
+template void ComponentStorage::add_component<UIState>(Entity, const UIState&);
+template void ComponentStorage::add_component<UIScreen>(Entity, const UIScreen&);
+template void ComponentStorage::add_component<ScreenMembership>(Entity, const ScreenMembership&);
 template std::optional<std::reference_wrapper<RenderLayer>> ComponentStorage::get_component<RenderLayer>(Entity);
+template std::optional<std::reference_wrapper<UIElement>> ComponentStorage::get_component<UIElement>(Entity);
+template std::optional<std::reference_wrapper<UIState>> ComponentStorage::get_component<UIState>(Entity);
+template std::optional<std::reference_wrapper<UIScreen>> ComponentStorage::get_component<UIScreen>(Entity);
+template std::optional<std::reference_wrapper<ScreenMembership>> ComponentStorage::get_component<ScreenMembership>(Entity);
 template std::optional<std::reference_wrapper<const RenderLayer>> ComponentStorage::get_component<RenderLayer>(Entity) const;
+template std::optional<std::reference_wrapper<const UIElement>> ComponentStorage::get_component<UIElement>(Entity) const;
+template std::optional<std::reference_wrapper<const UIState>> ComponentStorage::get_component<UIState>(Entity) const;
+template std::optional<std::reference_wrapper<const UIScreen>> ComponentStorage::get_component<UIScreen>(Entity) const;
+template std::optional<std::reference_wrapper<const ScreenMembership>> ComponentStorage::get_component<ScreenMembership>(Entity) const;
 template void ComponentStorage::remove_component<RenderLayer>(Entity);
+template void ComponentStorage::remove_component<UIElement>(Entity);
+template void ComponentStorage::remove_component<UIState>(Entity);
+template void ComponentStorage::remove_component<UIScreen>(Entity);
+template void ComponentStorage::remove_component<ScreenMembership>(Entity);
 template bool ComponentStorage::has_component<RenderLayer>(Entity) const;
+template bool ComponentStorage::has_component<UIElement>(Entity) const;
+template bool ComponentStorage::has_component<UIState>(Entity) const;
+template bool ComponentStorage::has_component<UIScreen>(Entity) const;
+template bool ComponentStorage::has_component<ScreenMembership>(Entity) const;
 template std::vector<Entity> ComponentStorage::entities_with_component<RenderLayer>() const;
+template std::vector<Entity> ComponentStorage::entities_with_component<UIElement>() const;
+template std::vector<Entity> ComponentStorage::entities_with_component<UIState>() const;
+template std::vector<Entity> ComponentStorage::entities_with_component<UIScreen>() const;
+template std::vector<Entity> ComponentStorage::entities_with_component<ScreenMembership>() const;
 
 // BeamTag — laser-beam entity marker.
 template void ComponentStorage::add_component<BeamTag>(Entity, const BeamTag&);
@@ -731,6 +776,17 @@ std::unordered_map<Entity, Flash>& ComponentStorage::get_storage<Flash>() { retu
 template<>
 const std::unordered_map<Entity, Flash>& ComponentStorage::get_storage<Flash>() const { return flashes_; }
 
+// Iteration 3 (D51): enemy projectiles and non-seeker enemy behaviour.
+template<>
+std::unordered_map<Entity, EnemyShot>& ComponentStorage::get_storage<EnemyShot>() { return enemy_shots_; }
+template<>
+const std::unordered_map<Entity, EnemyShot>& ComponentStorage::get_storage<EnemyShot>() const { return enemy_shots_; }
+
+template<>
+std::unordered_map<Entity, EnemyBehavior>& ComponentStorage::get_storage<EnemyBehavior>() { return enemy_behaviors_; }
+template<>
+const std::unordered_map<Entity, EnemyBehavior>& ComponentStorage::get_storage<EnemyBehavior>() const { return enemy_behaviors_; }
+
 #define CS110_INSTANTIATE(T) \
     template void ComponentStorage::add_component<T>(Entity, const T&); \
     template std::optional<std::reference_wrapper<T>> ComponentStorage::get_component<T>(Entity); \
@@ -747,4 +803,6 @@ CS110_INSTANTIATE(Pickup)
 CS110_INSTANTIATE(ContactDamage)
 CS110_INSTANTIATE(WeaponStats)
 CS110_INSTANTIATE(Flash)
+CS110_INSTANTIATE(EnemyShot)        // Iteration 3 (D51)
+CS110_INSTANTIATE(EnemyBehavior)
 #undef CS110_INSTANTIATE

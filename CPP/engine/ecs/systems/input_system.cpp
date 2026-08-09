@@ -14,19 +14,38 @@ void InputSystem::process_events(ComponentStorage& storage, bool& running, Black
                                  SDL_Renderer* renderer) {
     // Reset per-frame mouse click state
     blackboard.set("mouse.clicked", false);
+    // Reset the per-frame edges consumed by UISystem (Option-040 port). Cleared
+    // unconditionally at the top so a frame with no event leaves them all false.
+    blackboard.set("mouse.down", false);
+    blackboard.set("mouse.up", false);
+    blackboard.set("ui.escape_pressed", false);
+    blackboard.set("ui.tab_pressed", false);
+    blackboard.set("ui.enter_pressed", false);
 
     // 1. Process SDL events — for quit/close detection and mouse clicks
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
             case SDL_EVENT_KEY_DOWN:
+                // One edge per physical press: the OS auto-repeat would otherwise
+                // fire Escape/Tab/Enter every frame the key is held.
+                if (event.key.repeat) break;
                 if (event.key.key == SDLK_ESCAPE) {
-                    running = false;
+                    // Publish a one-frame edge. main.cpp decides what Escape means:
+                    // it pushes the pause screen during gameplay and still quits
+                    // when no menu layer wants it.
+                    blackboard.set("ui.escape_pressed", true);
+                } else if (event.key.key == SDLK_TAB) {
+                    blackboard.set("ui.tab_pressed", true);
+                } else if (event.key.key == SDLK_RETURN ||
+                           event.key.key == SDLK_KP_ENTER) {
+                    blackboard.set("ui.enter_pressed", true);
                 }
                 break;
             case SDL_EVENT_MOUSE_BUTTON_DOWN:
                 if (event.button.button == SDL_BUTTON_LEFT) {
                     blackboard.set("mouse.clicked", true);
+                    blackboard.set("mouse.down", true);
                     blackboard.set("mouse_click_x", event.button.x);
                     blackboard.set("mouse_click_y", event.button.y);
                     // Log click for debug script building
@@ -34,6 +53,11 @@ void InputSystem::process_events(ComponentStorage& storage, bool& running, Black
                     std::cout << "  [Click] Frame " << frame
                               << " → " << static_cast<int>(event.button.x)
                               << "," << static_cast<int>(event.button.y) << "\n";
+                }
+                break;
+            case SDL_EVENT_MOUSE_BUTTON_UP:
+                if (event.button.button == SDL_BUTTON_LEFT) {
+                    blackboard.set("mouse.up", true);
                 }
                 break;
             case SDL_EVENT_QUIT:
@@ -71,6 +95,13 @@ void InputSystem::process_events(ComponentStorage& storage, bool& running, Black
     if (renderer) {
         SDL_RenderCoordinatesFromWindow(renderer, screen_x, screen_y, &screen_x, &screen_y);
     }
+
+    // Publish the pointer in *logical* screen pixels for UISystem. Taken after
+    // the conversion above, so it shares one space with window_width/height and
+    // with the widget rects — the game's world-space mouse.x/y is a different
+    // space entirely and must not be reused for hit-testing.
+    blackboard.set<float>("mouse.screen_x", screen_x);
+    blackboard.set<float>("mouse.screen_y", screen_y);
 
     int win_w = blackboard.get_or<int>("window_width", 800);
     int win_h = blackboard.get_or<int>("window_height", 600);

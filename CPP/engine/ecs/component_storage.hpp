@@ -326,6 +326,14 @@ private:
     std::unordered_map<Entity, Tint> tints_;
 
     /**
+     * Storage for the UI & menu layer (engine; Option-040 port).
+     */
+    std::unordered_map<Entity, UIElement> ui_elements_;
+    std::unordered_map<Entity, UIState> ui_states_;
+    std::unordered_map<Entity, UIScreen> ui_screens_;
+    std::unordered_map<Entity, ScreenMembership> screen_memberships_;
+
+    /**
      * Storage for Particle / ParticleEmitter components (engine; ported from 020).
      */
     std::unordered_map<Entity, Particle> particles_;
@@ -390,6 +398,9 @@ private:
     std::unordered_map<Entity, ContactDamage> contact_damages_;
     std::unordered_map<Entity, WeaponStats> weapon_stats_;
     std::unordered_map<Entity, Flash> flashes_;
+    // Iteration 3 (D51): enemy projectiles and non-seeker enemy behaviour.
+    std::unordered_map<Entity, EnemyShot> enemy_shots_;
+    std::unordered_map<Entity, EnemyBehavior> enemy_behaviors_;
 
     /**
      * Helper method to get the storage map for a specific component type.
@@ -500,6 +511,10 @@ template<> std::unordered_map<Entity, WeaponStats>& ComponentStorage::get_storag
 template<> const std::unordered_map<Entity, WeaponStats>& ComponentStorage::get_storage<WeaponStats>() const;
 template<> std::unordered_map<Entity, Flash>& ComponentStorage::get_storage<Flash>();
 template<> const std::unordered_map<Entity, Flash>& ComponentStorage::get_storage<Flash>() const;
+template<> std::unordered_map<Entity, EnemyShot>& ComponentStorage::get_storage<EnemyShot>();
+template<> const std::unordered_map<Entity, EnemyShot>& ComponentStorage::get_storage<EnemyShot>() const;
+template<> std::unordered_map<Entity, EnemyBehavior>& ComponentStorage::get_storage<EnemyBehavior>();
+template<> const std::unordered_map<Entity, EnemyBehavior>& ComponentStorage::get_storage<EnemyBehavior>() const;
 
 // Prevent implicit instantiation — definitions are in component_storage.cpp
 extern template void ComponentStorage::add_component<Position>(Entity, const Position&);
@@ -840,6 +855,8 @@ CS110_EXTERN(Pickup)
 CS110_EXTERN(ContactDamage)
 CS110_EXTERN(WeaponStats)
 CS110_EXTERN(Flash)
+CS110_EXTERN(EnemyShot)        // Iteration 3 (D51)
+CS110_EXTERN(EnemyBehavior)
 #undef CS110_EXTERN
 
 #endif // COMPONENT_STORAGE_HPP
