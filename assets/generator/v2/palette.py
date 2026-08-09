@@ -79,6 +79,22 @@ PRISM = Palette(
     enemy=(255, 255, 255),      # unused: tick_enemy_tint overwrites it every frame
 )
 
+# The wave-50 final-boss arena. The run's last map, so it is deliberately the
+# highest-contrast palette: a true black void (darker than any other clear) with
+# royal purple and nebula magenta on top. Enemies go warm gold — the direct
+# complement of the purple primary and the only hue a purple/black nebula can
+# never swallow.
+GALAXY = Palette(
+    name="galaxy",
+    clear=(4, 2, 10),           # near-true black, faintly violet
+    primary=(150, 90, 255),     # royal purple
+    secondary=(255, 110, 215),  # nebula magenta
+    accent=(225, 205, 255),     # starlight violet-white
+    hazard=(255, 70, 150),      # hot pink singularity jet
+    obstacle=(58, 40, 96),      # deep violet stone
+    enemy=(255, 200, 80),       # gold against the purple void
+)
+
 # v2 Phase 5a — not an arena. Enemy sprites are generated against this so the art
 # is pure luminance; multiplying it by a saturated hue at runtime (SDL colour-mod)
 # reproduces the old look at full richness and makes every other hue work too.
@@ -94,7 +110,7 @@ MONO = Palette(
     obstacle=(255, 255, 255),
 )
 
-ARENAS = [CORE, FOUNDRY, BIOLAB, PRISM]
+ARENAS = [CORE, FOUNDRY, BIOLAB, PRISM, GALAXY]
 BY_NAME = {p.name: p for p in ARENAS}
 
 
