@@ -266,6 +266,17 @@ void ShopSystem::apply(const ShopUpgradeDef& def, Entity player,
     } else if (def.effect == "damage") {
         if (auto w = storage.get_component<WeaponStats>(player); w.has_value())
             w->get().damage += def.amount;
+    } else if (def.effect == "range") {
+        // D97: range is speed x lifetime, and only lifetime is moved. Raising
+        // projectile_speed would also change lead, aim feel and how dodgeable a
+        // shot is; lifetime changes nothing but where the shot expires.
+        if (auto w = storage.get_component<WeaponStats>(player); w.has_value())
+            w->get().projectile_lifetime += def.amount;
+    } else if (def.effect == "bounce") {
+        // Same Blackboard route as extra_shot: PlayerFireSystem stamps the count
+        // onto each shot, so no catalogue index leaks into a system (D26).
+        blackboard.set<int>("ship.bounces",
+            blackboard.get_or<int>("ship.bounces", 0) + static_cast<int>(def.amount));
     } else if (def.effect == "extra_shot") {
         // PlayerFireSystem reads this rather than a catalogue index, so the barrel
         // count survives re-ordering the JSON rows.

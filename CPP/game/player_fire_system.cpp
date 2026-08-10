@@ -60,6 +60,10 @@ void PlayerFireSystem::update(ComponentStorage& storage,
         // so this system needs no catalogue knowledge. One spread jitter per
         // volley, not per barrel — the fan is meant to be a shape, not a shotgun.
         const int barrels = 1 + std::max(0, blackboard.get_or<int>("ship.extra_shots", 0));
+        // Ricochet Coils (D98): same Blackboard-not-catalogue-index pattern as the
+        // barrel count. Stamped per shot so a purchase mid-flight never retro-fits
+        // bounces onto shots already in the air.
+        const int bounces = std::max(0, blackboard.get_or<int>("ship.bounces", 0));
         constexpr float FAN_STEP = 0.09f;   // radians between barrels (~5 degrees)
         for (int b = 0; b < barrels; ++b) {
             float shot_angle = angle + (static_cast<float>(b) - (barrels - 1) * 0.5f) * FAN_STEP;
@@ -76,7 +80,7 @@ void PlayerFireSystem::update(ComponentStorage& storage,
             storage.add_component<Lifetime>(shot, Lifetime{wpn.projectile_lifetime});
             storage.add_component<ProjectileTag>(shot, ProjectileTag{});
             storage.add_component<ProjectileData>(shot,
-                ProjectileData{NO_TARGET, wpn.projectile_speed, wpn.damage});
+                ProjectileData{NO_TARGET, wpn.projectile_speed, wpn.damage, bounces});
             storage.add_component<RenderLayer>(shot, RenderLayer{5});
 
             // v2: additive glow trail that rides the projectile. The emitter dies with

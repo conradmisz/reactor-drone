@@ -210,6 +210,7 @@ int main(int argc, char* argv[]) {
     MovementSystem movement;
     CollisionSystem collision(quadtree);
     ProjectileHitSystem projectile_hit;
+    projectile_hit.set_arena(&config.arena);   // D98: the ring ricochets bounce off
     PlayerDamageSystem player_damage;
     DamageApplySystem damage_apply;
     EnemyDeathSystem enemy_death;
@@ -593,6 +594,7 @@ int main(int argc, char* argv[]) {
         // that spawn_world rebuilds anyway; the barrel count is the one that lives
         // on the blackboard, so it is the one that needs clearing by hand.
         blackboard.set<int>("ship.extra_shots", 0);
+        blackboard.set<int>("ship.bounces", 0);   // D98: same reason as the barrels
         // Phase 4's equipment publishes the same way (the ids themselves live on
         // the rebuilt ShipState, so only these four need clearing by hand).
         blackboard.set<float>("ship.item_amount", 0.0f);

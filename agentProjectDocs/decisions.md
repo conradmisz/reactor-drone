@@ -792,3 +792,89 @@ Decisions seeded from the gameplay plan (D1–D12) and made during Phases 1-4
 - **Threshold:** `field_should_fire` uses strict `<` on 20 %. At exactly 20 % the
   device has **not** fired — it is a *below* 20 % effect, so a drone sitting on
   the line still owns its panic button. Pinned as a boundary unit test.
+
+### D97 — Range is `projectile_lifetime`, never `projectile_speed`  *(2026-08-09)*
+- **Decision:** the Long Barrel row (`effect: "range"`) adds to
+  `WeaponStats.projectile_lifetime` and leaves `projectile_speed` alone.
+- **Why they are not interchangeable:** range is the product of the two, but only
+  one of them is *only* range. Raising speed also shortens time-to-target, which
+  changes how much a player must lead a moving enemy, how easily an enemy can
+  side-step a shot, and how the gun feels in the hand — three balance changes the
+  player did not buy. Raising lifetime changes exactly one observable: where the
+  shot expires. The ask was "increase bullet range", so the field that means only
+  range is the one that moves.
+- **Cost, stated plainly:** lifetime is also what keeps the shot's trail emitter
+  alive, so range is the one of the two new rows that costs particles. Measured
+  below (D99). Speed would have been free on that axis and wrong on every other.
+- **Rejected: a second `range` field on `WeaponConfig`** multiplied in at fire
+  time. It would be a third number describing the same product, and
+  `PlayerFireSystem` already reads lifetime straight onto `Lifetime`.
+- **`max_stacks: 3` at +0.30 s** caps the shot at 2.1 s / ~1050 px, comfortably
+  inside the 1400-radius arena — a shot that outranges the arena is a shot whose
+  last level bought nothing.
+
+### D98 — A ricochet is a counter on `ProjectileData`, not a new component  *(2026-08-09)*
+- **Decision:** `ProjectileData` gains `int bounces`. `PlayerFireSystem` stamps it
+  from `ship.bounces` (the `ship.extra_shots` Blackboard pattern, D26 — no
+  catalogue index reaches a system), and `ProjectileHitSystem` spends one per
+  surface, destroying the shot only once the budget is empty.
+- **Why not a new component:** `ComponentStorage` uses explicit instantiation —
+  a new type is four code sites plus three CMake lists, all shared files, for one
+  integer that belongs to the per-shot record that already exists.
+- **Two surfaces, one helper.** Obstacles arrive through `CollidedWith`; the arena
+  ring does **not** — it is a position clamp in `main.cpp`, not a collider — so a
+  ricocheting shot tests the ring itself. `ProjectileHitSystem::set_arena` is one
+  wire-up line in `main.cpp`; nothing is set means obstacles still bounce and the
+  ring does not.
+- **The normal is not derived twice.** `push_circle_out_of_aabb` (obstacles.hpp)
+  already resolves a penetrating circle to the nearest clear centre, and the
+  direction it moved the circle *is* the outward normal. `bullet_bounce.hpp` reads
+  it off that resolution rather than re-deriving a face test that could disagree
+  with the drone's blocking.
+- **Not re-colliding with the surface it left** falls out of the same call: the
+  shot is placed on the resolved clear centre plus 0.5 px of clearance, so the
+  next broadphase reports no overlap. Belt and braces, a shot with bounces left
+  that the helper *refuses* (clear of the box, or already travelling away from it)
+  is left alone rather than destroyed — otherwise a stale contact would kill the
+  ricochet the frame after it worked.
+- **Enemies outrank walls in the same frame.** `ProjectileHitSystem` now scans the
+  whole `CollidedWith` list for an enemy before considering a surface, where it
+  used to take whichever came first. A ricochet must never eat a hit, and the old
+  order was list-order luck.
+- **Deterministic by construction:** the reflection is pure arithmetic. No scatter,
+  no jitter, no RNG draw added on any path.
+- **Rejected: extending `Lifetime` on a bounce.** It would make the bounce row a
+  second range row, double the particle cost, and let a shot ping-pong forever.
+  The bounce count is the only thing bounding the shot beyond its unchanged fuse.
+
+### D99 — Measured particle cost: bouncing is free, range is not  *(2026-08-09)*
+- **Measurement** (`SDL_VIDEODRIVER=dummy`, seed 42, fire held frames 120-2999,
+  3000 frames, peak live `Particle` entities via temporary instrumentation since
+  reverted):
+
+  | loadout | peak particles |
+  | --- | --- |
+  | stock weapon | 274 |
+  | 3x Long Barrel | 351 |
+  | 3x Long Barrel + 3x Ricochet Coils | 351 |
+  | 3x Long Barrel + 6x Overclock + 2x Twin Barrel | 1176 |
+  | the same + 3x Ricochet Coils | 1195 |
+
+- **Ricochet Coils costs +19 particles (1.6 %) at the worst loadout and 0 on its
+  own.** A bounce does not touch `Lifetime`, so a bouncing shot holds its trail
+  emitter for exactly as long as a non-bouncing one — it just spends that time
+  somewhere else. The lane brief's worry ("bouncing shots live longer") does not
+  hold *because* of the D98 decision not to extend the fuse.
+- **Long Barrel costs +77 alone**, and the 1176 figure is what a fully upgraded
+  gun costs whether or not this lane exists — Overclock and Twin Barrel already
+  shipped. Against the 4000 cap and the 1998 measured on a boss wave, the headroom
+  is real but the two are additive: a boss wave with a maxed gun is the case to
+  re-measure if the cap is ever approached again. **`DEFAULT_MAX_PARTICLES` was
+  not raised.**
+- **Both rows are `upgrades`, not `items`.** `items` + `consumables` is capped at
+  8 by the `1`-`8` gear keys and `arena_config.cpp` truncates past it — two more
+  item rows would have silently deleted two consumables. `upgrades` had exactly
+  two slots free in `ShipState.upg_counts[8]`, and stacking with `price_growth` is
+  already the levelling mechanism for that page, so "levelable like the rest"
+  needed no new machinery at all. The 8 authored `shop_card_*` widgets now hold
+  exactly 8 upgrade rows.
