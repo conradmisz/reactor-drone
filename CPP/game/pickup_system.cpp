@@ -1,5 +1,6 @@
 #include "pickup_system.hpp"
 #include "player_components.hpp"   // PlayerTag, ShipState, Pickup
+#include "enemy_components.hpp"    // Health (the drone carries one too)
 #include <algorithm>
 #include <cmath>
 
@@ -66,6 +67,18 @@ void PickupSystem::update(ComponentStorage& component_storage,
         const Pickup& pk = component_storage.get_component<Pickup>(e)->get();
         if (pk.kind == static_cast<int>(PickupKind::Key)) {
             ship.keys += pk.value;
+        } else if (pk.kind == static_cast<int>(PickupKind::Health)) {
+            // #10 (D56): hull repair, never overheal. Clamped here rather than at
+            // the placement site so the rule holds for any future producer.
+            if (auto h = component_storage.get_component<Health>(player); h.has_value()) {
+                h->get().current = std::min(h->get().max_hp,
+                                            h->get().current + static_cast<float>(pk.value));
+            }
+        } else if (pk.kind == static_cast<int>(PickupKind::Shield)) {
+            // Same rule against shield_max, which is 0 until a Shield Capacitor is
+            // bought — an unbanked cell is worth nothing rather than a free bank.
+            ship.shield = std::min(ship.shield_max,
+                                   ship.shield + static_cast<float>(pk.value));
         } else {
             ship.currency += salvage > 1.0f
                 ? std::max(pk.value + 1, static_cast<int>(std::lround(pk.value * salvage)))

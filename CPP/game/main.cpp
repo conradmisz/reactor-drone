@@ -59,6 +59,10 @@
 #include "damage_apply_system.hpp"
 #include "enemy_death_system.hpp"
 #include "pickup_system.hpp"
+// Lane B (iteration 3): sustain pickups (#10), thruster dash (#5), minimap (#7).
+#include "sustain_spawn_system.hpp"
+#include "dash_system.hpp"
+#include "minimap_system.hpp"
 #include "wave_spawner_system.hpp"
 #include "shop_system.hpp"
 
@@ -909,6 +913,19 @@ int main(int argc, char* argv[]) {
             // Owner: the thruster-dash phase. Runs after player_control has written
             // the frame's velocity and before player_fire, so the burst overrides
             // ordinary movement for its window. Nothing else may edit this block.
+            {
+                // Everything the dash needs is here rather than in the shared
+                // key-edge block above, so this hook stays a self-contained diff
+                // (D57). Held, not edge-triggered: dash_cd is the gate, so holding
+                // LSHIFT simply dashes again the moment it comes off cooldown.
+                bool dash_key = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
+                for (const auto& ka : opts.keys)
+                    if (ka.frame == frame && ka.key == "LSHIFT") dash_key = true;
+                static DashState dash_state;   // one dash's scratch; see dash_system.hpp
+                tick_dash(component_storage, entity_manager, blackboard, config.dash,
+                          dash_state, dash_key,
+                          static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)));
+            }
             // === END HOOK: dash ===
 
             player_aim.update(component_storage, blackboard);
@@ -1129,6 +1146,8 @@ int main(int argc, char* argv[]) {
             // Owner: the periodic health/shield pickup phase. After pickups.update
             // so a placement made this frame cannot be collected on the same frame
             // it appears, which would make the interval read as random.
+            sustain_spawn(component_storage, entity_manager, blackboard,
+                          config.sustain, config.arena, config.economy);
             // === END HOOK: sustain-spawn ===
 
             lifetime.update(component_storage, blackboard);
@@ -1328,6 +1347,17 @@ int main(int argc, char* argv[]) {
         // blank out during the intermission.
         // Note for the owner: blips must carry ScreenPosition and NOT Position, or
         // CameraSystem will overwrite them with a world-to-screen transform.
+        //
+        // Lane B correction (D58): the note above describes an entity that NOTHING
+        // draws — RenderSystem::render iterates entities_with_component<Position>(),
+        // so a ScreenPosition-only entity is never reached, and adding a Position
+        // hands it straight back to CameraSystem. The blips are therefore pooled UI
+        // widgets on this screen, the same mechanism the hull/shield gauges use.
+        {
+            static MinimapSystem minimap;   // pool is allocated once, per process
+            minimap.set_config(config.minimap, config.arena);
+            minimap.update(component_storage, entity_manager, blackboard);
+        }
         // === END HOOK: minimap ===
 
         // v2 Phase 4 + Upgrade Phase 2: follow camera & screen shake. Decay

@@ -90,11 +90,11 @@ TEST_CASE("the scaffolded config blocks parse from the shipped GameData",
     CHECK(cfg.minimap.max_blips == 120);
     CHECK_THAT(cfg.boss.health_growth, WithinAbs(1.6f, 1e-5f));
 
-    // ...and INERT. These three assertions are the whole gate on Phase 0: they
-    // say "no behaviour shipped". The lane that turns each feature on deletes
-    // its line here and asserts the real thing in its own test file.
-    CHECK_THAT(cfg.sustain.interval, WithinAbs(0.0f, 1e-5f));  // no pickups placed
-    CHECK_FALSE(cfg.minimap.enabled);                          // no minimap drawn
+    // ...and INERT. These assertions are the whole gate on Phase 0: they say "no
+    // behaviour shipped". The lane that turns each feature on deletes its line
+    // here and asserts the real thing in its own test file.
+    // Lane B (D56/D58) has landed: `sustain.interval` and `minimap.enabled` are
+    // live and asserted in test_sustain_spawn.cpp / test_minimap.cpp.
     CHECK(cfg.actives.empty());                                // no actives offered
 
     // Boss flags are live as of Lane A (D53) — asserted in test_wave_arc.cpp.
