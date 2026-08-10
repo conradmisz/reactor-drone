@@ -23,6 +23,15 @@
  */
 struct MetaSave {
     long long lifetime_score = 0;
+    /// Iteration 5 (Lane O, D127): how many times the player has finished the arc
+    /// and chosen to restart stronger. The level is stored because it records a
+    /// CHOICE and nothing else can derive it; what it *implies* — the hull/speed/
+    /// damage multipliers in prestige.hpp — is computed, never stored, so the two
+    /// can never disagree (D81's rule, applied to the one value that needs it).
+    ///
+    /// This one DOES reach the simulation, unlike lifetime score: it scales
+    /// `config.player` at run start, so a replay is reproducible at a fixed level.
+    int prestige = 0;
 };
 
 /// Absolute path of the meta-save (`<project root>/saves/meta.json`).

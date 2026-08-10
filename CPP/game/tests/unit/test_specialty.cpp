@@ -116,9 +116,9 @@ TEST_CASE("the specialty unit is picked by wave, and escalates on the second pas
     GameConfig cfg = shipped();
     REQUIRE(cfg.specialty.every_n_spawns > 0);
 
-    // Wave 1 is Core (pass 1), wave 26 is Core II (pass 2).
+    // Wave 1 is Core (pass 1), wave 16 is Core II (pass 2) since Lane O (D125).
     const int a1 = active_arena_index(cfg.arenas, 1);
-    const int a2 = active_arena_index(cfg.arenas, 26);
+    const int a2 = active_arena_index(cfg.arenas, 16);
     REQUIRE(a1 >= 0);
     REQUIRE(a2 >= 0);
     CHECK(cfg.arenas[static_cast<size_t>(a1)].specialty_unit ==

@@ -125,3 +125,21 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   with no save file, twice with a populated one). **Not playtested** — the
   headless canary dies in wave 1 with zero kills, so the placement change is
   covered by `test_loot_placement.cpp` rather than by a live run.
+- **Lane O (2026-08-10) — 30-wave arc + prestige (D125-D131).** The wave table is
+  regenerated at 30 rows (1-15 fixed-count, 16-30 timed, bosses 10/20/30, endpoint
+  ~10% below the old wave-50 values because the `% 5` shop now opens 6 times, not
+  10). Everything wave-indexed rescaled with it: arenas at `first_wave`
+  1/4/8/12/16/19/23/27/30, moon shooters at 3/9/18. Prestige is one clamped field
+  in `saves/meta.json`, applied as `apply_prestige(config.player, meta.prestige)`
+  at the single `start_run` site, offered on the new `prestige_offer` screen when a
+  run reaches PHASE_VICTORY. Lane M's stat overview reads `prestige_summary(level)`
+  and the Blackboard key `prestige.level`.
+  Verified: build clean (only Lua's `tmpnam`), `ctest` 8/8, and the canary
+  byte-identical twice at prestige 0 and twice at prestige 3 — **the canary is now
+  defined at a fixed prestige level** (D130). The buff was proved to reach the sim
+  by a runtime difference, not just a unit test: at `--stopframe 1150` a level-0
+  drone is dead (Phase 2) and a level-5 drone is alive (Phase 1). The offer screen
+  and its click were driven headlessly by temporarily also raising it on
+  PHASE_GAMEOVER (`--clicks 1200:490,394` -> `Prestige: 1` and a fresh run);
+  **that relaxation was reverted**. **Not playtested**: nobody has reached wave 30,
+  so the ramp, the boss spacing and the prestige percentages are all unmeasured.
