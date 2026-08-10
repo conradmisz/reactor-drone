@@ -50,7 +50,9 @@ read all of them for every task.
   Iteration 5 lanes L/M/N/O = D105-D131, integration = D132.
   Iteration 6: modular chassis + upgrade kit = D133-D134.
   Field-manual redesign = D135, arena prop art = D136, main-menu suite = D137.
-  D110-D112, D118-D119, D124 unused but burned.)
+  D110-D112, D118-D119, D124 unused but burned.
+  Engine-suite branch reserves D138-D180: Phase 0 = D138, Wave 1 = D139-D150,
+  Wave 2 = D151-D165, Wave 3 = D166-D180 — see `specs/engine-feature-suite.md`.)
 - One line per shipped feature in `project-overview.md` → Features.
 - Any engine change updates `ENGINE.md` **in the same commit**.
 - Before a non-trivial feature, write a spec from `specs/feature-template.md`.

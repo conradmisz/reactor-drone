@@ -12,6 +12,17 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
 - Everything from visual Phase 5 onward — the UI layer, Phase A, Phase B and now
   Phase 0 — is still **uncommitted** in one large tree, no slices chosen yet.
 
+## Current Phase — branch `feature/engine-suite`
+
+- **Engine feature suite scoped (2026-08-10).** Eleven engine-level features
+  (Resonance Grid, bullet-time, danmaku language, force fields, chip-synth
+  audio, palette engine, battle scars, surge events, adaptive director,
+  destructible arena, flight report) designed for the bespoke-console vision
+  and documented in `specs/engine-feature-suite.md` — the umbrella index with
+  determinism stances, inert defaults, lane/wave roadmap and decision-id
+  reservations (D138–D180). Branch pushed to GitHub as the experimental area;
+  `master` stays the stable game. Phase 0 scaffolding has NOT started.
+
 ## Current Goal
 
 - Get the uncommitted work committed in sensible slices, then **play it**: the
