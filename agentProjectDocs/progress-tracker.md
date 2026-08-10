@@ -248,3 +248,14 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   no console errors, 4 palettes, mobile, desktop, full scroll. **Media caveat:**
   captures show capture-buff HUD numbers (inflated credits/hull); recapture
   after balance settles using the script's header instructions.
+
+- **Arena prop art overhaul (2026-08-10) — D136.** Fifteen bespoke sprites
+  replace the two shared shapes: a new directional wall family (segments now
+  rotate to the ring tangent via a `Rotation` component in
+  `spawn_arena_props`), per-theme obstacles designed for their real layout
+  aspect ratios, and shape-first hazard vents. `make_backdrops.py` gained
+  `--props-only`. GameData's nine `wall_image` fields point at `wall_*.png`.
+  Verified: ctest 8/8, canary byte-identical twice, headless captures of the
+  Foundry rampart and a mid-crossfade prop swap. **Not playtested** beyond
+  scripted runs; Prism/Bio-lab/Galaxy walls seen only in sprite form, not
+  in-arena.

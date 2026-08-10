@@ -31,8 +31,8 @@ public domain (CC0) alongside the course art.
 | Projectiles | `images/v2/projectile_{plasma,bolt}.*` | Player/enemy shots | `make_sprites.py` |
 | Effects | `images/v2/effect_{explosion,impact}.*` | Death / hit bursts | `make_sprites.py` |
 | Glow textures | `images/v2/glow_*.png`, `muzzle_star.png` | Additive glow/muzzle | `make_glow.py` |
-| Backdrops | `images/v2/bg_{core,foundry,biolab}_{far,mid,near}.png` | 3 parallax layers × 3 arenas | `make_backdrops.py` |
-| Obstacles/hazards | `images/v2/{pillar,vent}_{core,foundry,biolab}.png` | Solid pillars / contact vents | `make_backdrops.py` |
+| Backdrops | `images/v2/bg_{core,foundry,biolab,prism,galaxy}_{far,mid,near}.png` | 3 parallax layers × 5 arenas | `make_backdrops.py` |
+| Arena props | `images/v2/{wall,pillar,vent}_{core,foundry,biolab,prism,galaxy}.png` | Boundary wall / obstacles / hazards, one bespoke shape per theme | `make_backdrops.py --props-only` |
 | SFX | `Audio/{laser,explosion,hurt,level_up,wave_chime}.wav` | Gameplay cues | `make_sfx.py` |
 | Ambient loops | `Audio/ambient_{core,foundry,biolab}.wav` | Per-arena drones | `make_sfx.py` |
 

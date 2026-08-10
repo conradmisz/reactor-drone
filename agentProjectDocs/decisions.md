@@ -1600,3 +1600,37 @@ Verified with headless Chromium (Playwright, installed to the user cache):
 zero console errors, all four palettes, mobile strip, bestiary gauges, arena
 bands, both clips. The relative-numbers rule (see the file header) survives
 unchanged; the bestiary gauges are 0-5 relative boxes, not stats.
+
+### D136 — Arena props are one bespoke shape per theme, and the wall faces inward  *(2026-08-10)*
+
+The wall ring, obstacles and hazard vents shared two sprites (a rounded square
+and a spoked circle) re-tinted five ways, and the boundary reused the obstacle
+art. Replaced with fifteen sprites — `{wall,pillar,vent}_{theme}` — in
+`make_backdrops.py`, authored at 4x supersample and BOX-downsampled (the
+`make_sprites.py` pattern). No RNG, so regeneration is byte-stable.
+
+- **Walls are a new, directional family.** Outer plating at the image top, lit
+  inner face at the bottom, and `spawn_arena_props` now adds
+  `Rotation{a - π/2, 0, false}` so each of the 97 segments faces the ring
+  tangent — the boundary reads as one continuous rampart instead of a ring of
+  crates. Seam rule: each segment's outer ~26px (of 96) on both sides is plain
+  full-width banding, so the ring's 20-unit overlap lands on identical pixels.
+  Cosmetic only; the walls still have no collider and the arena clamp is
+  unchanged. **Rejected:** radially symmetric art with no rotation (can't do
+  "architecture"), and per-segment art variants (nothing selects variants).
+- **Obstacles are designed for their real stretch.** The engine stretches one
+  PNG to every layout AABB, and Foundry's layouts are 1:3.6 bars — so
+  Foundry's girder is built to elongate into a beam, while Core (cooling
+  stack), Bio-lab (specimen tank), Prism (crystal cluster) and Galaxy
+  (cracked monolith) live on square-ish footprints.
+- **Hazards differentiate by silhouette**, because `main.cpp` force-tints them
+  additive red and only shape/luminance survive: breach star / lava grate /
+  acid pool / shard spikes / void rift.
+- `make_backdrops.py --props-only` regenerates the fifteen without touching
+  the backdrops (the committed core/foundry/biolab bg_* still predate the
+  seed_for fix and a full run would rewrite them).
+
+Verified: build clean, ctest 8/8, replay canary byte-identical twice (and
+again after the capture-buff revert), and headless captures — the Foundry
+rampart curves continuously, the Core→Foundry shift dissolves old props and
+grows the new wall mid-fight, and the red-tinted vents keep their shapes.

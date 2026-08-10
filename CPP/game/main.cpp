@@ -379,6 +379,11 @@ int main(int argc, char* argv[]) {
                 component_storage.add_component<Size>(e, Size{seg, seg});
                 component_storage.add_component<Color>(e, Color{60, 150, 190, 255});
                 component_storage.add_component<Images>(e, Images{{def.wall_image}, 0});
+                // D136: wall art is directional (outer plating at the image top,
+                // lit inner face at the bottom), so face each segment's top
+                // outward along the ring. Cosmetic — walls have no collider.
+                component_storage.add_component<Rotation>(e,
+                    Rotation{a - 3.14159265f * 0.5f, 0.0f, false});
                 component_storage.add_component<RenderLayer>(e, RenderLayer{2});
                 arena_props.push_back(e);
             }

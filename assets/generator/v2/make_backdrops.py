@@ -206,54 +206,301 @@ def galaxy_near(pal, rng):
 LAYERS = {"galaxy": (galaxy_far, galaxy_mid, galaxy_near)}
 
 
-def pillar(pal):
-    """Solid obstacle sprite — a glowing pillar/block."""
-    s = 96
-    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    body = lerp(pal.clear, pal.obstacle, 0.85)
-    d.rounded_rectangle([10, 6, s-10, s-6], radius=10,
-                        fill=(body[0], body[1], body[2], 255),
-                        outline=(pal.primary[0], pal.primary[1], pal.primary[2], 255), width=3)
-    # inner light strips
-    for yy in (28, 48, 68):
-        d.line([20, yy, s-20, yy], fill=(pal.accent[0], pal.accent[1], pal.accent[2], 160), width=2)
-    return add_halo(img, pal.primary, spread=0.1, strength=120)
+# ---------------------------------------------------------------------------
+# Arena props — walls, obstacles (pillar_*), hazards (vent_*). One bespoke
+# shape per theme (D136); the old shared rounded-square/circle pair read as
+# the same arena re-tinted five times.
+#
+# Authored at 4x supersample in a 384px space, BOX-downsampled to 96 (the
+# same pattern as make_sprites.py). No RNG anywhere — regeneration is
+# byte-stable without seeding.
+#
+# Constraints the shapes respect (from the engine, see D136):
+#  - WALLS: drawn as 97 unrotated-until-D136 segments on a 90-unit ring
+#    spacing at 110px, so each segment's left/right ~26px (of 96) is plain
+#    full-width banding and all decoration stays inside — the 20-unit overlap
+#    then lands on identical pixels and the seam disappears. Segments are
+#    rotated to the ring tangent at spawn; art convention: OUTER edge at the
+#    top of the image, glowing INNER face at the bottom.
+#  - OBSTACLES: the same PNG is stretched to every layout AABB (Foundry uses
+#    1:3.6 bars), so each shape must survive strong non-uniform stretch.
+#  - HAZARDS: the engine force-tints them additive red (main.cpp Tint), so
+#    themes differentiate by silhouette and luminance, not colour.
+
+import math
+
+SS = 4
+PS = 96 * SS  # supersampled prop canvas
 
 
-def vent(pal):
-    """Contact-hazard sprite — a glowing vent/grate."""
-    s = 96
-    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    c = s/2
-    d.ellipse([8, 8, s-8, s-8], outline=(pal.hazard[0], pal.hazard[1], pal.hazard[2], 255), width=4)
-    # hot core + radiating slits
-    d.ellipse([c-18, c-18, c+18, c+18], fill=(pal.hazard[0], pal.hazard[1], pal.hazard[2], 200))
-    for k in range(8):
-        import math
-        a = math.pi*2*k/8
-        d.line([c, c, c+math.cos(a)*34, c+math.sin(a)*34],
-               fill=(255, 255, 255, 180), width=2)
-    return add_halo(img, pal.hazard, spread=0.18, strength=180)
+def _prop_canvas():
+    img = Image.new("RGBA", (PS, PS), (0, 0, 0, 0))
+    return img, ImageDraw.Draw(img)
+
+
+def _shrink(img):
+    return img.resize((96, 96), Image.BOX)
+
+
+def _c(col, a=255):
+    return (col[0], col[1], col[2], a)
+
+
+# --- walls -----------------------------------------------------------------
+
+def wall_core(p):
+    """Riveted reactor plating with a cyan conduit along the inner face."""
+    img, d = _prop_canvas()
+    body = lerp(p.clear, p.obstacle, 0.8)
+    d.rectangle([0, 40, PS, PS - 56], fill=_c(body))
+    d.rectangle([0, 40, PS, 100], fill=_c(lerp(p.clear, p.obstacle, 0.5)))
+    d.rectangle([120, 130, PS - 120, PS - 120], outline=_c(p.obstacle), width=6)
+    for x in (150, PS // 2, PS - 150):
+        d.ellipse([x - 14, 58, x + 14, 86], fill=_c(lerp(p.obstacle, p.primary, 0.35)))
+    d.line([0, PS - 76, PS, PS - 76], fill=_c(p.primary), width=10)
+    d.line([0, PS - 76, PS, PS - 76], fill=_c(p.accent, 180), width=4)
+    return add_halo(_shrink(img), p.primary, spread=0.1, strength=120)
+
+
+def wall_foundry(p):
+    """Slag-crusted furnace brick courses with ember seams and a molten lip."""
+    img, d = _prop_canvas()
+    d.rectangle([0, 36, PS, PS - 52], fill=_c(lerp(p.clear, p.obstacle, 0.85)))
+    rows = [(36, 120), (128, 220), (228, PS - 52)]
+    joint = _c(lerp(p.primary, p.clear, 0.55), 220)
+    for i, (y0, y1) in enumerate(rows):
+        d.rectangle([0, y0, PS, y1], fill=_c(lerp(p.clear, p.obstacle, 0.65)))
+        for x in ((170, 250) if i % 2 else (120, 200, 280)):  # joints, edge-safe
+            d.line([x, y0, x, y1], fill=joint, width=5)
+    d.line([0, 124, PS, 124], fill=_c(p.primary, 200), width=6)
+    d.line([0, 224, PS, 224], fill=_c(p.secondary, 160), width=4)
+    d.line([0, PS - 64, PS, PS - 64], fill=_c(p.primary), width=12)
+    d.line([0, PS - 64, PS, PS - 64], fill=_c(p.accent, 200), width=4)
+    return add_halo(_shrink(img), p.primary, spread=0.1, strength=130)
+
+
+def wall_biolab(p):
+    """Containment glass between struts, specimen cultures drifting inside."""
+    img, d = _prop_canvas()
+    d.rectangle([0, 44, PS, PS - 60], fill=_c(lerp(p.clear, p.obstacle, 0.55)))
+    d.rectangle([0, 76, PS, PS - 92], fill=_c(lerp(p.clear, p.primary, 0.22), 235))
+    d.rectangle([0, 76, PS, 88], fill=_c(p.obstacle))
+    d.rectangle([0, PS - 100, PS, PS - 92], fill=_c(p.obstacle))
+    for k, (x, y, r) in enumerate([(130, 168, 22), (196, 150, 11), (250, 182, 16), (150, 210, 8)]):
+        d.ellipse([x - r, y - r, x + r, y + r], fill=_c(p.primary, 80 + k * 25))
+    d.line([0, PS - 72, PS, PS - 72], fill=_c(p.primary, 230), width=8)
+    return add_halo(_shrink(img), p.primary, spread=0.1, strength=120)
+
+
+def wall_prism(p):
+    """Fused crystal battlement — irregular facets rising from a solid base."""
+    img, d = _prop_canvas()
+    d.rectangle([0, 150, PS, PS - 56], fill=_c(lerp(p.clear, p.obstacle, 0.8)))
+    pts = [(0, 150), (110, 70), (160, 128), (216, 52), (268, 132), (PS, 150)]
+    d.polygon(pts + [(PS, 170), (0, 170)], fill=_c(lerp(p.clear, p.primary, 0.35)))
+    d.line(pts, fill=_c(p.primary), width=6)
+    for x, y in (pts[1], pts[3]):
+        d.line([x, y, x, 150], fill=_c(p.accent, 140), width=4)
+    d.line([0, PS - 68, PS, PS - 68], fill=_c(p.primary, 220), width=8)
+    return add_halo(_shrink(img), p.primary, spread=0.14, strength=130)
+
+
+def wall_galaxy(p):
+    """Obsidian event-horizon shards leaning over a hazard-lit rail."""
+    img, d = _prop_canvas()
+    d.rectangle([0, 170, PS, PS - 60], fill=_c(lerp(p.clear, p.obstacle, 0.7)))
+    for k in range(3):
+        x = 116 + k * 78
+        h = 60 + (k * 37 % 70)
+        d.polygon([(x, 170), (x + 30, 170), (x + 26, 170 - h), (x + 8, 170 - h + 14)],
+                  fill=_c(lerp(p.clear, p.obstacle, 0.95)),
+                  outline=_c(p.hazard, 200), width=3)
+    d.line([0, PS - 72, PS, PS - 72], fill=_c(p.hazard, 220), width=8)
+    return add_halo(_shrink(img), p.hazard, spread=0.14, strength=130)
+
+
+# --- obstacles (pillar_*) --------------------------------------------------
+
+def pillar_core(p):
+    """Cooling stack: glowing core dome, corner bolts."""
+    img, d = _prop_canvas()
+    d.rounded_rectangle([24, 24, PS - 24, PS - 24], radius=36,
+                        fill=_c(lerp(p.clear, p.obstacle, 0.85)),
+                        outline=_c(p.primary), width=8)
+    cx = PS / 2
+    d.ellipse([cx - 34, cx - 34, cx + 34, cx + 34], fill=_c(p.primary, 200))
+    d.ellipse([cx - 16, cx - 16, cx + 16, cx + 16], fill=_c(p.accent, 230))
+    for x, y in [(52, 52), (PS - 52, 52), (52, PS - 52), (PS - 52, PS - 52)]:
+        d.ellipse([x - 12, y - 12, x + 12, y + 12],
+                  fill=_c(lerp(p.obstacle, p.primary, 0.4)))
+    return add_halo(_shrink(img), p.primary, spread=0.1, strength=120)
+
+
+def pillar_foundry(p):
+    """Riveted girder with an X-brace — stretches into a beam either way."""
+    img, d = _prop_canvas()
+    d.rectangle([16, 16, PS - 16, PS - 16], fill=_c(lerp(p.clear, p.obstacle, 0.85)),
+                outline=_c(p.primary), width=8)
+    brace = _c(lerp(p.obstacle, p.primary, 0.5))
+    d.line([16, 16, PS - 16, PS - 16], fill=brace, width=12)
+    d.line([PS - 16, 16, 16, PS - 16], fill=brace, width=12)
+    d.rectangle([16, 16, PS - 16, 40], fill=_c(lerp(p.clear, p.obstacle, 0.55)))
+    d.rectangle([16, PS - 40, PS - 16, PS - 16], fill=_c(lerp(p.clear, p.obstacle, 0.55)))
+    for t in (0.18, 0.5, 0.82):
+        x = 16 + t * (PS - 32)
+        for y in (28, PS - 28):
+            d.ellipse([x - 10, y - 10, x + 10, y + 10], fill=_c(p.secondary, 220))
+    return add_halo(_shrink(img), p.primary, spread=0.1, strength=120)
+
+
+def pillar_biolab(p):
+    """Specimen tank: domed glass on a machine base, culture bubbling inside."""
+    img, d = _prop_canvas()
+    d.rounded_rectangle([40, 26, PS - 40, PS - 26], radius=70,
+                        fill=_c(lerp(p.clear, p.primary, 0.18), 240),
+                        outline=_c(p.obstacle), width=10)
+    d.rectangle([28, PS - 70, PS - 28, PS - 26], fill=_c(lerp(p.clear, p.obstacle, 0.9)))
+    d.rectangle([28, 26, PS - 28, 64], fill=_c(lerp(p.clear, p.obstacle, 0.9)))
+    for k, (x, y, r) in enumerate([(150, 240, 26), (230, 170, 18), (120, 150, 14), (210, 280, 12)]):
+        d.ellipse([x - r, y - r, x + r, y + r], fill=_c(p.primary, 120 + k * 20))
+    d.line([64, 90, 64, PS - 84], fill=_c(p.accent, 90), width=10)
+    return add_halo(_shrink(img), p.primary, spread=0.1, strength=120)
+
+
+def pillar_prism(p):
+    """Crystal cluster: three leaning shards on a base plate."""
+    img, d = _prop_canvas()
+    shards = [
+        [(90, PS - 30), (150, PS - 30), (128, 60), (100, 96)],
+        [(170, PS - 30), (250, PS - 30), (300, 110), (210, 70)],
+        [(40, PS - 30), (90, PS - 30), (60, 150)],
+    ]
+    for k, pts in enumerate(shards):
+        d.polygon(pts, fill=_c(lerp(p.clear, p.primary, 0.30 + k * 0.12), 245),
+                  outline=_c(p.primary), width=6)
+    d.line([128, 60, 118, PS - 30], fill=_c(p.accent, 150), width=5)
+    d.line([210, 70, 226, PS - 30], fill=_c(p.accent, 120), width=5)
+    d.rectangle([30, PS - 44, PS - 30, PS - 24], fill=_c(lerp(p.clear, p.obstacle, 0.9)))
+    return add_halo(_shrink(img), p.primary, spread=0.14, strength=120)
+
+
+def pillar_galaxy(p):
+    """Cracked monolith, a glowing fissure running its height."""
+    img, d = _prop_canvas()
+    d.polygon([(70, PS - 26), (PS - 70, PS - 26), (PS - 96, 40), (96, 56)],
+              fill=_c(lerp(p.clear, p.obstacle, 0.95)),
+              outline=_c(p.hazard, 220), width=6)
+    crack = [(PS/2 - 20, 60), (PS/2 + 10, 140), (PS/2 - 26, 210), (PS/2 + 16, PS - 30)]
+    d.line(crack, fill=_c(p.hazard), width=10)
+    d.line(crack, fill=_c(p.accent, 170), width=4)
+    return add_halo(_shrink(img), p.hazard, spread=0.14, strength=120)
+
+
+# --- hazards (vent_*) — shape-first; the engine tints them red -------------
+
+def vent_core(p):
+    """Cracked coolant breach: jagged star with a hot core."""
+    img, d = _prop_canvas()
+    cx = cy = PS / 2
+    pts = []
+    for k in range(12):
+        a = math.tau * k / 12
+        r = 150 if k % 2 == 0 else 88
+        pts.append((cx + math.cos(a) * r, cy + math.sin(a) * r))
+    d.polygon(pts, fill=_c(p.hazard, 120), outline=_c(p.hazard), width=8)
+    d.ellipse([cx - 44, cy - 44, cx + 44, cy + 44], fill=(255, 255, 255, 220))
+    for k in range(4):
+        a = math.tau * k / 4 + 0.4
+        d.line([cx + math.cos(a) * 40, cy + math.sin(a) * 40,
+                cx + math.cos(a) * 178, cy + math.sin(a) * 178],
+               fill=(255, 255, 255, 190), width=8)
+    return add_halo(_shrink(img), p.hazard, spread=0.18, strength=180)
+
+
+def vent_foundry(p):
+    """Lava grate: bright melt channels behind dark bars."""
+    img, d = _prop_canvas()
+    d.rounded_rectangle([20, 20, PS - 20, PS - 20], radius=24, fill=_c(p.hazard, 170))
+    for k in range(1, 4):
+        y = 20 + k * (PS - 40) / 4
+        d.line([32, y, PS - 32, y], fill=(255, 255, 255, 230), width=14)
+    for k in range(5):
+        x = 20 + k * (PS - 40) / 4
+        d.line([x, 14, x, PS - 14], fill=_c(lerp(p.clear, p.obstacle, 0.9)), width=18)
+    d.rounded_rectangle([20, 20, PS - 20, PS - 20], radius=24,
+                        outline=_c(p.hazard), width=10)
+    return add_halo(_shrink(img), p.hazard, spread=0.18, strength=180)
+
+
+def vent_biolab(p):
+    """Acid pool: irregular blob with drifting bubbles."""
+    img, d = _prop_canvas()
+    cx = cy = PS / 2
+    rim = [(cx + math.cos(math.tau * k / 16) * (130 + 34 * math.sin(k * 2.3)),
+            cy + math.sin(math.tau * k / 16) * (130 + 34 * math.sin(k * 2.3)))
+           for k in range(16)]
+    d.polygon(rim, fill=_c(p.hazard, 150), outline=_c(p.hazard), width=8)
+    inner = [(cx + math.cos(math.tau * k / 16) * (60 + 20 * math.sin(k * 2.3)),
+              cy + math.sin(math.tau * k / 16) * (60 + 20 * math.sin(k * 2.3)))
+             for k in range(16)]
+    d.polygon(inner, fill=(255, 255, 255, 150))
+    for x, y, r in [(120, 120, 16), (250, 150, 12), (170, 260, 18), (260, 250, 9)]:
+        d.ellipse([x - r, y - r, x + r, y + r], outline=(255, 255, 255, 200), width=6)
+    return add_halo(_shrink(img), p.hazard, spread=0.18, strength=180)
+
+
+def vent_prism(p):
+    """Shard spikes: a bed of bright needles on a hot base."""
+    img, d = _prop_canvas()
+    for k in range(7):
+        x = 30 + k * 52
+        h = 120 + (k * 53 % 90)
+        d.polygon([(x, PS - 40), (x + 44, PS - 40), (x + 22, PS - 40 - h)],
+                  fill=_c(p.hazard, 200), outline=(255, 255, 255, 220), width=4)
+    d.rectangle([16, PS - 52, PS - 16, PS - 28], fill=_c(p.hazard, 150))
+    return add_halo(_shrink(img), p.hazard, spread=0.18, strength=180)
+
+
+def vent_galaxy(p):
+    """Void rift: a torn lens with an event-horizon glint."""
+    img, d = _prop_canvas()
+    d.polygon([(30, PS/2), (PS/2, PS/2 - 74), (PS - 30, PS/2), (PS/2, PS/2 + 74)],
+              fill=(10, 6, 16, 235), outline=_c(p.hazard), width=10)
+    d.line([56, PS/2, PS - 56, PS/2], fill=(255, 255, 255, 200), width=6)
+    for x, r in [(120, 5), (200, 7), (270, 4)]:
+        d.ellipse([x - r, PS/2 - r, x + r, PS/2 + r], fill=(255, 255, 255, 220))
+    return add_halo(_shrink(img), p.hazard, spread=0.2, strength=180)
+
+
+WALL_FNS = {"core": wall_core, "foundry": wall_foundry, "biolab": wall_biolab,
+            "prism": wall_prism, "galaxy": wall_galaxy}
+PILLAR_FNS = {"core": pillar_core, "foundry": pillar_foundry, "biolab": pillar_biolab,
+              "prism": pillar_prism, "galaxy": pillar_galaxy}
+VENT_FNS = {"core": vent_core, "foundry": vent_foundry, "biolab": vent_biolab,
+            "prism": vent_prism, "galaxy": vent_galaxy}
 
 
 def main():
-    # Optional arena-name args regenerate just those themes. Needed because the
-    # core/foundry/biolab PNGs predate the seed_for() fix (see above) and a full
-    # run would rewrite them; `make_backdrops.py galaxy` touches only galaxy.
-    only = set(sys.argv[1:])
+    # `--props-only` regenerates walls/pillars/vents without touching the
+    # backdrops — needed because the committed core/foundry/biolab bg_* PNGs
+    # predate the seed_for() fix (see above) and a full run would rewrite them.
+    # Optional arena-name args filter by theme, as before.
+    args = sys.argv[1:]
+    props_only = "--props-only" in args
+    only = set(a for a in args if a != "--props-only")
     print("make_backdrops:")
     for pal in ARENAS:
         if only and pal.name not in only:
             continue
-        rng = random.Random(seed_for(pal.name))
-        far, mid, near = LAYERS.get(pal.name, (far_layer, mid_layer, near_layer))
-        save_png(f"bg_{pal.name}_far", far(pal, rng))
-        save_png(f"bg_{pal.name}_mid", mid(pal, rng))
-        save_png(f"bg_{pal.name}_near", near(pal, rng))
-        save_png(f"pillar_{pal.name}", pillar(pal))
-        save_png(f"vent_{pal.name}", vent(pal))
+        if not props_only:
+            rng = random.Random(seed_for(pal.name))
+            far, mid, near = LAYERS.get(pal.name, (far_layer, mid_layer, near_layer))
+            save_png(f"bg_{pal.name}_far", far(pal, rng))
+            save_png(f"bg_{pal.name}_mid", mid(pal, rng))
+            save_png(f"bg_{pal.name}_near", near(pal, rng))
+        save_png(f"wall_{pal.name}", WALL_FNS[pal.name](pal))
+        save_png(f"pillar_{pal.name}", PILLAR_FNS[pal.name](pal))
+        save_png(f"vent_{pal.name}", VENT_FNS[pal.name](pal))
 
 
 if __name__ == "__main__":

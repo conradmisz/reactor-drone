@@ -43,7 +43,7 @@
         "g": 70,
         "b": 200
       },
-      "wall_image": "v2/pillar_core.png",
+      "wall_image": "v2/wall_core.png",
       "obstacle_image": "v2/pillar_core.png",
       "hazard_image": "v2/vent_core.png",
       "backdrop_layers": [
@@ -224,7 +224,7 @@
         "g": 210,
         "b": 255
       },
-      "wall_image": "v2/pillar_foundry.png",
+      "wall_image": "v2/wall_foundry.png",
       "obstacle_image": "v2/pillar_foundry.png",
       "hazard_image": "v2/vent_foundry.png",
       "backdrop_layers": [
@@ -431,7 +431,7 @@
         "g": 120,
         "b": 255
       },
-      "wall_image": "v2/pillar_biolab.png",
+      "wall_image": "v2/wall_biolab.png",
       "obstacle_image": "v2/pillar_biolab.png",
       "hazard_image": "v2/vent_biolab.png",
       "backdrop_layers": [
@@ -616,7 +616,7 @@
         "g": 255,
         "b": 255
       },
-      "wall_image": "v2/pillar_prism.png",
+      "wall_image": "v2/wall_prism.png",
       "obstacle_image": "v2/pillar_prism.png",
       "hazard_image": "v2/vent_prism.png",
       "backdrop_layers": [
@@ -823,7 +823,7 @@
         "g": 70,
         "b": 200
       },
-      "wall_image": "v2/pillar_core.png",
+      "wall_image": "v2/wall_core.png",
       "obstacle_image": "v2/pillar_core.png",
       "hazard_image": "v2/vent_core.png",
       "backdrop_layers": [
@@ -1004,7 +1004,7 @@
         "g": 210,
         "b": 255
       },
-      "wall_image": "v2/pillar_foundry.png",
+      "wall_image": "v2/wall_foundry.png",
       "obstacle_image": "v2/pillar_foundry.png",
       "hazard_image": "v2/vent_foundry.png",
       "backdrop_layers": [
@@ -1211,7 +1211,7 @@
         "g": 120,
         "b": 255
       },
-      "wall_image": "v2/pillar_biolab.png",
+      "wall_image": "v2/wall_biolab.png",
       "obstacle_image": "v2/pillar_biolab.png",
       "hazard_image": "v2/vent_biolab.png",
       "backdrop_layers": [
@@ -1396,7 +1396,7 @@
         "g": 255,
         "b": 255
       },
-      "wall_image": "v2/pillar_prism.png",
+      "wall_image": "v2/wall_prism.png",
       "obstacle_image": "v2/pillar_prism.png",
       "hazard_image": "v2/vent_prism.png",
       "backdrop_layers": [
@@ -1604,7 +1604,7 @@
         "g": 200,
         "b": 80
       },
-      "wall_image": "v2/pillar_galaxy.png",
+      "wall_image": "v2/wall_galaxy.png",
       "obstacle_image": "v2/pillar_galaxy.png",
       "hazard_image": "v2/vent_galaxy.png",
       "backdrop_layers": [
