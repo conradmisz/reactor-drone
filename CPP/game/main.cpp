@@ -90,6 +90,7 @@
 #include "obstacles.hpp"
 #include "enemy_path.hpp"
 #include "meta_save.hpp"
+#include "prestige.hpp"
 #include "run_save.hpp"
 
 struct SDL_WindowDeleter { void operator()(SDL_Window* w) const { if (w) SDL_DestroyWindow(w); } };
@@ -105,6 +106,7 @@ enum Phase { PHASE_TITLE = 0, PHASE_PLAYING = 1, PHASE_GAMEOVER = 2, PHASE_VICTO
 constexpr const char* SCREEN_INTERMISSION = "wave_intermission";
 constexpr const char* SCREEN_PAUSE        = "pause";
 constexpr const char* SCREEN_MAIN_MENU    = "main_menu";
+constexpr const char* SCREEN_PRESTIGE     = "prestige_offer";   // Lane O (D128)
 
 int main(int argc, char* argv[]) {
     auto opts = parse_command_line(argc, argv);
@@ -744,6 +746,20 @@ int main(int argc, char* argv[]) {
             apply_ship(config.player, config.ships[static_cast<size_t>(selected_ship)]);
             load_player_sprite();
         }
+        // === HOOK: prestige === (Iteration 5, D126 — Lane O / #14)
+        // The base-stat buff rides the SAME site as the ship overlay and
+        // apply_difficulty: `config` is a fresh copy of the pristine base_config
+        // two lines up, so this is applied exactly once per run and never
+        // compounds (D50). Upgrades are stripped for free — they live on the
+        // per-run ShipState that spawn_world() rebuilds below.
+        apply_prestige(config.player, meta.prestige);
+        blackboard.set<double>(PRESTIGE_LEVEL_KEY, static_cast<double>(meta.prestige));
+        // Determinism: this is persistent state that DOES reach the sim, so a
+        // replay is reproducible at a fixed level. The level is printed rather
+        // than assumed, on its own line so the canary's comparison target is a
+        // superset rather than an edited line.
+        std::cout << "Prestige: " << meta.prestige << "\n";
+        // === END HOOK: prestige ===
         run_banked = false;
         run_difficulty = static_cast<int>(difficulty_index);
         std::string label = "Normal";
@@ -1014,6 +1030,64 @@ int main(int argc, char* argv[]) {
                 running = false;
             }
         }
+
+        // === HOOK: prestige === (Iteration 5, D128/D129 — Lane O / #14)
+        // The arc-complete offer. Handled HERE, above the phase machine, for the
+        // same reason the pause buttons are: the click that presses PRESTIGE RUN
+        // is also a plain `advance`, which the game-over/victory branch below
+        // reads as "retry". Consuming both the click and `advance` in one place
+        // is the only way the two can never fire on the same frame — the same
+        // trap the title screen hit with SPACE vs `advance` (D50).
+        {
+            static bool offer_up = false;
+            static Entity prestige_line = 0;
+            static bool prestige_line_resolved = false;
+
+            const bool want_offer = (phase == PHASE_VICTORY);
+            if (want_offer != offer_up) {
+                if (want_offer)
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH,
+                                                std::string(SCREEN_PRESTIGE));
+                else
+                    blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
+                offer_up = want_offer;
+                // ponytail: Escape at the victory screen pops the offer and it
+                // does not come back until the next win. Retry (click anywhere)
+                // still works, and UIElement has no visibility flag to do better
+                // without an engine change (D82 hit the same wall).
+            }
+            if (want_offer) {
+                // The level is never authored in the screen data — this rewrites
+                // the line every frame, the way BossSystem rewrites its reward
+                // buttons (D71).
+                if (Entity w = widget_by_name("prestige_line", prestige_line,
+                                              prestige_line_resolved); w != 0) {
+                    if (auto el = component_storage.get_component<UIElement>(w);
+                        el.has_value()) {
+                        el->get().label_text =
+                            meta.prestige >= PRESTIGE_MAX_LEVEL
+                                ? prestige_summary(meta.prestige) + "  (MAX)"
+                                : "NEXT: " + prestige_summary(meta.prestige + 1);
+                    }
+                }
+                const std::string click =
+                    blackboard.get_or<std::string>(UISystem::UI_CLICK_KEY, std::string());
+                if (click == "on_prestige_click") {
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    advance = false;                 // not also a retry
+                    meta.prestige = prestige_clamp(meta.prestige + 1);
+                    meta_write(meta_save_path(), meta);   // banked before the run,
+                    // so a crash mid-prestige-run cannot cost the level that was
+                    // just earned. bank_run_score already fired on the victory.
+                    blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
+                    offer_up = false;
+                    // The one application site does the rest: same difficulty,
+                    // same ship, buffed base stats, empty upgrade sheet.
+                    start_run(static_cast<size_t>(run_difficulty));
+                }
+            }
+        }
+        // === END HOOK: prestige ===
 
         // === State machine + gameplay ===
         if (phase == PHASE_PLAYING && sim) {

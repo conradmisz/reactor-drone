@@ -258,25 +258,25 @@ TEST_CASE("the boss is themed to the arena it spawns in", "[Game][boss]") {
     CHECK(beh->get().tier == behavior_kinds::MINER);
 }
 
-TEST_CASE("the shipped wave-50 arena and the hard-mode boss knob are authored",
+TEST_CASE("the shipped final-wave arena and the hard-mode boss knob are authored",
           "[Game][boss][config]") {
     GameConfig cfg = load_arena_config(project_paths::assets_dir() + "/GameData.json");
 
-    // The 9th arena: the wave-50 void.
+    // The 9th arena: the final-wave void (wave 30 since Lane O, D125).
     REQUIRE(cfg.arenas.size() == 9);
     const ArenaDef& fin = cfg.arenas.back();
     CHECK(fin.name == "Singularity");
-    CHECK(fin.first_wave == 50);
-    CHECK(active_arena_index(cfg.arenas, 50) == 8);
-    CHECK(active_arena_index(cfg.arenas, 49) != 8);
+    CHECK(fin.first_wave == 30);
+    CHECK(active_arena_index(cfg.arenas, 30) == 8);
+    CHECK(active_arena_index(cfg.arenas, 29) != 8);
     CHECK_FALSE(fin.backdrop_layers.empty());
     CHECK_FALSE(fin.obstacles.empty());
 
-    // Boss waves exist and the last one is wave 50.
+    // Boss waves exist and the last one is the last wave of the arc.
     std::vector<int> boss_waves;
     for (size_t i = 0; i < cfg.waves.size(); ++i)
         if (cfg.waves[i].boss) boss_waves.push_back(static_cast<int>(i) + 1);
-    CHECK(boss_waves == std::vector<int>{10, 20, 30, 40, 50});
+    CHECK(boss_waves == std::vector<int>{10, 20, 30});
 
     // D73: Hard's one boss knob, scaled in apply_difficulty and nowhere else.
     REQUIRE(cfg.difficulties.size() >= 2);

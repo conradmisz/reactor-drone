@@ -150,6 +150,11 @@ screen_stack.process_commands               — consumes LAST frame's ui.cmd.pus
                                               hit-tests or reads a click
 ui_system.update                            — hover/press/confirmed click; publishes
                                               UI_CLICK_KEY, which the phase machine reads
+[HOOK: prestige]                            — iteration 5 (D128); the arc-complete offer.
+                                              ABOVE the phase machine on purpose: the click
+                                              that presses PRESTIGE RUN is also a plain
+                                              `advance`, which the victory branch reads as
+                                              "retry", so both are consumed in one place
 
 if PHASE_PLAYING && sim:
   player_control.set_speed(...)             — pushed every frame; nothing caches move speed
@@ -342,6 +347,12 @@ render:
   a fresh run never takes, which is what keeps the replay canary byte-identical whether or
   not a save file exists (D83, D103). Anything that later reads a save from inside a system
   breaks that guarantee.
+- **The one exception is the prestige level** (`meta.json`'s second field, iteration 5,
+  D127). It is still read once at startup and still applied only at `start_run`, but it
+  *scales `config.player`*, so it genuinely changes the simulation. The replay canary is
+  therefore reproducible **at a fixed prestige level**, not unconditionally — `start_run`
+  prints `Prestige: N` so a headless run states the level it flew at. Compare two runs at
+  the same level; a level change is expected to diverge.
 - **`PHASE_INTERMISSION` deliberately does NOT freeze the arena.** It was frozen at first,
   copying `PHASE_SHOP`, and that stranded every credit the wave's last kill had dropped:
   visible on the floor, unreachable, gone when the run moved on. It now runs the movement
@@ -431,6 +442,12 @@ in `main.cpp`:
 | `sustain-spawn` | after `pickups.update` | health/shield pickups (#10) |
 | `shop-menu` | in the `PHASE_SHOP` block | clickable shop + gear upgrades (#1, #11) |
 | `minimap` | after `game_hud.update`, every phase | minimap (#7) |
+| `prestige` | after `ui_system.update`, above the phase machine | 30-wave arc + prestige (#14, iteration 5) |
+
+Iteration 5 kept the same convention. `prestige` is **two** blocks by necessity:
+the frame-order one above, and one inside `start_run` — the single site where
+`apply_ship` / `apply_difficulty` already overlay the pristine `base_config`
+(D50). Applying a base-stat buff anywhere else would compound across runs.
 
 `test_scaffolding.cpp` reads `main.cpp` as text and fails if a hook is missing or
 renamed, because a lane whose hook has vanished has nowhere to land.

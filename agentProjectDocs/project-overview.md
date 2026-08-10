@@ -45,6 +45,12 @@ the graded course submission.
 ### Combat & progression
 - 20-wave arc: waves 1-11 fixed-count, 12-20 timed; per-wave `hp_mult` /
   `speed_mult` scaling over 3 enemy types (spark / runner / hulk).
+- **30-wave arc** (supersedes the 20- and 50-wave tables above): waves 1-15
+  fixed-count, 16-30 timed, bosses on 10/20/30, generated from one linear formula
+  so pressure is monotone by construction (D125).
+- **Prestige**: finishing the arc offers a restart that strips this run's
+  upgrades and buys +10% hull / +5% speed / +8% damage per level (capped at 5),
+  persisted as one field in `saves/meta.json` (D127-D131).
 - Normal / Hard chosen on the title menu; a difficulty is multipliers over the
   one wave table (count, spacing, hp, speed, credits, hazard damage, plus how
   many waves earlier enemy types unlock) and is enemy-side only (D50).

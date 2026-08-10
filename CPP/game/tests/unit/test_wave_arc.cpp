@@ -1,11 +1,12 @@
 /**
- * test_wave_arc.cpp — the iteration-3 Lane A data spine (D52-D55).
+ * test_wave_arc.cpp — the iteration-3 Lane A data spine (D52-D55), rescaled to
+ * 30 waves by iteration-5 Lane O (D125).
  *
- * The 50-wave table and the 8 arena entries are generated from a formula, so the
- * thing worth testing is not any one row but the *shape*: 50 rows, boss flags
+ * The 30-wave table and the 8 arena entries are generated from a formula, so the
+ * thing worth testing is not any one row but the *shape*: 30 rows, boss flags
  * exactly on the tens, pressure that never goes backwards, and eight distinct
  * arenas activating on the right waves. All of that is a silent failure mode —
- * a table that dips in difficulty at wave 31 plays fine and is simply wrong.
+ * a table that dips in difficulty at wave 21 plays fine and is simply wrong.
  *
  * These assertions run against the SHIPPED GameData.json, not a fixture, because
  * the shipped file is the artefact: a bad splice is exactly what this catches.
@@ -38,14 +39,14 @@ GameConfig shipped() {
 
 }  // namespace
 
-TEST_CASE("the shipped wave table is 50 rows, fixed-count then timed",
+TEST_CASE("the shipped wave table is 30 rows, fixed-count then timed",
           "[Game][wavearc]") {
     const GameConfig cfg = shipped();
-    REQUIRE(cfg.waves.size() == 50);
+    REQUIRE(cfg.waves.size() == 30);
 
     for (size_t i = 0; i < cfg.waves.size(); ++i) {
         const WaveDef& w = cfg.waves[i];
-        if (i < 25) {
+        if (i < 15) {
             CHECK(w.duration == 0.0f);   // fixed-count mode
             CHECK(w.count > 0);
         } else {
@@ -59,13 +60,13 @@ TEST_CASE("the shipped wave table is 50 rows, fixed-count then timed",
     CHECK(cfg.victory_wave == 0);
 }
 
-TEST_CASE("boss waves are exactly 10/20/30/40/50", "[Game][wavearc][boss]") {
+TEST_CASE("boss waves are exactly 10/20/30", "[Game][wavearc][boss]") {
     const GameConfig cfg = shipped();
     std::vector<int> boss_waves;
     for (size_t i = 0; i < cfg.waves.size(); ++i)
         if (cfg.waves[i].boss) boss_waves.push_back(static_cast<int>(i) + 1);
 
-    CHECK(boss_waves == std::vector<int>{10, 20, 30, 40, 50});
+    CHECK(boss_waves == std::vector<int>{10, 20, 30});
 }
 
 TEST_CASE("pressure never decreases across the arc", "[Game][wavearc][ramp]") {
@@ -94,12 +95,12 @@ TEST_CASE("pressure never decreases across the arc", "[Game][wavearc][ramp]") {
 
 TEST_CASE("eight arenas activate on the two-pass schedule", "[Game][wavearc][arena]") {
     const GameConfig cfg = shipped();
-    // Lane D (D72) appended a 9th arena, the wave-50 Singularity void. The
+    // Lane D (D72) appended a 9th arena, the final-wave Singularity void. The
     // two-pass schedule this case owns is still the FIRST eight; the 9th and its
     // activation are asserted in test_boss.cpp.
     REQUIRE(cfg.arenas.size() == 9);
 
-    const int first[8] = {1, 7, 13, 20, 26, 32, 38, 45};
+    const int first[8] = {1, 4, 8, 12, 16, 19, 23, 27};
     for (int i = 0; i < 8; ++i) {
         INFO("arena " << i);
         CHECK(cfg.arenas[static_cast<size_t>(i)].first_wave == first[i]);
@@ -107,18 +108,18 @@ TEST_CASE("eight arenas activate on the two-pass schedule", "[Game][wavearc][are
         // Still the same arena the wave before the NEXT activation.
         if (i < 7) CHECK(active_arena_index(cfg.arenas, first[i + 1] - 1) == i);
     }
-    // Wave 49 is still the last of the two passes; wave 50 is Lane D's void.
-    CHECK(active_arena_index(cfg.arenas, 49) == 7);
+    // Wave 29 is the last of the two passes; wave 30 is Lane D's void.
+    CHECK(active_arena_index(cfg.arenas, 29) == 7);
 
     std::set<std::string> names;
     for (const ArenaDef& a : cfg.arenas) names.insert(a.name);
-    CHECK(names.size() == 9);   // eight distinct arenas + the wave-50 void
+    CHECK(names.size() == 9);   // eight distinct arenas + the final-wave void
 }
 
 TEST_CASE("the second pass reuses the art and changes only the layout",
           "[Game][wavearc][arena]") {
     const GameConfig cfg = shipped();
-    REQUIRE(cfg.arenas.size() == 9);   // 8 two-pass themes + Lane D's wave-50 void
+    REQUIRE(cfg.arenas.size() == 9);   // 8 two-pass themes + Lane D's final-wave void
 
     for (size_t i = 0; i < 4; ++i) {
         const ArenaDef& a = cfg.arenas[i];       // pass 1
@@ -206,12 +207,12 @@ TEST_CASE("the full shop is due every fifth cleared wave", "[Game][wavearc][shop
     // if that line moves back to % 4, the cadence this wave table was authored
     // around is gone and nothing else would notice.
     std::vector<int> stops;
-    for (int cleared = 1; cleared <= 50; ++cleared)
+    for (int cleared = 1; cleared <= 30; ++cleared)
         if (cleared % 5 == 0) stops.push_back(cleared);
 
-    CHECK(stops.size() == 10);                    // one per boss cycle
+    CHECK(stops.size() == 6);                     // two per boss cycle
     CHECK(stops.front() == 5);
-    CHECK(stops.back() == 50);
+    CHECK(stops.back() == 30);
     for (int s : stops) CHECK(s % 10 != 8);       // never adjacent-late to a boss
 }
 
