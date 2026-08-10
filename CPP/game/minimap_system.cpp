@@ -126,7 +126,14 @@ void MinimapSystem::update(ComponentStorage& component_storage,
         if (blips.size() >= pool_.size()) continue;
         float cx, cy;
         if (!world_centre(component_storage, e, cx, cy)) { --wanted; continue; }
-        blips.push_back({cx, cy, edge, STYLE_PICKUP});
+        // Lane M (#4, D114): a health pack is green, not loot-amber. It is the one
+        // pickup the player crosses the arena for, and it was indistinguishable
+        // from a coin on a 96px radar. Read off Pickup.kind, so it costs one
+        // branch and no second scan.
+        auto pk = component_storage.get_component<Pickup>(e);
+        const bool health = pk.has_value() &&
+                            pk->get().kind == static_cast<int>(PickupKind::Health);
+        blips.push_back({cx, cy, edge, health ? STYLE_HEALTH : STYLE_PICKUP});
     }
 
     peak_requested_ = std::max(peak_requested_, wanted);

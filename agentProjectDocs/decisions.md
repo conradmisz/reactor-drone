@@ -1139,6 +1139,103 @@ Decisions seeded from the gameplay plan (D1–D12) and made during Phases 1-4
   D72/D76-D79 and two specs, and renaming it would churn four documents to change
   nothing the player sees.
 
+### D113 — The pause menu overlapped because a widget was appended onto a full column, not because text overflowed  *(2026-08-10)*
+- **Diagnosis first, from a screenshot.** `--screenshot 100` on a paused frame,
+  read back as pixels, shows `SAVE` painted across `ESC also resumes.` and
+  touching `Options: coming soon`. The authored rects say the same thing:
+  `pause_save` is `y 204..250`, the ESC caption `y 218..242`, the options caption
+  `y 192..216`. Every string was inside its **own** rect — `fit_text_in_rect`
+  (D85) did its job and is untouched. Lane K simply appended a widget to a column
+  whose vertical budget was already spent, and nothing in the build, the tests or
+  the renderer could see it.
+- **Decision:** the whole `pause` screen is re-authored on the D88 grid — a
+  520x532 panel, the title and rule at the top, a reserved 480..128 band for the
+  stat sheet, and RESUME / SAVE / QUIT as one row of three 48px buttons. The dead
+  `Options: coming soon` label is deleted rather than relocated.
+- **The fix that stops the third report is the test, not the layout.**
+  `test_pause_screen.cpp` loads the shipped `GameData.json` and asserts no two
+  pause rects intersect — the code-placed stat lines included. A future lane that
+  drops a button on top of a caption now fails `ctest`, which is the only thing
+  that would have caught either of the first two.
+- **z_order is global.** `sort_widgets_by_draw_order` sorts every active screen's
+  widgets together, and `gameplay` is always active (D86), so the wider pause
+  panel was drawn *under* the hull gauge at z 12. Pause widgets are now z 30 (the
+  panel) / 40 (everything on it). Only pause needed it: the shop hides the HUD by
+  phase, and the intermission panel is centred clear of the gauge column.
+- **Rejected: making the panel small enough to dodge the HUD.** It would cap the
+  stat sheet at four lines to work around a draw-order bug.
+
+### D114 — Health packs are green on the radar, read off `Pickup.kind`  *(2026-08-10)*
+- **Decision:** `MinimapSystem` picks `minimap_health` (the Bio-lab neon green,
+  `80,255,140`) for a blip whose `Pickup.kind` is `Health`, and keeps
+  `minimap_pickup` amber for everything else.
+- **Why one branch and not a second scan:** the pickup pass already has the
+  entity in hand; asking it one more question costs a component lookup and no
+  extra iteration. Shield packs deliberately stay amber — the report was about
+  health, and a third colour on a 96px radar starts costing more than it tells.
+- **Colour comes from a style id**, never a literal in the system (ui-context).
+
+### D115 — The minimap's margins are equalised in WINDOW pixels, so its rect runs past the design canvas  *(2026-08-10)*
+- **Decision:** `minimap.x` moves 688 -> 731.3, which puts the map's right edge
+  20px from the *window* edge, matching the 20px the top edge already had.
+  `x + size` is therefore 827.3 — past the 800-wide design canvas, on purpose.
+- **Why the map looked off-centre while the numbers looked right:** at 688 the
+  map sat 16px from the canvas's right edge and 18px from its top, which reads as
+  equidistant on paper. But `ui_canvas_transform` letterboxes 800x600 onto the
+  980x660 window at scale 1.1 with a **50px x-offset and no y-offset**, so the
+  real margins were 68px and 20px. The player judges the window edge; the canvas
+  edge is invisible to them.
+- **Kept in data, not computed in the system.** Deriving x from the transform
+  every frame would make an authored balance number dead config, and the window
+  size is pinned by the project's one-window-size authority. `ponytail:` the
+  ceiling is exactly that — if the window ever becomes resizable, this number has
+  to become a computation in `MinimapSystem`, which is already the geometry
+  authority (D58).
+- **Two existing assertions changed** (`test_minimap.cpp`,
+  `test_ui_text_fit.cpp`): "fits the design canvas" becomes "fits the window, with
+  equal top and right margins after the transform", which is what #4 actually
+  asks for.
+
+### D116 — The active-item slot is three authored widgets, relabelled — not a sprite  *(2026-08-10)*
+- **Decision:** the bottom-left slot (#13) is a 100x100 `minimap_frame` panel plus
+  two labels on the `gameplay` screen. `PauseStatsSystem` writes a short tag
+  (`MISSILES` / `LASER` / `REPULSOR`) and, along the bottom of the square, the key
+  and the cooldown (`[E] 13s`, `[E] READY`).
+- **Why no icon:** this project has no icon art and no icon font (ui-context), so
+  the alternatives were a new generator sprite or a text tag. The tag also carries
+  the two things the item's picture could not — whether it is ready, and what
+  fires it.
+- **`AUTO`, not `[E]`, for the repulsion device.** It has no key by design (D71):
+  it fires itself below 20% hull, and printing a key the player would press is a
+  lie they would act on.
+- **Hidden the way everything else here is hidden** — a zero-size rect, gated on
+  the same `hud_visible_in_phase` (D86) as the rest of the arena furniture, plus
+  "an active is actually held". Labels sit at z 21, above the frame's 20, or the
+  frame paints over them.
+
+### D117 — The pause stat sheet is a pure function plus a pooled label strip  *(2026-08-10)*
+- **Decision:** `pause_stats::stat_lines()` turns a flat `Snapshot` into at most
+  17 strings; `PauseStatsSystem` owns 17 pooled `UIElement` labels on the `pause`
+  screen, created once and relabelled every frame. The line geometry is
+  `pause_stats::line_rect(i)`, which the screen test compares against the
+  authored rects.
+- **Why the labels are code and not JSON:** 17 near-identical widget blocks in
+  `GameData.json` is the sort of authored repetition that goes stale the first
+  time the row height changes, and the strip has no per-row knobs a playtest
+  would want. The minimap blip pool (D58) set the precedent for a code-created
+  widget pool on a data-authored screen.
+- **Why widgets and not HUD `Text`:** `UIRenderSystem` composites after
+  `HUDSystem`, so a text row would be drawn *underneath* the pause panel (D63 is
+  the same trap from the other side).
+- **Only purchased upgrades are listed, with the cumulative effect** ("Hull
+  Plating x2   +50 hull"), phrased from the catalogue's `effect` string (D26) so
+  a re-ordered catalogue cannot mislabel a row. An unpurchased row is absent, not
+  greyed: the sheet answers "what am I flying", not "what could I buy".
+- **Prestige (#14) is a line that does not exist yet.** `Snapshot.prestige` is
+  read from `blackboard["meta.prestige_level"]`, which nothing sets today, so the
+  line is absent. Lane O publishes that key and the row appears — no edit to
+  either lane's files. This is the only part of #5 that is not shipped.
+
 ### D120 — The dash moves to SPACE, and the title screen keeps its start key  *(2026-08-10)*
 - **Decision:** the thruster dash fires on **SPACE**, edge-triggered, on a **10 s**
   cooldown (`dash.cooldown` 2.5 -> 10.0). LSHIFT survives as the scripted/headless

@@ -19,6 +19,7 @@
 #include "engine/ecs/blackboard.hpp"
 #include "engine/ecs/component_storage.hpp"
 #include "engine/ecs/entity_manager.hpp"
+#include "engine/ecs/systems/ui_render_math.hpp"
 #include "engine/project_paths.hpp"
 #include "game/arena_config.hpp"
 #include "game/enemy_components.hpp"
@@ -228,19 +229,28 @@ TEST_CASE("blips colour-code by what they are", "[Game][minimap][pool]") {
         Entity e = spawn_at(cs, em, CX, CY + 30.0f * static_cast<float>(i + 1));
         cs.add_component<Pickup>(e, Pickup{});
     }
+    // Lane M (#4, D114): health packs are the one pickup worth crossing the arena
+    // for, so they are green rather than loot-amber.
+    for (int i = 0; i < 2; ++i) {
+        Entity e = spawn_at(cs, em, CX - 30.0f * static_cast<float>(i + 1), CY);
+        Pickup pk;
+        pk.kind = static_cast<int>(PickupKind::Health);
+        cs.add_component<Pickup>(e, pk);
+    }
 
     mm.update(cs, em, bb);
     CHECK(blips_with_style(cs, MinimapSystem::STYLE_PLAYER) == 1);
     CHECK(blips_with_style(cs, MinimapSystem::STYLE_ENEMY) == 4);
     CHECK(blips_with_style(cs, MinimapSystem::STYLE_PICKUP) == 3);
-    CHECK(visible_blips(cs) == 8);
+    CHECK(blips_with_style(cs, MinimapSystem::STYLE_HEALTH) == 2);
+    CHECK(visible_blips(cs) == 10);
 
     // Fewer things next frame parks the surplus rather than destroying it.
     for (Entity e : cs.entities_with_component<EnemyTag>()) {
         cs.add_component<DestroyRequest>(e, DestroyRequest{});
     }
     mm.update(cs, em, bb);
-    CHECK(visible_blips(cs) == 4);
+    CHECK(visible_blips(cs) == 6);   // player + 3 loot + 2 health packs
     CHECK(pool_widgets(cs) == 64);
 }
 
@@ -264,7 +274,18 @@ TEST_CASE("the shipped GameData turns the minimap on and authors its frame",
     CHECK(cfg.minimap.enabled);
     CHECK(cfg.minimap.max_blips == 120);
     CHECK(cfg.minimap.size > 0.0f);
-    // The map must fit inside the 800x600 design canvas it is authored in.
-    CHECK(cfg.minimap.x + cfg.minimap.size <= 800.0f);
-    CHECK(cfg.minimap.y + cfg.minimap.size <= 600.0f);
+    // Lane M (#4, D115): the map's top and right margins must be EQUAL, and the
+    // edge the player sees is the window's, not the design canvas's. The canvas
+    // is letterboxed 50px in from each side of the 980x660 window, so an x that
+    // fits inside 800 is 68px from the right edge while y=486 is 20px from the
+    // top. The rect therefore runs past 800 on purpose; what is pinned here is
+    // the margin equality after ui_canvas_transform.
+    const UICanvasTransform xf = ui_canvas_transform(980.0f, 660.0f);
+    const UIRect map = ui_apply_transform(
+        xf, UIRect{cfg.minimap.x, cfg.minimap.y, cfg.minimap.size, cfg.minimap.size});
+    const float right_margin = 980.0f - (map.x + map.w);
+    const float top_margin   = 660.0f - (map.y + map.h);
+    CHECK_THAT(right_margin, WithinAbs(top_margin, 1.0f));
+    CHECK(top_margin > 0.0f);
+    CHECK(map.x > 0.0f);
 }

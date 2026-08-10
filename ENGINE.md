@@ -219,6 +219,11 @@ every phase, if sim:
   hud_message_timer tick
   game_hud.update
   [HOOK: minimap]                           — iteration 3 (D51); see §6
+  [HOOK: ship-readout]                      — iteration 5, Lane M (D113/D116/D117):
+                                              PauseStatsSystem — the pause screen's stat
+                                              sheet and the HUD's active-item slot. Outside
+                                              the `sim` block on purpose: the pause screen
+                                              freezes the sim and still has to be drawn.
   camera trauma decay + follow-camera lookat
 
 render:
@@ -377,7 +382,13 @@ render:
   never modal and is never popped, which means every widget on the `gameplay` screen renders
   in every phase — including the title screen and underneath the shop panel. Visibility is
   therefore not a stack question: `hud_visible_in_phase()` in `game_hud_system.hpp` is the
-  one rule, and `GameHUDSystem` / `MinimapSystem` collapse their rects when it is false.
+  one rule, and `GameHUDSystem` / `MinimapSystem` / `PauseStatsSystem` collapse their rects
+  when it is false.
+- **`z_order` is sorted GLOBALLY, across every active screen at once** (`sort_widgets_by_draw
+  _order`), not per screen. Combined with the point above — `gameplay` is always active — a
+  modal's widgets must outrank the HUD's or the hull gauge is drawn on top of the modal
+  panel. That is what happened to the widened pause screen (D113), whose widgets are now at
+  z 30/40 against the HUD's 10-21.
   Note this is a *different* question from whether the sim runs (see the pause/intermission
   trap): the intermission is modal and both keeps simulating and keeps its HUD.
 - **`UIElement::pulse_hz` is render-only and deliberately not Blackboard-driven.**

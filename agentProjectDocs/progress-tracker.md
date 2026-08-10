@@ -50,6 +50,13 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   smaller radar-style minimap, and "REACTOR SHIFT" (D90). Spec:
   `specs/ui-and-menu-overhaul.md`.
 
+- **Lane M — pause menu, stat overview, item slot (iteration 5, D113-D117):**
+  the pause screen re-authored after diagnosing #2 (a widget appended onto a full
+  column, not a text-fit failure — D113), a character sheet on it (#5, D117), the
+  bottom-left active-item slot (#13, D116), and the minimap moved to equal window
+  margins with green health blips (#4, D114/D115). Spec:
+  `specs/pause-overview-and-item-slot.md`.
+
 ## In Progress
 
 - Nothing being edited right now. The tree is green: `cmake --build` clean,
@@ -114,6 +121,13 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
 - A windowed run absorbs real desktop mouse input and will corrupt a scripted
   run; `offscreen` isolates it but has no mouse, so a zero-score run there is
   expected.
+- **Lane M (2026-08-10) — pause/HUD readouts (D113-D117).** Verified: build with
+  no warning from our code, `ctest` 8/8, the replay canary byte-identical twice,
+  and BMP pixel reads of a paused frame 100 showing the re-laid-out panel with no
+  overlap, plus the green health blip at (936,70) inside the radar and the item
+  slot bottom-left (that last one under a TEMPORARY `active_id = 1` edit in
+  `pause_stats.cpp`, since a headless run cannot kill a boss — **the edit was
+  reverted**). **Not playtested.** D118-D119 were reserved and are unused.
 - **Lane K (2026-08-09) — run save/quit + loot placement (D100-D103).** Pause ->
   SAVE writes `saves/run.json` (run state only: wave, credits, score, hull,
   shield, gear, items, ship, difficulty, seed); the title screen's

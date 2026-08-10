@@ -187,7 +187,11 @@ TEST_CASE("the shipped radar is small and clear of the HUD column", "[ui][minima
     // #1: "make smaller, currently too distracting". 140 was a fifth of the
     // canvas width; this pins the reduction so it cannot creep back.
     CHECK(cfg.minimap.size <= 100.0f);
-    CHECK(cfg.minimap.x + cfg.minimap.size <= 800.0f);
+    // Lane M (#4, D115): the x bound moved off the design canvas and onto the
+    // WINDOW, because the canvas is letterboxed 50px in from each side and the
+    // player judges the gap against the window edge. Margin equality is pinned in
+    // test_minimap.cpp; this only checks the map is still fully on screen.
+    CHECK(cfg.minimap.x + cfg.minimap.size <= 845.0f);   // (50 + 845*1.1) < 980
     CHECK(cfg.minimap.y + cfg.minimap.size <= 600.0f);
     // Top-right, and never over the top-left gauge column (x < 260).
     CHECK(cfg.minimap.x > 400.0f);
