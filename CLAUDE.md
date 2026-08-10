@@ -44,9 +44,9 @@ read all of them for every task.
 
 - Update `progress-tracker.md` after every meaningful change.
 - Append design calls (with the *why* and what was rejected) to `decisions.md`.
-  Ids are stable and cited from code — next free id is **D84**.
-  (D52-55 Lane A, D80-83 Lane F. D56-79 stay reserved for the iteration-3 lanes
-  that have not run yet: B = D56-60, C = D61-65, D = D66-75, E = D76-79.)
+  Ids are stable and cited from code — next free id is **D105**.
+  (D50-D104 are allocated: iteration 3 lanes A-G = D52-D83, integration = D84,
+  iteration 4 lanes H/I/J/K = D85-D104. D91-92, D104 unused but burned.)
 - One line per shipped feature in `project-overview.md` → Features.
 - Any engine change updates `ENGINE.md` **in the same commit**.
 - Before a non-trivial feature, write a spec from `specs/feature-template.md`.
