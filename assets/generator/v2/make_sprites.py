@@ -51,8 +51,45 @@ def scale_col(c, m):
     return (min(255, int(c[0]*m)), min(255, int(c[1]*m)), min(255, int(c[2]*m)))
 
 
+def boom(img, p0, p1, col, w):
+    """A structural arm between the chassis and a rotor pod."""
+    d = ImageDraw.Draw(img)
+    d.line([p0, p1], fill=(col[0], col[1], col[2], 255), width=w)
+
+
+def rotor(img, xy, r, body, accent, b, t, blades=2, w=3):
+    """A rotor pod: pod ring + a translucent swept disc + blades at phase `t`.
+
+    The blades rotate with the frame phase, which is the whole reason these read
+    as drones rather than as polygons with circles glued on. Drawn on an overlay
+    so the translucent disc does not wash out the pod rim under the baked halo.
+    """
+    x, y = xy
+    lay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(lay)
+    d.ellipse([x-r, y-r, x+r, y+r], fill=(body[0], body[1], body[2], 70))
+    d.ellipse([x-r, y-r, x+r, y+r], outline=(accent[0], accent[1], accent[2], 255), width=w)
+    deg = 360.0 * t
+    for k in range(blades):
+        a0 = deg + 360.0 * k / blades
+        d.arc([x-r+w, y-r+w, x+r-w, y+r-w], a0, a0 + 54,
+              fill=(accent[0], accent[1], accent[2], 210), width=w)
+    d.ellipse([x-4, y-4, x+4, y+4], fill=(body[0], body[1], body[2], 255))
+    img.alpha_composite(lay)
+
+
+def quad_pods(f, pal, col, b, t, pods, r, hub, bw):
+    """Four (or two) rotor pods on booms from `hub`, drawn back-to-front."""
+    for px, py in pods:
+        boom(f, hub, (px, py), scale_col(col, 0.45), bw)
+    for px, py in pods:
+        rotor(f, (px, py), r, scale_col(col, 0.8), scale_col(pal.accent, b), b, t)
+
+
 # ---------------------------------------------------------------------------
-# Player drone — arrow hull, cyan, thruster pulse
+# Player drone (#8, D107) — a quad-rotor drone, not an arrow. Four spinning
+# rotor pods on booms around a wedge chassis, sensor eye forward, twin thrusters
+# aft. Symmetric about the horizontal axis so pure rotation orients it.
 # ---------------------------------------------------------------------------
 def player_frames(n=6):
     pal = CORE
@@ -61,16 +98,24 @@ def player_frames(n=6):
     for i in range(n):
         f = frame()
         b = pulse(i / n)
-        # hull: forward-pointing arrow
-        hull = [(cx+42, cy), (cx-24, cy-30), (cx-10, cy), (cx-24, cy+30)]
+        t = i / n
+        pods = [(cx+27, cy-29), (cx+27, cy+29), (cx-21, cy-29), (cx-21, cy+29)]
+        quad_pods(f, pal, pal.primary, b, t, pods, 17, (cx+2, cy), 7)
+        # chassis: a forward wedge with a squared-off tail
+        hull = [(cx+42, cy), (cx+16, cy-19), (cx-24, cy-15),
+                (cx-24, cy+15), (cx+16, cy+19)]
         neon_poly(f, hull, scale_col(pal.primary, 0.7),
                   outline=scale_col(pal.accent, b), ow=3)
-        # cockpit glow
-        dot(f, (cx+6, cy), 9, scale_col(pal.accent, b))
-        dot(f, (cx+6, cy), 4, (255, 255, 255))
-        # engine exhaust dots (brighter on pulse)
-        for ey in (-13, 13):
-            dot(f, (cx-22, cy+ey), 5, scale_col(pal.secondary, b))
+        # spine plating
+        d = ImageDraw.Draw(f)
+        d.line([(cx-16, cy-8), (cx+18, cy-8)], fill=scale_col(pal.secondary, 0.8) + (255,), width=2)
+        d.line([(cx-16, cy+8), (cx+18, cy+8)], fill=scale_col(pal.secondary, 0.8) + (255,), width=2)
+        # sensor eye
+        dot(f, (cx+16, cy), 9, scale_col(pal.accent, b))
+        dot(f, (cx+16, cy), 4, (255, 255, 255))
+        # thrusters
+        for ey in (-9, 9):
+            dot(f, (cx-24, cy+ey), 5, scale_col(pal.secondary, b))
         f = add_halo(f, pal.primary, spread=0.14, strength=150)
         frames.append(f)
     return frames
@@ -84,7 +129,7 @@ def enemy_frames(shape_fn, pal, body_col, n=8):
     for i in range(n):
         f = frame()
         b = pulse(i / n)
-        shape_fn(f, pal, body_col, b)
+        shape_fn(f, pal, body_col, b, i / n)
         f = add_halo(f, body_col, spread=0.16, strength=150)
         frames.append(f)
     # death: n-frame dissolve (fade + shrink into a flash)
@@ -94,7 +139,7 @@ def enemy_frames(shape_fn, pal, body_col, n=8):
         f = frame()
         t = i / (dn - 1)
         base = frame()
-        shape_fn(base, pal, body_col, 1.0)
+        shape_fn(base, pal, body_col, 1.0, t)
         sc = 1.0 - 0.5 * t
         small = base.resize((int(S*sc), int(S*sc)))
         f.paste(small, (int((S-small.size[0])/2), int((S-small.size[1])/2)), small)
@@ -109,48 +154,75 @@ def enemy_frames(shape_fn, pal, body_col, n=8):
     return frames, death
 
 
-def spark_shape(f, pal, col, b):  # small fast diamond
+def spark_shape(f, pal, col, b, t):
+    """Scout quad: a tiny four-rotor drone. Smallest silhouette in the game, so
+    the body is barely more than a hub — the four rotors carry the read."""
     cx, cy = S/2, S/2
-    r = 26
-    pts = [(cx+r, cy), (cx, cy-r), (cx-r, cy), (cx, cy+r)]
-    neon_poly(f, pts, scale_col(col, 0.65), outline=scale_col(pal.accent, b), ow=3)
-    dot(f, (cx, cy), 7, scale_col(pal.accent, b))
+    pods = [(cx+21, cy-21), (cx+21, cy+21), (cx-21, cy-21), (cx-21, cy+21)]
+    quad_pods(f, pal, col, b, t, pods, 12, (cx, cy), 5)
+    r = 15
+    neon_poly(f, [(cx+r, cy), (cx, cy-r), (cx-r, cy), (cx, cy+r)],
+              scale_col(col, 0.65), outline=scale_col(pal.accent, b), ow=3)
+    dot(f, (cx, cy), 6, scale_col(pal.accent, b))
+    dot(f, (cx+4, cy), 3, (255, 255, 255))
 
 
-def runner_shape(f, pal, col, b):  # forward chevron dart
+def runner_shape(f, pal, col, b, t):
+    """Interceptor: a dart chassis with two swept-back rotor booms. Reads fast
+    because the rotors trail the nose instead of bracketing it."""
     cx, cy = S/2, S/2
-    pts = [(cx+40, cy), (cx-8, cy-26), (cx-18, cy), (cx-8, cy+26)]
-    neon_poly(f, pts, scale_col(col, 0.6), outline=scale_col(pal.accent, b), ow=3)
-    dot(f, (cx-2, cy), 6, scale_col(pal.accent, b))
-    dot(f, (cx+16, cy), 4, (255, 255, 255))
+    pods = [(cx-10, cy-27), (cx-10, cy+27)]
+    quad_pods(f, pal, col, b, t, pods, 14, (cx+6, cy), 6)
+    neon_poly(f, [(cx+42, cy), (cx+4, cy-15), (cx-22, cy-9),
+                  (cx-22, cy+9), (cx+4, cy+15)],
+              scale_col(col, 0.6), outline=scale_col(pal.accent, b), ow=3)
+    d = ImageDraw.Draw(f)
+    d.line([(cx-16, cy), (cx+22, cy)], fill=scale_col(pal.secondary, 0.9) + (255,), width=2)
+    dot(f, (cx+2, cy), 7, scale_col(pal.accent, b))
+    dot(f, (cx+20, cy), 4, (255, 255, 255))
 
 
-def hulk_shape(f, pal, col, b):  # bulky armored hexagon
+def hulk_shape(f, pal, col, b, t):
+    """Heavy lifter: an armoured hex core slung under four big rotor pods, with
+    a cargo clamp forward. The one enemy whose booms are thicker than its arms."""
     cx, cy = S/2, S/2
-    r = 40
+    pods = [(cx+26, cy-30), (cx+26, cy+30), (cx-26, cy-30), (cx-26, cy+30)]
+    quad_pods(f, pal, col, b, t, pods, 18, (cx, cy), 9)
+    r = 30
     pts = [(cx + r*math.cos(a), cy + r*math.sin(a))
            for a in [math.pi*k/3 for k in range(6)]]
     neon_poly(f, pts, scale_col(col, 0.55), outline=scale_col(pal.accent, b), ow=4)
-    # inner plating
     d = ImageDraw.Draw(f)
-    r2 = 22
-    pts2 = [(cx + r2*math.cos(a), cy + r2*math.sin(a))
-            for a in [math.pi*k/3 for k in range(6)]]
-    d.polygon(pts2, outline=(pal.secondary[0], pal.secondary[1], pal.secondary[2], 255))
+    r2 = 17
+    d.polygon([(cx + r2*math.cos(a), cy + r2*math.sin(a))
+               for a in [math.pi*k/3 for k in range(6)]],
+              outline=scale_col(pal.secondary, 1.0) + (255,))
+    # cargo clamp: two jaws off the nose
+    for sgn in (-1, 1):
+        d.line([(cx+26, cy+sgn*9), (cx+40, cy+sgn*14), (cx+44, cy+sgn*5)],
+               fill=scale_col(col, 0.85) + (255,), width=4, joint="curve")
     dot(f, (cx, cy), 8, scale_col(pal.accent, b))
 
 
-def warden_shape(f, pal, col, b):  # turret octagon + barrel facing right
+def warden_shape(f, pal, col, b, t):
+    """Gunship: octagonal turret core, forward barrel, one rotor pod above and
+    below plus two small stabiliser fans aft. Bulkier than the interceptor and
+    obviously armed."""
     cx, cy = S/2, S/2
-    r = 34
+    pods = [(cx-2, cy-32), (cx-2, cy+32)]
+    quad_pods(f, pal, col, b, t, pods, 15, (cx-2, cy), 7)
+    for sgn in (-1, 1):
+        rotor(f, (cx-28, cy+sgn*17), 9, scale_col(col, 0.8), scale_col(pal.accent, b),
+              b, 1.0 - t, blades=3, w=2)
+    r = 26
     pts = [(cx + r*math.cos(a+math.pi/8), cy + r*math.sin(a+math.pi/8))
            for a in [math.pi*k/4 for k in range(8)]]
     neon_poly(f, pts, scale_col(col, 0.5), outline=scale_col(pal.accent, b), ow=3)
     d = ImageDraw.Draw(f)
-    # barrel
-    d.rectangle([cx+r-4, cy-7, cx+r+22, cy+7],
-                fill=(scale_col(col, 0.7)[0], scale_col(col,0.7)[1], scale_col(col,0.7)[2], 255))
-    dot(f, (cx+r+22, cy), 6, scale_col(pal.accent, b))
+    d.rectangle([cx+r-6, cy-8, cx+r+20, cy+8], fill=scale_col(col, 0.7) + (255,))
+    d.rectangle([cx+r-6, cy-8, cx+r+20, cy+8],
+                outline=scale_col(pal.accent, b) + (255,), width=2)
+    dot(f, (cx+r+20, cy), 6, scale_col(pal.accent, b))
     dot(f, (cx, cy), 10, scale_col(pal.secondary, b))
     dot(f, (cx, cy), 4, (255, 255, 255))
 
@@ -193,7 +265,7 @@ def moon_shape(tier):
     """tier 1 slow shot / 2 tracking / 3 laser — one escalating family."""
     r, dx, br, ow = {1: (32, 26, 30, 3), 2: (37, 28, 33, 4), 3: (42, 27, 36, 5)}[tier]
 
-    def shape(f, pal, col, b):
+    def shape(f, pal, col, b, _t):
         cx, cy = S/2, S/2
         top, bot = _crescent(f, r, dx, br, scale_col(col, 0.55),
                              scale_col(pal.accent, b), ow)
@@ -208,6 +280,112 @@ def moon_shape(tier):
             dot(f, (cx + dx - br*0.35, cy), 9, scale_col(pal.accent, b), 210)
             dot(f, (cx + dx - br*0.35, cy), 4, (255, 255, 255))
     return shape
+
+
+# ---------------------------------------------------------------------------
+# The boss — "Capital Drone Carrier" (#10, D105). The boss used to wear an
+# `Images{"v2/enemy_hulk.png"}`, i.e. the whole 4x4 ATLAS, which is why it read
+# as a grid of hexagons. It is a single full-frame image now: one 256px carrier,
+# drawn at 512 and downsampled so the plating survives, MONO like every other
+# enemy so BossSystem's per-arena tint themes it (Foundry orange, Core magenta,
+# and so on). Single frame on purpose — the boss is a static Images wearer, not
+# a SpriteSheet, and giving it an atlas would be the exact bug again.
+# ---------------------------------------------------------------------------
+CW = 512      # carrier working canvas (downsampled to CO)
+CO = 256
+
+
+def carrier_sprite():
+    pal = MONO
+    col = pal.primary
+    f = Image.new("RGBA", (CW, CW), (0, 0, 0, 0))
+    cx, cy = CW/2, CW/2
+    hull = scale_col(col, 0.26)
+    deck = scale_col(col, 0.10)
+    plate = scale_col(col, 0.58)
+    rim = scale_col(col, 1.0)
+    d = ImageDraw.Draw(f)
+
+    # --- rotor nacelles on outrigger pylons (drawn first: they sit behind) ---
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            px, py = cx + sx*104, cy + sy*152
+            d.line([(cx + sx*60, cy + sy*62), (px, py)],
+                   fill=hull + (255,), width=26)
+            d.line([(cx + sx*60, cy + sy*62), (px, py)],
+                   fill=plate + (255,), width=6)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            px, py = cx + sx*104, cy + sy*152
+            rotor(f, (px, py), 54, scale_col(col, 0.55), rim, 1.0, 0.12, blades=4, w=7)
+            d = ImageDraw.Draw(f)
+            d.ellipse([px-58, py-58, px+58, py+58], outline=plate + (255,), width=4)
+
+    # --- hull: a long armoured spearhead ---
+    body = [(cx+236, cy), (cx+186, cy-46), (cx+120, cy-72), (cx-146, cy-92),
+            (cx-206, cy-56), (cx-206, cy+56), (cx-146, cy+92), (cx+120, cy+72),
+            (cx+186, cy+46)]
+    d.polygon(body, fill=hull + (255,))
+    d.polygon([(cx+188, cy), (cx+110, cy-46), (cx-140, cy-62), (cx-186, cy-36),
+               (cx-186, cy+36), (cx-140, cy+62), (cx+110, cy+46)],
+              fill=scale_col(col, 0.15) + (255,))
+    d.line(body + [body[0]], fill=rim + (255,), width=6)
+
+    # --- flight decks: a recessed launch trench along each flank, with bays ---
+    for sy in (-1, 1):
+        y0, y1 = cy + sy*88, cy + sy*58
+        d.rectangle([cx-140, min(y0, y1), cx+112, max(y0, y1)], fill=deck + (255,))
+        d.rectangle([cx-140, min(y0, y1), cx+112, max(y0, y1)],
+                    outline=plate + (255,), width=3)
+        for k in range(6):          # launch bays, lit
+            bx = cx - 126 + k*42
+            d.rectangle([bx, min(y0, y1)+7, bx+26, max(y0, y1)-7],
+                        fill=scale_col(col, 0.85) + (255,))
+        for k in range(3):          # docked micro-drones on the deck lip
+            mx = cx - 108 + k*84
+            my = cy + sy*46
+            d.polygon([(mx+13, my), (mx-7, my-9), (mx-2, my), (mx-7, my+9)],
+                      fill=plate + (255,))
+
+    # --- spine, ribs, bridge, radar ---
+    d.line([(cx-190, cy), (cx+200, cy)], fill=scale_col(col, 0.75) + (255,), width=5)
+    for k in range(7):
+        rx = cx - 150 + k*44
+        d.line([(rx, cy-30), (rx, cy+30)], fill=plate + (255,), width=3)
+    for r in (46, 30, 14):          # radar dish amidships
+        d.ellipse([cx-56-r, cy-r, cx-56+r, cy+r], outline=plate + (255,), width=3)
+    d.line([(cx-56, cy-46), (cx-56, cy+46)], fill=rim + (255,), width=3)
+    bridge = [(cx+118, cy), (cx+86, cy-34), (cx+34, cy-30),
+              (cx+34, cy+30), (cx+86, cy+34)]
+    d.polygon(bridge, fill=scale_col(col, 0.58) + (255,))
+    d.line(bridge + [bridge[0]], fill=rim + (255,), width=4)
+    dot(f, (cx+72, cy), 20, rim)
+    dot(f, (cx+72, cy), 10, (255, 255, 255))
+
+    # --- prow: main bay aperture, split by an armoured beak ---
+    d = ImageDraw.Draw(f)
+    for sy in (-1, 1):          # armoured beak, split by the main bay mouth
+        d.polygon([(cx+236, cy + sy*6), (cx+150, cy + sy*40), (cx+150, cy + sy*14)],
+                  fill=scale_col(col, 0.9) + (255,))
+        d.line([(cx+186, cy + sy*46), (cx+236, cy + sy*4)], fill=rim + (255,), width=5)
+        d.line([(cx+150, cy + sy*13), (cx+226, cy + sy*3)], fill=rim + (255,), width=3)
+    d.rectangle([cx+150, cy-12, cx+222, cy+12], fill=deck + (255,))
+    d.rectangle([cx+150, cy-12, cx+222, cy+12], outline=rim + (255,), width=3)
+
+    # --- engine bank aft: three nozzles + exhaust bloom ---
+    for k, ey in enumerate((-40, 0, 40)):
+        d.rectangle([cx-232, cy+ey-17, cx-198, cy+ey+17], fill=plate + (255,))
+        d.rectangle([cx-232, cy+ey-17, cx-198, cy+ey+17], outline=rim + (255,), width=3)
+        dot(f, (cx-230, cy+ey), 12, rim, 230)
+        dot(f, (cx-236, cy+ey), 6, (255, 255, 255))
+
+    # --- masts ---
+    for sy in (-1, 1):
+        d.line([(cx+20, cy + sy*72), (cx+4, cy + sy*118)], fill=plate + (255,), width=5)
+        dot(f, (cx+4, cy + sy*118), 7, rim)
+
+    f = f.resize((CO, CO), Image.LANCZOS)
+    return add_halo(f, col, spread=0.11, strength=140)
 
 
 # ---------------------------------------------------------------------------
@@ -430,6 +608,8 @@ def main():
     save_png("pickup_shield", shield_pickup())
     save_png("pickup_coin", coin_sprite())
     save_png("hazard_mine", mine_sprite())
+    # D105: the boss's carrier. Single frame, worn as Images by BossSystem.
+    save_png("enemy_boss_carrier", carrier_sprite())
 
 
 if __name__ == "__main__":

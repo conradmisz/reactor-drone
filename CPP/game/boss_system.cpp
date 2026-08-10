@@ -8,6 +8,8 @@
 #include "item_system.hpp"        // ship_of
 #include "player_components.hpp"
 #include "specialty_system.hpp"
+#include "engine/project_paths.hpp"
+#include "engine/sidecar_loader.hpp"
 #include "engine/ecs/systems/screen_stack_system.hpp"
 #include "engine/ecs/systems/ui_system.hpp"
 #include <algorithm>
@@ -108,9 +110,12 @@ void BossSystem::spawn_boss(ComponentStorage& storage, EntityManager& entity_man
                 cfg_->enemy_types[static_cast<size_t>(arena->specialty_unit)].behavior);
         }
     }
-    // ponytail: the hulk plate stood in for a capital ship. A real
-    // battlecruiser sprite is offline generator work (assets/generator/v2).
-    storage.add_component<Images>(b, Images{{"v2/enemy_hulk.png"}, 0});
+    // #10 (D105): the "Capital Drone Carrier". This wore v2/enemy_hulk.png,
+    // which is a 4x4 ATLAS — an Images wearer draws the whole texture, so the
+    // boss rendered as a grid of hexagons. enemy_boss_carrier.png is a single
+    // 256px frame for exactly that reason, and is MONO so the arena tint above
+    // themes it. Never point an Images at an atlas.
+    storage.add_component<Images>(b, Images{{"v2/enemy_boss_carrier.png"}, 0});
     storage.add_component<EnemyBehavior>(b,
         EnemyBehavior{behavior_kinds::BOSS, signature, bc.summon_interval,
                       bc.summon_interval, 0.0f});
@@ -266,6 +271,22 @@ void BossSystem::update(ComponentStorage& storage, EntityManager& entity_manager
                         const BossConfig& bc = cfg_->boss;
                         const int adds = bc.summon_count +
                                          (final_boss_ ? bc.final_summon_bonus : 0);
+                        // The adds wore no sprite at all — a Color and a Tint
+                        // only — so the fight was the carrier ringed by flat
+                        // squares. Same sidecar the wave spawner uses (D106).
+                        // ponytail: one JSON read per volley (every 6s); cache it
+                        // if it ever shows up in a profile.
+                        const EnemyType& add_type = cfg_->enemy_types[0];
+                        sidecar_loader::LoadedSprite add_art;
+                        bool have_art = false;
+                        try {
+                            add_art = sidecar_loader::load(
+                                project_paths::assets_dir() + "/" + add_type.sidecar,
+                                add_type.clip);
+                            have_art = true;
+                        } catch (const std::exception&) {
+                            have_art = false;   // Color rect fallback, as before
+                        }
                         // Adds on fixed angles: no RNG in a boss fight, so the
                         // replay stream is untouched by one (R2).
                         for (int i = 0; i < adds; ++i) {
@@ -273,7 +294,7 @@ void BossSystem::update(ComponentStorage& storage, EntityManager& entity_manager
                                             static_cast<float>(std::max(1, adds));
                             const float r = cfg_->boss.size * 0.75f;
                             Entity add = entity_manager.create_entity();
-                            const EnemyType& t = cfg_->enemy_types[0];
+                            const EnemyType& t = add_type;
                             const float sz = t.size;
                             storage.add_component<Position>(add,
                                 Position{bx + std::cos(a) * r - sz * 0.5f,
@@ -292,6 +313,10 @@ void BossSystem::update(ComponentStorage& storage, EntityManager& entity_manager
                                 Collider{sz, sz, layers::ENEMY, layers::ENEMY_MASK});
                             storage.add_component<CircleCollider>(add,
                                 CircleCollider{sz * 0.5f, 0.0f, 0.0f});
+                            if (have_art) {
+                                storage.add_component<SpriteSheet>(add, add_art.sprite_sheet);
+                                storage.add_component<Animation>(add, add_art.animation);
+                            }
                             if (auto c = storage.get_component<Color>(boss_); c.has_value()) {
                                 storage.add_component<Color>(add, c->get());
                                 storage.add_component<Tint>(add,

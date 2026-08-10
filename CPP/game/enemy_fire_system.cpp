@@ -110,6 +110,16 @@ void EnemyFireSystem::update(ComponentStorage& storage, EntityManager& entity_ma
             beh.aim = enemy_fire::turn_toward(beh.aim, want, spec.turn_rate * dt);
         }
 
+        // #3 (D109): the crescent has to POINT where it shoots. Enemies carry no
+        // Rotation by default, so the moon was drawn mouth-right forever and a
+        // shot leaving the mouth was only true when the player stood to its
+        // right. Pure rotation (flip_when_left = false) — the art is symmetric
+        // about its own axis. Render-only: nothing reads Rotation back.
+        if (auto rot = storage.get_component<Rotation>(e); rot.has_value())
+            rot->get().angle = beh.aim;
+        else
+            storage.add_component<Rotation>(e, Rotation{beh.aim, 0.0f, false});
+
         if (beh.timer > 0.0f) beh.timer -= dt;
         if (beh.timer > 0.0f || !have_player) continue;
         beh.timer = beh.cooldown;
@@ -124,8 +134,11 @@ void EnemyFireSystem::update(ComponentStorage& storage, EntityManager& entity_ma
         }
         const float angle = spec.turn_rate > 0.0f ? beh.aim
                                                   : std::atan2(py - cy, px - cx);
-        enemy_fire::spawn_shot(storage, entity_manager, cx, cy, angle,
-                               speed * spec.speed_mult, damage, beh.tier);
+        // Fire from the crescent's mouth, not the centre (#3, D109).
+        const float mz = enemy_fire::moon_muzzle_frac(beh.tier) * sz->get().width;
+        enemy_fire::spawn_shot(storage, entity_manager,
+                               cx + std::cos(angle) * mz, cy + std::sin(angle) * mz,
+                               angle, speed * spec.speed_mult, damage, beh.tier);
     }
 
     // A shot dies on the thing it hit. The laser (tier 3) is the exception: it

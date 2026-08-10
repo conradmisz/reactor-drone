@@ -74,6 +74,28 @@ inline ShotSpec shot_spec(int tier) {
 }
 
 /**
+ * moon_muzzle_frac — how far ahead of its own centre a moon shooter's mouth is,
+ * as a fraction of the entity's size (#3, D109).
+ *
+ * The crescent (`_crescent` in assets/generator/v2/make_sprites.py) is a lit
+ * disc of radius r minus a bite of radius br offset dx toward the facing
+ * direction, in a 128px frame. On the axis the lit body ends at dx-br, which is
+ * BEHIND the centre — so a shot spawned at the centre leaves through the back of
+ * the moon, which is the bug. The horn tips sit at the circle-circle
+ * intersection hx = (r^2 - br^2 + dx^2) / (2 dx): the middle of the mouth's
+ * aperture, and therefore the muzzle. Numbers mirror make_sprites' per-tier
+ * (r, dx, br) table; the formula is kept rather than the three results so the
+ * derivation is visible when that art changes.
+ */
+inline float moon_muzzle_frac(int tier) {
+    constexpr float FRAME = 128.0f;             // make_sprites.py S
+    float r = 32.0f, dx = 26.0f, br = 30.0f;    // tier 1
+    if (tier == 2)     { r = 37.0f; dx = 28.0f; br = 33.0f; }
+    else if (tier >= 3) { r = 42.0f; dx = 27.0f; br = 36.0f; }
+    return ((r * r - br * br + dx * dx) / (2.0f * dx)) / FRAME;
+}
+
+/**
  * Build one enemy projectile at (cx, cy) travelling along `angle`. Shared with
  * BossSystem, which fires the same recipe for the boss's borrowed attack.
  * `tier` rides on the shot's own EnemyBehavior so the expire step knows whether
