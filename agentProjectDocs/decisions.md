@@ -297,6 +297,102 @@ Decisions seeded from the gameplay plan (D1–D12) and made during Phases 1-4
   is a design rhythm the wave table is authored around, not a balance number.
 - **Note for the reader:** `progress-tracker.md`'s "temporarily change the `% 4`
   shop trigger to reach a late wave" tip now means `% 5` → `% 1`.
+
+### D61 — The shop is a data-authored screen, not a second UI mechanism  *(2026-08-09)*
+- **Decision:** the clickable shop is one `shop` entry in `GameData.json` →
+  `screens`, 19 widgets in the 800×600 design canvas. `ShopSystem` resolves them
+  by name through `ui.widget_id.<name>` (the `GameHUDSystem` pattern) and reads
+  confirmed clicks off `UISystem::UI_CLICK_KEY`, removing the key after handling
+  (the pattern `main.cpp` already uses for the intermission and the pause menu).
+  One `menu_tick()` call from the `// === HOOK: shop-menu ===` slot; `main.cpp`
+  gets a call, not logic (R7).
+- **Why:** the user's note was *"the shop isnt a true menu, its just a text
+  overlay"* — a presentation complaint. Every mechanism it needs already exists;
+  inventing a second widget-resolution or click-dispatch path would have been
+  the expensive way to say the same thing.
+- **Card labels are rewritten per frame, rects are authored.** The JSON owns
+  layout and style; the system owns text. An unused card is hidden by collapsing
+  its rect to zero and disabling it — `UIElement` has no visibility flag, and
+  adding one is an engine change for a menu that does not need it.
+- **Rejected:** keeping the numbered `Text` rows alongside the cards. They would
+  overdraw the panel. `menu_build()` destroys them but leaves `open_` true, so
+  the rows are the *fallback* for a data file with no `shop` screen — the shop
+  still works exactly as before if the block is missing, which is what makes the
+  screen safe to hand to a data editor.
+- **The `1`-`8` / `TAB` / `B` keyboard path is untouched**, so every existing
+  headless script and test still drives the shop.
+
+### D62 — Gear levels apply to the fitted item only  *(2026-08-09)*
+- **Decision:** `ShipState.gear_levels[i]` indexes `shop.items`. Only the
+  currently fitted item can be levelled; price is `base * price_growth^level`,
+  and a level scales the item's published `ship.item_amount` by +25% per level.
+  An item with `amount == 0` (Magnet Core, a boolean effect) is refused rather
+  than sold a level that scales zero.
+- **Why:** `ship.item_amount` is the one number every item consumer already
+  reads — repulsor push, reactive reflect, salvage multiplier (D28/D41). A level
+  lands on it with no new component, no new key and no consumer change.
+- **Rejected: levelling consumables.** Nothing reads a per-run consumable
+  amount — `items::use_consumable` takes it straight off the catalogue row — so
+  a consumable level would be a number with no effect until `item_system.hpp`
+  grows a Blackboard override. That file belongs to no lane in iteration 3;
+  `gear_levels[4..7]` are left free for whoever wires it.
+- **Rejected: a `shop.gear_amount_step` JSON knob.** The brief was explicit that
+  the catalogue data does not change, and an untuned second growth number is a
+  knob with no reader. `GEAR_AMOUNT_STEP` carries a `ponytail:` comment naming
+  the promotion path.
+- **Reusing `price_growth`** rather than a second curve keeps a levelled item
+  escalating exactly like a stacked upgrade, which is the price intuition the
+  player already has.
+
+### D63 — A screen-locked sprite needs a `Position`, not a `ScreenPosition`  *(2026-08-09)*
+- **Decision:** the drone preview is two ordinary world entities (glow disc +
+  the player's own sprite) on `RenderLayer` 6/7, whose `Position` is rewritten
+  every shop frame by inverting the camera transform, so they land on a fixed
+  point in the 800×600 design canvas.
+- **Why the plan's recipe does not work:** the iteration-3 plan says a preview is
+  a `ScreenPosition` + `Images` entity with **no** `Position`. It would never
+  draw. `RenderSystem::render` iterates `entities_with_component<Position>()` and
+  only *prefers* `ScreenPosition` for the coordinate once an entity is in that
+  list; `HUDSystem` renders `Text` only. The no-`Position` trick is correct for
+  the HUD text (a different renderer) and is what a minimap blip must NOT do, but
+  a sprite has to carry a `Position` to be seen at all.
+- **So the constraint inverts:** `CameraSystem` overwrites `ScreenPosition` from
+  `Position` every frame, so the only screen-locked recipe that needs no engine
+  change is to compute the world point that maps to the wanted screen point and
+  let `CameraSystem` re-derive it. That is `place_on_screen()`.
+- **Known ceiling:** the preview is positioned before `camera.lookat` is updated
+  later in the frame, so a *moving* camera would smear it by one frame. The arena
+  is frozen in `PHASE_SHOP`, so this only shows as a sub-frame wobble while
+  screen-shake decays into the shop.
+- **Rejected:** an `Images` field on `UIElement`. That is an engine change, a
+  component field, and a `UIRenderSystem` branch, for one sprite in one menu.
+
+### D64 — Tooltips are one repositioned label pair, not a widget kind  *(2026-08-09)*
+- **Decision:** hovering a card rewrites `shop_tip_name` / `shop_tip_desc` and
+  moves the `shop_tip_panel` to sit beside that card. Nothing hovered collapses
+  the panel rect to zero and blanks both labels.
+- **Why:** `UIState.hovered` is already a pure function of the pointer, written
+  by `UISystem` every frame, and `UIElement.rect` / `label_text` are plain
+  mutable fields the HUD gauges already rewrite. A `tooltip` element type would
+  be an engine change to say the same thing.
+- **Collapsed, not blank:** a `panel` with empty text still fills its rect, so
+  hiding means zeroing the rect. The labels skip drawing on empty text already.
+- **The tooltip column sits right of the card panel**, never over it — an
+  overlapping tooltip would sit between the pointer and the card it describes.
+
+### D65 — The UPGRADE page lives in the shop, and the intermission cadence is not this lane's  *(2026-08-09)*
+- **Decision:** gear levels are a third page of the shop screen (`UPGRADES` /
+  `GEAR` / `LEVELS` tabs), not a separate screen reachable from the intermission.
+- **Why:** the plan asked for an UPGRADE panel at *every* intermission with the
+  SHOP button only on the 5th-wave stop, but today `main.cpp` raises the
+  intermission **only** on that same `% 5 == 0` stop (D55, Lane A) — so "every
+  intermission" and "every 5th wave" are currently the same moment. Splitting the
+  panel out would have meant editing Lane A's cadence line and the
+  `wave_intermission` screen, both outside this lane's file ownership.
+- **Consequence for the integrator:** when the intermission is raised every wave,
+  the LEVELS page already exists and needs no further work here — only a button
+  on the intermission screen that enters `PHASE_SHOP` with `page_ == 2`.
+
 ### D80 — Persistence is one number, not a run snapshot  *(2026-08-09)*
 - **Decision:** `saves/meta.json` holds a single field, `lifetime_score`. It is
   read once at startup (`meta_load`) and written once per run end (`meta_write`)

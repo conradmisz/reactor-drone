@@ -1,6 +1,9 @@
 #include "shop_system.hpp"
 #include "enemy_components.hpp"    // Health
 #include "item_system.hpp"         // items::item_id_for / consumable_id_for
+#include "engine/ecs/systems/screen_stack_system.hpp"
+#include "engine/ecs/systems/ui_render_math.hpp"   // ui_canvas_transform
+#include "engine/ecs/systems/ui_system.hpp"        // UI_CLICK_KEY
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -153,36 +156,40 @@ bool ShopSystem::update(ComponentStorage& storage, Blackboard& blackboard,
     ShipState& ship = ship_opt->get();
 
     // A page flip consumes the frame: TAB and a digit can't both land anyway,
-    // and this keeps "the row you saw is the row you bought" true.
+    // and this keeps "the row you saw is the row you bought" true. TAB still
+    // walks only the two original pages; the LEVELS page is menu/keyboard-3.
     if (toggle_page) {
-        page_ = 1 - page_;
+        page_ = (page_ == 0) ? 1 : 0;
     } else if (page_ == 1) {
         buy_gear(digit - 1, player, storage, blackboard, ship);
+    } else if (page_ == 2) {
+        if (digit > 0) upgrade_gear(digit - 1, storage, blackboard, ship);
     } else {
-        const int index = digit - 1;
-        if (index >= 0 && index < static_cast<int>(cfg_->upgrades.size())) {
-            const ShopUpgradeDef& d = cfg_->upgrades[static_cast<size_t>(index)];
-            const int owned = ship.upg_counts[index];
-            const int cost = price_for(index, owned);
-            if (d.max_stacks > 0 && owned >= d.max_stacks) {
-                blackboard.set<std::string>("hud_message", d.name + " is maxed out");
-                blackboard.set<float>("hud_message_timer", 2.0f);
-            } else if (ship.currency < cost) {
-                blackboard.set<std::string>("hud_message",
-                    "Not enough credits (" + std::to_string(cost) + ")");
-                blackboard.set<float>("hud_message_timer", 2.0f);
-            } else {
-                ship.currency -= cost;
-                ship.upg_counts[index] = owned + 1;
-                apply(d, player, storage, blackboard);
-                blackboard.set<std::string>("hud_message", d.name + " installed");
-                blackboard.set<float>("hud_message_timer", 2.0f);
-            }
-        }
+        buy_upgrade(digit - 1, player, storage, blackboard, ship);
     }
 
     refresh_rows(storage, ship);
     return leave;
+}
+
+void ShopSystem::buy_upgrade(int index, Entity player, ComponentStorage& storage,
+                             Blackboard& blackboard, ShipState& ship) {
+    if (index < 0 || index >= static_cast<int>(cfg_->upgrades.size())) return;
+    const ShopUpgradeDef& d = cfg_->upgrades[static_cast<size_t>(index)];
+    const int owned = ship.upg_counts[index];
+    const int cost = price_for(index, owned);
+    if (d.max_stacks > 0 && owned >= d.max_stacks) {
+        blackboard.set<std::string>("hud_message", d.name + " is maxed out");
+    } else if (ship.currency < cost) {
+        blackboard.set<std::string>("hud_message",
+            "Not enough credits (" + std::to_string(cost) + ")");
+    } else {
+        ship.currency -= cost;
+        ship.upg_counts[index] = owned + 1;
+        apply(d, player, storage, blackboard);
+        blackboard.set<std::string>("hud_message", d.name + " installed");
+    }
+    blackboard.set<float>("hud_message_timer", 2.0f);
 }
 
 void ShopSystem::buy_gear(int index, Entity player, ComponentStorage& storage,
@@ -265,4 +272,433 @@ void ShopSystem::apply(const ShopUpgradeDef& def, Entity player,
         blackboard.set<int>("ship.extra_shots",
             blackboard.get_or<int>("ship.extra_shots", 0) + static_cast<int>(def.amount));
     }
+}
+
+// ===========================================================================
+// Lane C (D61-D65) — gear levels and the clickable menu
+// ===========================================================================
+
+namespace {
+
+// ponytail: one flat step per level rather than a per-row curve in the
+// catalogue. The brief was explicit that the catalogue data does not change, and
+// a second growth number nobody has playtested is a knob with no reader. Promote
+// to `shop.gear_amount_step` in GameData.json the moment a playtest wants to
+// tune it separately from the price.
+constexpr float GEAR_AMOUNT_STEP = 0.25f;
+
+// The drone preview, authored in the same 800x600 design canvas as the widgets
+// (see ui-context.md). The glow disc is the aura; the hull sits inside it.
+constexpr UIRect PREVIEW_SHIP{552.0f, 272.0f, 116.0f, 116.0f};
+constexpr UIRect PREVIEW_GLOW{510.0f, 230.0f, 200.0f, 200.0f};
+
+// Tooltip geometry: a fixed column just right of the card panel, vertically
+// following the hovered card.
+constexpr float TIP_X = 428.0f, TIP_W = 344.0f, TIP_H = 70.0f;
+constexpr float TIP_Y_MIN = 44.0f, TIP_Y_MAX = 486.0f;
+
+/// Aura colour per equipped item. Mirrors the live item aura in main.cpp so the
+/// preview and the flying drone agree; -1 (nothing fitted) draws no aura.
+bool aura_color(int item_id, Tint& out) {
+    switch (item_id) {
+        case item_ids::MAGNET_CORE:      out = Tint{255, 210, 90,  150, true}; return true;
+        case item_ids::REPULSOR_FIELD:   out = Tint{120, 220, 255, 150, true}; return true;
+        case item_ids::REACTIVE_PLATING: out = Tint{255, 130, 60,  150, true}; return true;
+        case item_ids::SALVAGER:         out = Tint{255, 235, 150, 150, true}; return true;
+        default: return false;
+    }
+}
+
+void set_label(ComponentStorage& storage, Entity e, const std::string& s) {
+    if (e == 0) return;
+    if (auto el = storage.get_component<UIElement>(e); el.has_value())
+        el->get().label_text = s;
+}
+
+void set_rect(ComponentStorage& storage, Entity e, const UIRect& r) {
+    if (e == 0) return;
+    if (auto el = storage.get_component<UIElement>(e); el.has_value()) el->get().rect = r;
+}
+
+void set_disabled(ComponentStorage& storage, Entity e, bool d) {
+    if (e == 0) return;
+    if (auto st = storage.get_component<UIState>(e); st.has_value()) st->get().disabled = d;
+}
+
+/// Move a world entity so it lands on a fixed window-space point. RenderSystem
+/// only draws entities that carry a Position (ScreenPosition alone is never
+/// iterated), and CameraSystem overwrites ScreenPosition every frame — so the
+/// only screen-locked recipe that needs no engine change is to invert the camera
+/// transform here and let CameraSystem re-derive the screen point (D63).
+void place_on_screen(ComponentStorage& storage, const Blackboard& blackboard,
+                     Entity e, const UIRect& design_rect) {
+    if (e == 0) return;
+    const float win_w = static_cast<float>(blackboard.get_or<int>("window_width", 980));
+    const float win_h = static_cast<float>(blackboard.get_or<int>("window_height", 660));
+    const UIRect r = ui_apply_transform(ui_canvas_transform(win_w, win_h), design_rect);
+
+    float zoom = blackboard.get_or<float>("camera.zoom", 1.0f);
+    if (zoom < 0.01f) zoom = 0.01f;
+    const float cam_left   = blackboard.get_or<float>("camera.lookat.x", 0.0f) - win_w / zoom * 0.5f;
+    const float cam_bottom = blackboard.get_or<float>("camera.lookat.y", 0.0f) - win_h / zoom * 0.5f;
+
+    if (auto p = storage.get_component<Position>(e); p.has_value()) {
+        p->get().x = cam_left   + r.x / zoom;
+        p->get().y = cam_bottom + r.y / zoom;
+    }
+    if (auto s = storage.get_component<Size>(e); s.has_value()) {
+        s->get().width  = r.w / zoom;
+        s->get().height = r.h / zoom;
+    }
+}
+
+}  // namespace
+
+int ShopSystem::gear_price(int index, int level) const {
+    if (!cfg_ || index < 0 || index >= static_cast<int>(cfg_->items.size())) return 0;
+    float p = static_cast<float>(cfg_->items[static_cast<size_t>(index)].price);
+    for (int i = 0; i < level; ++i) p *= cfg_->price_growth;
+    return static_cast<int>(std::round(p));
+}
+
+bool ShopSystem::owns_gear(const ShipState& ship, int index) const {
+    if (!cfg_ || index < 0 || index >= static_cast<int>(cfg_->items.size())) return false;
+    return ship.item_id ==
+           items::item_id_for(cfg_->items[static_cast<size_t>(index)].effect);
+}
+
+bool ShopSystem::upgrade_gear(int index, ComponentStorage& storage,
+                              Blackboard& blackboard, ShipState& ship) {
+    (void)storage;   // levels are pure ShipState + Blackboard; no component touched
+    blackboard.set<float>("hud_message_timer", 2.0f);
+    if (!cfg_ || index < 0 || index >= static_cast<int>(cfg_->items.size())) {
+        blackboard.set<std::string>("hud_message", "No gear to upgrade");
+        return false;
+    }
+    const ShopUpgradeDef& d = cfg_->items[static_cast<size_t>(index)];
+    if (!owns_gear(ship, index)) {
+        // The whole point of the LEVELS page: it upgrades what is fitted, it does
+        // not sell. Buying the item first is the GEAR page's job.
+        blackboard.set<std::string>("hud_message", d.name + " is not fitted");
+        return false;
+    }
+    if (d.amount <= 0.0f) {
+        // Magnet Core is a boolean effect (amount 0) — a level would scale zero.
+        blackboard.set<std::string>("hud_message", d.name + " has nothing to scale");
+        return false;
+    }
+    const int level = ship.gear_levels[index];
+    const int cost = gear_price(index, level);
+    if (ship.currency < cost) {
+        blackboard.set<std::string>("hud_message",
+            "Not enough credits (" + std::to_string(cost) + ")");
+        return false;
+    }
+    ship.currency -= cost;
+    ship.gear_levels[index] = level + 1;
+    // ship.item_amount is the one number every item consumer already reads
+    // (repulsor push, reactive reflect, salvage multiplier) — D28/D41.
+    blackboard.set<float>("ship.item_amount",
+        d.amount * (1.0f + GEAR_AMOUNT_STEP * static_cast<float>(level + 1)));
+    blackboard.set<std::string>("hud_message",
+        d.name + " Lv" + std::to_string(level + 1));
+    return true;
+}
+
+bool ShopSystem::menu_tick(ComponentStorage& storage, EntityManager& entity_manager,
+                           Blackboard& blackboard) {
+    if (!open_ || cfg_ == nullptr) { menu_teardown(storage, blackboard); return false; }
+    if (menu_absent_) return false;
+    if (!menu_built_ && !menu_build(storage, entity_manager, blackboard)) return false;
+
+    Entity player = 0;
+    if (!find_player(storage, player)) return false;
+    auto ship_opt = storage.get_component<ShipState>(player);
+    if (!ship_opt.has_value()) return false;
+    ShipState& ship = ship_opt->get();
+
+    // The card list the player was LOOKING at when the click was confirmed —
+    // rebuilt before the click is routed, so "the row you saw is the row you
+    // bought" survives a purchase that changes the list (fitting an item).
+    rebuild_visible(ship);
+
+    bool leave = false;
+    const std::string click =
+        blackboard.get_or<std::string>(UISystem::UI_CLICK_KEY, std::string());
+    if (click.rfind("on_shop_", 0) == 0) {
+        // Consume it: UISystem never clears the key, and an unconsumed click
+        // re-fires every frame.
+        blackboard.remove(UISystem::UI_CLICK_KEY);
+        if (click == "on_shop_leave") {
+            leave = true;
+        } else if (click.rfind("on_shop_page_", 0) == 0) {
+            const int p = click.back() - '0';
+            if (p >= 0 && p <= 2) page_ = p;
+        } else if (click.rfind("on_shop_card_", 0) == 0) {
+            buy_visible_row(click.back() - '0', player, storage, blackboard, ship);
+        }
+    }
+
+    if (leave) {
+        // Tear down here, not in the caller: the caller only knows to call
+        // close(), and the preview entities and the pushed screen are ours.
+        menu_teardown(storage, blackboard);
+        return true;
+    }
+
+    refresh_cards(storage, ship);
+    const int card = hovered_card(storage);
+    refresh_tooltip(storage, ship, card);
+    refresh_preview(storage, blackboard, ship, card);
+    return false;
+}
+
+bool ShopSystem::menu_build(ComponentStorage& storage, EntityManager& entity_manager,
+                            Blackboard& blackboard) {
+    // Same name -> entity resolution GameHUDSystem uses: the loader publishes
+    // every named widget as a double under "ui.widget_id.<name>".
+    auto id = [&](const std::string& name) -> Entity {
+        const double v = blackboard.get_or<double>("ui.widget_id." + name, -1.0);
+        return v < 0.0 ? 0 : static_cast<Entity>(v);
+    };
+
+    for (int i = 0; i < MENU_CARDS; ++i) card_[i] = id("shop_card_" + std::to_string(i));
+    if (card_[0] == 0) {
+        // No `shop` screen in this data file: stay on the legacy text list for
+        // good, rather than retrying the lookup every frame.
+        menu_absent_ = true;
+        return false;
+    }
+    for (int i = 0; i < MENU_CARDS; ++i) {
+        if (auto el = storage.get_component<UIElement>(card_[i]); el.has_value())
+            card_rect_[i] = el->get().rect;
+    }
+    for (int i = 0; i < 3; ++i) tab_[i] = id("shop_tab_" + std::to_string(i));
+    title_     = id("shop_title");
+    credits_   = id("shop_credits");
+    leave_     = id("shop_leave");
+    tip_panel_ = id("shop_tip_panel");
+    tip_name_  = id("shop_tip_name");
+    tip_desc_  = id("shop_tip_desc");
+
+    // The numbered Text rows were the thing the player complained about; with a
+    // real menu up they would only overdraw it. open_ stays true — this drops the
+    // rows, not the shop (refresh_rows() no-ops on an empty rows_).
+    for (Entity e : rows_) storage.add_component<DestroyRequest>(e, DestroyRequest{});
+    rows_.clear();
+
+    blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH, std::string(SCREEN_NAME));
+    menu_pushed_ = true;
+
+    // Preview: two plain world entities on a high RenderLayer, drawn under the UI
+    // in the panel-free right half of the canvas. Position is rewritten every
+    // frame by place_on_screen (D63).
+    auto make_preview = [&](int layer) {
+        Entity e = entity_manager.create_entity();
+        storage.add_component<Position>(e, Position{0.0f, 0.0f});
+        storage.add_component<Size>(e, Size{1.0f, 1.0f});
+        storage.add_component<RenderLayer>(e, RenderLayer{layer});
+        return e;
+    };
+    preview_glow_ = make_preview(6);
+    storage.add_component<Images>(preview_glow_,
+        Images{{"images/v2/glow_disc_128.png"}, 0});
+    storage.add_component<Tint>(preview_glow_, Tint{255, 255, 255, 0, true});
+
+    preview_ship_ = make_preview(7);
+    // Borrow whatever art the live drone is wearing, so the preview follows the
+    // selected ship (Lane F) without this system knowing anything about ships.
+    for (Entity p : storage.entities_with_component<PlayerTag>()) {
+        if (auto ss = storage.get_component<SpriteSheet>(p); ss.has_value())
+            storage.add_component<SpriteSheet>(preview_ship_, ss->get());
+        else if (auto im = storage.get_component<Images>(p); im.has_value())
+            storage.add_component<Images>(preview_ship_, im->get());
+        break;
+    }
+
+    page_ = 0;
+    menu_built_ = true;
+    return true;
+}
+
+void ShopSystem::menu_teardown(ComponentStorage& storage, Blackboard& blackboard) {
+    if (menu_pushed_) {
+        blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
+        menu_pushed_ = false;
+    }
+    for (Entity* e : {&preview_glow_, &preview_ship_}) {
+        if (*e != 0) storage.add_component<DestroyRequest>(*e, DestroyRequest{});
+        *e = 0;
+    }
+    menu_built_ = false;
+    visible_.clear();
+    tip_name_text_.clear();
+    tip_detail_text_.clear();
+}
+
+void ShopSystem::rebuild_visible(const ShipState& ship) {
+    visible_.clear();
+    if (cfg_ == nullptr) return;
+    const int cap = MENU_CARDS;
+    if (page_ == 0) {
+        for (int i = 0; i < static_cast<int>(cfg_->upgrades.size()) && i < cap; ++i)
+            visible_.push_back(i);
+    } else if (page_ == 1) {
+        const int total = static_cast<int>(cfg_->items.size() + cfg_->consumables.size());
+        for (int i = 0; i < total && i < cap; ++i) visible_.push_back(i);
+    } else {
+        for (int i = 0; i < static_cast<int>(cfg_->items.size()) && i < cap; ++i)
+            if (owns_gear(ship, i)) visible_.push_back(i);
+    }
+}
+
+void ShopSystem::refresh_cards(ComponentStorage& storage, const ShipState& ship) {
+    rebuild_visible(ship);
+
+    static const char* kPageTitle[3] = {"REACTOR SHOP - UPGRADES",
+                                        "REACTOR SHOP - GEAR",
+                                        "REACTOR SHOP - GEAR LEVELS"};
+    set_label(storage, title_, kPageTitle[page_ < 0 || page_ > 2 ? 0 : page_]);
+    set_label(storage, credits_, "Credits: " + std::to_string(ship.currency) +
+                                 "    Keys: " + std::to_string(ship.keys));
+    for (int i = 0; i < 3; ++i) set_disabled(storage, tab_[i], i == page_);
+
+    const int n_items = static_cast<int>(cfg_->items.size());
+    for (int c = 0; c < MENU_CARDS; ++c) {
+        if (c >= static_cast<int>(visible_.size())) {
+            // An empty card must not draw its button body: UIElement has no
+            // visibility flag, so a zero-width rect is the hide (and disabled
+            // keeps it out of hit-testing and keyboard focus).
+            set_rect(storage, card_[c], UIRect{card_rect_[c].x, card_rect_[c].y, 0.0f, 0.0f});
+            set_label(storage, card_[c], std::string());
+            set_disabled(storage, card_[c], true);
+            continue;
+        }
+        set_rect(storage, card_[c], card_rect_[c]);
+        set_disabled(storage, card_[c], false);
+
+        const int idx = visible_[static_cast<size_t>(c)];
+        std::string line;
+        if (page_ == 0) {
+            const ShopUpgradeDef& d = cfg_->upgrades[static_cast<size_t>(idx)];
+            const int owned = ship.upg_counts[idx];
+            const bool maxed = d.max_stacks > 0 && owned >= d.max_stacks;
+            line = d.name + "  +" + num(d.amount);
+            if (owned > 0) line += " x" + std::to_string(owned);
+            line += maxed ? "   MAX"
+                          : "   " + std::to_string(price_for(idx, owned)) + " cr";
+        } else if (page_ == 1) {
+            const bool is_item = idx < n_items;
+            const ShopUpgradeDef& d = is_item
+                ? cfg_->items[static_cast<size_t>(idx)]
+                : cfg_->consumables[static_cast<size_t>(idx - n_items)];
+            const int gid = is_item ? items::item_id_for(d.effect)
+                                    : items::consumable_id_for(d.effect);
+            const bool held = is_item ? (ship.item_id == gid) : (ship.consumable_id == gid);
+            line = (is_item ? "ITEM " : "USE  ") + d.name +
+                   (held ? "   EQUIPPED" : "   " + std::to_string(d.price) + " cr");
+        } else {
+            const ShopUpgradeDef& d = cfg_->items[static_cast<size_t>(idx)];
+            const int level = ship.gear_levels[idx];
+            line = d.name + "  Lv" + std::to_string(level);
+            line += (d.amount <= 0.0f) ? "   NO SCALING"
+                                       : "   " + std::to_string(gear_price(idx, level)) + " cr";
+        }
+        set_label(storage, card_[c], line);
+    }
+
+    // The LEVELS page with nothing fitted is a dead-end unless it says why.
+    if (page_ == 2 && visible_.empty()) {
+        set_rect(storage, card_[0], card_rect_[0]);
+        set_label(storage, card_[0], "No gear fitted - buy an item first");
+        set_disabled(storage, card_[0], true);
+    }
+}
+
+int ShopSystem::hovered_card(const ComponentStorage& storage) const {
+    for (int c = 0; c < MENU_CARDS; ++c) {
+        if (card_[c] == 0) continue;
+        auto st = storage.get_component<UIState>(card_[c]);
+        if (st.has_value() && st->get().hovered && !st->get().disabled) return c;
+    }
+    return -1;
+}
+
+void ShopSystem::refresh_tooltip(ComponentStorage& storage, const ShipState& ship,
+                                 int card) {
+    tip_name_text_.clear();
+    tip_detail_text_.clear();
+
+    if (card >= 0 && card < static_cast<int>(visible_.size())) {
+        const int idx = visible_[static_cast<size_t>(card)];
+        const int n_items = static_cast<int>(cfg_->items.size());
+        if (page_ == 0) {
+            const ShopUpgradeDef& d = cfg_->upgrades[static_cast<size_t>(idx)];
+            tip_name_text_ = d.name;
+            tip_detail_text_ = "+" + num(d.amount) + " " + d.effect + " per stack, owned " +
+                               std::to_string(ship.upg_counts[idx]) +
+                               (d.max_stacks > 0 ? "/" + std::to_string(d.max_stacks)
+                                                 : std::string());
+        } else if (page_ == 1) {
+            const bool is_item = idx < n_items;
+            const ShopUpgradeDef& d = is_item
+                ? cfg_->items[static_cast<size_t>(idx)]
+                : cfg_->consumables[static_cast<size_t>(idx - n_items)];
+            tip_name_text_ = d.name;
+            tip_detail_text_ = d.effect + (is_item ? " - fills the item slot"
+                                                   : " - fills the [Q] slot");
+        } else {
+            const ShopUpgradeDef& d = cfg_->items[static_cast<size_t>(idx)];
+            const int level = ship.gear_levels[idx];
+            tip_name_text_ = d.name;
+            tip_detail_text_ = "Lv" + std::to_string(level) + " -> Lv" +
+                               std::to_string(level + 1) + ", +" +
+                               std::to_string(static_cast<int>(GEAR_AMOUNT_STEP * 100.0f)) +
+                               "% " + d.effect;
+        }
+    }
+
+    set_label(storage, tip_name_, tip_name_text_);
+    set_label(storage, tip_desc_, tip_detail_text_);
+    if (tip_name_text_.empty()) {
+        // Collapsed, not merely blank: a panel with empty text still fills a rect.
+        set_rect(storage, tip_panel_, UIRect{TIP_X, TIP_Y_MIN, 0.0f, 0.0f});
+        return;
+    }
+    float y = card_rect_[card].y - 16.0f;
+    y = std::max(TIP_Y_MIN, std::min(TIP_Y_MAX, y));
+    set_rect(storage, tip_panel_, UIRect{TIP_X, y, TIP_W, TIP_H});
+    set_rect(storage, tip_name_,  UIRect{TIP_X + 12.0f, y + 40.0f, TIP_W - 24.0f, 24.0f});
+    set_rect(storage, tip_desc_,  UIRect{TIP_X + 12.0f, y + 12.0f, TIP_W - 24.0f, 22.0f});
+}
+
+void ShopSystem::refresh_preview(ComponentStorage& storage, const Blackboard& blackboard,
+                                 const ShipState& ship, int card) {
+    // Nothing hovered -> the drone as it is right now. That is the answer to
+    // "what does my ship look like equipped" when the player is not shopping a
+    // specific row.
+    int show_item = ship.item_id;
+    if (card >= 0 && card < static_cast<int>(visible_.size())) {
+        const int idx = visible_[static_cast<size_t>(card)];
+        const int n_items = static_cast<int>(cfg_->items.size());
+        if (page_ == 2 || (page_ == 1 && idx < n_items))
+            show_item = items::item_id_for(cfg_->items[static_cast<size_t>(idx)].effect);
+    }
+
+    place_on_screen(storage, blackboard, preview_ship_, PREVIEW_SHIP);
+    place_on_screen(storage, blackboard, preview_glow_, PREVIEW_GLOW);
+
+    Tint aura{};
+    const bool lit = aura_color(show_item, aura);
+    if (auto t = storage.get_component<Tint>(preview_glow_); t.has_value())
+        t->get() = lit ? aura : Tint{255, 255, 255, 0, true};
+}
+
+void ShopSystem::buy_visible_row(int card, Entity player, ComponentStorage& storage,
+                                 Blackboard& blackboard, ShipState& ship) {
+    if (card < 0 || card >= static_cast<int>(visible_.size())) return;
+    const int idx = visible_[static_cast<size_t>(card)];
+    if (page_ == 0)      buy_upgrade(idx, player, storage, blackboard, ship);
+    else if (page_ == 1) buy_gear(idx, player, storage, blackboard, ship);
+    else                 upgrade_gear(idx, storage, blackboard, ship);
 }
