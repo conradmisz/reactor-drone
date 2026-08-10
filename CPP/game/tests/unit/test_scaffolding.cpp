@@ -95,12 +95,11 @@ TEST_CASE("the scaffolded config blocks parse from the shipped GameData",
     // its line here and asserts the real thing in its own test file.
     CHECK_THAT(cfg.sustain.interval, WithinAbs(0.0f, 1e-5f));  // no pickups placed
     CHECK_FALSE(cfg.minimap.enabled);                          // no minimap drawn
-    CHECK(cfg.actives.empty());                                // no actives offered
 
     // Boss flags are live as of Lane A (D53) — asserted in test_wave_arc.cpp.
-    // No enemy type has a behaviour yet (Lane D authors those).
-    for (const EnemyType& t : cfg.enemy_types) CHECK(t.behavior.empty());
-    for (const ArenaDef& a : cfg.arenas) CHECK(a.specialty_unit == -1);
+    // `actives`, the enemy behaviours and ArenaDef::specialty_unit went live with
+    // Lane D (D66-D75); their three "still inert" lines were deleted here and the
+    // real behaviour is asserted in test_enemy_fire / test_specialty / test_boss.
 }
 
 TEST_CASE("the scaffolded ShipState fields default to off", "[Game][scaffold]") {

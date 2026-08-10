@@ -60,6 +60,13 @@
 #include "pickup_system.hpp"
 #include "wave_spawner_system.hpp"
 #include "shop_system.hpp"
+// Iteration 3 / Lane D (#3, #9, #4). Headers only — every call site is inside
+// this lane's four `// === HOOK: ... ===` blocks, and every system instance is a
+// function-local static in the block that owns it, so no other lane's lines move.
+#include "enemy_fire_system.hpp"
+#include "specialty_system.hpp"
+#include "boss_system.hpp"
+#include "active_items.hpp"
 
 // UI & menu layer (Option-040 port).
 #include "engine/lua_manager.hpp"
@@ -906,6 +913,48 @@ int main(int argc, char* argv[]) {
             // Owner: the boss phase. Runs straight after the spawner so a wave
             // flagged `boss` can spawn its boss and hold the clear condition in
             // the same frame the spawner would otherwise have finished the wave.
+            {
+                static BossSystem boss_system;
+                boss_system.set_config(&config);
+                boss_system.update(component_storage, entity_manager, blackboard,
+                                   wave_spawner);
+
+                // D72 — the wave-50 finale transforms the map MID-FIGHT.
+                //
+                // >>> MERGE ACTION (integrator), exactly one line: <<<
+                //   replace   lane_d_arena_shift_stub(idx);
+                //   with      begin_arena_shift(idx);
+                // Lane E's begin_arena_shift(int) is THE transition and is
+                // callable mid-wave. This worktree was cut before that merge, so
+                // it cannot name the symbol and still compile. The stub below is
+                // NOT a second transition: it sets the very same Phase-5b
+                // crossfade fields this file already drives on a cleared wave
+                // (outgoing_backdrop / active_backdrop / shift_timer /
+                // shift_pending), so behaviour is the subset of Lane E's that
+                // predates it. Deliberately NOT named begin_arena_shift, because
+                // a block-scoped lambda of that name would silently shadow Lane
+                // E's after the merge and the wiring would look done while doing
+                // the old thing.
+                if (boss_system.wants_arena_shift()) {
+                    boss_system.clear_arena_shift_request();
+                    // By name, not a magic index: the void is the 9th entry today
+                    // and must not become a number in two places.
+                    int idx = -1;
+                    for (size_t i = 0; i < config.arenas.size(); ++i)
+                        if (config.arenas[i].name == "Singularity") idx = static_cast<int>(i);
+                    auto lane_d_arena_shift_stub = [&](int want) {
+                        if (want < 0 || want == active_arena) return;
+                        const ArenaDef& def = config.arenas[static_cast<size_t>(want)];
+                        outgoing_backdrop = active_backdrop;
+                        active_backdrop = &def.backdrop_layers;
+                        shift_timer = 0.0f;
+                        shift_pending = want;
+                        blackboard.set<std::string>("hud_message", def.name + " — arena shift");
+                        blackboard.set<float>("hud_message_timer", SHIFT_SECONDS + 1.4f);
+                    };
+                    lane_d_arena_shift_stub(idx);
+                }
+            }
             // === END HOOK: boss ===
 
             // D15: wave_just_cleared() is a plain getter reset at the top of the
@@ -1005,12 +1054,25 @@ int main(int argc, char* argv[]) {
             // Owner: the enemy-projectile phase. After the seek step so a shot is
             // aimed from where the enemy actually is this frame, and before
             // movement so a new shot moves on the frame it is born.
+            {
+                // Function-local static: the system owns no per-run state (its
+                // timers all live on EnemyBehavior), and this keeps every line
+                // Lane D adds to main.cpp inside a hook block. D66.
+                static EnemyFireSystem enemy_fire;
+                enemy_fire.set_config(&config);
+                enemy_fire.update(component_storage, entity_manager, blackboard);
+            }
             // === END HOOK: enemy-fire ===
 
             // === HOOK: specialty === (Iteration 3, D51 — Lane D / #9)
             // Owner: the per-arena specialty-unit phase (spitter trails, mines,
             // bulwark facing, splitter). Immediately after enemy-fire because both
             // are "what this enemy does beyond seeking", driven by EnemyBehavior.
+            {
+                static SpecialtySystem specialty;
+                specialty.set_config(&config);
+                specialty.update(component_storage, entity_manager, blackboard);
+            }
             // === END HOOK: specialty ===
 
             movement.update(component_storage, blackboard);
@@ -1043,6 +1105,21 @@ int main(int argc, char* argv[]) {
             // repulsion field). Beside use_consumable because it is the same kind
             // of moment — a player-triggered one-shot — and the repulsion field
             // reuses items::repulse_enemies, which has already run this frame.
+            {
+                // E fires the aimed actives; the repulsion device is not on a key
+                // at all (it auto-triggers below 20% hull). The edge is a
+                // function-local static rather than another `*_prev` beside the
+                // others at the top of the loop, which are outside this hook.
+                // ponytail: no `--keys E` alias — the scripted-key parser is not
+                // this lane's to edit, so the actives are covered by unit tests
+                // rather than by a headless script. See the report.
+                static bool e_prev = false;
+                const bool e_now = keys[SDL_SCANCODE_E];
+                const bool e_edge = e_now && !e_prev;
+                e_prev = e_now;
+                actives::tick(component_storage, entity_manager, blackboard,
+                              config, e_edge);
+            }
             // === END HOOK: actives ===
 
             player_fire.update(component_storage, entity_manager, blackboard);

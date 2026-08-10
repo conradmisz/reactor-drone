@@ -131,6 +131,12 @@ struct EnemyType {
     float fire_interval = 0.0f;    // seconds between actions; 0 = the kind's default
     float shot_speed = 260.0f;     // projectile speed for shooting kinds
     float shot_damage = 8.0f;      // projectile contact damage for shooting kinds
+    // Iteration 3 (D67): the wave at which this type starts being *injected* into
+    // the stream on the specialty cadence, independent of any wave's `types` list.
+    // 0 = never injected (the default, i.e. every type shipped before iteration 3
+    // and the four specialty units, which are chosen by their arena instead).
+    // This is how moon_1/2/3 arrive at waves 3/15/30 without editing 50 wave rows.
+    int first_wave = 0;
     int currency = 1;   // value of each currency pickup this type drops
     // v2 Phase 5: P(a kill of this type drops anything at all). Sparks pay
     // rarely, hulks pay reliably, so target prioritisation has a reason to exist
@@ -276,6 +282,26 @@ struct MinimapConfig {
     int   max_blips = 120;        // hard cap; the overflow is logged, never silent
 };
 
+/**
+ * SpecialtyConfig — how the two iteration-3 injections reach the spawn stream
+ * (#3/#9, D67). Both are *cadences over the spawn counter*, not RNG, so a replay
+ * of a seed spawns the same units in the same order.
+ *
+ * `by_arena` maps an ArenaDef::name onto an enemy_types row name; the loader
+ * resolves it into ArenaDef::specialty_unit. A name map rather than an index
+ * written into each arena entry: the arena entries and the enemy_types list are
+ * authored by different lanes, and an index would silently rot if either moved.
+ */
+struct SpecialtyPick { std::string arena; std::string type; };
+
+struct SpecialtyConfig {
+    int every_n_spawns = 0;       // one arena specialty unit every N spawns; 0 = off
+    int moon_every_n_spawns = 0;  // one unlocked shooter every N spawns; 0 = off
+    std::vector<SpecialtyPick> by_arena;
+    float tier2_hp_mult = 1.6f;   // second pass (waves 26-50): same unit, harder
+    float tier2_speed_mult = 1.15f;
+};
+
 /// BossConfig — the every-10th-wave boss (#4, Lane D).
 struct BossConfig {
     float health = 3000.0f;       // base HP at the first boss; scales per appearance
@@ -285,6 +311,13 @@ struct BossConfig {
     float summon_interval = 6.0f; // seconds between waves of adds
     int   summon_count = 4;       // adds per summon
     int   reward_choices = 3;     // actives offered on the kill
+    // Iteration 3 (D72): the last boss wave is a different fight, not just a
+    // bigger one — extra HP on top of the growth curve and extra adds per summon.
+    float final_mult = 1.8f;      // health multiplier on the LAST boss wave
+    int   final_summon_bonus = 4; // extra adds per summon on the last boss wave
+    // Fraction of max HP at which the wave-50 boss asks for the arena shift.
+    // See the SEAM comment in boss_system.cpp — nothing consumes it yet.
+    float shift_hp_frac = 0.5f;
 };
 
 /// ActiveItemDef — one boss-reward active (#4/new-feature note, Lane D).
@@ -318,6 +351,11 @@ struct DifficultyDef {
     float currency_mult = 1.0f;        // credit value of each drop
     float hazard_damage_mult = 1.0f;
     int   type_lookahead = 0;          // waves of enemy-type unlock pulled forward
+    // Iteration 3 (D73): "more lethal ... boss" was the one hard-mode ask that
+    // could not ship until the boss did. ONE field, scaled in apply_difficulty
+    // alongside everything else, rather than a boss-specific difficulty path.
+    // Scales boss HP and boss contact damage together.
+    float boss_mult = 1.0f;
 };
 
 struct GameConfig {
@@ -342,6 +380,7 @@ struct GameConfig {
     DashConfig dash;               // #5 thruster dash
     MinimapConfig minimap;         // #7 minimap
     BossConfig boss;               // #4 boss every 10 waves
+    SpecialtyConfig specialty;     // #3/#9 spawn-stream injections
     std::vector<ActiveItemDef> actives;  // boss-reward active items
     unsigned int seed = 1234u;     // RNG seed for spread/spawn/drops
 };
@@ -428,6 +467,23 @@ inline void apply_difficulty(GameConfig& cfg, const DifficultyDef& d) {
     for (ArenaDef& a : cfg.arenas) {
         for (HazardDef& h : a.hazards) h.damage *= d.hazard_damage_mult;
     }
+
+    // Iteration 3 (D67): the moon shooters are not in any wave's `types` list —
+    // they are injected on a spawn cadence from their own first_wave. That is a
+    // second unlock axis, so type_lookahead has to pull it forward too, or Hard's
+    // "enemy types arrive earlier" promise would silently skip half the roster.
+    if (d.type_lookahead > 0) {
+        for (EnemyType& t : cfg.enemy_types) {
+            if (t.first_wave > 1) {
+                t.first_wave = std::max(1, t.first_wave - d.type_lookahead);
+            }
+        }
+    }
+
+    // D73: the boss is enemy-side like everything else here, so it scales with
+    // the same one-field discipline rather than a boss-specific difficulty path.
+    cfg.boss.health *= d.boss_mult;
+    cfg.boss.contact_damage *= d.boss_mult;
 }
 
 /// Parse GameData.json into a GameConfig. Missing fields fall back to defaults;

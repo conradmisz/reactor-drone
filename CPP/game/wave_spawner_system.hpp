@@ -34,6 +34,39 @@ inline Vec2 ring_spawn_point(float player_x, float player_y, float angle,
 }
 
 /**
+ * unlocked_injections — the enemy_types rows eligible for cadence injection at
+ * `wave` (Iteration 3, D67): every row with a positive `first_wave` that the run
+ * has reached. Pure, so the moon-unlock schedule unit-tests without a game loop.
+ */
+inline std::vector<int> unlocked_injections(const std::vector<EnemyType>& types, int wave) {
+    std::vector<int> out;
+    for (size_t i = 0; i < types.size(); ++i) {
+        if (types[i].first_wave > 0 && types[i].first_wave <= wave)
+            out.push_back(static_cast<int>(i));
+    }
+    return out;
+}
+
+/**
+ * injected_type — the enemy_types row this spawn should use instead of the wave's
+ * roster pick, or -1 for "use the roster" (Iteration 3, D67).
+ *
+ * Two cadences over the 0-based spawn counter, never RNG, so a replay of a seed
+ * spawns the same units in the same order. The arena's specialty unit outranks a
+ * moon on a spawn that both would claim: the specialty unit is the rarer of the
+ * two and is what makes an arena feel like itself.
+ */
+inline int injected_type(int spawn_index, const SpecialtyConfig& sp,
+                         int specialty_unit, const std::vector<int>& moons) {
+    const int n = spawn_index + 1;
+    if (sp.every_n_spawns > 0 && specialty_unit >= 0 && n % sp.every_n_spawns == 0)
+        return specialty_unit;
+    if (sp.moon_every_n_spawns > 0 && !moons.empty() && n % sp.moon_every_n_spawns == 0)
+        return moons[static_cast<size_t>(n / sp.moon_every_n_spawns - 1) % moons.size()];
+    return -1;
+}
+
+/**
  * WaveSpawnerSystem — spawns enemies around the arena ring in escalating waves.
  *
  * Class-090's spawner, changed to place enemies at a random angle on the arena's
@@ -56,11 +89,22 @@ public:
         enemy_r_ = r; enemy_g_ = g; enemy_b_ = b;
     }
 
+    /**
+     * Iteration 3 (D70): hold the wave open. BossSystem raises this the frame it
+     * spawns a boss and drops it once the reward has been taken, which is how
+     * "the wave clears when the boss dies" is expressed without the spawner
+     * knowing anything about bosses. Spawning is unaffected — only the clear (and
+     * therefore the stall force-kill, which would otherwise execute the boss).
+     */
+    void set_clear_hold(bool held) { clear_hold_ = held; }
+    bool clear_hold() const { return clear_hold_; }
+
     void update(Blackboard& blackboard,
                 EntityManager& entity_manager,
                 ComponentStorage& component_storage);
 
     void reset() {
+        clear_hold_ = false;
         current_wave_ = 0;
         enemies_spawned_ = 0;
         elapsed_time_ = 0.0f;
@@ -98,6 +142,7 @@ private:
     float stall_timer_ = 0.0f;      // seconds a finished wave has waited on stragglers
     bool all_waves_complete_ = false;
     bool wave_just_cleared_ = false;
+    bool clear_hold_ = false;       // BossSystem holds a boss wave open (D70)
 };
 
 #endif // WAVE_SPAWNER_SYSTEM_HPP

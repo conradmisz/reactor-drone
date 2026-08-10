@@ -80,20 +80,17 @@ inline ShipState* ship_of(ComponentStorage& storage, Entity& out_player) {
  * being flung past it, and the push is tuned below the slowest enemy's speed so
  * nothing can ever be held forever (which would stall D4's arena-clear gate).
  */
-inline void repulse_enemies(ComponentStorage& storage, const Blackboard& blackboard,
-                            float radius, float dt) {
-    Entity player = 0;
-    ShipState* ship = ship_of(storage, player);
-    if (ship == nullptr || ship->item_id != item_ids::REPULSOR_FIELD) return;
-    const float push = blackboard.get_or<float>("ship.item_amount", 0.0f);
+/**
+ * The push itself, without the "is the Repulsor Field equipped" question.
+ *
+ * Extracted (Iteration 3, D74) so the boss-reward repulsion device can reuse the
+ * exact same shove instead of copying it — it is the same effect from a different
+ * trigger, and two copies of a clamped push would drift apart the first time
+ * either is retuned.
+ */
+inline void push_enemies_out(ComponentStorage& storage, float px, float py,
+                             float radius, float push, float dt) {
     if (push <= 0.0f || radius <= 0.0f || dt <= 0.0f) return;
-
-    auto pos = storage.get_component<Position>(player);
-    auto sz = storage.get_component<Size>(player);
-    if (!pos.has_value() || !sz.has_value()) return;
-    const float px = pos->get().x + sz->get().width * 0.5f;
-    const float py = pos->get().y + sz->get().height * 0.5f;
-
     for (Entity e : storage.entities_with_component<EnemyTag>()) {
         auto epos = storage.get_component<Position>(e);
         auto esz = storage.get_component<Size>(e);
@@ -107,6 +104,20 @@ inline void repulse_enemies(ComponentStorage& storage, const Blackboard& blackbo
         epos->get().x += dx / d * step;
         epos->get().y += dy / d * step;
     }
+}
+
+inline void repulse_enemies(ComponentStorage& storage, const Blackboard& blackboard,
+                            float radius, float dt) {
+    Entity player = 0;
+    ShipState* ship = ship_of(storage, player);
+    if (ship == nullptr || ship->item_id != item_ids::REPULSOR_FIELD) return;
+    auto pos = storage.get_component<Position>(player);
+    auto sz = storage.get_component<Size>(player);
+    if (!pos.has_value() || !sz.has_value()) return;
+    push_enemies_out(storage,
+                     pos->get().x + sz->get().width * 0.5f,
+                     pos->get().y + sz->get().height * 0.5f,
+                     radius, blackboard.get_or<float>("ship.item_amount", 0.0f), dt);
 }
 
 /**

@@ -1,10 +1,22 @@
 #include "enemy_death_system.hpp"
 #include "enemy_components.hpp"   // EnemyTag, Health
 #include "player_components.hpp"  // ContactDamage, Pickup
+#include "collision_layers.hpp"
 #include "feedback.hpp"           // add_trauma
 #include "engine/project_paths.hpp"
+#include <algorithm>
 #include <cmath>
 #include <string>
+
+namespace {
+// Iteration 3 (D68): the Prism splitter's children. Two units at 60% size and
+// 40% of the parent's max HP is a net 20% HP gain for the player's trouble, paid
+// for with 35% more speed — the split is meant to be an inconvenience, not a
+// health bar that doubles.
+constexpr float SPLIT_SIZE_FRAC  = 0.6f;
+constexpr float SPLIT_HP_FRAC    = 0.4f;
+constexpr float SPLIT_SPEED_MULT = 1.35f;
+}  // namespace
 
 const sidecar_loader::LoadedSprite* EnemyDeathSystem::effect_sprite() {
     if (effect_.has_value()) return &effect_.value();
@@ -151,6 +163,65 @@ void EnemyDeathSystem::update(ComponentStorage& component_storage,
             e.start_size = 7.0f; e.end_size = 0.0f;
             component_storage.add_component<ParticleEmitter>(burst, e);
             component_storage.add_component<Lifetime>(burst, Lifetime{0.10f});
+        }
+
+        // Iteration 3 (D68): the Prism arena's splitter. Two smaller units on
+        // death, and only from a tier >= 1 parent — the children carry no
+        // EnemyBehavior at all, which is what stops an infinite split.
+        //
+        // Sited after drop_loot deliberately: drop_loot is the only RNG in this
+        // function, the split draws none, and putting the split first would still
+        // be safe but would make the ordering rule harder to see (R2).
+        if (auto beh = component_storage.get_component<EnemyBehavior>(enemy);
+            beh.has_value() && beh->get().kind == behavior_kinds::SPLITTER &&
+            beh->get().tier >= 1) {
+            auto pos = component_storage.get_component<Position>(enemy);
+            auto sz  = component_storage.get_component<Size>(enemy);
+            auto hp  = component_storage.get_component<Health>(enemy);
+            if (pos.has_value() && sz.has_value() && hp.has_value()) {
+                const float w = sz->get().width * SPLIT_SIZE_FRAC;
+                const float child_hp = std::max(1.0f, hp->get().max_hp * SPLIT_HP_FRAC);
+                const float cx = pos->get().x + sz->get().width * 0.5f;
+                const float cy = pos->get().y + sz->get().height * 0.5f;
+                const float off = sz->get().width * 0.45f;
+                for (int s = -1; s <= 1; s += 2) {
+                    Entity child = entity_manager.create_entity();
+                    component_storage.add_component<Position>(child,
+                        Position{cx + static_cast<float>(s) * off - w * 0.5f, cy - w * 0.5f});
+                    component_storage.add_component<Size>(child, Size{w, w});
+                    component_storage.add_component<Velocity>(child, Velocity{0.0f, 0.0f});
+                    component_storage.add_component<Health>(child, Health{child_hp, child_hp});
+                    component_storage.add_component<EnemyTag>(child, EnemyTag{});
+                    component_storage.add_component<RenderLayer>(child, RenderLayer{2});
+                    component_storage.add_component<Collider>(child,
+                        Collider{w, w, layers::ENEMY, layers::ENEMY_MASK});
+                    component_storage.add_component<CircleCollider>(child,
+                        CircleCollider{w * 0.5f, 0.0f, 0.0f});
+                    if (auto pf = component_storage.get_component<PathFollower>(enemy);
+                        pf.has_value()) {
+                        PathFollower child_pf = pf->get();
+                        child_pf.speed *= SPLIT_SPEED_MULT;
+                        child_pf.repath_timer = 0.0f;
+                        component_storage.add_component<PathFollower>(child, child_pf);
+                    }
+                    if (auto c = component_storage.get_component<Color>(enemy); c.has_value())
+                        component_storage.add_component<Color>(child, c->get());
+                    if (auto t = component_storage.get_component<Tint>(enemy); t.has_value())
+                        component_storage.add_component<Tint>(child, t->get());
+                    if (auto ss = component_storage.get_component<SpriteSheet>(enemy); ss.has_value())
+                        component_storage.add_component<SpriteSheet>(child, ss->get());
+                    if (auto an = component_storage.get_component<Animation>(enemy); an.has_value())
+                        component_storage.add_component<Animation>(child, an->get());
+                    ContactDamage child_cd{8.0f, 5, 1, 0.5f};
+                    if (cd.has_value()) {
+                        child_cd = cd->get();
+                        child_cd.amount *= SPLIT_SIZE_FRAC;
+                        child_cd.score = std::max(1, child_cd.score / 2);
+                        child_cd.currency = std::max(1, child_cd.currency / 2);
+                    }
+                    component_storage.add_component<ContactDamage>(child, child_cd);
+                }
+            }
         }
 
         // v2 Phase 4: every kill adds a little camera trauma.
