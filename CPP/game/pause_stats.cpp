@@ -8,6 +8,7 @@
 #include "enemy_components.hpp"    // Health
 #include "game_hud_system.hpp"     // hud_visible_in_phase — one visibility rule
 #include "player_components.hpp"   // PlayerTag, ShipState, WeaponStats
+#include "prestige.hpp"            // PRESTIGE_LEVEL_KEY, prestige_summary (Lane O)
 
 namespace pause_stats {
 namespace {
@@ -81,8 +82,9 @@ std::vector<std::string> stat_lines(const Snapshot& s,
     std::vector<std::string> out;
     out.reserve(MAX_LINES);
 
-    if (s.prestige > 0)
-        out.push_back(row("PRESTIGE", fmt("%.0f", static_cast<double>(s.prestige))));
+    // The summary already reads "PRESTIGE n  +x% HULL ...", so it is one whole
+    // line rather than a label/value pair (#5 asks for the bonuses, not the level).
+    if (s.prestige > 0) out.push_back(prestige_summary(s.prestige));
 
     out.push_back(row("HULL", fmt("%.0f", static_cast<double>(s.hull)) + " / " +
                               fmt("%.0f", static_cast<double>(s.hull_max))));
@@ -169,7 +171,8 @@ void PauseStatsSystem::update(ComponentStorage& cs, EntityManager& em, Blackboar
     // --- one query of the player, feeding both readouts ---
     pause_stats::Snapshot s;
     s.base_speed = cfg.player.move_speed;
-    s.prestige = bb.get_or<int>("meta.prestige_level", 0);
+    // Lane O publishes the level as a double under its own key (D131).
+    s.prestige = static_cast<int>(bb.get_or<double>(PRESTIGE_LEVEL_KEY, 0.0));
     float active_cd = 0.0f;
     bool have_player = false;
     for (Entity p : cs.entities_with_component<PlayerTag>()) {

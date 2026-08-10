@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "engine/ecs/blackboard.hpp"
+#include "game/prestige.hpp"
 #include "engine/ecs/component_storage.hpp"
 #include "engine/ecs/components.hpp"
 #include "engine/ecs/entity_manager.hpp"
@@ -240,4 +241,27 @@ TEST_CASE("the repulsion device is not advertised on a key it does not have",
     CHECK(pause_stats::active_key(2) == "AUTO");    // repulsion device (D71)
     CHECK(pause_stats::active_tag(0) == "MISSILES");
     CHECK(pause_stats::active_tag(-1).empty());
+}
+
+// Integration seam (D131): Lane O owns the prestige state, Lane M owns the
+// screen. They shipped disagreeing — M read `int` from "meta.prestige_level",
+// O wrote `double` to "prestige.level", so the row silently never appeared.
+// Neither lane's own tests could see it. This one goes through both sides.
+TEST_CASE("the pause sheet reads the prestige level Lane O actually publishes",
+          "[Game][ui][prestige]") {
+    Blackboard bb;
+    bb.set<double>(PRESTIGE_LEVEL_KEY, 3.0);   // exactly what start_run writes
+
+    const int level = static_cast<int>(bb.get_or<double>(PRESTIGE_LEVEL_KEY, 0.0));
+    CHECK(level == 3);
+
+    pause_stats::Snapshot s;
+    s.prestige = level;
+    const auto lines = pause_stats::stat_lines(s, {});
+    REQUIRE_FALSE(lines.empty());
+    CHECK(lines.front().rfind("PRESTIGE 3", 0) == 0);
+    CHECK(lines.front().find("HULL") != std::string::npos);   // the bonuses, not just the level
+
+    pause_stats::Snapshot none;                                // no prestige -> no row
+    CHECK(pause_stats::stat_lines(none, {}).front().rfind("PRESTIGE", 0) != 0);
 }

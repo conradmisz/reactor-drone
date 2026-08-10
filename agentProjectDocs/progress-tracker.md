@@ -64,6 +64,16 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   margins with green health blips (#4, D114/D115). Spec:
   `specs/pause-overview-and-item-slot.md`.
 
+- **Iteration 5 integration (2026-08-10, D132).** Lanes L/M/N/O merged to
+  `master` in that order; `decisions.md` and `progress-tracker.md` conflicted on
+  every merge (both sides kept, as always). One real cross-lane defect found at
+  integration and fixed: the prestige blackboard seam between Lane O (producer)
+  and Lane M (consumer) disagreed on key *and* type, so the pause sheet's
+  PRESTIGE row could never appear. Fixed in `pause_stats.cpp` and pinned by a
+  test in `test_pause_screen.cpp` (D132). Gate re-run on every merge commit, not
+  just at the end: build clean, `ctest` 8/8, canary byte-identical twice at
+  prestige 0. **Nothing in iteration 5 has been playtested in a window.**
+
 ## In Progress
 
 - Nothing being edited right now. The tree is green: `cmake --build` clean,

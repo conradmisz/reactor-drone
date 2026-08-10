@@ -1488,3 +1488,24 @@ Decisions seeded from the gameplay plan (D1–D12) and made during Phases 1-4
   the other's file to honour — the same shape as every other cross-system read here.
 - **Rejected:** a `PrestigeSystem`. There is no per-frame work: the level is read
   once at startup, applied once at run start, and displayed from a string.
+
+### D132 — The prestige seam is pinned by a test, because neither lane could see it  *(2026-08-10)*
+- **What broke.** Lane O owns the prestige state and Lane M owns the sheet that
+  shows it (D131). They shipped disagreeing on both halves of the contract:
+  M read `bb.get_or<int>("meta.prestige_level", 0)`, O wrote
+  `bb.set<double>(PRESTIGE_LEVEL_KEY /* "prestige.level" */, ...)`. Wrong key AND
+  wrong type, so the row silently read 0 and never appeared. Both lanes' gates
+  were green — file ownership kept them from ever compiling against each other.
+- **Decision:** the integrator fixes the *consumer*, not the producer: O's
+  `PRESTIGE_LEVEL_KEY` and `prestige_summary()` are the published accessor named
+  in its merge report, so `pause_stats.cpp` now includes `prestige.hpp` and reads
+  through the constant. A key typed twice is a key that desyncs twice.
+- The sheet renders `prestige_summary(level)` as a whole line rather than a
+  label/value pair — #5 asked for the *bonuses*, and "PRESTIGE 2" alone is the
+  level without the thing the player wanted to read.
+- **The test is the actual deliverable.** `test_pause_screen.cpp` now writes the
+  blackboard exactly as `start_run` does and asserts the sheet reads it back.
+  A cross-lane seam with no test is a bug that waits for a playtest.
+- **Rejected:** changing O's key to M's name (M's `meta.` prefix is a lie — the
+  value is the *run in progress*, not the save file), and leaving M reading a
+  literal (it is the third copy of a string that must match one other place).
