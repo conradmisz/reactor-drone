@@ -466,7 +466,8 @@ int main(int argc, char* argv[]) {
         active_backdrop = &def.backdrop_layers;
         shift_timer = 0.0f;
         shift_pending = want;
-        blackboard.set<std::string>("hud_message", def.name + " — arena shift");
+        // #13: the player named it. "arena shift" was engine vocabulary.
+        blackboard.set<std::string>("hud_message", def.name + " — REACTOR SHIFT");
         blackboard.set<float>("hud_message_timer", SHIFT_SECONDS + 1.4f);
 
         // Shockwave: a one-shot emitter host, the same pattern

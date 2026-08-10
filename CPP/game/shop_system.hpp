@@ -139,6 +139,7 @@ private:
     Entity preview_glow_ = 0, preview_ship_ = 0;
     std::vector<int> visible_;           // card slot -> catalogue index
     std::string tip_name_text_, tip_detail_text_;
+    std::string page_hint_;   // idle text for the detail pane
 };
 
 #endif // SHOP_SYSTEM_HPP

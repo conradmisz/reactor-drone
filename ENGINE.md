@@ -90,9 +90,9 @@ Current measured state: **150 identical · 31 modified · 27 new** (208 source f
 | `tests/unit/test_tint.cpp` | `modulate_color` / Tint semantics |
 | `ui_style.{hpp,cpp}` | `StyleTable`, `WidgetState`, `parse_ui_styles` — widget colours as pure data (Option-040 port) |
 | `ui_focus_math.hpp`, `ui_fade_math.hpp` | Tab-order and fade-curve helpers (Option-040 port) |
-| `ecs/systems/ui_render_math.hpp` | Widget-state precedence, the design→window canvas transform, inclusive hit-test, z-order sort — **plus the v2-only `pulse_alpha_scale` / `apply_alpha_scale`** |
+| `ecs/systems/ui_render_math.hpp` | Widget-state precedence, the design→window canvas transform, inclusive hit-test, z-order sort — **plus the v2-only `pulse_alpha_scale` / `apply_alpha_scale` and `fit_text_in_rect` (D85)** |
 | `ecs/systems/ui_system.{hpp,cpp}` | Hover/press/confirmed-click + Tab/Enter focus. **v2 addition:** publishes a confirmed click's `on_click_fn` to the Blackboard under `UISystem::UI_CLICK_KEY`, so a game with no Lua menu layer can consume its own buttons |
-| `ecs/systems/ui_render_system.{hpp,cpp}` | Draws panels/labels/buttons/sliders/checkboxes. **v2 addition:** a render-local `elapsed_` clock driving `UIElement::pulse_hz` |
+| `ecs/systems/ui_render_system.{hpp,cpp}` | Draws panels/labels/buttons/sliders/checkboxes. **v2 additions:** a render-local `elapsed_` clock driving `UIElement::pulse_hz`, and text fitting — every label and button caption goes through `fit_text_in_rect` so no string can draw outside its widget (D85) |
 | `ecs/systems/screen_stack_system.{hpp,cpp}` | The single writer of the screen stack and of every `UIScreen::active` flag |
 | `ecs/systems/screen_fade_system.{hpp,cpp}` | Fade-through-black on a screen transition |
 | `tests/unit/test_ui_pulse.cpp` | The pulse helpers, incl. the exact-identity guarantee for `pulse_hz == 0` |
@@ -242,6 +242,12 @@ render:
   by `UISystem` via `to_ui_y()` (hit-testing). It applies no camera, zoom or lookat, so the
   two spaces never mix. Two spaces, one flip each — not a violation of the rule, but do not
   read the rule as "one flip in the whole codebase".
+- **Text never leaves its widget.** `UIRenderSystem` measures every label and button
+  caption against the widget rect through `fit_text_in_rect()` (`ui_render_math.hpp`) and
+  shrinks it to fit; the fitted box is always inside the rect, and a collapsed (zero-size)
+  rect draws nothing. Text that already fits is untouched, so this is not a layout engine —
+  it is a floor. Author rects that fit at full size anyway; the fit is the guard, not the
+  plan. Pinned by `CPP/game/tests/unit/test_ui_text_fit.cpp`, which needs no window.
 - **SDL3 only.** No SDL2 compatibility shim.
 - **Zero warnings** under `-Wall -Wextra -Wpedantic` (vendored deps exempt — Lua's `tmpnam`
   linker warning is expected and is not ours).
@@ -360,6 +366,20 @@ render:
   `ui_canvas_transform` scales and centres that canvas onto the live 980x660 logical
   surface (scale 1.1, x-offset 50). Both `UIRenderSystem` and `UISystem` apply it, so the
   drawn rect and the clickable rect can never drift apart.
+- **The HUD text rows are authored in the design canvas too (D87).** `GameHUDSystem`'s
+  `Text`+`ScreenPosition` rows are drawn by `HUDSystem` in *window* pixels, not through
+  `ui_canvas_transform`, while the hull/shield gauges beside them are widgets that *are*
+  transformed. Authored in window pixels, the two halves of one HUD sat in different
+  columns (canvas x=16 lands at window x=67.6, not 16). `GameHUDSystem::init` now applies
+  the transform itself, so both halves share one coordinate system. Anything new added to
+  that HUD must do the same.
+- **`"gameplay"` is the screen stack's base sentinel, so it is ALWAYS active (D86).** It is
+  never modal and is never popped, which means every widget on the `gameplay` screen renders
+  in every phase — including the title screen and underneath the shop panel. Visibility is
+  therefore not a stack question: `hud_visible_in_phase()` in `game_hud_system.hpp` is the
+  one rule, and `GameHUDSystem` / `MinimapSystem` collapse their rects when it is false.
+  Note this is a *different* question from whether the sim runs (see the pause/intermission
+  trap): the intermission is modal and both keeps simulating and keeps its HUD.
 - **`UIElement::pulse_hz` is render-only and deliberately not Blackboard-driven.**
   `UIRenderSystem` accumulates its own `elapsed_` from `delta_time`. Putting that clock on
   the Blackboard would let a game system observe it, and a replay could then diverge on

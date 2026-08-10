@@ -148,7 +148,8 @@ TEST_CASE("A boolean item has no level to buy", "[Game][shop][gear]") {
     REQUIRE(ship.currency == 1000);
 }
 
-TEST_CASE("The tooltip follows the hovered card", "[Game][ui][shop]") {
+TEST_CASE("The detail pane fills on hover and idles on the page hint",
+          "[Game][ui][shop]") {
     ShopConfig cfg = make_catalogue();
     ShopWorld w;
     ShopSystem shop;
@@ -157,10 +158,13 @@ TEST_CASE("The tooltip follows the hovered card", "[Game][ui][shop]") {
     shop.open(w.cs, w.em, w.bb);
     REQUIRE(shop.menu_tick(w.cs, w.em, w.bb) == false);   // builds the menu
 
-    // Nothing hovered: the tooltip is collapsed, not merely blank.
+    // Nothing hovered: the pane holds the page hint rather than collapsing (D89
+    // supersedes D64's cursor-following tooltip — it jumped, and it slid through
+    // the drone preview it shares the column with).
     REQUIRE(shop.tooltip_name().empty());
     REQUIRE(w.label("shop_tip_name").empty());
-    REQUIRE(w.cs.get_component<UIElement>(w.widget("shop_tip_panel"))->get().rect.w == 0.0f);
+    REQUIRE_FALSE(w.label("shop_tip_desc").empty());
+    REQUIRE(w.cs.get_component<UIElement>(w.widget("shop_tip_panel"))->get().rect.w > 0.0f);
 
     // Hover card 1 -> the second UPGRADES row.
     w.hover("shop_card_1", true);
@@ -169,16 +173,18 @@ TEST_CASE("The tooltip follows the hovered card", "[Game][ui][shop]") {
     REQUIRE(w.label("shop_tip_name") == "Heavy Rounds");
     REQUIRE(shop.tooltip_detail().find("damage") != std::string::npos);
 
-    // The tooltip panel is opened up and sits beside the hovered card, not on it.
+    // The pane sits in the right column, clear of the card panel — never over
+    // the row it describes.
     const UIRect tip = w.cs.get_component<UIElement>(w.widget("shop_tip_panel"))->get().rect;
     const UIRect card = w.cs.get_component<UIElement>(w.widget("shop_card_1"))->get().rect;
     REQUIRE(tip.w > 0.0f);
     REQUIRE(tip.x >= card.x + card.w);
 
-    // Move off -> back to collapsed.
+    // Move off -> back to the idle hint.
     w.hover("shop_card_1", false);
     shop.menu_tick(w.cs, w.em, w.bb);
     REQUIRE(shop.tooltip_name().empty());
+    REQUIRE_FALSE(w.label("shop_tip_desc").empty());
 }
 
 TEST_CASE("A card click buys the row it shows and consumes the click key",
@@ -210,7 +216,7 @@ TEST_CASE("A card click buys the row it shows and consumes the click key",
     // The LEVELS page with nothing fitted explains itself instead of going blank.
     w.bb.set<std::string>(UISystem::UI_CLICK_KEY, std::string("on_shop_page_2"));
     shop.menu_tick(w.cs, w.em, w.bb);
-    REQUIRE(w.label("shop_card_0").find("No gear fitted") != std::string::npos);
+    REQUIRE(w.label("shop_card_0").find("Nothing fitted") != std::string::npos);
 
     // LAUNCH ends the shop frame.
     w.bb.set<std::string>(UISystem::UI_CLICK_KEY, std::string("on_shop_leave"));

@@ -42,6 +42,14 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   `DifficultyDef` + `apply_difficulty` (D50), Hard mode, and a rebalanced
   "aggressive" Normal wave table. Spec: `specs/difficulty-modes.md`.
 
+- **Lane H — UI & menu overhaul (uncommitted, 2026-08-09):** text fitting in the
+  renderer so no label can leave its widget (D85), the arena HUD + radar hidden
+  outside a playing phase (D86), the HUD's text rows moved onto the design canvas
+  (D87), all six screens re-laid out on one grid with a real type scale and state
+  feedback (D88), the shop tooltip promoted to a fixed detail pane (D89), a
+  smaller radar-style minimap, and "REACTOR SHIFT" (D90). Spec:
+  `specs/ui-and-menu-overhaul.md`.
+
 ## In Progress
 
 - Nothing being edited right now. The tree is green: `cmake --build` clean,

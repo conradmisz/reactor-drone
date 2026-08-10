@@ -1,6 +1,7 @@
 #include "game_hud_system.hpp"
 #include "player_components.hpp"   // PlayerTag, ShipState
 #include "enemy_components.hpp"    // Health
+#include "engine/ecs/systems/ui_render_math.hpp"   // ui_canvas_transform
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -27,11 +28,21 @@ void GameHUDSystem::init(ComponentStorage& component_storage,
     const float win_w = static_cast<float>(blackboard.get_or<int>("window_width", 980));
     const float win_h = static_cast<float>(blackboard.get_or<int>("window_height", 660));
 
-    auto make = [&](float x, float y, float size, SDL_Color color,
+    // The gauges are widgets, authored in the 800x600 DESIGN CANVAS and drawn
+    // through ui_canvas_transform; these text rows go straight to HUDSystem in
+    // window coordinates. Authoring them in window coordinates too is what let
+    // the two halves of one HUD drift apart (the canvas is scaled 1.1 and pushed
+    // right by 50px at the 980x660 logical surface, so a "left margin of 20"
+    // meant two different columns). Both halves are authored in the design canvas
+    // now and this lambda applies the same transform the renderer does.
+    const UICanvasTransform xf = ui_canvas_transform(win_w, win_h);
+    auto make = [&](float dx, float dy, float size, SDL_Color color,
                     const std::string& content) {
         Entity e = entity_manager.create_entity();
-        component_storage.add_component<ScreenPosition>(e, ScreenPosition{x, y});
-        component_storage.add_component<Text>(e, Text{content, "default.ttf", size, color});
+        component_storage.add_component<ScreenPosition>(e,
+            ScreenPosition{xf.offset_x + dx * xf.scale, xf.offset_y + dy * xf.scale});
+        component_storage.add_component<Text>(e,
+            Text{content, "default.ttf", size * xf.scale, color});
         return e;
     };
 
@@ -39,20 +50,23 @@ void GameHUDSystem::init(ComponentStorage& component_storage,
     const SDL_Color yellow = {255, 220, 90, 255};
     const SDL_Color cyan   = {120, 225, 255, 255};
 
-    // Row layout, top-down. The hull/shield GAUGES occupy the band between the
-    // score line and the credits line (design-canvas y 534..594, i.e. window y
-    // ~587..654); these text rows are placed around them, not over them.
-    score_entity_   = make(20.0f, win_h - 34.0f, 24.0f, white, "Score: 0");
-    health_entity_  = make(20.0f, win_h - 126.0f, 18.0f, white, "100 / 100");
-    credits_entity_ = make(20.0f, win_h - 152.0f, 24.0f, yellow, "Credits: 0");
-    slots_entity_   = make(20.0f, win_h - 178.0f, 20.0f, cyan, "");
-    wave_entity_    = make(win_w - 200.0f, win_h - 36.0f, 24.0f, white, "Wave: 0/0");
-    status_entity_  = make(win_w * 0.5f - 190.0f, win_h * 0.5f, 44.0f, yellow, "");
-    message_entity_ = make(win_w * 0.5f - 170.0f, win_h * 0.5f - 60.0f, 28.0f, cyan, "");
+    // DESIGN-CANVAS layout (bottom-left origin, 800x600), one 16px left margin
+    // shared with the gauge widgets above it. Reading order top-down:
+    //   HULL label 552..582 / hull bar 526..548 / shield bar 504..522  (widgets)
+    //   caption 480 / score 448 / credits 418 / gear 392               (text)
+    // Rows are 26-30 apart: one line plus a half-line of air, which is what makes
+    // a stack of readouts scannable instead of a block.
+    score_entity_   = make(16.0f, 448.0f, 22.0f, white,  "Score: 0");
+    health_entity_  = make(16.0f, 480.0f, 17.0f, white,  "100 / 100");
+    credits_entity_ = make(16.0f, 418.0f, 22.0f, yellow, "Credits: 0");
+    slots_entity_   = make(16.0f, 392.0f, 18.0f, cyan,   "");
+    wave_entity_    = make(520.0f, 556.0f, 22.0f, white, "Wave: 0/0");
+    status_entity_  = make(180.0f, 320.0f, 34.0f, yellow, "");
+    message_entity_ = make(180.0f, 272.0f, 24.0f, cyan,   "");
     initialized_ = true;
 }
 
-void GameHUDSystem::resolve_bars(const Blackboard& blackboard) {
+void GameHUDSystem::resolve_bars(ComponentStorage& cs, const Blackboard& blackboard) {
     if (bars_resolved_) return;
     // The loader publishes each named widget as a double under this prefix. A
     // missing key means the "gameplay" screen was not authored — leave the ids at
@@ -61,13 +75,35 @@ void GameHUDSystem::resolve_bars(const Blackboard& blackboard) {
         const double v = blackboard.get_or<double>(std::string("ui.widget_id.") + name, -1.0);
         return v < 0.0 ? 0 : static_cast<Entity>(v);
     };
-    hp_chip_ = id("hud_hp_chip");
-    hp_fill_ = id("hud_hp_fill");
-    sh_fill_ = id("hud_sh_fill");
+    static const char* kGaugeNames[GAUGE_WIDGETS] = {
+        "hud_hp_label", "hud_hp_bg", "hud_hp_chip",
+        "hud_hp_fill",  "hud_sh_bg", "hud_sh_fill"
+    };
+    for (int i = 0; i < GAUGE_WIDGETS; ++i) gauge_[i] = id(kGaugeNames[i]);
+    hp_chip_ = gauge_[2];
+    hp_fill_ = gauge_[3];
+    sh_fill_ = gauge_[5];
+    // Cache the AUTHORED geometry before anything narrows a fill bar, so hiding
+    // and re-showing the HUD is lossless.
+    for (int i = 0; i < GAUGE_WIDGETS; ++i) {
+        if (gauge_[i] == 0) continue;
+        if (auto el = cs.get_component<UIElement>(gauge_[i]); el.has_value())
+            gauge_rect_[i] = el->get().rect;
+    }
     // Resolve once: widget ids are load-time and survive spawn_world, so retrying
     // every frame would only cost lookups. If the screen is absent the ids stay 0
     // and this still latches — the gauges are simply never drawn.
     bars_resolved_ = true;
+}
+
+void GameHUDSystem::set_widgets_visible(ComponentStorage& cs, bool visible) {
+    for (int i = 0; i < GAUGE_WIDGETS; ++i) {
+        if (gauge_[i] == 0) continue;
+        auto el = cs.get_component<UIElement>(gauge_[i]);
+        if (!el.has_value()) continue;
+        el->get().rect = visible ? gauge_rect_[i]
+                                 : UIRect{gauge_rect_[i].x, gauge_rect_[i].y, 0.0f, 0.0f};
+    }
 }
 
 void GameHUDSystem::set_bar(ComponentStorage& cs, Entity bar, float full_w,
@@ -83,7 +119,37 @@ void GameHUDSystem::set_bar(ComponentStorage& cs, Entity bar, float full_w,
 
 void GameHUDSystem::update(ComponentStorage& component_storage, Blackboard& blackboard) {
     if (!initialized_) return;
-    resolve_bars(blackboard);
+    resolve_bars(component_storage, blackboard);
+
+    // The "gameplay" screen is always on the stack, so nothing else was ever
+    // going to switch the arena furniture off: score, gauges, credits and the
+    // minimap all rendered on the title screen and under the shop panel. One
+    // gate, applied to both the widgets and the text rows, in the system that
+    // owns them.
+    const int phase = blackboard.get_or<int>("phase", 0);
+    const bool show = hud_visible_in_phase(phase);
+    set_widgets_visible(component_storage, show);
+    if (!show) {
+        // Blank the text rows (HUDSystem draws Text, which has no rect to
+        // collapse) and leave only the phase banner, which IS the title /
+        // game-over / victory message.
+        for (Entity e : {score_entity_, health_entity_, credits_entity_,
+                         slots_entity_, wave_entity_, message_entity_}) {
+            if (auto t = component_storage.get_component<Text>(e); t.has_value())
+                t->get().content.clear();
+        }
+        std::string banner;
+        if (phase == 2) banner = "GAME OVER - click to retry";
+        else if (phase == 3) banner = "VICTORY! - click to retry";
+        // Deliberately nothing at the title: the main_menu screen already carries
+        // a REACTOR DRONE heading, and the banner was a second copy of it drawn
+        // across the whole window in a font that never fit.
+        if (auto t = component_storage.get_component<Text>(status_entity_); t.has_value())
+            t->get().content = banner;
+        return;
+    }
+    if (auto t = component_storage.get_component<Text>(status_entity_); t.has_value())
+        t->get().content.clear();
 
     // Score
     if (auto t = component_storage.get_component<Text>(score_entity_); t.has_value()) {
@@ -181,15 +247,8 @@ void GameHUDSystem::update(ComponentStorage& component_storage, Blackboard& blac
                            "/" + int_str(blackboard.get_or<int>("total_waves", 0));
     }
 
-    // Status banner by phase (0=title,1=playing,2=gameover,3=victory).
-    int phase = blackboard.get_or<int>("phase", 0);
-    std::string status;
-    if (phase == 0) status = "REACTOR DRONE - click to start";
-    else if (phase == 2) status = "GAME OVER - click to retry";
-    else if (phase == 3) status = "VICTORY! - click to retry";
-    if (auto t = component_storage.get_component<Text>(status_entity_); t.has_value()) {
-        t->get().content = status;
-    }
+    // The status banner belongs to the non-playing phases only; it is written in
+    // the early-out above and cleared here.
 
     // Transient message channel (timer ticks down in main via delta_time).
     std::string msg;
