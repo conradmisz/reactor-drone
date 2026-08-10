@@ -1,4 +1,5 @@
 #include "shop_system.hpp"
+#include "upgrade_visuals.hpp"   // Lane N (D123): the drone's upgrade look
 #include "enemy_components.hpp"    // Health
 #include "item_system.hpp"         // items::item_id_for / consumable_id_for
 #include "engine/ecs/systems/screen_stack_system.hpp"
@@ -719,10 +720,19 @@ void ShopSystem::refresh_preview(ComponentStorage& storage, const Blackboard& bl
     place_on_screen(storage, blackboard, preview_ship_, PREVIEW_SHIP);
     place_on_screen(storage, blackboard, preview_glow_, PREVIEW_GLOW);
 
+    // Lane N (D123): the glow also carries the upgrade tier, so the preview
+    // changes in the frame the credits are spent — same ramp the flying drone's
+    // plume uses, so the two never disagree. A fitted item still owns the hue;
+    // upgrades only push it brighter.
+    const upgrade_visuals::Look up = upgrade_visuals::look_for(upgrade_visuals::tier(ship));
+    const int t_alpha = 40 * upgrade_visuals::tier(ship);
     Tint aura{};
     const bool lit = aura_color(show_item, aura);
+    if (lit) aura.a = static_cast<uint8_t>(std::min(255, aura.a + t_alpha));
     if (auto t = storage.get_component<Tint>(preview_glow_); t.has_value())
-        t->get() = lit ? aura : Tint{255, 255, 255, 0, true};
+        t->get() = lit ? aura
+                       : Tint{up.start_r, up.start_g, up.start_b,
+                              static_cast<uint8_t>(t_alpha), true};
 }
 
 void ShopSystem::buy_visible_row(int card, Entity player, ComponentStorage& storage,

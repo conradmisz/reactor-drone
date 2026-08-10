@@ -52,6 +52,9 @@ the graded course submission.
   a 30 s stall watchdog force-kills stragglers through the normal death path.
 - Currency economy: 1-3 pickups per kill plus a 0.5% shop-key roll, magnet-able,
   expiring on a `Lifetime`.
+- Thruster dash on **SPACE**, 10 s cooldown, damages what it passes through (D120).
+- Foundry mines are destroyable: a shot pops one from outside its 100px blast (D121/D122).
+- Shop upgrades show on the drone — the engine plume heats up as they stack (D123).
 - Shop: Hull Plating, Shield Capacitor, Aux Thruster, Overclock, Heavy Rounds,
   Twin Barrel, Long Barrel, Ricochet Coils — price escalates per purchase
   (`price_growth` 1.5).

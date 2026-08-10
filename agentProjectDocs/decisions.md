@@ -1138,3 +1138,65 @@ Decisions seeded from the gameplay plan (D1–D12) and made during Phases 1-4
   `begin_arena_shift` is deliberately unrenamed — it is code vocabulary, cited from
   D72/D76-D79 and two specs, and renaming it would churn four documents to change
   nothing the player sees.
+
+### D120 — The dash moves to SPACE, and the title screen keeps its start key  *(2026-08-10)*
+- **Decision:** the thruster dash fires on **SPACE**, edge-triggered, on a **10 s**
+  cooldown (`dash.cooldown` 2.5 -> 10.0). LSHIFT survives as the scripted/headless
+  alias only. Supersedes D57's "held while LSHIFT is down".
+- **Why the two SPACEs cannot collide:** the dash hook runs only inside
+  `PHASE_PLAYING && sim`, and the title / game-over branches run only when it does
+  not — one frame, one meaning. The one press that could span both is "press at
+  the title, still held on the run's first frame", and that is why the trigger is
+  the same one-frame `space_edge` the title consumes rather than the held key: the
+  edge is already spent, so the press that started the run cannot also dash.
+- **Held-to-repeat is gone on purpose.** At 2.5 s a held key re-dashing off
+  cooldown was a feature; at 10 s it would fire a dash the player pressed for ten
+  seconds ago.
+- **LSHIFT stays scripted** because a scripted `SPACE` also means "start the run"
+  (`scripted_advance`), so a headless script would otherwise have no way to ask
+  for a dash on its own. That is how this was verified — see the spec.
+- **Rejected:** consuming `space_edge` in the dash hook. It would have made the
+  hook's ordering load-bearing for the title screen, which is exactly the coupling
+  the hook blocks exist to avoid.
+
+### D121 — The mine blast is 100px, not 150  *(2026-08-10)*
+- **Decision:** `MINE_BLAST_SIZE` 150 -> 100 (a box, so 75px -> 50px of reach).
+- **Why:** at 75px the blast still caught a drone that had already read the mine,
+  turned and left; the trigger radius (90) is the tell, and the punish reached
+  further than the tell. It stays a constant rather than becoming a JSON knob for
+  the reason D68 gave for the whole block.
+
+### D122 — A mine is destroyed by shooting it, without becoming an enemy  *(2026-08-10)*
+- **Decision:** an **armed** mine detonates where it stands when a player
+  `ProjectileTag` overlaps it, and consumes that shot. No `Health`, no `Collider`,
+  no `EnemyTag`.
+- **Why not the obvious "give it Health and let ProjectileHitSystem hit it":**
+  that path is gated on `EnemyTag`, and `EnemyTag` is what the wave-clear check,
+  the minimap, the arena clamp and `drop_loot` all key off. A mine wearing it
+  would stall a cleared wave and pay out coins. A `Collider` alone would also make
+  it a surface that eats ricochets. The direct overlap test in the branch that
+  already owns the mine's other trigger is the smaller, safer diff.
+- **Detonating rather than fizzling** is deliberate: shooting a bomb should set it
+  off, and the blast only carries `HAZARD_MASK = PLAYER`, so a mine popped from
+  range is a safe clear. In the drone's face it is not, which is the tradeoff.
+- **The arm delay gates both triggers**, so a mine dropped into a stream of fire
+  is not deleted on the frame it lands.
+
+### D123 — A purchase shows up on the drone's engine plume  *(2026-08-10)*
+- **Decision:** `upgrade_visuals.hpp` maps `ShipState.upg_counts` onto a 0-4 tier
+  and writes it onto the player's existing thruster emitter every playing frame:
+  cold cyan and small at tier 0, hot white-gold, bigger, longer-lived and ~3x
+  denser at tier 4. The shop's drone-preview glow reads the same ramp, so the
+  purchase is visible in the frame the credits are spent.
+- **Why per-frame and idempotent** rather than applied inside `ShopSystem::apply`:
+  `run_save` restores `upg_counts` on a resumed run, so a purchase-time hook would
+  need a second application site at `start_run` — the mistake D50 names.
+- **Tier 0 is asserted equal to the emitter `spawn_world` writes**, or a fresh
+  drone would change look on its first frame.
+- **The dash keeps the emission rate** while a burst is burning; only colour, size
+  and lifetime are rewritten then. `tick_dash` restores the tier's rate, since
+  that is the value it captured.
+- **Rejected:** tinting the hull (`Flash` removes a player `Tint` when a hit flash
+  expires, so it would survive until the first hit), and new sprite art (Lane L
+  owns the generator). ponytail ceiling: swap `look_for` for a kitted-hull sprite
+  when that art exists.
