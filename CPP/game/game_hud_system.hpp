@@ -20,6 +20,29 @@
  * The widgets are resolved once, by name, through the "ui.widget_id.<name>" keys
  * the GameData loader publishes.
  */
+
+/**
+ * Is the arena HUD (gauges, readouts, minimap) furniture the player should be
+ * looking at in this phase?
+ *
+ * The "gameplay" screen is ScreenStackSystem's base sentinel: it is on the stack
+ * in every phase and is never modal, so its widgets used to render on the title
+ * screen and underneath the shop panel. Visibility and simulation are separate
+ * questions (HANDOFF trap 7) and this answers only the first: the HUD belongs to
+ * the two phases that actually fly the drone — PHASE_PLAYING and
+ * PHASE_INTERMISSION — and to nothing else. The intermission keeps it because
+ * the drone is still collecting loot under that prompt, and its panel is centered
+ * clear of the top-left gauges.
+ *
+ * Takes the raw Blackboard "phase" int rather than the enum, which lives in
+ * main.cpp; the values are pinned by a unit test.
+ */
+inline bool hud_visible_in_phase(int phase) {
+    constexpr int kPlaying = 1;        // Phase::PHASE_PLAYING
+    constexpr int kIntermission = 5;   // Phase::PHASE_INTERMISSION
+    return phase == kPlaying || phase == kIntermission;
+}
+
 class GameHUDSystem {
 public:
     void init(ComponentStorage& component_storage,
@@ -42,13 +65,21 @@ private:
     /// Resolve the bar widgets from the Blackboard. Safe to call repeatedly; a
     /// data file with no "gameplay" screen simply leaves them unresolved and the
     /// gauge code becomes a no-op.
-    void resolve_bars(const Blackboard& blackboard);
+    void resolve_bars(ComponentStorage& cs, const Blackboard& blackboard);
 
     /// Set a bar widget's fill width to `frac` of its full width, and optionally
     /// restyle it. A widget that failed to resolve is skipped.
     void set_bar(ComponentStorage& cs, Entity bar, float full_w, float frac,
                  const char* style_id = nullptr);
 
+    /// Show/hide every widget on the "gameplay" screen by restoring or collapsing
+    /// its rect. UIElement has no visibility flag (D61) and adding one would be an
+    /// engine change; a zero-size rect is how this codebase already hides a widget.
+    void set_widgets_visible(ComponentStorage& cs, bool visible);
+
+    static constexpr int GAUGE_WIDGETS = 6;
+    Entity gauge_[GAUGE_WIDGETS] = {0, 0, 0, 0, 0, 0};
+    UIRect gauge_rect_[GAUGE_WIDGETS] = {};   // authored geometry, cached once
     Entity hp_chip_ = 0, hp_fill_ = 0, sh_fill_ = 0;
     bool   bars_resolved_ = false;
 

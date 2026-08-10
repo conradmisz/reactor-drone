@@ -42,6 +42,12 @@ namespace {
 constexpr char  UI_FONT_NAME[] = "default.ttf";
 constexpr float UI_FONT_SIZE   = 24.0f;
 
+// Inner padding, in DESIGN-canvas units, kept between a widget's edge and its
+// text. A caption that touches its own border reads as broken even when it
+// technically fits, which is half of what the "too big for the box" report was.
+constexpr float LABEL_PAD  = 0.0f;   // labels are their own box; no border to crowd
+constexpr float BUTTON_PAD = 10.0f;
+
 // Convert the engine-wide Color (uint8_t RGBA) to SDL_Color for TTF rendering.
 inline SDL_Color to_sdl_color(const Color& c) {
     return SDL_Color{c.r, c.g, c.b, c.a};
@@ -198,10 +204,16 @@ void UIRenderSystem::render(const ComponentStorage& storage, Blackboard& blackbo
             float text_w = 0.0f, text_h = 0.0f;
             SDL_GetTextureSize(texture, &text_w, &text_h);
 
-            // Left edge at rect.x, bottom edge at rect.y. (R3.5)
-            float sdl_y = to_sdl_y(static_cast<float>(window_height_), rect.y, text_h);
-            SDL_FRect dest{rect.x, sdl_y, text_w, text_h};
-            SDL_RenderTexture(renderer_, texture, nullptr, &dest);
+            // v2: measured against the widget rect and shrunk to fit, so a label
+            // can never draw outside its own box (or off the screen). Left-aligned,
+            // vertically centered. (R3.5 amended)
+            const TextFit fit = fit_text_in_rect(rect, text_w, text_h,
+                                                 TextAlign::Left, LABEL_PAD * xform.scale);
+            if (fit.visible) {
+                float sdl_y = to_sdl_y(static_cast<float>(window_height_), fit.y, fit.h);
+                SDL_FRect dest{fit.x, sdl_y, fit.w, fit.h};
+                SDL_RenderTexture(renderer_, texture, nullptr, &dest);
+            }
 
             SDL_DestroyTexture(texture);  // Per-frame texture.
 
@@ -230,10 +242,14 @@ void UIRenderSystem::render(const ComponentStorage& storage, Blackboard& blackbo
             float text_w = 0.0f, text_h = 0.0f;
             SDL_GetTextureSize(texture, &text_w, &text_h);
 
-            // Centered origin in bottom-left coords, no clamping. (R4.3, R4.4)
-            TextOrigin origin = compute_centered_text_origin(rect, text_w, text_h);
-            float text_sdl_y = to_sdl_y(static_cast<float>(window_height_), origin.y, text_h);
-            SDL_FRect dest{origin.x, text_sdl_y, text_w, text_h};
+            // v2: centered AND fitted — a caption wider than its button used to
+            // spill over both edges (compute_centered_text_origin explicitly did
+            // not clamp). It is still exactly centered when it fits. (R4.3, R4.4)
+            const TextFit fit = fit_text_in_rect(rect, text_w, text_h,
+                                                 TextAlign::Center, BUTTON_PAD * xform.scale);
+            if (!fit.visible) { SDL_DestroyTexture(texture); continue; }
+            float text_sdl_y = to_sdl_y(static_cast<float>(window_height_), fit.y, fit.h);
+            SDL_FRect dest{fit.x, text_sdl_y, fit.w, fit.h};
             SDL_RenderTexture(renderer_, texture, nullptr, &dest);
 
             SDL_DestroyTexture(texture);  // Per-frame texture.

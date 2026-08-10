@@ -292,10 +292,12 @@ constexpr float GEAR_AMOUNT_STEP = 0.25f;
 constexpr UIRect PREVIEW_SHIP{552.0f, 272.0f, 116.0f, 116.0f};
 constexpr UIRect PREVIEW_GLOW{510.0f, 230.0f, 200.0f, 200.0f};
 
-// Tooltip geometry: a fixed column just right of the card panel, vertically
-// following the hovered card.
-constexpr float TIP_X = 428.0f, TIP_W = 344.0f, TIP_H = 70.0f;
-constexpr float TIP_Y_MIN = 44.0f, TIP_Y_MAX = 486.0f;
+// Detail-pane geometry (D89): ONE fixed slot in the right column, under the
+// drone preview. It used to track the hovered card's y, which meant the pane
+// jumped on every hover and, over the 44..486 range, slid straight through the
+// preview art it shares the column with. A pane the eye can find without
+// re-locating it is worth more than proximity to the row.
+constexpr float TIP_X = 448.0f, TIP_Y = 116.0f, TIP_W = 328.0f, TIP_H = 108.0f;
 
 /// Aura colour per equipped item. Mirrors the live item aura in main.cpp so the
 /// preview and the flying drone agree; -1 (nothing fitted) draws no aura.
@@ -559,10 +561,18 @@ void ShopSystem::rebuild_visible(const ShipState& ship) {
 void ShopSystem::refresh_cards(ComponentStorage& storage, const ShipState& ship) {
     rebuild_visible(ship);
 
-    static const char* kPageTitle[3] = {"REACTOR SHOP - UPGRADES",
-                                        "REACTOR SHOP - GEAR",
-                                        "REACTOR SHOP - GEAR LEVELS"};
-    set_label(storage, title_, kPageTitle[page_ < 0 || page_ > 2 ? 0 : page_]);
+    const int page = (page_ < 0 || page_ > 2) ? 0 : page_;
+    // The title is the SHOP; the tab strip already says which page you are on, so
+    // repeating the page name in the heading was a third copy of the same word.
+    set_label(storage, title_, "REACTOR SHOP");
+    // One line of "what am I looking at" per page — the LEVELS page in particular
+    // was a list of prices with no statement of what a level buys.
+    static const char* kPageHint[3] = {
+        "Permanent stat stacks. Prices rise as you buy.",
+        "Fit one item and one [Q] consumable.",
+        "Level the fitted item: +25% effect per level."
+    };
+    page_hint_ = kPageHint[page];
     set_label(storage, credits_, "Credits: " + std::to_string(ship.currency) +
                                  "    Keys: " + std::to_string(ship.keys));
     for (int i = 0; i < 3; ++i) set_disabled(storage, tab_[i], i == page_);
@@ -602,11 +612,15 @@ void ShopSystem::refresh_cards(ComponentStorage& storage, const ShipState& ship)
             line = (is_item ? "ITEM " : "USE  ") + d.name +
                    (held ? "   EQUIPPED" : "   " + std::to_string(d.price) + " cr");
         } else {
+            // LEVELS reads as a transition, not a state: what you have, what the
+            // click gives you, what it costs — in that order, left to right.
             const ShopUpgradeDef& d = cfg_->items[static_cast<size_t>(idx)];
             const int level = ship.gear_levels[idx];
-            line = d.name + "  Lv" + std::to_string(level);
-            line += (d.amount <= 0.0f) ? "   NO SCALING"
-                                       : "   " + std::to_string(gear_price(idx, level)) + " cr";
+            line = d.name + "  LV" + std::to_string(level);
+            line += (d.amount <= 0.0f)
+                ? "  -  no scaling"
+                : " > LV" + std::to_string(level + 1) + "   " +
+                  std::to_string(gear_price(idx, level)) + " cr";
         }
         set_label(storage, card_[c], line);
     }
@@ -614,7 +628,7 @@ void ShopSystem::refresh_cards(ComponentStorage& storage, const ShipState& ship)
     // The LEVELS page with nothing fitted is a dead-end unless it says why.
     if (page_ == 2 && visible_.empty()) {
         set_rect(storage, card_[0], card_rect_[0]);
-        set_label(storage, card_[0], "No gear fitted - buy an item first");
+        set_label(storage, card_[0], "Nothing fitted - buy an item on GEAR first");
         set_disabled(storage, card_[0], true);
     }
 }
@@ -665,15 +679,17 @@ void ShopSystem::refresh_tooltip(ComponentStorage& storage, const ShipState& shi
     set_label(storage, tip_name_, tip_name_text_);
     set_label(storage, tip_desc_, tip_detail_text_);
     if (tip_name_text_.empty()) {
-        // Collapsed, not merely blank: a panel with empty text still fills a rect.
-        set_rect(storage, tip_panel_, UIRect{TIP_X, TIP_Y_MIN, 0.0f, 0.0f});
-        return;
+        // Idle state, not a hole: the pane holds the page's one-line explanation
+        // until a row is hovered. An empty pane that appears and disappears is a
+        // flicker; a pane that always says something is a place to look.
+        set_label(storage, tip_name_, std::string());
+        set_label(storage, tip_desc_, page_hint_);
     }
-    float y = card_rect_[card].y - 16.0f;
-    y = std::max(TIP_Y_MIN, std::min(TIP_Y_MAX, y));
-    set_rect(storage, tip_panel_, UIRect{TIP_X, y, TIP_W, TIP_H});
-    set_rect(storage, tip_name_,  UIRect{TIP_X + 12.0f, y + 40.0f, TIP_W - 24.0f, 24.0f});
-    set_rect(storage, tip_desc_,  UIRect{TIP_X + 12.0f, y + 12.0f, TIP_W - 24.0f, 22.0f});
+    set_rect(storage, tip_panel_, UIRect{TIP_X, TIP_Y, TIP_W, TIP_H});
+    set_rect(storage, tip_name_,  UIRect{TIP_X + 16.0f, TIP_Y + 64.0f, TIP_W - 32.0f, 30.0f});
+    // The description box is two lines tall on purpose: a long effect string now
+    // shrinks a little inside a generous box instead of a lot inside a thin one.
+    set_rect(storage, tip_desc_,  UIRect{TIP_X + 16.0f, TIP_Y + 14.0f, TIP_W - 32.0f, 44.0f});
 }
 
 void ShopSystem::refresh_preview(ComponentStorage& storage, const Blackboard& blackboard,

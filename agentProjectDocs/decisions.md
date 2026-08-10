@@ -792,3 +792,122 @@ Decisions seeded from the gameplay plan (D1–D12) and made during Phases 1-4
 - **Threshold:** `field_should_fire` uses strict `<` on 20 %. At exactly 20 % the
   device has **not** fired — it is a *below* 20 % effect, so a drone sitting on
   the line still owns its panic button. Pinned as a boundary unit test.
+
+### D85 — Text is fitted to its widget in the renderer, once, for everything  *(2026-08-09)*
+- **Decision:** `fit_text_in_rect()` in `ui_render_math.hpp` measures a rendered
+  string against its widget rect and returns a box that is **always inside** it,
+  uniformly scaled down (never up) and centered on the cross axis.
+  `UIRenderSystem` calls it on both the label and the button path. Labels are
+  left-aligned with no padding; buttons are centered with a 10px (design-canvas)
+  inset.
+- **Why:** the player reported four separate "text outside the box" bugs — the
+  title-screen hint running off the *screen*, the ship-unlock line overflowing
+  the panel on both sides, the pause footer, and a shop card. They are one bug:
+  the renderer positioned text from `rect.x`/`rect.y` using the texture's own
+  size and never looked at `rect.w`/`rect.h` at all. Hand-tuning four strings is
+  what produced the state the user was complaining about; the fifth string would
+  have broken next week.
+- **Shrink, not wrap or ellipsis.** Wrapping needs per-word measurement, a line
+  breaker and a rect whose height is authored for N lines; an ellipsis destroys
+  information the player is trying to read (a price). Shrinking is ~15 lines,
+  keeps the whole string, and degrades gracefully. The rects are authored to fit
+  at full size anyway — the fit is the floor, not the layout plan.
+- **Never scales up**, so every label that already fitted renders byte-identically
+  to before the change. That is what made this safe to land on six screens at once.
+- **A zero-size rect returns `visible = false`.** Collapsing a rect is how this
+  codebase hides a widget (D58, D61, and now D86); the fit must not resurrect a
+  hidden widget's text at the collapse point.
+- **Pure, and takes metrics rather than a font**, so the whole contract is unit
+  tested with no window: `CPP/game/tests/unit/test_ui_text_fit.cpp` sweeps ~1500
+  size combinations and asserts the box is inside the rect for every one.
+- **Rejected: an `overflow` field on `UIElement`.** A per-widget policy for a
+  behaviour that has exactly one right answer.
+
+### D86 — The HUD is hidden by phase, not by the screen stack  *(2026-08-09)*
+- **Decision:** `hud_visible_in_phase(phase)` (in `game_hud_system.hpp`) is the
+  single visibility rule: the arena HUD is drawn in `PHASE_PLAYING` and
+  `PHASE_INTERMISSION` and in no other phase. `GameHUDSystem` collapses its six
+  gauge widgets and blanks its text rows; `MinimapSystem` collapses the frame and
+  parks every blip.
+- **Why:** `"gameplay"` is `ScreenStackSystem`'s base sentinel — always on the
+  stack, never modal — so its widgets rendered on the title screen and under the
+  shop panel. That was the "menu gets overlaid on top of the hp and shield bars"
+  report, and it was never going to fix itself from the stack.
+- **Phase, not `is_modal()`.** The intermission is modal *and* flies the drone, so
+  a modality test would hide the hull bar exactly when the player is dodging under
+  the prompt. This mirrors HANDOFF trap 7 — `sim` is keyed off
+  `stack.back() == "pause"` for the same reason — but is a *separate* question:
+  visibility and simulation are not the same predicate and are not shared.
+- **Collapse, not a visibility flag.** `UIElement` has none; adding one is an
+  engine change and a `UIRenderSystem` branch to say what a zero-size rect already
+  says (D58, D61). `GameHUDSystem` caches the authored rects once, so hide/show is
+  lossless.
+- **The pool is parked, not destroyed.** The 120 blip widgets are allocated once
+  per process (D58) and stay allocated while hidden.
+- **Consequence:** the "REACTOR DRONE - click to start" banner is gone. It was a
+  second copy of the heading the `main_menu` panel already carries, drawn in a
+  44px face that ran off the right of the window.
+
+### D87 — Both halves of the HUD are authored in the design canvas  *(2026-08-09)*
+- **Decision:** `GameHUDSystem::init` applies `ui_canvas_transform` to its
+  `Text`+`ScreenPosition` rows, so its coordinates are 800x600 design-canvas
+  coordinates like every widget rect in `GameData.json`.
+- **Why (and the resize answer):** the gauges are widgets and go through the
+  canvas transform; the text rows go straight to `HUDSystem` in window pixels.
+  Authored in window pixels, "x = 20" for the score and "x = 16" for the HULL
+  label were 20px and 67.6px from the left edge — two columns in one HUD, which is
+  visible in the user's screenshots as the score sitting left of and above
+  everything else. Pinning the logical surface at 980x660 hides this from *window*
+  resizing, but it never was a resize bug: it is a two-coordinate-systems bug that
+  a non-1.0 canvas scale makes visible at any window size.
+- **Not a new mechanism:** the transform is the one the renderer already uses, so
+  the two cannot drift.
+
+### D88 — The menus are laid out on one grid, with one column and one type scale  *(2026-08-09)*
+- **Decision:** every screen in `GameData.json` is re-authored on a 4px grid with
+  a single left-aligned content column inset 24px from its panel edge, a 44px
+  minimum hit target on every button, a three-step type/colour scale
+  (`title` > `subtitle` > new `caption`), and a 2px `rule` under each heading.
+  New styles: `caption`, `rule`, `card`, `shop_tab`, `minimap_frame`.
+- **Why left-aligned, not centered:** the renderer left-aligns labels and centers
+  buttons. Rather than add a centering mode, the layout commits to a flush-left
+  column — which is also the faster read for a stack of short lines, and gives
+  every screen the same optical left edge.
+- **State feedback is now a real contract:** hover, press and disabled differ in
+  *both* background and text on every interactive style. The shop's current tab is
+  marked `disabled` (so it cannot be re-clicked), so `shop_tab`'s disabled state is
+  authored as the **selected** look — bright fill, dark text — rather than as the
+  grey "broken" look every other disabled style uses.
+- **One primary per screen:** exactly one widget carries `pulse_hz`, and the shop
+  cards use the new flatter `card` style so eight rows do not read as eight calls
+  to action.
+- **Panel opacity raised to 242.** A modal that lets a bloom-heavy arena strobe
+  through it was the single largest legibility loss on every screen.
+- **Rejected: centering labels via a new `element_type`.** An engine change to buy
+  what a layout decision gives for free.
+
+### D89 — The shop's tooltip becomes a fixed detail pane  *(2026-08-09)*
+- **Decision:** the tooltip label pair no longer follows the hovered card. It sits
+  in one fixed slot in the shop's right column, under the drone preview, and shows
+  the current page's one-line explanation when nothing is hovered.
+- **Why:** D64's repositioning was correct about the *mechanism* (a relabelled,
+  repositioned pair, not a new widget kind) and this keeps that. But a pane that
+  travels 44px per row jumps on every hover, and its 44..486 travel range slid it
+  straight through the ship preview it shares the column with. A pane the eye can
+  find once is worth more than proximity to a row the cursor is already on.
+- **Idle state carries the page hint**, which is also #5's answer: the LEVELS page
+  was a list of prices that never said what a level buys.
+- **Supersedes D64's "collapsed when nothing is hovered"**; the collapse path
+  remains for the case where the pane has nothing at all to say.
+
+### D90 — "REACTOR SHIFT", and the shop title stops repeating itself  *(2026-08-09)*
+- **Decision:** the arena-change banner reads `"<Arena> — REACTOR SHIFT"` (#13,
+  the user's own wording). The shop heading is `REACTOR SHOP` on every page; the
+  page name lives in the tab strip only.
+- **Why:** "arena shift" is engine vocabulary — the player never sees the word
+  "arena" anywhere else. And `REACTOR SHOP - UPGRADES` above a highlighted
+  `UPGRADES` tab said the same word twice in 40px of vertical space.
+- **Only one occurrence exists** (`main.cpp`'s `begin_arena_shift`); the identifier
+  `begin_arena_shift` is deliberately unrenamed — it is code vocabulary, cited from
+  D72/D76-D79 and two specs, and renaming it would churn four documents to change
+  nothing the player sees.

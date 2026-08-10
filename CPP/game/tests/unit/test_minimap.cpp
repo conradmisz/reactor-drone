@@ -163,6 +163,7 @@ TEST_CASE("the blip pool is allocated once and never exceeds the cap",
     ComponentStorage cs;
     EntityManager em;
     Blackboard bb;
+    bb.set<int>("phase", 1);   // Lane H: the radar only draws in a playing phase
     MinimapSystem mm;
     mm.set_config(test_minimap(8), test_arena());
 
@@ -188,6 +189,7 @@ TEST_CASE("the player and the boss survive the cap; the swarm's tail is dropped"
     ComponentStorage cs;
     EntityManager em;
     Blackboard bb;
+    bb.set<int>("phase", 1);   // Lane H: the radar only draws in a playing phase
     MinimapSystem mm;
     mm.set_config(test_minimap(3), test_arena());
 
@@ -212,6 +214,7 @@ TEST_CASE("blips colour-code by what they are", "[Game][minimap][pool]") {
     ComponentStorage cs;
     EntityManager em;
     Blackboard bb;
+    bb.set<int>("phase", 1);   // Lane H: the radar only draws in a playing phase
     MinimapSystem mm;
     mm.set_config(test_minimap(64), test_arena());
 
@@ -245,6 +248,7 @@ TEST_CASE("a disabled minimap allocates nothing at all", "[Game][minimap][pool]"
     ComponentStorage cs;
     EntityManager em;
     Blackboard bb;
+    bb.set<int>("phase", 1);   // Lane H: the radar only draws in a playing phase
     MinimapSystem mm;
     MinimapConfig cfg = test_minimap(64);
     cfg.enabled = false;

@@ -2726,9 +2726,9 @@
   "//minimap": "Lane B / note #7 - arena minimap (D58). x/y/size are in the 800x600 design canvas and are the ONE authority for the map's geometry: MinimapSystem writes them over the authored rect of the 'minimap_frame' panel on the gameplay screen. max_blips is a hard cap; the overflow is logged, never dropped silently.",
   "minimap": {
     "enabled": true,
-    "x": 640.0,
-    "y": 410.0,
-    "size": 140.0,
+    "x": 688.0,
+    "y": 486.0,
+    "size": 96.0,
     "max_blips": 120
   },
   "//specialty": "Lane D / notes #3 + #9 (D67). Two cadences over the spawn counter, not RNG: every_n_spawns injects the live arena's specialty unit, moon_every_n_spawns injects one unlocked shooter (a type with first_wave > 0). by_arena maps an arena NAME to an enemy_types NAME - names, not indices, because the two lists are authored by different lanes. tier2_* is what makes the second pass over the same four themes (waves 26-50) harder. PROVISIONAL: unplayed.",
@@ -2818,58 +2818,58 @@
     "panel": {
       "normal": {
         "bg": [
-          10,
-          14,
-          30,
-          225
+          8,
+          12,
+          26,
+          242
         ],
         "text": [
           120,
           225,
           255,
-          160
+          120
         ]
       },
       "hovered": {
         "bg": [
-          10,
-          14,
-          30,
-          225
+          8,
+          12,
+          26,
+          242
         ],
         "text": [
           120,
           225,
           255,
-          160
+          120
         ]
       },
       "pressed": {
         "bg": [
-          10,
-          14,
-          30,
-          225
+          8,
+          12,
+          26,
+          242
         ],
         "text": [
           120,
           225,
           255,
-          160
+          120
         ]
       },
       "disabled": {
         "bg": [
-          10,
-          14,
-          30,
-          225
+          8,
+          12,
+          26,
+          242
         ],
         "text": [
           120,
           225,
           255,
-          160
+          120
         ]
       }
     },
@@ -2882,8 +2882,8 @@
           0
         ],
         "text": [
-          120,
-          225,
+          140,
+          235,
           255,
           255
         ]
@@ -2896,8 +2896,8 @@
           0
         ],
         "text": [
-          120,
-          225,
+          140,
+          235,
           255,
           255
         ]
@@ -2910,8 +2910,8 @@
           0
         ],
         "text": [
-          120,
-          225,
+          140,
+          235,
           255,
           255
         ]
@@ -2924,8 +2924,8 @@
           0
         ],
         "text": [
-          120,
-          225,
+          140,
+          235,
           255,
           255
         ]
@@ -2940,10 +2940,10 @@
           0
         ],
         "text": [
-          235,
-          235,
-          245,
-          190
+          222,
+          232,
+          244,
+          205
         ]
       },
       "hovered": {
@@ -2954,10 +2954,10 @@
           0
         ],
         "text": [
-          235,
-          235,
-          245,
-          190
+          222,
+          232,
+          244,
+          205
         ]
       },
       "pressed": {
@@ -2968,10 +2968,10 @@
           0
         ],
         "text": [
-          235,
-          235,
-          245,
-          190
+          222,
+          232,
+          244,
+          205
         ]
       },
       "disabled": {
@@ -2982,10 +2982,10 @@
           0
         ],
         "text": [
-          235,
-          235,
-          245,
-          190
+          222,
+          232,
+          244,
+          205
         ]
       }
     },
@@ -3050,28 +3050,28 @@
     "default_button": {
       "normal": {
         "bg": [
-          18,
-          40,
-          60,
-          230
+          16,
+          36,
+          56,
+          235
         ],
         "text": [
-          120,
-          225,
+          150,
+          232,
           255,
           255
         ]
       },
       "hovered": {
         "bg": [
-          30,
-          75,
-          110,
+          32,
+          82,
+          120,
           255
         ],
         "text": [
-          225,
-          250,
+          235,
+          252,
           255,
           255
         ]
@@ -3092,16 +3092,16 @@
       },
       "disabled": {
         "bg": [
-          30,
-          32,
-          40,
-          180
+          26,
+          28,
+          36,
+          170
         ],
         "text": [
+          104,
           110,
-          115,
-          125,
-          200
+          122,
+          190
         ]
       }
     },
@@ -3512,302 +3512,686 @@
       }
     },
     "minimap_player": {
-      "normal": { "bg": [120, 225, 255, 255], "text": [0, 0, 0, 0] },
-      "hovered": { "bg": [120, 225, 255, 255], "text": [0, 0, 0, 0] },
-      "pressed": { "bg": [120, 225, 255, 255], "text": [0, 0, 0, 0] },
-      "disabled": { "bg": [120, 225, 255, 255], "text": [0, 0, 0, 0] }
+      "normal": {
+        "bg": [
+          120,
+          225,
+          255,
+          255
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "hovered": {
+        "bg": [
+          120,
+          225,
+          255,
+          255
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pressed": {
+        "bg": [
+          120,
+          225,
+          255,
+          255
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "disabled": {
+        "bg": [
+          120,
+          225,
+          255,
+          255
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
     },
     "minimap_enemy": {
-      "normal": { "bg": [255, 70, 70, 255], "text": [0, 0, 0, 0] },
-      "hovered": { "bg": [255, 70, 70, 255], "text": [0, 0, 0, 0] },
-      "pressed": { "bg": [255, 70, 70, 255], "text": [0, 0, 0, 0] },
-      "disabled": { "bg": [255, 70, 70, 255], "text": [0, 0, 0, 0] }
+      "normal": {
+        "bg": [
+          255,
+          70,
+          70,
+          255
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "hovered": {
+        "bg": [
+          255,
+          70,
+          70,
+          255
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pressed": {
+        "bg": [
+          255,
+          70,
+          70,
+          255
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "disabled": {
+        "bg": [
+          255,
+          70,
+          70,
+          255
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
     },
     "minimap_pickup": {
-      "normal": { "bg": [255, 210, 90, 255], "text": [0, 0, 0, 0] },
-      "hovered": { "bg": [255, 210, 90, 255], "text": [0, 0, 0, 0] },
-      "pressed": { "bg": [255, 210, 90, 255], "text": [0, 0, 0, 0] },
-      "disabled": { "bg": [255, 210, 90, 255], "text": [0, 0, 0, 0] }
+      "normal": {
+        "bg": [
+          255,
+          210,
+          90,
+          255
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "hovered": {
+        "bg": [
+          255,
+          210,
+          90,
+          255
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pressed": {
+        "bg": [
+          255,
+          210,
+          90,
+          255
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "disabled": {
+        "bg": [
+          255,
+          210,
+          90,
+          255
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "caption": {
+      "normal": {
+        "bg": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "text": [
+          146,
+          166,
+          190,
+          200
+        ]
+      },
+      "hovered": {
+        "bg": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "text": [
+          146,
+          166,
+          190,
+          200
+        ]
+      },
+      "pressed": {
+        "bg": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "text": [
+          146,
+          166,
+          190,
+          200
+        ]
+      },
+      "disabled": {
+        "bg": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "text": [
+          146,
+          166,
+          190,
+          200
+        ]
+      }
+    },
+    "rule": {
+      "normal": {
+        "bg": [
+          120,
+          225,
+          255,
+          70
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "hovered": {
+        "bg": [
+          120,
+          225,
+          255,
+          70
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pressed": {
+        "bg": [
+          120,
+          225,
+          255,
+          70
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "disabled": {
+        "bg": [
+          120,
+          225,
+          255,
+          70
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "shop_tab": {
+      "normal": {
+        "bg": [
+          14,
+          26,
+          42,
+          230
+        ],
+        "text": [
+          150,
+          185,
+          210,
+          235
+        ]
+      },
+      "hovered": {
+        "bg": [
+          26,
+          60,
+          90,
+          255
+        ],
+        "text": [
+          225,
+          250,
+          255,
+          255
+        ]
+      },
+      "pressed": {
+        "bg": [
+          120,
+          225,
+          255,
+          255
+        ],
+        "text": [
+          8,
+          16,
+          30,
+          255
+        ]
+      },
+      "disabled": {
+        "bg": [
+          120,
+          225,
+          255,
+          240
+        ],
+        "text": [
+          6,
+          14,
+          28,
+          255
+        ]
+      }
+    },
+    "card": {
+      "normal": {
+        "bg": [
+          14,
+          24,
+          40,
+          225
+        ],
+        "text": [
+          206,
+          226,
+          240,
+          250
+        ]
+      },
+      "hovered": {
+        "bg": [
+          30,
+          66,
+          96,
+          255
+        ],
+        "text": [
+          235,
+          252,
+          255,
+          255
+        ]
+      },
+      "pressed": {
+        "bg": [
+          120,
+          225,
+          255,
+          255
+        ],
+        "text": [
+          8,
+          16,
+          30,
+          255
+        ]
+      },
+      "disabled": {
+        "bg": [
+          16,
+          18,
+          26,
+          150
+        ],
+        "text": [
+          96,
+          104,
+          118,
+          170
+        ]
+      }
+    },
+    "minimap_frame": {
+      "normal": {
+        "bg": [
+          4,
+          10,
+          20,
+          110
+        ],
+        "text": [
+          120,
+          225,
+          255,
+          130
+        ]
+      },
+      "hovered": {
+        "bg": [
+          4,
+          10,
+          20,
+          110
+        ],
+        "text": [
+          120,
+          225,
+          255,
+          130
+        ]
+      },
+      "pressed": {
+        "bg": [
+          4,
+          10,
+          20,
+          110
+        ],
+        "text": [
+          120,
+          225,
+          255,
+          130
+        ]
+      },
+      "disabled": {
+        "bg": [
+          4,
+          10,
+          20,
+          110
+        ],
+        "text": [
+          120,
+          225,
+          255,
+          130
+        ]
+      }
     }
   },
   "screens": {
     "shop": {
-      "active": false,
       "widgets": [
         {
-          "//": "Lane C (D61): the clickable shop. ShopSystem resolves every named widget through ui.widget_id.<name> and rewrites label_text/rect each frame; this block owns layout and style only. The on_click_fn names are pinned by CPP/game/tests/unit/test_shop_screen.cpp.",
           "element_type": "panel",
-          "name": "shop_panel",
           "rect": {
             "x": 24,
-            "y": 40,
-            "w": 392,
-            "h": 520
+            "y": 24,
+            "w": 400,
+            "h": 552
           },
           "label_text": "",
           "style_id": "panel",
-          "z_order": 0
+          "z_order": 0,
+          "//": "Lane C (D61) + Lane H (D88): the clickable shop, re-laid out on the 4px grid as two columns - a catalogue panel on the left, ship preview and a FIXED detail pane on the right. ShopSystem resolves every named widget through ui.widget_id.<name> and rewrites label_text/rect each frame; this block owns layout and style only. The on_click_fn names are pinned by CPP/game/tests/unit/test_shop_screen.cpp.",
+          "name": "shop_panel"
         },
         {
           "element_type": "label",
-          "name": "shop_title",
           "rect": {
-            "x": 44,
-            "y": 522,
-            "w": 360,
-            "h": 32
+            "x": 48,
+            "y": 532,
+            "w": 352,
+            "h": 34
           },
           "label_text": "REACTOR SHOP",
           "style_id": "title",
-          "z_order": 10
+          "z_order": 10,
+          "name": "shop_title"
         },
         {
           "element_type": "label",
-          "name": "shop_credits",
           "rect": {
-            "x": 44,
-            "y": 494,
-            "w": 360,
+            "x": 48,
+            "y": 506,
+            "w": 352,
             "h": 24
           },
           "label_text": "Credits: 0",
           "style_id": "subtitle",
+          "z_order": 10,
+          "name": "shop_credits"
+        },
+        {
+          "element_type": "panel",
+          "rect": {
+            "x": 48,
+            "y": 494,
+            "w": 352,
+            "h": 2
+          },
+          "label_text": "",
+          "style_id": "rule",
           "z_order": 10
         },
         {
           "element_type": "button",
-          "name": "shop_tab_0",
           "rect": {
-            "x": 36,
+            "x": 48,
             "y": 440,
-            "w": 120,
-            "h": 40
+            "w": 112,
+            "h": 44
           },
           "label_text": "UPGRADES",
-          "style_id": "default_button",
+          "style_id": "shop_tab",
+          "z_order": 10,
           "on_click_fn": "on_shop_page_0",
-          "z_order": 10
+          "name": "shop_tab_0"
         },
         {
           "element_type": "button",
-          "name": "shop_tab_1",
           "rect": {
-            "x": 164,
+            "x": 168,
             "y": 440,
-            "w": 120,
-            "h": 40
+            "w": 112,
+            "h": 44
           },
           "label_text": "GEAR",
-          "style_id": "default_button",
+          "style_id": "shop_tab",
+          "z_order": 10,
           "on_click_fn": "on_shop_page_1",
-          "z_order": 10
+          "name": "shop_tab_1"
         },
         {
           "element_type": "button",
-          "name": "shop_tab_2",
           "rect": {
-            "x": 292,
+            "x": 288,
             "y": 440,
-            "w": 120,
-            "h": 40
+            "w": 112,
+            "h": 44
           },
           "label_text": "LEVELS",
-          "style_id": "default_button",
+          "style_id": "shop_tab",
+          "z_order": 10,
           "on_click_fn": "on_shop_page_2",
-          "z_order": 10
+          "name": "shop_tab_2"
         },
         {
           "element_type": "button",
-          "name": "shop_card_0",
           "rect": {
-            "x": 36.0,
-            "y": 384.0,
-            "w": 368.0,
-            "h": 40.0
+            "x": 48,
+            "y": 382,
+            "w": 352,
+            "h": 44
           },
           "label_text": "",
-          "style_id": "default_button",
+          "style_id": "card",
+          "z_order": 10,
           "on_click_fn": "on_shop_card_0",
-          "z_order": 10
+          "name": "shop_card_0"
         },
         {
           "element_type": "button",
-          "name": "shop_card_1",
           "rect": {
-            "x": 36.0,
-            "y": 338.0,
-            "w": 368.0,
-            "h": 40.0
+            "x": 48,
+            "y": 334,
+            "w": 352,
+            "h": 44
           },
           "label_text": "",
-          "style_id": "default_button",
+          "style_id": "card",
+          "z_order": 10,
           "on_click_fn": "on_shop_card_1",
-          "z_order": 10
+          "name": "shop_card_1"
         },
         {
           "element_type": "button",
-          "name": "shop_card_2",
           "rect": {
-            "x": 36.0,
-            "y": 292.0,
-            "w": 368.0,
-            "h": 40.0
+            "x": 48,
+            "y": 286,
+            "w": 352,
+            "h": 44
           },
           "label_text": "",
-          "style_id": "default_button",
+          "style_id": "card",
+          "z_order": 10,
           "on_click_fn": "on_shop_card_2",
-          "z_order": 10
+          "name": "shop_card_2"
         },
         {
           "element_type": "button",
-          "name": "shop_card_3",
           "rect": {
-            "x": 36.0,
-            "y": 246.0,
-            "w": 368.0,
-            "h": 40.0
+            "x": 48,
+            "y": 238,
+            "w": 352,
+            "h": 44
           },
           "label_text": "",
-          "style_id": "default_button",
+          "style_id": "card",
+          "z_order": 10,
           "on_click_fn": "on_shop_card_3",
-          "z_order": 10
+          "name": "shop_card_3"
         },
         {
           "element_type": "button",
-          "name": "shop_card_4",
           "rect": {
-            "x": 36.0,
-            "y": 200.0,
-            "w": 368.0,
-            "h": 40.0
+            "x": 48,
+            "y": 190,
+            "w": 352,
+            "h": 44
           },
           "label_text": "",
-          "style_id": "default_button",
+          "style_id": "card",
+          "z_order": 10,
           "on_click_fn": "on_shop_card_4",
-          "z_order": 10
+          "name": "shop_card_4"
         },
         {
           "element_type": "button",
-          "name": "shop_card_5",
           "rect": {
-            "x": 36.0,
-            "y": 154.0,
-            "w": 368.0,
-            "h": 40.0
+            "x": 48,
+            "y": 142,
+            "w": 352,
+            "h": 44
           },
           "label_text": "",
-          "style_id": "default_button",
+          "style_id": "card",
+          "z_order": 10,
           "on_click_fn": "on_shop_card_5",
-          "z_order": 10
+          "name": "shop_card_5"
         },
         {
           "element_type": "button",
-          "name": "shop_card_6",
           "rect": {
-            "x": 36.0,
-            "y": 108.0,
-            "w": 368.0,
-            "h": 40.0
+            "x": 48,
+            "y": 94,
+            "w": 352,
+            "h": 44
           },
           "label_text": "",
-          "style_id": "default_button",
+          "style_id": "card",
+          "z_order": 10,
           "on_click_fn": "on_shop_card_6",
-          "z_order": 10
+          "name": "shop_card_6"
         },
         {
           "element_type": "button",
-          "name": "shop_card_7",
           "rect": {
-            "x": 36.0,
-            "y": 62.0,
-            "w": 368.0,
-            "h": 40.0
+            "x": 48,
+            "y": 46,
+            "w": 352,
+            "h": 44
           },
           "label_text": "",
-          "style_id": "default_button",
+          "style_id": "card",
+          "z_order": 10,
           "on_click_fn": "on_shop_card_7",
-          "z_order": 10
+          "name": "shop_card_7"
         },
-        {
-          "element_type": "button",
-          "name": "shop_leave",
-          "rect": {
-            "x": 560,
-            "y": 48,
-            "w": 200,
-            "h": 48
-          },
-          "label_text": "LAUNCH",
-          "style_id": "shop_button",
-          "on_click_fn": "on_shop_leave",
-          "pulse_hz": 1.1,
-          "z_order": 10
-        },
-        {
-          "element_type": "label",
-          "name": "shop_preview_label",
-          "rect": {
-            "x": 452,
-            "y": 528,
-            "w": 320,
-            "h": 26
-          },
-          "label_text": "EQUIPPED PREVIEW",
-          "style_id": "subtitle",
-          "z_order": 10
-        },
-        {
-          "//": "Tooltip: authored once, then repositioned and rewritten on hover. Collapsed to a zero-size rect with empty text when nothing is hovered - UIElement has no visibility flag and adding one would be an engine change.",
-          "element_type": "panel",
-          "name": "shop_tip_panel",
-          "rect": {
-            "x": 430,
-            "y": 300,
-            "w": 340,
-            "h": 70
-          },
-          "label_text": "",
-          "style_id": "panel",
-          "z_order": 20
-        },
-        {
-          "element_type": "label",
-          "name": "shop_tip_name",
-          "rect": {
-            "x": 440,
-            "y": 344,
-            "w": 320,
-            "h": 24
-          },
-          "label_text": "",
-          "style_id": "title",
-          "z_order": 30
-        },
-        {
-          "element_type": "label",
-          "name": "shop_tip_desc",
-          "rect": {
-            "x": 440,
-            "y": 314,
-            "w": 320,
-            "h": 22
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 30
-        }
-      ]
-    },
-    "main_menu": {
-      "active": false,
-      "widgets": [
         {
           "element_type": "panel",
           "rect": {
-            "x": 130,
-            "y": 132,
-            "w": 540,
-            "h": 298
+            "x": 432,
+            "y": 516,
+            "w": 352,
+            "h": 52
           },
           "label_text": "",
           "style_id": "panel",
@@ -3816,22 +4200,119 @@
         {
           "element_type": "label",
           "rect": {
-            "x": 250,
-            "y": 380,
-            "w": 300,
-            "h": 40
+            "x": 448,
+            "y": 528,
+            "w": 320,
+            "h": 28
+          },
+          "label_text": "EQUIPPED PREVIEW",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "shop_preview_label"
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 448,
+            "y": 40,
+            "w": 328,
+            "h": 56
+          },
+          "label_text": "LAUNCH",
+          "style_id": "shop_button",
+          "z_order": 10,
+          "pulse_hz": 1.1,
+          "on_click_fn": "on_shop_leave",
+          "name": "shop_leave"
+        },
+        {
+          "element_type": "panel",
+          "rect": {
+            "x": 448,
+            "y": 116,
+            "w": 328,
+            "h": 108
+          },
+          "label_text": "",
+          "style_id": "panel",
+          "z_order": 20,
+          "//": "Detail pane (D89): a FIXED slot under the preview, not a cursor-chasing tooltip. Rewritten and collapsed to a zero-size rect by ShopSystem; TIP_* in shop_system.cpp is the geometry authority, this rect is the placeholder.",
+          "name": "shop_tip_panel"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 464,
+            "y": 180,
+            "w": 296,
+            "h": 28
+          },
+          "label_text": "",
+          "style_id": "title",
+          "z_order": 30,
+          "name": "shop_tip_name"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 464,
+            "y": 128,
+            "w": 296,
+            "h": 44
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 30,
+          "name": "shop_tip_desc"
+        }
+      ]
+    },
+    "main_menu": {
+      "widgets": [
+        {
+          "element_type": "panel",
+          "rect": {
+            "x": 180,
+            "y": 104,
+            "w": 440,
+            "h": 392
+          },
+          "label_text": "",
+          "style_id": "panel",
+          "z_order": 0,
+          "//": "Lane H: 800x600 design canvas, 4px grid. One left-aligned content column per panel (inset 24 from the panel edge), a 44px+ hit target on every button, and a type/colour scale of title > subtitle > caption. Text can no longer overflow its rect - UIRenderSystem fits it (fit_text_in_rect) - but the rects here are authored to fit at full size so nothing has to shrink."
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 204,
+            "y": 412,
+            "w": 392,
+            "h": 44
           },
           "label_text": "REACTOR DRONE",
           "style_id": "title",
           "z_order": 10
         },
         {
+          "element_type": "panel",
+          "rect": {
+            "x": 204,
+            "y": 400,
+            "w": 392,
+            "h": 2
+          },
+          "label_text": "",
+          "style_id": "rule",
+          "z_order": 10
+        },
+        {
           "element_type": "label",
           "rect": {
-            "x": 210,
-            "y": 344,
-            "w": 380,
-            "h": 28
+            "x": 204,
+            "y": 362,
+            "w": 392,
+            "h": 30
           },
           "label_text": "Choose your difficulty.",
           "style_id": "subtitle",
@@ -3839,72 +4320,83 @@
         },
         {
           "element_type": "button",
-          "name": "menu_normal",
           "rect": {
-            "x": 170,
-            "y": 250,
-            "w": 220,
-            "h": 66
+            "x": 204,
+            "y": 284,
+            "w": 188,
+            "h": 56
           },
           "label_text": "NORMAL",
           "style_id": "default_button",
-          "on_click_fn": "on_start_normal_click",
+          "z_order": 10,
           "pulse_hz": 1.1,
-          "z_order": 10
+          "on_click_fn": "on_start_normal_click",
+          "name": "menu_normal"
         },
         {
           "element_type": "button",
-          "name": "menu_hard",
           "rect": {
-            "x": 410,
-            "y": 250,
-            "w": 220,
-            "h": 66
+            "x": 408,
+            "y": 284,
+            "w": 188,
+            "h": 56
           },
           "label_text": "HARD",
           "style_id": "shop_button",
+          "z_order": 10,
           "on_click_fn": "on_start_hard_click",
-          "z_order": 10
+          "name": "menu_hard"
         },
         {
-          "//": "Lane F (D82): ship selector AND lock readout, deliberately one widget. main.cpp rewrites its label every title frame: 'SHIP: <name>' with the button style while more than one ship is unlocked (a click cycles), or '<name>: <n> pts' in the flat subtitle style while every other ship is locked (a click does nothing, because a locked ship is never selectable).",
           "element_type": "button",
-          "name": "menu_ship",
           "rect": {
-            "x": 210,
-            "y": 190,
-            "w": 380,
-            "h": 38
+            "x": 204,
+            "y": 216,
+            "w": 392,
+            "h": 48
           },
           "label_text": "",
           "style_id": "subtitle",
+          "z_order": 10,
           "on_click_fn": "on_ship_cycle",
+          "//": "Lane F (D82): ship selector AND lock readout, deliberately one widget. main.cpp rewrites its label every title frame.",
+          "name": "menu_ship"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 204,
+            "y": 170,
+            "w": 392,
+            "h": 26
+          },
+          "label_text": "Arrows move   Mouse aims   Hold fire",
+          "style_id": "caption",
           "z_order": 10
         },
         {
           "element_type": "label",
           "rect": {
-            "x": 210,
-            "y": 152,
-            "w": 380,
-            "h": 20
+            "x": 204,
+            "y": 140,
+            "w": 392,
+            "h": 26
           },
-          "label_text": "Arrows move, mouse aims, hold fire. SPACE = Normal.",
-          "style_id": "subtitle",
+          "label_text": "SPACE starts a Normal run   ESC pauses",
+          "style_id": "caption",
           "z_order": 10
         }
       ]
     },
     "wave_intermission": {
-      "active": false,
       "widgets": [
         {
           "element_type": "panel",
           "rect": {
-            "x": 130,
-            "y": 190,
-            "w": 540,
-            "h": 220
+            "x": 180,
+            "y": 206,
+            "w": 440,
+            "h": 224
           },
           "label_text": "",
           "style_id": "panel",
@@ -3913,9 +4405,9 @@
         {
           "element_type": "label",
           "rect": {
-            "x": 250,
-            "y": 355,
-            "w": 300,
+            "x": 204,
+            "y": 366,
+            "w": 392,
             "h": 40
           },
           "label_text": "WAVE CLEARED",
@@ -3923,11 +4415,23 @@
           "z_order": 10
         },
         {
+          "element_type": "panel",
+          "rect": {
+            "x": 204,
+            "y": 354,
+            "w": 392,
+            "h": 2
+          },
+          "label_text": "",
+          "style_id": "rule",
+          "z_order": 10
+        },
+        {
           "element_type": "label",
           "rect": {
-            "x": 210,
-            "y": 320,
-            "w": 380,
+            "x": 204,
+            "y": 314,
+            "w": 392,
             "h": 28
           },
           "label_text": "Spend your credits, or push on.",
@@ -3936,141 +4440,141 @@
         },
         {
           "element_type": "button",
-          "name": "shop_button",
           "rect": {
-            "x": 160,
-            "y": 225,
-            "w": 240,
-            "h": 66
+            "x": 204,
+            "y": 236,
+            "w": 188,
+            "h": 56
           },
-          "label_text": "SHOP OPEN",
+          "label_text": "OPEN SHOP",
           "style_id": "shop_button",
-          "on_click_fn": "on_shop_open_click",
+          "z_order": 10,
           "pulse_hz": 1.1,
-          "z_order": 10
+          "on_click_fn": "on_shop_open_click",
+          "name": "shop_button"
         },
         {
           "element_type": "button",
-          "name": "continue_button",
           "rect": {
-            "x": 420,
-            "y": 225,
-            "w": 220,
-            "h": 66
+            "x": 408,
+            "y": 236,
+            "w": 188,
+            "h": 56
           },
           "label_text": "NEXT WAVE",
           "style_id": "default_button",
+          "z_order": 10,
           "on_click_fn": "on_continue_click",
-          "z_order": 10
+          "name": "continue_button"
         }
       ]
     },
     "gameplay": {
-      "active": true,
       "widgets": [
         {
           "element_type": "label",
-          "name": "hud_hp_label",
           "rect": {
-            "x": 16.0,
-            "y": 578.0,
-            "w": 120.0,
-            "h": 16.0
+            "x": 16,
+            "y": 552,
+            "w": 120,
+            "h": 30
           },
           "label_text": "HULL",
           "style_id": "hud_label",
-          "z_order": 10
+          "z_order": 10,
+          "//": "Lane H: was y=578 h=16 - a 16px box for a 24px face, so the cap-height was clipped off the TOP of the window. Rect heights on this screen are now >= the rendered line box.",
+          "name": "hud_hp_label"
         },
         {
           "element_type": "panel",
-          "name": "hud_hp_bg",
           "rect": {
-            "x": 14.0,
-            "y": 554.0,
-            "w": 244.0,
-            "h": 22.0
+            "x": 14,
+            "y": 526,
+            "w": 244,
+            "h": 22
           },
           "label_text": "",
           "style_id": "hud_bar_bg",
-          "z_order": 10
+          "z_order": 10,
+          "name": "hud_hp_bg"
         },
         {
           "element_type": "panel",
-          "name": "hud_hp_chip",
           "rect": {
-            "x": 16.0,
-            "y": 556.0,
-            "w": 240.0,
-            "h": 18.0
+            "x": 16,
+            "y": 528,
+            "w": 240,
+            "h": 18
           },
           "label_text": "",
           "style_id": "hud_chip",
-          "z_order": 11
+          "z_order": 11,
+          "name": "hud_hp_chip"
         },
         {
           "element_type": "panel",
-          "name": "hud_hp_fill",
           "rect": {
-            "x": 16.0,
-            "y": 556.0,
-            "w": 240.0,
-            "h": 18.0
+            "x": 16,
+            "y": 528,
+            "w": 240,
+            "h": 18
           },
           "label_text": "",
           "style_id": "hud_hp_ok",
-          "z_order": 12
+          "z_order": 12,
+          "name": "hud_hp_fill"
         },
         {
           "element_type": "panel",
-          "name": "hud_sh_bg",
           "rect": {
-            "x": 14.0,
-            "y": 534.0,
-            "w": 244.0,
-            "h": 16.0
+            "x": 14,
+            "y": 504,
+            "w": 244,
+            "h": 18
           },
           "label_text": "",
           "style_id": "hud_bar_bg",
-          "z_order": 10
+          "z_order": 10,
+          "name": "hud_sh_bg"
         },
         {
           "element_type": "panel",
-          "name": "hud_sh_fill",
           "rect": {
-            "x": 16.0,
-            "y": 536.0,
-            "w": 240.0,
-            "h": 12.0
+            "x": 16,
+            "y": 506,
+            "w": 240,
+            "h": 14
           },
           "label_text": "",
           "style_id": "hud_shield",
-          "z_order": 12
+          "z_order": 12,
+          "name": "hud_sh_fill"
         },
         {
           "element_type": "panel",
-          "name": "minimap_frame",
           "rect": {
-            "x": 640.0,
-            "y": 410.0,
-            "w": 140.0,
-            "h": 140.0
+            "x": 688,
+            "y": 486,
+            "w": 96,
+            "h": 96
           },
           "label_text": "",
-          "style_id": "hud_bar_bg",
-          "z_order": 20
+          "style_id": "minimap_frame",
+          "z_order": 20,
+          "//": "Placeholder geometry only: MinimapSystem writes x/y/size from the `minimap` config block over this rect every frame (D58), and collapses it when the HUD is hidden.",
+          "name": "minimap_frame"
         }
       ]
     },
     "pause": {
-      "active": false,
       "widgets": [
         {
           "element_type": "panel",
           "rect": {
-            "x": 250.0,
-            "y": 170.0,
-            "w": 300.0,
-            "h": 260.0
+            "x": 250,
+            "y": 164,
+            "w": 300,
+            "h": 316
           },
           "label_text": "",
           "style_id": "panel",
@@ -4079,53 +4583,78 @@
         {
           "element_type": "label",
           "rect": {
-            "x": 300.0,
-            "y": 380.0,
-            "w": 200.0,
-            "h": 40.0
+            "x": 274,
+            "y": 412,
+            "w": 252,
+            "h": 40
           },
           "label_text": "PAUSED",
           "style_id": "title",
           "z_order": 10
         },
         {
-          "element_type": "button",
-          "name": "pause_resume",
+          "element_type": "panel",
           "rect": {
-            "x": 300.0,
-            "y": 320.0,
-            "w": 200.0,
-            "h": 46.0
+            "x": 274,
+            "y": 400,
+            "w": 252,
+            "h": 2
           },
-          "label_text": "RESUME",
-          "style_id": "default_button",
-          "on_click_fn": "on_resume_click",
+          "label_text": "",
+          "style_id": "rule",
           "z_order": 10
         },
         {
           "element_type": "button",
-          "name": "pause_quit",
           "rect": {
-            "x": 300.0,
-            "y": 262.0,
-            "w": 200.0,
-            "h": 46.0
+            "x": 274,
+            "y": 332,
+            "w": 252,
+            "h": 52
+          },
+          "label_text": "RESUME",
+          "style_id": "default_button",
+          "z_order": 10,
+          "pulse_hz": 1.1,
+          "on_click_fn": "on_resume_click",
+          "name": "pause_resume"
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 274,
+            "y": 268,
+            "w": 252,
+            "h": 52
           },
           "label_text": "QUIT",
           "style_id": "default_button",
+          "z_order": 10,
           "on_click_fn": "on_quit_click",
+          "name": "pause_quit"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 274,
+            "y": 218,
+            "w": 252,
+            "h": 24
+          },
+          "label_text": "ESC also resumes.",
+          "style_id": "caption",
           "z_order": 10
         },
         {
           "element_type": "label",
           "rect": {
-            "x": 250.0,
-            "y": 208.0,
-            "w": 300.0,
-            "h": 24.0
+            "x": 274,
+            "y": 192,
+            "w": 252,
+            "h": 24
           },
-          "label_text": "Save & Options: coming soon",
-          "style_id": "subtitle",
+          "label_text": "Quitting banks your score.",
+          "style_id": "caption",
           "z_order": 10
         }
       ]

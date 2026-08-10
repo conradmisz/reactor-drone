@@ -7,13 +7,16 @@
 #include "minimap_math.hpp"
 #include "enemy_components.hpp"    // EnemyTag, EnemyBehavior, behavior_kinds
 #include "player_components.hpp"   // PlayerTag, Pickup
+#include "game_hud_system.hpp"     // hud_visible_in_phase — one visibility rule
 
 namespace {
 
 /// Blip edge length in design-canvas units, derived from the frame size so the
 /// map reads the same at any configured size. Floored so it never vanishes.
 float blip_edge(float frame_size) {
-    return std::max(3.0f, frame_size / 28.0f);
+    // Divisor loosened from 28 to 24 when the radar shrank from 140 to 96: the
+    // blip has to stay a readable mark, and at /28 a 96px radar drew 3.4px specks.
+    return std::max(3.0f, frame_size / 24.0f);
 }
 
 /// World centre of an entity that has Position (+ optional Size).
@@ -29,23 +32,9 @@ bool world_centre(const ComponentStorage& cs, Entity e, float& cx, float& cy) {
 }  // namespace
 
 void MinimapSystem::ensure_pool(ComponentStorage& component_storage,
-                                EntityManager& entity_manager,
-                                Blackboard& blackboard) {
+                                EntityManager& entity_manager) {
     const std::size_t cap = static_cast<std::size_t>(std::max(0, cfg_.max_blips));
     if (pool_.size() == cap) return;
-
-    // The frame panel is authored in GameData's `gameplay` screen for its style
-    // and screen membership; its GEOMETRY comes from the `minimap` config block,
-    // which is written over the authored rect here. One authority for where the
-    // map is, rather than two that can silently disagree.
-    const double frame_id =
-        blackboard.get_or<double>(std::string("ui.widget_id.") + FRAME_WIDGET, -1.0);
-    if (frame_id >= 0.0) {
-        Entity frame = static_cast<Entity>(frame_id);
-        if (auto el = component_storage.get_component<UIElement>(frame); el.has_value()) {
-            el->get().rect = UIRect{cfg_.x, cfg_.y, cfg_.size, cfg_.size};
-        }
-    }
 
     pool_.reserve(cap);
     while (pool_.size() < cap) {
@@ -67,7 +56,35 @@ void MinimapSystem::update(ComponentStorage& component_storage,
                            EntityManager& entity_manager,
                            Blackboard& blackboard) {
     if (!cfg_.enabled || cfg_.max_blips <= 0 || cfg_.size <= 0.0f) return;
-    ensure_pool(component_storage, entity_manager, blackboard);
+    ensure_pool(component_storage, entity_manager);
+
+    // The frame panel is authored in GameData's `gameplay` screen for its style
+    // and screen membership; its GEOMETRY comes from the `minimap` config block,
+    // which is written over the authored rect here. One authority for where the
+    // map is, rather than two that can silently disagree. Written every frame
+    // rather than once at pool time, because hiding the radar collapses it.
+    const bool show = hud_visible_in_phase(blackboard.get_or<int>("phase", 0));
+    const double frame_id =
+        blackboard.get_or<double>(std::string("ui.widget_id.") + FRAME_WIDGET, -1.0);
+    if (frame_id >= 0.0) {
+        Entity frame = static_cast<Entity>(frame_id);
+        if (auto el = component_storage.get_component<UIElement>(frame); el.has_value()) {
+            el->get().rect = show ? UIRect{cfg_.x, cfg_.y, cfg_.size, cfg_.size}
+                                  : UIRect{cfg_.x, cfg_.y, 0.0f, 0.0f};
+        }
+    }
+    if (!show) {
+        // The radar is arena furniture: it has no business on the title screen or
+        // under the shop panel. Park every blip, same zero-size hide as an unused
+        // pool slot, and skip the whole scan.
+        for (Entity e : pool_) {
+            if (auto el = component_storage.get_component<UIElement>(e); el.has_value()) {
+                el->get().rect.w = 0.0f;
+                el->get().rect.h = 0.0f;
+            }
+        }
+        return;
+    }
 
     const minimap_math::Rect frame{cfg_.x, cfg_.y, cfg_.size, cfg_.size};
     const float edge = blip_edge(cfg_.size);

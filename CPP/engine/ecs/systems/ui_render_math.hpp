@@ -65,6 +65,63 @@ inline TextOrigin compute_centered_text_origin(const UIRect& rect,
 }
 
 /**
+ * TEXT FITTING — the single place a string is measured against its box.
+ *
+ * Before this existed, UIRenderSystem drew a label at its rect's origin using
+ * the texture's own size and never looked at rect.w/rect.h at all, so any
+ * string longer or taller than its authored rect ran outside the widget (and,
+ * for a rect near an edge, outside the screen entirely). Every "the text is
+ * outside the box" report was that one omission, so the fix is here rather than
+ * in any individual label: one helper, called by both the label and the button
+ * path, that no current or future widget can bypass.
+ *
+ * Contract: the returned box is ALWAYS inside `rect`. The text is uniformly
+ * scaled DOWN to fit (never up, so text that already fits is byte-identical to
+ * what was drawn before), and centered on the cross axis. `visible` is false
+ * when there is nothing to draw — a collapsed (zero-size) rect, which is how
+ * this codebase hides widgets, or empty/degenerate text metrics.
+ *
+ * Pure and SDL-free: it takes measured metrics, not a font, so a unit test can
+ * exercise every fit/overflow case without a window.
+ */
+enum class TextAlign { Left, Center };
+
+struct TextFit {
+    float x = 0.0f;      // left edge   (bottom-left origin)
+    float y = 0.0f;      // bottom edge (bottom-left origin)
+    float w = 0.0f;
+    float h = 0.0f;
+    bool  visible = false;
+};
+
+inline TextFit fit_text_in_rect(const UIRect& rect, float text_w, float text_h,
+                                TextAlign align, float pad = 0.0f) {
+    TextFit f;
+    f.x = rect.x;
+    f.y = rect.y;
+    if (!(pad >= 0.0f)) pad = 0.0f;                  // NaN-safe
+    const float inner_w = rect.w - 2.0f * pad;
+    const float inner_h = rect.h - 2.0f * pad;
+    // Every guard is written as a positive test so NaN falls through to hidden.
+    if (!(text_w > 0.0f) || !(text_h > 0.0f) ||
+        !(inner_w > 0.0f) || !(inner_h > 0.0f)) {
+        return f;
+    }
+
+    float scale = 1.0f;
+    if (text_w > inner_w) scale = inner_w / text_w;
+    if (text_h * scale > inner_h) scale = inner_h / text_h;
+
+    f.w = text_w * scale;
+    f.h = text_h * scale;
+    f.x = (align == TextAlign::Center) ? rect.x + (rect.w - f.w) * 0.5f
+                                       : rect.x + pad;
+    f.y = rect.y + (rect.h - f.h) * 0.5f;            // always vertically centered
+    f.visible = true;
+    return f;
+}
+
+/**
  * The one and only Y-flip formula used by UIRenderSystem.
  *
  * Converts a bottom-left-origin Y (with the drawable's height) to the SDL

@@ -34,11 +34,16 @@ Each style id carries four states (`normal` / `hovered` / `pressed` /
 
 | Style id | Used for |
 | --- | --- |
-| `panel` | Modal backing panel — `(10,14,30,225)` |
+| `panel` | Modal backing panel — `(8,12,26,242)` |
 | `title` / `subtitle` | Screen headings — cyan `(120,225,255)` / near-white |
 | `shop_button` | The pulsing primary call to action — magenta bg, amber text |
 | `default_button` | Secondary action |
 | `hud_bar_bg`, `hud_chip`, `hud_label` | HUD frame furniture |
+| `caption` | Third step of the type scale — dim supporting text (D88) |
+| `rule` | A 2px divider; a `panel` whose bg *is* the line (D88) |
+| `card` | Shop rows — flatter than `default_button` on purpose (D88) |
+| `shop_tab` | Tab strip. Its **disabled** state is the *selected* look (D88) |
+| `minimap_frame` | The radar pane: translucent smoke + a neon rim |
 | `hud_hp_ok` / `hud_hp_warn` / `hud_hp_crit` | HP fill, swapped by fraction |
 | `hud_shield` | Shield fill |
 
@@ -57,19 +62,28 @@ SDL3_ttf renders it; there is no second face and no icon font.
   (scale 1.1, x-offset 50). Both drawing and hit-testing apply the transform, so
   the drawn rect and the clickable rect cannot drift apart.
 - **Screens are data**, in `GameData.json` → `screens`. Current screens:
-  `gameplay` (the HUD, always active), `wave_intermission`, `pause`, and
-  `main_menu` (the title screen's difficulty select — NORMAL pulses,
-  HARD carries the `shop_button` style). Planned: `game_over`, `victory`,
-  `save_slots`, `options`.
-- **Modal pattern**: a `panel` rect, a `title` label, a `subtitle` label, then
-  two buttons side by side — the primary one carries `pulse_hz` (1.1 on the
-  shop button) so the eye lands on it.
+  `gameplay` (the HUD — always on the stack, so its visibility is a *phase*
+  question, see D86), `wave_intermission`, `pause`, `main_menu`, `shop` and
+  `boss_reward`. Planned: `game_over`, `victory`, `save_slots`, `options`.
+- **The layout grid (D88)**: 4px grid, one left-aligned content column inset 24px
+  from its panel edge, buttons ≥44px tall, headings followed by a `rule`, one
+  `pulse_hz` widget per screen. Labels are flush-left; only button captions
+  centre. Author rects that fit at full size.
+- **Text cannot overflow its rect (D85).** `UIRenderSystem` shrinks any label or
+  button caption that does not fit. That is a floor, not a layout engine — a rect
+  authored too small makes text small, it does not make it wrap.
+- **Modal pattern**: a `panel` rect, a `title` label, a `rule`, a `subtitle`,
+  then two buttons side by side — the primary one carries `pulse_hz` (1.1) so the
+  eye lands on it.
 - **z-order**: panel `0`, everything on it `10`.
 - **World render layers**: 0 backdrop, 2 enemies, 3 player, 4 pickups. UI
   composites last, over the world *and* the HUD.
-- The shop itself is still the pre-UI-layer implementation: `Text` +
-  `ScreenPosition` entities driven by the `1`-`8` keys and `TAB`, not widgets
-  (D11 — clickable cards were deferred).
+- The shop is a data-authored screen (D61): a card panel on the left, drone
+  preview and a fixed detail pane on the right (D89). The `1`-`8` / `TAB` / `B`
+  keyboard path survives as the headless fallback.
+- **`GameHUDSystem`'s text rows are authored in the design canvas too** (D87) —
+  they are drawn by `HUDSystem` in window pixels, so the system applies
+  `ui_canvas_transform` itself. Anything added to that HUD must do the same.
 
 ## Icons
 

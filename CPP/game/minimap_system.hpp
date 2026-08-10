@@ -56,8 +56,7 @@ public:
 
 private:
     void ensure_pool(ComponentStorage& component_storage,
-                     EntityManager& entity_manager,
-                     Blackboard& blackboard);
+                     EntityManager& entity_manager);
 
     MinimapConfig cfg_{};
     ArenaConfig arena_{};
