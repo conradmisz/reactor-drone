@@ -301,11 +301,26 @@ that resizing works !"*, which has only been verified structurally.
     *already* capping at wave 20. The 50-wave arc plus the boss, lasers, poison
     and arena destruction will make this bite — it is a first-class task in the
     plan's Phase 10, not a footnote.
-12. **A screen-space entity must have no `Position`.** `RenderSystem` prefers
-    `ScreenPosition`, but `CameraSystem` *adds* `ScreenPosition` to anything
-    carrying a `Position` — so a minimap blip or a shop ship-preview with both
-    gets its screen coords overwritten every frame. The HUD text entities are the
-    working example.
+12. **"A screen-space entity must have no `Position`" — THIS IS WRONG, and it
+    cost two lanes time.** `ScreenPosition` is a coordinate *override*, not an
+    entry ticket: `render_system.cpp:110` iterates
+    `entities_with_component<Position>()` and only *prefers* `ScreenPosition`
+    for entities already in that list (line 148). An entity with
+    `ScreenPosition` and no `Position` is never iterated and **never draws**.
+    The rule holds for HUD **text** only, because `HUDSystem` renders `Text`
+    through a separate path — which is exactly why the HUD text entities look
+    like a working example of a rule they are not an example of.
+    What *is* true: `CameraSystem` adds/overwrites `ScreenPosition` on anything
+    carrying a `Position` every frame. Two working ways around that, both live:
+    - **D63 (Lane C, shop ship-preview):** keep `Position` and rewrite it each
+      frame from the inverted camera transform. Right for a one-off sprite that
+      already lives in world space.
+    - **D58 (Lane B, minimap blips):** make them pooled `UIElement` widgets on
+      the always-active `gameplay` screen, drawn by `UIRenderSystem`. Right for
+      a pool: design-canvas coords (resolution independence via
+      `ui_canvas_transform` for free), `z_order`, style-driven colour, and
+      survival across `spawn_world`, which skips `UIElement` carriers — so the
+      pool allocates once per *process*, not once per run.
 13. **`apply_difficulty` is not idempotent** (D50). `main.cpp` keeps a pristine
     `const GameConfig base_config` and re-copies it at each run start. Anything
     that adds a difficulty-scalable number scales it *there*, not in a second
