@@ -125,6 +125,18 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
 
 ## Session Notes
 
+- **Docs (2026-08-10): `docs/features.html` refreshed to the shipped game.** It
+  was written against the 20-wave/4-arena Phase-4 game and its header still
+  called the dash/minimap/boss/sustain/actives blocks "inert scaffolding". Now
+  covers the 30-wave arc, 9 arenas over 4 themes, bosses on 10/20/30 + actives,
+  moon shooters, arena specialists and mines, dash on SPACE, minimap, sustain
+  scrap, Long Barrel / Ricochet Coils, ships + lifetime score, run save /
+  CONTINUE, live intermission, the `% 5` shop cadence and prestige. The rail's
+  wave ladder is 30 ticks banded off `arenas[].first_wave` with the boss waves
+  marked. Verified: HTML nesting balanced, page JS parses (`node --check`),
+  BANDS reproduces 1/4/8/12/16/19/23/27/30. **Not opened in a browser.**
+  Media slots are still placeholders (`docs/media/` is empty).
+
 - Verified 2026-08-09 (Phase B): `cmake --build` clean, `ctest` 8/8, both
   difficulties replay-identical on `--seed 42`, and an idle drone dies before
   frame 900 on Hard but survives past it on Normal — the proof the multipliers

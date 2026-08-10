@@ -19,18 +19,19 @@
        nested comment-close would end this comment early.)
     2. Describe tuning in RELATIVE terms ("costs climb steeply", "much tougher
        past the midpoint"). Exact numbers only for structural facts that rarely
-       move: 20 waves, 4 arenas, 3 enemy types, 6 upgrades, 4 items,
-       4 consumables, 1 item slot + 1 consumable slot.
+       move: 30 waves, 9 arenas over 4 themes, 10 enemy types, 8 upgrades,
+       4 items, 4 consumables, 3 boss actives, 2 ships, bosses on waves
+       10/20/30, shop every 5th cleared wave, 1 item + 1 consumable slot.
        Reason: balance values in assets/GameData.json are still provisional and
        will change. Relative prose never goes stale.
     3. Arena colours live in the :root / [data-arena=...] token blocks and are
        copied from assets/generator/v2/palette.py. If a palette changes there,
        change it here too.
-    4. Only describe what is actually playable. As of this writing the
-       dash / minimap / boss / sustain / actives blocks in GameData.json are
-       inert scaffolding with HOOK comments in main.cpp — they are NOT in the
-       game and are NOT documented here. Move them into the guide when the
-       lane that owns them lands.
+    4. Only describe what is actually playable. The dash, minimap, boss,
+       actives, sustain pickups, specialty units, enemy fire, ships, run save
+       and prestige blocks have all landed (iterations 3-5) and are documented
+       here. Anything still inert in GameData.json stays out until its lane
+       ships.
 
   MEDIA SLOTS — currently placeholders. To fill one, replace the
   <div class="feed-frame"> ... </div> inside a <figure class="feed"> with:
@@ -122,7 +123,7 @@ a:focus-visible,button:focus-visible{
 
 /* ---------------------------------------------------------------------------
    THE RAIL — navigation drawn as a reactor readout. The wave ladder is not
-   decoration: its 20 ticks are the 20 waves, banded by which arena is live.
+   decoration: its 30 ticks are the 30 waves, banded by which arena is live.
 --------------------------------------------------------------------------- */
 .layout{display:grid;grid-template-columns:var(--rail) minmax(0,1fr);gap:0}
 .rail{
@@ -175,12 +176,14 @@ a:focus-visible,button:focus-visible{
 .ladder{display:flex;flex-direction:column;gap:.5rem;margin-top:auto}
 .ladder>b{font-family:var(--mono);font-size:.66rem;letter-spacing:.2em;
   text-transform:uppercase;color:var(--ink-dim);font-weight:400}
-.ticks{display:grid;grid-template-columns:repeat(20,1fr);gap:2px;align-items:end;height:34px}
+.ticks{display:grid;grid-template-columns:repeat(30,1fr);gap:1px;align-items:end;height:34px}
 .ticks span{background:var(--line);border-radius:1px;transition:background .5s ease,height .3s}
 .ticks span[data-band="core"]{height:40%}
 .ticks span[data-band="foundry"]{height:60%}
 .ticks span[data-band="biolab"]{height:80%}
-.ticks span[data-band="prism"]{height:100%}
+.ticks span[data-band="prism"]{height:90%}
+.ticks span[data-band="void"]{height:100%}
+.ticks span[data-boss="1"]{background:var(--hazard)}
 .ticks span.lit{background:var(--neon);box-shadow:var(--glow)}
 .ladder small{font-family:var(--mono);font-size:.62rem;color:var(--ink-dim);
   display:flex;justify-content:space-between}
@@ -365,7 +368,7 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
     <a href="#shop"><i>08</i>The shop</a>
     <a href="#upgrades"><i>09</i>Upgrades</a>
     <a href="#gear"><i>10</i>Gear</a>
-    <a href="#arenas"><i>11</i>The four arenas</a>
+    <a href="#arenas"><i>11</i>The arenas</a>
     <a href="#reference"><i>12</i>Reference card</a>
   </div>
 
@@ -380,9 +383,9 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
   </div>
 
   <div class="ladder">
-    <b>The 20-wave arc</b>
+    <b>The 30-wave arc</b>
     <div class="ticks" id="ticks" aria-hidden="true"></div>
-    <small><span>Wave 1</span><span>Wave 20</span></small>
+    <small><span>Wave 1</span><span>Bosses 10 · 20 · 30</span></small>
   </div>
 </nav>
 <!-- /SECTION -->
@@ -393,7 +396,7 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
 <section class="hero" id="top">
   <div class="hero-frame">
     <h1><span class="sub">Arena survival</span>Reactor<br>Drone</h1>
-    <p class="tagline">One maintenance drone. Twenty waves. Four arenas that each want you dead in a different colour.</p>
+    <p class="tagline">One maintenance drone. Thirty waves. Nine arenas that each want you dead in a different colour.</p>
   </div>
 
   <figure class="feed">
@@ -405,8 +408,9 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
   </figure>
 
   <p class="lede">You fly a small drone inside a failing reactor. Enemies pour in from the rim in waves,
-  you shoot them, they drop credits, and every few waves the run pauses and lets you spend those credits
-  on something that makes you harder to kill. Clear twenty waves and you win. Lose your hull and you don't.</p>
+  you shoot them, they drop credits, and every fifth wave the run pauses and lets you spend those credits
+  on something that makes you harder to kill. Every tenth wave a capital ship arrives and hands you a new
+  power for killing it. Clear thirty waves and you win. Lose your hull and you don't.</p>
 </section>
 <!-- /SECTION -->
 
@@ -423,12 +427,14 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
       <li>Move with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrow keys.</li>
       <li>Aim with the mouse. The drone always faces your cursor.</li>
       <li>Hold <b>left mouse</b> to fire. You can hold it down the whole run.</li>
+      <li>Press <kbd>Space</kbd> in flight to <b>dash</b> — a fast burst that hurts what it passes through. Long cooldown; it's your escape button.</li>
       <li>Walk over the credits enemies drop. Spend them when the run pauses.</li>
     </ol>
   </div>
 
   <p>Two things kill new players: standing still, and forgetting that touching an enemy hurts.
-  Keep moving, and treat every enemy as a thing you must not bump into.</p>
+  Keep moving, and treat every enemy as a thing you must not bump into. The exception is the crescent
+  moons — those shoot at you from a distance, so cover and angles matter as much as spacing does.</p>
 </section>
 <!-- /SECTION -->
 
@@ -436,7 +442,7 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
 <section id="controls">
   <p class="eyebrow">Section 02</p>
   <h2>Controls</h2>
-  <p>There are only six things to know. The shop keys only matter while the shop is open.</p>
+  <p>Short list. The shop keys only matter while the shop is open, and <kbd>E</kbd> does nothing until a boss has given you something to fire.</p>
 
   <div class="tablewrap">
     <table>
@@ -448,19 +454,25 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
         <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows</td><td>Move. Diagonals are the same speed as straight lines, so there's no advantage to strafing at an angle.</td><td>Flying</td></tr>
         <tr><td>Mouse</td><td>Aim. The drone turns to face the cursor and fires where it points.</td><td>Flying</td></tr>
         <tr><td>Hold left mouse</td><td>Fire continuously. There's no ammo and no reload — only a rate of fire.</td><td>Flying</td></tr>
+        <tr><td><kbd>Space</kbd></td><td>Dash. A short, fast burst that damages everything it passes through and carries you clear of a crowd. Long cooldown — treat it as one escape every couple of waves, not a movement key.</td><td>Flying</td></tr>
         <tr><td><kbd>Q</kbd></td><td>Use your consumable, if you're carrying one. One press spends it.</td><td>Flying</td></tr>
-        <tr><td><kbd>Esc</kbd></td><td>Pause. Resume or quit from there.</td><td>Any time after the title</td></tr>
-        <tr><td><kbd>Space</kbd></td><td>Start a Normal run from the title, and restart after a run ends. Also fires, if you'd rather not hold the mouse.</td><td>Menus and flying</td></tr>
+        <tr><td><kbd>E</kbd></td><td>Fire your active — the power a boss gave you. Only the aimed ones are on a key; the Repulsion Device fires itself when your hull gets low.</td><td>Flying, once you own one</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Pause. Resume, save, or quit from there. The pause screen is also where your run stats live.</td><td>Any time after the title</td></tr>
+        <tr><td><kbd>Space</kbd></td><td>Start a Normal run from the title, and restart after a run ends.</td><td>Menus</td></tr>
         <tr><td><kbd>B</kbd></td><td>Open the shop mid-run — but only if you're holding a shop key. Pressing it again closes the shop and launches the next wave.</td><td>Flying, and in the shop</td></tr>
-        <tr><td><kbd>1</kbd>–<kbd>8</kbd></td><td>Buy the numbered row.</td><td>Shop only</td></tr>
+        <tr><td><kbd>1</kbd>–<kbd>8</kbd></td><td>Buy the numbered row. The upgrades page uses all eight.</td><td>Shop only</td></tr>
         <tr><td><kbd>Tab</kbd></td><td>Flip between the two shop pages: upgrades and gear.</td><td>Shop only</td></tr>
       </tbody>
     </table>
   </div>
 
   <div class="note">
-    <b>Menus are clickable.</b> The title screen, the pause screen and the between-waves prompt are all
-    buttons you click with the mouse. The keyboard shortcuts exist so you never have to.
+    <b>Menus are clickable.</b> The title screen, the pause screen, the between-waves prompt, the boss
+    reward and the end-of-arc offer are all buttons you click with the mouse. The keyboard shortcuts exist
+    so you never have to.<br><br>
+    <b><kbd>Space</kbd> means two things, never at once.</b> In a menu it starts or restarts a run; in
+    flight it dashes. Pressing it at the title and holding it into the run does not dash — that press was
+    already spent starting the run.
   </div>
 </section>
 <!-- /SECTION -->
@@ -472,13 +484,15 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
   <p>Every run is the same shape. Learning where the pauses fall is most of learning the game.</p>
 
   <ol class="steps">
-    <li><div><b>Choose a difficulty.</b> Normal or Hard, once, at the title. The run keeps that setting even if you restart from a death.</div></li>
-    <li><div><b>Fight a wave.</b> Enemies spawn out at the rim of the arena and come for you. Early waves send a set number of them; later ones just keep coming for a fixed stretch of time.</div></li>
+    <li><div><b>Choose a difficulty — and a ship.</b> Normal or Hard, once, at the title. The run keeps that setting even if you restart from a death. A second ship (a fast, weak-per-shot gatling) appears on that screen once your <em>lifetime</em> score across all runs is high enough; until then the title shows you the threshold. If you saved a run, <b>CONTINUE</b> is on this screen too.</div></li>
+    <li><div><b>Fight a wave.</b> Enemies spawn out at the rim of the arena and come for you. The first half of the arc sends a set number of them; the back half just keeps them coming for a fixed stretch of time.</div></li>
     <li><div><b>Clear the arena.</b> A wave isn't over when the last one spawns — it's over when the last one <em>dies</em>. Stragglers hiding at the far rim are still your problem. If something gets truly stuck, the reactor eventually scraps it for you.</div></li>
-    <li><div><b>Take the pause.</b> Every fourth cleared wave the run stops and asks: open the shop, or push straight on? Nothing moves until you choose.</div></li>
-    <li><div><b>Spend, or don't.</b> Banking credits for something expensive is a real strategy. So is buying a cheap hull patch right now because you're at a sliver of health.</div></li>
-    <li><div><b>Change arenas.</b> Every five waves the whole arena crossfades into a new one — new colours, new obstacle layout, new hazards, and enemies re-tinted to match.</div></li>
-    <li><div><b>Reach wave twenty.</b> Clear it and the run is a win. Lose your hull anywhere along the way and it's over — click or press <kbd>Space</kbd> to start again.</div></li>
+    <li><div><b>Take the pause.</b> Every fifth cleared wave the run stops and asks: open the shop, or push straight on? The spawner waits — but your drone still flies, so this is your chance to sweep up the credits the last kill scattered.</div></li>
+    <li><div><b>Spend, or don't.</b> Banking credits for something expensive is a real strategy. So is buying a cheap hull patch right now because you're at a sliver of health. Six shop stops in a full arc, so a skipped one is a real cost.</div></li>
+    <li><div><b>Change arenas.</b> Every few waves the whole arena crossfades into a new one — new colours, new obstacle layout, new hazards, a new signature enemy, and the rest of the swarm re-tinted to match.</div></li>
+    <li><div><b>Kill the capital ship.</b> Waves 10, 20 and 30 are boss waves: one huge carrier, themed to whatever arena you're in, summoning escorts on a timer. The wave does not end until it dies. Killing it opens a screen offering three <b>actives</b> — pick one. Later bosses either upgrade the one you hold or offer one you don't.</div></li>
+    <li><div><b>Reach wave thirty.</b> The last boss is the finale, and at half health it tears the arena open into the Singularity — a black-hole void you finish the fight in. Clear it and the run is a win. Lose your hull anywhere along the way and it's over — click or press <kbd>Space</kbd> to start again.</div></li>
+    <li><div><b>Prestige, or stop.</b> Finishing the arc offers a <b>prestige run</b>: start again from wave one with every upgrade and every item stripped, in exchange for a permanent bonus to hull, speed and damage that stacks each time you take it, up to five levels. It's stored between sessions, so a prestige level you earned tonight is still there tomorrow.</div></li>
   </ol>
 
   <figure class="feed">
@@ -486,7 +500,7 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
       <span>Clip · The pause</span>
       <p>A wave clearing, the arena freezing, and the SHOP OPEN / NEXT WAVE prompt coming up.</p>
     </div>
-    <figcaption>The between-waves prompt. Nothing advances until you pick one.</figcaption>
+    <figcaption>The between-waves prompt. The spawner waits, but you can still fly.</figcaption>
   </figure>
 </section>
 <!-- /SECTION -->
@@ -508,9 +522,22 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
   <p class="dim">Being saved by your shield still counts as being hit: you still flash, the screen still
   shakes, and the regen delay still resets. A shield is a buffer, not invulnerability.</p>
 
+  <h3>Scrap on the floor</h3>
+  <p>Repair and shield scrap appear on their own, one at a time, at a steady interval and never right on
+  top of you — you have to go and get them. Only a few exist at once, they don't count against the credit
+  pickups, and neither kind can push you past your maximum. They are the reason a bad wave is survivable
+  without a shop stop: surviving is a matter of moving, not of what you banked before the wave started.</p>
+
   <h3>Contact damage</h3>
-  <p>Enemies hurt you by touching you — there are no enemy projectiles. Every archetype does a different
-  amount on contact, and the big slow ones hurt most.</p>
+  <p>Most things hurt you by touching you, and every archetype does a different amount on contact — the big
+  slow ones hurt most. The crescent moons are the exception: they shoot, and their shots hurt you the same
+  way a body does.</p>
+
+  <h3>The dash</h3>
+  <p><kbd>Space</kbd> throws you forward in a burst that damages everything you pass through — each enemy
+  once per dash, not once per frame — and you take at most one hit crossing a crowd. The cooldown is long
+  enough that it is an escape, not a movement style. It is the answer to being surrounded, and it is
+  usually the difference between dying on a timed wave and clearing it.</p>
 
   <h3>Invulnerability window</h3>
   <p>After a hit you get a brief window where you can't be hurt again. It's short, and it's the reason
@@ -522,6 +549,12 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
     Hard they hurt considerably more. Learn where they are in each arena; a panicked reverse into one is
     a very common death.
   </div>
+
+  <h3>The minimap</h3>
+  <p>The arena is far larger than the screen, so the corner map is not decoration. It shows you as cyan,
+  enemies as red, the boss as a bigger red, health scrap as green, and loot as gold — anything outside
+  the arena clamps to the rim on its true bearing, so the map never lies about which way something is.
+  Read it for two things: which side the swarm is arriving from, and where the credits you abandoned are.</p>
 
   <h3>Obstacles and the wall</h3>
   <p>The pillars and blocks scattered through each arena are solid. You can't fly through them and neither
@@ -543,8 +576,9 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
 <section id="enemies">
   <p class="eyebrow">Section 05</p>
   <h2>What's shooting at you</h2>
-  <p>Nothing, technically — everything in the reactor kills by running into you. There are three
-  archetypes, and they trade speed against toughness in the obvious way.</p>
+  <p>Three plain archetypes make up the bulk of every wave, and they trade speed against toughness in the
+  obvious way. On top of those: crescent moons that shoot, one signature unit per arena theme, and a capital
+  ship every ten waves.</p>
 
   <div class="cards">
     <div class="card">
@@ -571,9 +605,44 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
   You can't lose them behind a pillar — you can only slow them down and make them arrive strung out
   instead of all at once, which is usually the whole fight.</p>
 
+  <h3>The moons — the things that shoot back</h3>
+  <p>Waning crescents that keep their distance and fire at you. They arrive in three tiers, each joining the
+  stream at a fixed point in the arc, and each one is a step up in how hard it is to walk away from:</p>
+  <div class="cards">
+    <div class="card"><span class="chip">Tier 1 · early</span><b>Slow shot</b>
+      <p>Fires a slow bolt straight ahead. Strafe and it misses. Its whole job is to teach you that standing still now costs something.</p></div>
+    <div class="card"><span class="chip warn">Tier 2 · midgame</span><b>Tracking shot</b>
+      <p>Faster, and the shot turns toward you — but only so fast. A hard change of direction still beats it; a lazy drift does not.</p></div>
+    <div class="card"><span class="chip warn">Tier 3 · late</span><b>Laser</b>
+      <p>Pierces. It does not stop on the first thing it hits, so hiding behind the swarm is not cover and neither is anything else in the beam.</p></div>
+  </div>
+  <p class="dim">Moons turn to face what they are shooting at and fire from the mouth of the crescent, so
+  the sprite tells you where the shot is coming from before it arrives.</p>
+
+  <h3>Arena specialists — one per theme</h3>
+  <p>Every arena theme injects its own signature unit into the stream while it is live. They are the reason
+  arriving in a new arena changes how you fight, not just what you are looking at. On the arc's second pass
+  through the four themes you meet the same four units again, tougher.</p>
+  <div class="cards">
+    <div class="card"><span class="chip">Core</span><b>Bulwark</b>
+      <p>Armoured at the front and slow to turn. Shooting it head-on is close to wasted; get behind it, or fight it while it is committed to something else.</p></div>
+    <div class="card"><span class="chip">Foundry</span><b>Miner</b>
+      <p>Drops proximity mines behind it. A mine arms after a moment, then detonates on anything that comes close — including you. You can shoot one to set it off early, which is safe from range and very much not safe up close.</p></div>
+    <div class="card"><span class="chip">Bio-lab</span><b>Spitter</b>
+      <p>Leaves a short-lived damaging patch wherever it goes, so it turns the floor behind it into terrain you have to route around.</p></div>
+    <div class="card"><span class="chip">Prism</span><b>Splitter</b>
+      <p>Splits into two smaller units when it dies. Killing it does not clear the space it was in — it doubles what is in it.</p></div>
+  </div>
+
+  <h3>The capital ship</h3>
+  <p>On waves 10, 20 and 30 a single "Capital Drone Carrier" arrives: enormous, heavily armoured, slow, and
+  wearing the colours of whatever arena it turned up in. It summons escorts on a timer, and it borrows the
+  signature attack of the arena's specialist, so a Foundry boss mines the floor and a Bio-lab boss poisons it.
+  The wave does not end until it is dead — there is no outlasting it. It pays out with an active item.</p>
+
   <div class="note">
     <b>Enemies wear the arena's colour.</b> Their shape tells you what they are; the palette tells you
-    where you are. In the fourth arena they cycle through the whole spectrum continuously, which is
+    where you are. In the Prism arenas they cycle through the whole spectrum continuously, which is
     exactly as legible as it sounds and exactly as intended.
   </div>
 </section>
@@ -584,15 +653,31 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
   <p class="eyebrow">Section 06</p>
   <h2>Waves &amp; difficulty</h2>
 
-  <h3>Twenty waves, two kinds</h3>
-  <p>The first stretch of the run sends a <b>fixed number</b> of enemies: kill them all and the wave is done.
+  <h3>Thirty waves, two kinds</h3>
+  <p>The first half of the arc sends a <b>fixed number</b> of enemies: kill them all and the wave is done.
   The back half switches to <b>timed</b> waves — enemies keep arriving for a set stretch of time, and the
   wave only ends once the stream stops <em>and</em> you've cleared what's left. Timed waves are where runs
   usually end, because you can't rush them; you can only survive them.</p>
 
-  <p>Difficulty climbs continuously across the twenty: more enemies, arriving closer together, with more
+  <p>Difficulty climbs continuously across the thirty: more enemies, arriving closer together, with more
   health and more speed, and the tougher archetypes start appearing in the mix earlier than they did.
-  By the last few waves you're facing the whole roster at once, considerably tougher than it started.</p>
+  By the last few waves you're facing the whole roster at once, roughly twice as durable and noticeably
+  faster than it started.</p>
+
+  <h3>Where the punctuation falls</h3>
+  <div class="tablewrap">
+    <table>
+      <caption>The shape of an arc</caption>
+      <thead><tr><th>Wave</th><th>What happens</th></tr></thead>
+      <tbody>
+        <tr><td>Every 5th</td><td>The run pauses and offers the shop. Six stops across a full arc.</td></tr>
+        <tr><td>10 · 20 · 30</td><td>A boss wave. Kill the carrier, pick an active.</td></tr>
+        <tr><td>1–15</td><td>Fixed-count waves. Kill the roster and the wave ends.</td></tr>
+        <tr><td>16–30</td><td>Timed waves. Outlast the stream, then clear the leftovers.</td></tr>
+        <tr><td>30</td><td>The finale, and the only fight that changes arena halfway through.</td></tr>
+      </tbody>
+    </table>
+  </div>
 
   <h3>Normal and Hard</h3>
   <div class="tablewrap">
@@ -605,6 +690,7 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
         <tr><td>Enemy health &amp; speed</td><td>Both up; Hulks in particular become a real commitment</td></tr>
         <tr><td>Hazard damage</td><td>Substantially higher. This is the one that surprises people.</td></tr>
         <tr><td>Enemy variety</td><td>Tougher types show up earlier in the run</td></tr>
+        <tr><td>Bosses</td><td>Markedly more dangerous — a separate step on top of the enemy multipliers</td></tr>
         <tr><td>Credits</td><td>Up as well — Hard pays better, so the shop keeps pace</td></tr>
       </tbody>
     </table>
@@ -612,6 +698,14 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
 
   <p class="dim">Hard is not just a health multiplier: the extra credits mean you can buy more, so it plays
   faster and richer rather than simply grindier.</p>
+
+  <h3>Prestige</h3>
+  <p>Clearing wave thirty offers you a <b>prestige run</b>. Taking it restarts the arc from wave one with
+  nothing you bought — no upgrades, no gear, no active — and in exchange every future run is permanently
+  stronger: more hull, more speed, more damage, a flat step per level, up to five levels. It is the one
+  thing in the game that survives closing the window, and it is a choice: nothing hands it to you for
+  playing a lot, only for finishing and going again.</p>
+  <p class="dim">Your prestige level is shown on the pause screen alongside the rest of your run stats.</p>
 </section>
 <!-- /SECTION -->
 
@@ -627,7 +721,11 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
 
   <p>Not every kill drops something. Tougher enemies drop more reliably and are worth more when they do.
   Pickups sit on the floor for a while and then expire, so loot you ignore during a hectic wave is
-  genuinely gone.</p>
+  genuinely gone — though the between-waves prompt leaves you flying, which is exactly enough time to
+  sweep up what the last kill dropped before you commit to the shop.</p>
+  <p>Coins never land inside an obstacle, a hazard or a mine: a drop that would have is nudged out to the
+  nearest clear spot. If something is unreachable it's because you can't get there safely, not because the
+  reactor put it in a wall.</p>
 
   <div class="note">
     <b>Shop keys.</b> Rarely — and it is rare — an enemy drops a key instead. A key lets you open the shop
@@ -650,7 +748,7 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
   <p class="eyebrow">Section 08</p>
   <h2>The shop</h2>
 
-  <p>The shop opens at the between-waves pause, every fourth cleared wave — or any time you spend a key.
+  <p>The shop opens at the between-waves pause, every fifth cleared wave — or any time you spend a key.
   While it's open the arena is completely frozen: nothing spawns, nothing moves, nothing can hurt you.
   Take as long as you want.</p>
 
@@ -679,7 +777,7 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
 <section id="upgrades">
   <p class="eyebrow">Section 09</p>
   <h2>Upgrades</h2>
-  <p>Six permanent upgrades, page one of the shop. All stackable up to a cap, all more expensive each time.</p>
+  <p>Eight permanent upgrades, page one of the shop. All stackable up to a cap, all more expensive each time.</p>
 
   <div class="cards">
     <div class="card"><span class="chip">Survivability</span><b>Hull Plating</b>
@@ -694,7 +792,14 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
       <p>Each shot hits harder. Better than fire rate against Hulks, worse against a swarm of Sparks.</p></div>
     <div class="card"><span class="chip alt">Damage</span><b>Twin Barrel</b>
       <p>An extra projectile per shot. Easily the most expensive row and capped low — a late-run investment, not an opener.</p></div>
+    <div class="card"><span class="chip alt">Weapon</span><b>Long Barrel</b>
+      <p>Shots travel further without travelling faster. Reach, not punch — it's how you fight the moons and the bulwarks without closing on them.</p></div>
+    <div class="card"><span class="chip alt">Weapon</span><b>Ricochet Coils</b>
+      <p>Shots bounce off obstacles and the arena wall instead of dying on them, one bounce per level. Turns the cluttered arenas from a problem into geometry.</p></div>
   </div>
+
+  <p class="dim">Buying anything shows on the drone itself: the engine plume runs hotter, bigger and denser
+  as the upgrades stack, so a kitted drone at wave 25 does not look like the one you started with.</p>
 
   <figure class="feed">
     <div class="feed-frame">
@@ -737,9 +842,22 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
       <p>A few seconds of complete invulnerability. Fly straight through the crowd you were trapped in.</p></div>
   </div>
 
+  <h3>Actives — not bought, won</h3>
+  <p>An active is the reward for killing a capital ship, so the shop never sells one and you cannot have one
+  before wave 10. You hold one at a time, on a shared cooldown, and the slot sits in the bottom-left corner
+  of the HUD. A later boss either deepens the one you hold or offers you one you don't.</p>
+  <div class="cards">
+    <div class="card"><span class="chip alt">Aimed · <kbd>E</kbd></span><b>Heat-Seeking Missiles</b>
+      <p>A volley that chases what it was fired at. The reliable one — it does its damage whether or not your aim was good.</p></div>
+    <div class="card"><span class="chip alt">Aimed · <kbd>E</kbd></span><b>Laser Cannon</b>
+      <p>A sustained beam along your facing. Highest output of the three, and it demands you hold a line while everything is trying to touch you.</p></div>
+    <div class="card"><span class="chip">Automatic</span><b>Repulsion Device</b>
+      <p>Not on a key at all. It fires itself when your hull drops low, shoving everything nearby off you. A safety net, spent for you at the moment you'd have panicked.</p></div>
+  </div>
+
   <div class="note">
     <b>Don't hoard it.</b> A consumable you die holding did nothing. There's no penalty for using one early
-    and buying another at the next stop.
+    and buying another at the next stop. The same goes for the active — it is on a cooldown, not a stock.
   </div>
 </section>
 <!-- /SECTION -->
@@ -747,22 +865,27 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
 <!-- SECTION: arenas -->
 <section id="arenas">
   <p class="eyebrow">Section 11</p>
-  <h2>The four arenas</h2>
-  <p>The run moves through four arenas, one every five waves, crossfading from one into the next mid-run.
-  Each has its own palette, its own obstacle layout and its own hazard placement — and enemies are
-  re-tinted to whichever one is live, always in a colour that contrasts with the floor.</p>
+  <h2>The arenas</h2>
+  <p>The arc runs through <b>nine</b> arenas: four themes, each visited twice, then the void you finish in.
+  They crossfade into one another mid-run rather than cutting. Each has its own palette, its own obstacle
+  layout, its own hazard placement and its own signature enemy — and the rest of the swarm is re-tinted to
+  whichever one is live, always in a colour that contrasts with the floor.</p>
+  <p>The second pass through a theme is not a repeat: the layouts are rotated, and its specialist comes back
+  tougher.</p>
 
-  <p class="dim">Use the palette buttons in the sidebar to recolour this page to any of them.</p>
+  <p class="dim">Use the palette buttons in the sidebar to recolour this page to any of the four themes.</p>
 
   <div class="cards">
-    <div class="card"><span class="chip">Waves 1–5</span><b>Core</b>
-      <p>Cyan and magenta, the cleanest layout of the four. Where you learn the game — open sightlines and forgiving hazard placement.</p></div>
-    <div class="card"><span class="chip">Waves 6–10</span><b>Foundry</b>
-      <p>Orange and amber, and the most cluttered floor: more obstacles to route around and more hazards between you and your loot.</p></div>
-    <div class="card"><span class="chip">Waves 11–15</span><b>Bio-lab</b>
-      <p>Green and violet, fewer obstacles but the heaviest hazard coverage in the game. Space to fly, less of it safe.</p></div>
-    <div class="card"><span class="chip">Waves 16–20</span><b>Prism</b>
-      <p>A near-white void where the enemies cycle continuously through every colour. Deliberately disorienting, and the arena you finish in.</p></div>
+    <div class="card"><span class="chip">Waves 1–3 · 16–18</span><b>Core</b>
+      <p>Cyan and magenta, the cleanest layout of the four. Where you learn the game — open sightlines and forgiving hazard placement. Fields the armoured <b>Bulwark</b>.</p></div>
+    <div class="card"><span class="chip">Waves 4–7 · 19–22</span><b>Foundry</b>
+      <p>Orange and amber, and the most cluttered floor: more obstacles to route around and more hazards between you and your loot. Fields the <b>Miner</b>, so the floor gets worse as the wave goes on.</p></div>
+    <div class="card"><span class="chip">Waves 8–11 · 23–26</span><b>Bio-lab</b>
+      <p>Green and violet, fewer obstacles but the heaviest hazard coverage in the game. Space to fly, less of it safe. Fields the <b>Spitter</b>, which adds more.</p></div>
+    <div class="card"><span class="chip">Waves 12–15 · 27–29</span><b>Prism</b>
+      <p>A near-white void where the enemies cycle continuously through every colour. Deliberately disorienting. Fields the <b>Splitter</b>.</p></div>
+    <div class="card"><span class="chip warn">Wave 30</span><b>Singularity</b>
+      <p>A black-hole void, and the only arena you don't arrive in between waves — the final boss tears the map open into it halfway through the fight. You either finish here or you don't finish.</p></div>
   </div>
 
   <figure class="feed">
@@ -788,13 +911,15 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
       <tbody>
         <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows</td><td>Move</td></tr>
         <tr><td>Mouse</td><td>Aim</td></tr>
-        <tr><td>Left mouse / <kbd>Space</kbd></td><td>Fire</td></tr>
+        <tr><td>Left mouse</td><td>Fire</td></tr>
+        <tr><td><kbd>Space</kbd></td><td>Dash (in flight)</td></tr>
         <tr><td><kbd>Q</kbd></td><td>Use consumable</td></tr>
+        <tr><td><kbd>E</kbd></td><td>Fire active (once a boss has given you one)</td></tr>
         <tr><td><kbd>B</kbd></td><td>Open shop with a key · close shop and launch</td></tr>
         <tr><td><kbd>Tab</kbd></td><td>Flip shop page</td></tr>
         <tr><td><kbd>1</kbd>–<kbd>8</kbd></td><td>Buy row</td></tr>
-        <tr><td><kbd>Esc</kbd></td><td>Pause</td></tr>
-        <tr><td><kbd>Space</kbd></td><td>Start Normal · restart after a run ends</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Pause · stats · save · quit</td></tr>
+        <tr><td><kbd>Space</kbd></td><td>Start Normal · restart after a run ends (menus only)</td></tr>
       </tbody>
     </table>
   </div>
@@ -813,6 +938,13 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
         <tr><td>Obstacles block your shots too</td><td>Cover works both ways.</td></tr>
         <tr><td>One item, one consumable</td><td>Buying a second replaces the first.</td></tr>
         <tr><td>Repeat upgrades cost more each time</td><td>Spreading purchases is often cheaper than stacking one.</td></tr>
+        <tr><td>A boss wave ends only when the boss dies</td><td>Waves 10, 20 and 30 cannot be outlasted.</td></tr>
+        <tr><td>Moons shoot; everything else rams</td><td>Cover matters against exactly one family of enemy.</td></tr>
+        <tr><td>Splitters double when killed</td><td>Kill them where you have room, not where you're cornered.</td></tr>
+        <tr><td>Mines can be shot</td><td>Safe from range. Not from arm's length.</td></tr>
+        <tr><td>Actives come from bosses, never the shop</td><td>You hold one, on a cooldown, from wave 10 at the earliest.</td></tr>
+        <tr><td>Prestige strips your kit</td><td>The bonus is permanent; the upgrades you traded for it are not.</td></tr>
+        <tr><td>You can still fly during the between-waves prompt</td><td>Use it to collect the loot the last kill dropped.</td></tr>
       </tbody>
     </table>
   </div>
@@ -829,15 +961,25 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
    1. Arena palette switch — sets data-arena on <html>; all colour lives in
       CSS custom properties, so one attribute repaints the page.
    2. Scrollspy for the rail.
-   3. The wave ladder: 20 ticks banded into four arenas of five.
+   3. The wave ladder: 30 ticks banded by arena (first_wave in GameData.json's
+      `arenas` block), with the boss waves marked. Keep BANDS in step with that
+      block if the arc is ever re-keyed.
 --------------------------------------------------------------------------- */
 (function () {
   "use strict";
 
-  var BANDS = ["core", "core", "core", "core", "core",
-               "foundry", "foundry", "foundry", "foundry", "foundry",
-               "biolab", "biolab", "biolab", "biolab", "biolab",
-               "prism", "prism", "prism", "prism", "prism"];
+  // Waves 1-30 -> the arena live on that wave. Mirrors arenas[].first_wave:
+  // 1 / 4 / 8 / 12 / 16 / 19 / 23 / 27 / 30.
+  var BANDS = ["core", "core", "core",
+               "foundry", "foundry", "foundry", "foundry",
+               "biolab", "biolab", "biolab", "biolab",
+               "prism", "prism", "prism", "prism",
+               "core", "core", "core",
+               "foundry", "foundry", "foundry", "foundry",
+               "biolab", "biolab", "biolab", "biolab",
+               "prism", "prism", "prism",
+               "void"];
+  var BOSS_WAVES = [10, 20, 30];
 
   var root = document.documentElement;
   var buttons = Array.prototype.slice.call(document.querySelectorAll(".arenas button"));
@@ -845,9 +987,12 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
 
   // --- wave ladder ---------------------------------------------------------
   BANDS.forEach(function (band, i) {
+    var wave = i + 1;
+    var boss = BOSS_WAVES.indexOf(wave) !== -1;
     var t = document.createElement("span");
     t.setAttribute("data-band", band);
-    t.title = "Wave " + (i + 1);
+    if (boss) t.setAttribute("data-boss", "1");
+    t.title = "Wave " + wave + (boss ? " — boss" : "");
     ticksEl.appendChild(t);
   });
 
@@ -857,7 +1002,8 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
       b.setAttribute("aria-pressed", String(b.dataset.set === set));
     });
     Array.prototype.forEach.call(ticksEl.children, function (t) {
-      t.classList.toggle("lit", t.getAttribute("data-band") === set);
+      t.classList.toggle("lit",
+        t.getAttribute("data-band") === set && !t.hasAttribute("data-boss"));
     });
     try { localStorage.setItem("rd-arena", set); } catch (e) { /* private mode */ }
   }
