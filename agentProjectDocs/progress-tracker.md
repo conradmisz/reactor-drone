@@ -236,3 +236,15 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   PHASE_GAMEOVER (`--clicks 1200:490,394` -> `Prestige: 1` and a fresh run);
   **that relaxation was reverted**. **Not playtested**: nobody has reached wave 30,
   so the ramp, the boss spacing and the prestige percentages are all unmeasured.
+
+- **Field manual redesign (2026-08-10) — docs/features.html (D135).** Full visual
+  redesign after an owner interview (direction: refined neon arcade, Orbitron
+  display + vendored OFL fonts, real media, JSON-driven content). All game
+  content now lives in the `#gamedata` JSON blob inside the file — edit data,
+  not markup. Real gameplay media captured headlessly into `docs/media/`
+  (7 stills + 2 animated-WebP clips) via `docs/media/capture.sh`; the capture
+  runs used a temporary GameData buff that was reverted (`git checkout`), the
+  repo's GameData.json is untouched. Verified in headless Chromium (Playwright):
+  no console errors, 4 palettes, mobile, desktop, full scroll. **Media caveat:**
+  captures show capture-buff HUD numbers (inflated credits/hull); recapture
+  after balance settles using the script's header instructions.

@@ -1568,3 +1568,35 @@ Decisions seeded from the gameplay plan (D1–D12) and made during Phases 1-4
 - **Rejected:** baking eight bearings of the bloom. One rotation beats eight
   frames of the same art.
 
+
+### D135 — The field manual is data-driven, media-real, and derives its palettes  *(2026-08-10)*
+
+`docs/features.html` was redesigned from scratch (direction chosen by owner
+interview: "refined neon arcade" — evolve the identity, don't replace it).
+Three structural calls:
+
+- **Content is one JSON blob** (`<script type="application/json" id="gamedata">`)
+  — enemies, upgrades, gear, actives, arenas, keybinds, reference rules, the
+  wave-band map. ~90 lines of vanilla JS render everything at load. Game update
+  = edit data, never markup. Prose stays hand-authored inside the SECTION
+  fences. **Rejected:** a Python docs generator (build step for one page) and
+  hand-authored card HTML (drifts, and was the old page's slop tell).
+- **Media is real captures**, produced headlessly: `--screenshot` + scripted
+  input (`docs/media/capture.sh`), with a temporary capture buff in
+  GameData.json (damage/fire-rate/hull up, contact damage down, credit values
+  up) reverted via `git checkout` after the run. Stills PNG, clips animated
+  WebP in `<img>` (no ffmpeg on this machine; ImageMagick does WebP).
+  **Rejected:** placeholder frames — the single loudest "unfinished" signal.
+- **Each arena palette is 5 authored colours; everything else is derived** via
+  `color-mix(in oklab, ...)`, and the accent tokens are `@property`-registered
+  so the palette switch crossfades. Fonts are vendored OFL variable fonts
+  (Orbitron / Space Grotesk / JetBrains Mono), latin subsets, ~65 KB total —
+  page works offline. Motion is native CSS scroll-driven (reveals + the rail's
+  charge bar), gated behind `@supports` + `prefers-reduced-motion`; no JS
+  animation libraries. **Rejected:** CDN fonts (offline break), AOS/GSAP-style
+  libs (the research pass flagged them as generated-page tells).
+
+Verified with headless Chromium (Playwright, installed to the user cache):
+zero console errors, all four palettes, mobile strip, bestiary gauges, arena
+bands, both clips. The relative-numbers rule (see the file header) survives
+unchanged; the bestiary gauges are 0-5 relative boxes, not stats.
