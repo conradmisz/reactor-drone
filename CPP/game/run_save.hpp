@@ -56,11 +56,29 @@ struct RunSave {
     // and a stat is what the run actually has.
     float fire_rate = 0.0f, damage = 0.0f;
     float projectile_speed = 0.0f, projectile_lifetime = 0.0f, spread = -1.0f;
+
+    // Main-menu-suite Phase B: when the save was written (unix seconds), so the
+    // hub's CONTINUE picks the newest slot. Set by the caller at save time and
+    // never read into the sim (D80 discipline); 0 in legacy files, which simply
+    // sorts them oldest. Same version — the loader is per-field tolerant.
+    long long saved_at = 0;
 };
+
+/// Number of save slots (`saves/run1..N.json`). Main-menu-suite Phase B.
+constexpr int RUN_SAVE_SLOTS = 3;
 
 /// Absolute path of the run save (`<project root>/saves/run.json`). Deliberately
 /// a different filename from `meta.json`, which shares the directory.
+/// Phase B: the legacy single-save path — kept for the migration only.
 std::string run_save_path();
+
+/// Absolute path of save slot `slot` (1-based): `<project root>/saves/run<slot>.json`.
+std::string run_save_path(int slot);
+
+/// One-shot legacy migration: if `saves/run.json` exists and slot 1 does not,
+/// the legacy file becomes slot 1. Tolerant of any filesystem failure (the
+/// legacy file is then simply ignored). Called once at boot, before slot loads.
+void run_save_migrate_legacy();
 
 /// Load, tolerating everything: missing file, unreadable file, malformed JSON,
 /// wrong shape, wrong types, negative numbers, a future version. Any failure

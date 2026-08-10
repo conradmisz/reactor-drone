@@ -55,6 +55,21 @@ std::string run_save_path() {
     return project_paths::class_root() + "/saves/run.json";
 }
 
+std::string run_save_path(int slot) {
+    return project_paths::class_root() + "/saves/run" + std::to_string(slot) + ".json";
+}
+
+void run_save_migrate_legacy() {
+    // One shot, boot only: the pre-slot save becomes slot 1. Never overwrites —
+    // an existing slot 1 wins and the legacy file is left where it was.
+    std::error_code ec;
+    const std::string legacy = run_save_path();
+    if (!std::filesystem::exists(legacy, ec) || ec) return;
+    if (std::filesystem::exists(run_save_path(1), ec) || ec) return;
+    std::filesystem::rename(legacy, run_save_path(1), ec);
+    // ec deliberately ignored: a failed rename just means no migration.
+}
+
 RunSave run_save_load(const std::string& path) {
     RunSave s;
     std::ifstream in(path);
@@ -94,6 +109,7 @@ RunSave run_save_load(const std::string& path) {
         s.projectile_speed    = jget(j, "projectile_speed", 0.0f);
         s.projectile_lifetime = jget(j, "projectile_lifetime", 0.0f);
         s.spread              = jget(j, "spread", -1.0f);
+        s.saved_at            = std::max(0LL, jget<long long>(j, "saved_at", 0));
         s.present = true;
     } catch (...) {
         return RunSave{};  // ponytail: a hand-edited save costs a resume, never a crash
@@ -135,6 +151,7 @@ bool run_save_write(const std::string& path, const RunSave& s) {
             {"projectile_speed", s.projectile_speed},
             {"projectile_lifetime", s.projectile_lifetime},
             {"spread", s.spread},
+            {"saved_at", s.saved_at},
         };
         out << j.dump(2) << "\n";
         return out.good();

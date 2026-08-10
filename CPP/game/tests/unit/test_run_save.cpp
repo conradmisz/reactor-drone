@@ -311,3 +311,32 @@ TEST_CASE("the run save cannot collide with the meta save", "[run_save]") {
     CHECK(run_save_path().find("run.json") != std::string::npos);
     CHECK(run_save_path().find("meta.json") == std::string::npos);
 }
+
+// ---------------------------------------------------------------------------
+// Main-menu-suite Phase B: slots.
+// ---------------------------------------------------------------------------
+
+TEST_CASE("slot paths are distinct and 1-based", "[run_save][slots]") {
+    CHECK(run_save_path(1) != run_save_path(2));
+    CHECK(run_save_path(2) != run_save_path(3));
+    for (int i = 1; i <= RUN_SAVE_SLOTS; ++i) {
+        const std::string p = run_save_path(i);
+        CHECK(p.find("run" + std::to_string(i) + ".json") != std::string::npos);
+        CHECK(p != run_save_path());   // never the legacy file
+    }
+}
+
+TEST_CASE("saved_at round-trips and defaults to 0 on legacy files", "[run_save][slots]") {
+    const std::string path = tmp_file("slot_ts.json");
+    RunSave s;
+    s.present = true;
+    s.saved_at = 1765432100LL;
+    REQUIRE(run_save_write(path, s));
+    CHECK(run_save_load(path).saved_at == 1765432100LL);
+
+    // A Lane-K era file has no saved_at: loads fine, sorts oldest.
+    write_text(tmp_file("legacy.json"), R"({"version":1,"wave":3})");
+    const RunSave legacy = run_save_load(tmp_file("legacy.json"));
+    CHECK(legacy.present);
+    CHECK(legacy.saved_at == 0);
+}

@@ -4150,6 +4150,15 @@
         },
         {
           "element_type": "button",
+          "rect": { "x": 204, "y": 276, "w": 188, "h": 44 },
+          "label_text": "SAVE SLOTS",
+          "style_id": "default_button",
+          "z_order": 10,
+          "on_click_fn": "on_slots_click",
+          "name": "menu_slots"
+        },
+        {
+          "element_type": "button",
           "rect": { "x": 204, "y": 180, "w": 392, "h": 44 },
           "label_text": "QUIT",
           "style_id": "default_button",
@@ -4250,6 +4259,119 @@
           "z_order": 10,
           "on_click_fn": "on_back_click",
           "name": "menu_back"
+        }
+      ]
+    },
+    "save_slots": {
+      "widgets": [
+        {
+          "element_type": "panel",
+          "rect": { "x": 180, "y": 52, "w": 440, "h": 484 },
+          "label_text": "",
+          "style_id": "panel",
+          "z_order": 0,
+          "//": "Main-menu-suite Phase B. Three slot rows: a label main.cpp rewrites every title frame plus LOAD/DELETE, which go ghost + disabled while the slot is empty (the menu_continue spelling of hidden)."
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 452, "w": 392, "h": 44 },
+          "label_text": "SAVE SLOTS",
+          "style_id": "title",
+          "z_order": 10
+        },
+        {
+          "element_type": "panel",
+          "rect": { "x": 204, "y": 440, "w": 392, "h": 2 },
+          "label_text": "",
+          "style_id": "rule",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 392, "w": 392, "h": 24 },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "slot_label_0"
+        },
+        {
+          "element_type": "button",
+          "rect": { "x": 204, "y": 344, "w": 188, "h": 44 },
+          "label_text": "LOAD",
+          "style_id": "default_button",
+          "z_order": 10,
+          "on_click_fn": "on_slot_load_0",
+          "name": "slot_load_0"
+        },
+        {
+          "element_type": "button",
+          "rect": { "x": 408, "y": 344, "w": 188, "h": 44 },
+          "label_text": "DELETE",
+          "style_id": "default_button",
+          "z_order": 10,
+          "on_click_fn": "on_slot_del_0",
+          "name": "slot_del_0"
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 288, "w": 392, "h": 24 },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "slot_label_1"
+        },
+        {
+          "element_type": "button",
+          "rect": { "x": 204, "y": 240, "w": 188, "h": 44 },
+          "label_text": "LOAD",
+          "style_id": "default_button",
+          "z_order": 10,
+          "on_click_fn": "on_slot_load_1",
+          "name": "slot_load_1"
+        },
+        {
+          "element_type": "button",
+          "rect": { "x": 408, "y": 240, "w": 188, "h": 44 },
+          "label_text": "DELETE",
+          "style_id": "default_button",
+          "z_order": 10,
+          "on_click_fn": "on_slot_del_1",
+          "name": "slot_del_1"
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 184, "w": 392, "h": 24 },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "slot_label_2"
+        },
+        {
+          "element_type": "button",
+          "rect": { "x": 204, "y": 136, "w": 188, "h": 44 },
+          "label_text": "LOAD",
+          "style_id": "default_button",
+          "z_order": 10,
+          "on_click_fn": "on_slot_load_2",
+          "name": "slot_load_2"
+        },
+        {
+          "element_type": "button",
+          "rect": { "x": 408, "y": 136, "w": 188, "h": 44 },
+          "label_text": "DELETE",
+          "style_id": "default_button",
+          "z_order": 10,
+          "on_click_fn": "on_slot_del_2",
+          "name": "slot_del_2"
+        },
+        {
+          "element_type": "button",
+          "rect": { "x": 204, "y": 72, "w": 188, "h": 44 },
+          "label_text": "BACK",
+          "style_id": "default_button",
+          "z_order": 10,
+          "on_click_fn": "on_back_click",
+          "name": "slots_back"
         }
       ]
     },

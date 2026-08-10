@@ -197,8 +197,16 @@ TEST_CASE("the shipped menu screens carry the callbacks main.cpp compares",
     CHECK(setup.count("on_ship_cycle"));
     CHECK(setup.count("on_launch_click"));
     CHECK(setup.count("on_back_click"));
+    // Phase B: the hub reaches save_slots, and every slot row is wired.
+    CHECK(hub.count("on_slots_click"));
+    const auto slots = screen_fns("save_slots");
+    for (int i = 0; i < 3; ++i) {
+        CHECK(slots.count("on_slot_load_" + std::to_string(i)));
+        CHECK(slots.count("on_slot_del_" + std::to_string(i)));
+    }
+    CHECK(slots.count("on_back_click"));
 
-    for (const char* name : {"main_menu", "run_setup"}) {
+    for (const char* name : {"main_menu", "run_setup", "save_slots"}) {
         bool screen_found = false, boots_inactive = false;
         for (Entity e : cs.entities_with_component<UIScreen>()) {
             auto s = cs.get_component<UIScreen>(e);

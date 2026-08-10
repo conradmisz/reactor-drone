@@ -17,6 +17,7 @@
 #include <iostream>
 #include <cmath>
 #include <algorithm>
+#include <ctime>
 #include <random>
 #include <vector>
 
@@ -107,6 +108,7 @@ constexpr const char* SCREEN_INTERMISSION = "wave_intermission";
 constexpr const char* SCREEN_PAUSE        = "pause";
 constexpr const char* SCREEN_MAIN_MENU    = "main_menu";
 constexpr const char* SCREEN_RUN_SETUP    = "run_setup";    // main-menu-suite Phase A
+constexpr const char* SCREEN_SAVE_SLOTS   = "save_slots";   // main-menu-suite Phase B
 constexpr const char* SCREEN_PRESTIGE     = "prestige_offer";   // Lane O (D128)
 
 int main(int argc, char* argv[]) {
@@ -164,7 +166,29 @@ int main(int argc, char* argv[]) {
     // the resume path, so a save file that merely exists cannot move a single RNG
     // draw of a fresh run (verified: the replay canary is byte-identical with and
     // without `saves/run.json`).
-    RunSave saved_run = run_save_load(run_save_path());
+    // Main-menu-suite Phase B: three slots. The legacy single save migrates to
+    // slot 1 once; `active_slot` is where the pause SAVE writes — a loaded run
+    // saves back to its own slot, a fresh run claims the first empty one (else 1).
+    run_save_migrate_legacy();
+    RunSave saved_slots[RUN_SAVE_SLOTS];
+    for (int i = 0; i < RUN_SAVE_SLOTS; ++i)
+        saved_slots[i] = run_save_load(run_save_path(i + 1));
+    int active_slot = 0;   // 0-based index into saved_slots
+    auto newest_slot = [&]() {
+        int best = -1;
+        long long best_at = -1;
+        for (int i = 0; i < RUN_SAVE_SLOTS; ++i)
+            if (saved_slots[i].present && saved_slots[i].saved_at >= best_at) {
+                best = i;
+                best_at = saved_slots[i].saved_at;
+            }
+        return best;   // -1 = no save anywhere
+    };
+    auto first_free_slot = [&]() {
+        for (int i = 0; i < RUN_SAVE_SLOTS; ++i)
+            if (!saved_slots[i].present) return i;
+        return 0;
+    };
     int run_difficulty = 0;   // which difficulty the live run was started at
 
     const int win_w = blackboard.get_or<int>("window_width", 980);
@@ -781,8 +805,8 @@ int main(int argc, char* argv[]) {
     // and on closing the window — a player who just pressed SAVE and quit must
     // still find their run there.
     auto end_saved_run = [&]() {
-        run_save_clear(run_save_path());
-        saved_run = RunSave{};
+        run_save_clear(run_save_path(active_slot + 1));
+        saved_slots[active_slot] = RunSave{};
     };
 
     auto start_run = [&](size_t difficulty_index, const RunSave* resume = nullptr) {
@@ -905,17 +929,65 @@ int main(int argc, char* argv[]) {
         if (w == 0) return;
         auto el = component_storage.get_component<UIElement>(w);
         if (!el.has_value()) return;
-        if (saved_run.present) {
+        const int ns = newest_slot();
+        if (ns >= 0) {
+            const RunSave& s = saved_slots[ns];
             el->get().style_id = "default_button";
-            el->get().label_text = "CONTINUE  -  wave " + std::to_string(saved_run.wave + 1)
-                                 + ", " + (saved_run.difficulty_name.empty()
+            el->get().label_text = "CONTINUE  -  wave " + std::to_string(s.wave + 1)
+                                 + ", " + (s.difficulty_name.empty()
                                                ? std::string("Normal")
-                                               : saved_run.difficulty_name);
+                                               : s.difficulty_name);
         } else {
             // "ghost", not "subtitle": buttons always fill their bg, and only the
             // ghost style's bg matches the panel it sits on (see ui_styles).
             el->get().style_id = "ghost";
             el->get().label_text.clear();
+        }
+    };
+
+    // Main-menu-suite Phase B: the save_slots rows. Labels are rewritten every
+    // title frame; an empty slot's LOAD/DELETE buttons go ghost + disabled (the
+    // same hidden-button spelling as menu_continue).
+    Entity slot_w[RUN_SAVE_SLOTS][3] = {};        // [i] = label, load, delete
+    bool slot_w_resolved[RUN_SAVE_SLOTS][3] = {};
+    auto refresh_save_slots = [&]() {
+        for (int i = 0; i < RUN_SAVE_SLOTS; ++i) {
+            const std::string n = std::to_string(i);
+            const Entity lbl = widget_by_name(("slot_label_" + n).c_str(),
+                                              slot_w[i][0], slot_w_resolved[i][0]);
+            const Entity ld  = widget_by_name(("slot_load_" + n).c_str(),
+                                              slot_w[i][1], slot_w_resolved[i][1]);
+            const Entity del = widget_by_name(("slot_del_" + n).c_str(),
+                                              slot_w[i][2], slot_w_resolved[i][2]);
+            const RunSave& s = saved_slots[i];
+            if (auto el = component_storage.get_component<UIElement>(lbl); el.has_value()) {
+                if (s.present) {
+                    const std::string ship =
+                        (s.ship_id >= 0 && s.ship_id < static_cast<int>(config.ships.size()))
+                            ? config.ships[static_cast<size_t>(s.ship_id)].name
+                            : std::string("Standard");
+                    el->get().label_text = "SLOT " + std::to_string(i + 1) + "  -  wave "
+                        + std::to_string(s.wave + 1) + ", "
+                        + (s.difficulty_name.empty() ? std::string("Normal")
+                                                     : s.difficulty_name)
+                        + ", " + ship + "  -  " + std::to_string(s.score) + " pts";
+                } else {
+                    el->get().label_text = "SLOT " + std::to_string(i + 1) + "  -  empty";
+                }
+            }
+            const char* names[2] = {"LOAD", "DELETE"};
+            int bi = 0;
+            for (Entity b : {ld, del}) {
+                if (auto el = component_storage.get_component<UIElement>(b); el.has_value()) {
+                    el->get().style_id = s.present ? "default_button" : "ghost";
+                    // Text ignores style alpha, so a ghost button also blanks its
+                    // caption (the menu_continue spelling of hidden).
+                    el->get().label_text = s.present ? names[bi] : "";
+                }
+                if (auto st = component_storage.get_component<UIState>(b); st.has_value())
+                    st->get().disabled = !s.present;
+                ++bi;
+            }
         }
     };
 
@@ -1043,7 +1115,8 @@ int main(int argc, char* argv[]) {
         // hub's pulsing PLAY would bleed through run_setup's panel.
         if (blackboard.get_or<bool>("ui.escape_pressed", false) && phase == PHASE_TITLE) {
             const std::vector<std::string> stack = ScreenStackSystem::get_stack(blackboard);
-            if (!stack.empty() && stack.back() == SCREEN_RUN_SETUP)
+            if (!stack.empty() && (stack.back() == SCREEN_RUN_SETUP ||
+                                   stack.back() == SCREEN_SAVE_SLOTS))
                 blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
                                             std::string(SCREEN_MAIN_MENU));
         }
@@ -1090,14 +1163,18 @@ int main(int argc, char* argv[]) {
                 // wave, credits, gear, hull — and nothing about the world. Writing
                 // fails silently by design: a read-only disk must not end the run.
                 blackboard.remove(UISystem::UI_CLICK_KEY);
-                saved_run = run_save_capture(component_storage, blackboard,
-                                             wave_spawner.current_wave_index(),
-                                             run_difficulty,
-                                             blackboard.get_or<std::string>("difficulty",
-                                                                            std::string("Normal")),
-                                             selected_ship, config.seed);
-                const bool ok = run_save_write(run_save_path(), saved_run);
-                if (!ok) saved_run.present = false;
+                RunSave& slot = saved_slots[active_slot];
+                slot = run_save_capture(component_storage, blackboard,
+                                        wave_spawner.current_wave_index(),
+                                        run_difficulty,
+                                        blackboard.get_or<std::string>("difficulty",
+                                                                       std::string("Normal")),
+                                        selected_ship, config.seed);
+                // Wall-clock only ever flows INTO a save file, never out of one
+                // into the sim — CONTINUE just sorts by it (D80 discipline).
+                slot.saved_at = static_cast<long long>(std::time(nullptr));
+                const bool ok = run_save_write(run_save_path(active_slot + 1), slot);
+                if (!ok) slot.present = false;
                 if (Entity w = save_widget(); w != 0) {
                     if (auto el = component_storage.get_component<UIElement>(w); el.has_value())
                         el->get().label_text = ok ? "SAVED" : "SAVE FAILED";
@@ -1741,28 +1818,55 @@ int main(int argc, char* argv[]) {
                     selected_ship = next_unlocked_ship(config.ships, selected_ship,
                                                        meta.lifetime_score);
                     blackboard.remove(UISystem::UI_CLICK_KEY);
-                } else if (menu_click == "on_continue_run_click" && saved_run.present) {
-                    // Lane K (D100): CONTINUE resumes the saved run. Handled apart
-                    // from the fresh-start branch so the two can never both fire.
+                } else if (menu_click == "on_continue_run_click" && newest_slot() >= 0) {
+                    // Lane K (D100): CONTINUE resumes the newest saved run. Handled
+                    // apart from the fresh-start branch so the two can never both fire.
                     blackboard.remove(UISystem::UI_CLICK_KEY);
+                    active_slot = newest_slot();
                     blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
                                                 std::string());
-                    start_run(static_cast<size_t>(saved_run.difficulty), &saved_run);
+                    start_run(static_cast<size_t>(saved_slots[active_slot].difficulty),
+                              &saved_slots[active_slot]);
                     resumed = true;
                 } else if (menu_click == "on_continue_run_click") {
                     blackboard.remove(UISystem::UI_CLICK_KEY);   // no save: an inert widget
+                } else if (menu_click == "on_slots_click") {
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                std::string(SCREEN_SAVE_SLOTS));
+                } else if (menu_click.rfind("on_slot_load_", 0) == 0) {
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    const int i = menu_click.back() - '0';
+                    if (i >= 0 && i < RUN_SAVE_SLOTS && saved_slots[i].present) {
+                        active_slot = i;
+                        blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                    std::string());
+                        start_run(static_cast<size_t>(saved_slots[i].difficulty),
+                                  &saved_slots[i]);
+                        resumed = true;
+                    }
+                } else if (menu_click.rfind("on_slot_del_", 0) == 0) {
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    const int i = menu_click.back() - '0';
+                    if (i >= 0 && i < RUN_SAVE_SLOTS) {
+                        run_save_clear(run_save_path(i + 1));
+                        saved_slots[i] = RunSave{};
+                    }
                 }
                 refresh_ship_widget();
                 refresh_continue_widget();
                 refresh_difficulty_tabs();
+                refresh_save_slots();
                 if (space_edge && !launch && !resumed) {
                     launch = true;        // SPACE: quick-start Normal from anywhere
                     launch_difficulty = 0;
                 }
                 if (launch && !resumed) {
-                    // CLEAR_TO(""), not POP: LAUNCH fires at depth 3 (hub + setup),
-                    // SPACE can fire at either depth — both must land on the bare
-                    // gameplay base.
+                    // CLEAR_TO(""), not POP: title screens replace each other, and
+                    // SPACE can fire from any of them — all must land on the bare
+                    // gameplay base. A fresh run claims the first empty slot so a
+                    // pause-SAVE never silently overwrites an older run.
+                    active_slot = first_free_slot();
                     blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
                                                 std::string());
                     start_run(launch_difficulty);
