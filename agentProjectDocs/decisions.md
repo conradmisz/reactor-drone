@@ -1509,3 +1509,62 @@ Decisions seeded from the gameplay plan (D1–D12) and made during Phases 1-4
 - **Rejected:** changing O's key to M's name (M's `meta.` prefix is a lie — the
   value is the *run in progress*, not the save file), and leaving M reading a
   literal (it is the third copy of a string that must match one other place).
+
+---
+
+## Iteration 6 — the modular drone
+
+### D133 — The chassis is redesigned to wear the kit, and the kit is followers  *(2026-08-10)*
+- **Decision:** `player_frames()` is replaced with a slimmer, longer chassis whose
+  rotor pods sit further outboard, and which draws its **hardpoints empty** — two
+  flank rails and a tail socket. Each shop upgrade row gets a single-frame overlay
+  (`kit_*.png`) authored in the chassis's own 128-space, worn by a **follower
+  entity** that copies the player's position and rotation every playing frame.
+- **Why a redesign and not retrofitting:** the shipped drone had no room. Parts
+  bolted onto it collided with each other and with the pods, and the fix kept
+  being "move this part somewhere worse". Giving the hull an authored station per
+  part — muzzle, collar, flank rails, spine, tail socket, tail corners — is what
+  makes seven simultaneous parts legible at 52px.
+- **Why followers and not baked variants:** `max_stacks` runs 2..8 across eight
+  rows. Baking the combinations is ~1.6M sprites. Followers cost one entity per
+  part, created once per run.
+- **Why not components on the player:** an entity renders exactly one sprite
+  (`SpriteSheet > Images > Color`), and the player's is the chassis.
+- **Parked is zero size**, not destroy/create — D58's pooled-blip idiom.
+- **Presence, not level:** a part shows when its row has been bought at all. The
+  plume ramp (D123) already encodes *how much* was spent; making both encode the
+  same thing would be two visuals driven by one number.
+- **Rejected:** compositing the kit into one texture at purchase time. It needs an
+  engine-level surface composite and a second application site at `start_run`
+  (run_save restores `upg_counts`) — the mistake D50 names.
+- **The chassis halo is tighter than the old drone's** (0.085/120 vs 0.14/150):
+  the slimmer hull leaves more empty frame, and at the old spread the four pods'
+  halos merged into a haze over the whole tile, which read on a dark floor as a
+  lit square rotating with the ship. Confirmed against captured frames.
+
+### D134 — The shield is a live field, and its four states are one strip  *(2026-08-10)*
+- **Decision:** the Shield Capacitor has **no static part**. It is a ring at radius
+  70 in the chassis's 128-space, drawn from a 21-frame strip: `hum` 0-7, `hit`
+  8-11, `down` 12, `regen` 13-20. The sprite is 192px and worn at
+  `FIELD_SIZE_MULT` (1.5x the player size) — that ratio is what holds the ring
+  clear of the hull instead of on it.
+- **Why not a bolt-on:** a shield *has state*. A static overlay says "you own a
+  capacitor" and then lies for the rest of the run — it looks identical whether
+  the shield is full, broken, or three seconds into a recharge.
+- **One strip, no clips, no `Animation` component:** the four behaviours are a
+  loop, a one-shot, a static, and a progress bar. Only the first is what an
+  `Animation` models. `main.cpp` writes `SpriteSheet.current_frame` from
+  `upgrade_visuals::field_frame`, which is pure and unit-tested against every
+  (state, phase, fraction) including out-of-range input.
+- **Regen is indexed by FRACTION, not elapsed time**, so the ring is a readout of
+  `shield / shield_max` rather than an animation that happens to run alongside it.
+- **The hit window reuses `shield_delay`** — PlayerDamageSystem already sets it to
+  the full quiet time on every hit and `tick_shields` counts it down, so "struck a
+  moment ago" is "delay is still near the top". No second timer to desync.
+- **The bloom is directional:** `PlayerDamageSystem` publishes
+  `player.hit_bearing` and the ring rotates to it. Write-only and cosmetic —
+  nothing in the sim reads it, so the canary cannot move. The rest of the ring is
+  radially symmetric, so the rotation is invisible except during a bloom.
+- **Rejected:** baking eight bearings of the bloom. One rotation beats eight
+  frames of the same art.
+

@@ -153,6 +153,14 @@ def quad_pods(f, pal, col, b, t, pods, r, hub, bw, s=SS):
 # aft. Symmetric about the horizontal axis so pure rotation orients it.
 # ---------------------------------------------------------------------------
 def player_frames(n=6):
+    """The modular chassis (D133). Slimmer and longer than the drone it replaces,
+    with the rotor pods pushed further outboard on longer booms — the hull reads
+    as a frame with space in it, and that space is where the upgrade kit lands.
+
+    The two flank rails and the tail socket are drawn EMPTY here on purpose: the
+    stock drone advertises its own hardpoints, so a purchase seats into a mount
+    that was always there instead of appearing on bare hull.
+    """
     pal = CORE
     frames = []
     cx, cy = S/2, S/2
@@ -160,26 +168,269 @@ def player_frames(n=6):
         f = frame()
         b = pulse(i / n)
         t = i / n
-        pods = [(cx+27, cy-29), (cx+27, cy+29), (cx-21, cy-29), (cx-21, cy+29)]
-        quad_pods(f, pal, pal.primary, b, t, pods, 17, (cx+2, cy), 7)
-        # chassis: a forward wedge with a squared-off tail
-        hull = [(cx+42, cy), (cx+16, cy-19), (cx-24, cy-15),
-                (cx-24, cy+15), (cx+16, cy+19)]
+        pods = [(cx+30, cy-33), (cx+30, cy+33), (cx-30, cy-33), (cx-30, cy+33)]
+        quad_pods(f, pal, pal.primary, b, t, pods, 15, (cx+2, cy), 6)
+        hull = [(cx+48, cy), (cx+20, cy-13), (cx-34, cy-11),
+                (cx-34, cy+11), (cx+20, cy+13)]
         neon_poly(f, hull, scale_col(pal.primary, 0.7),
                   outline=scale_col(pal.accent, b), ow=3)
-        # spine plating
         d = draw(f)
-        d.line([(cx-16, cy-8), (cx+18, cy-8)], fill=scale_col(pal.secondary, 0.8) + (255,), width=2)
-        d.line([(cx-16, cy+8), (cx+18, cy+8)], fill=scale_col(pal.secondary, 0.8) + (255,), width=2)
-        # sensor eye
-        dot(f, (cx+16, cy), 9, scale_col(pal.accent, b))
-        dot(f, (cx+16, cy), 4, (255, 255, 255))
-        # thrusters
-        for ey in (-9, 9):
-            dot(f, (cx-24, cy+ey), 5, scale_col(pal.secondary, b))
-        f = add_halo(shrink(f), pal.primary, spread=0.14, strength=150)
+        d.line([(cx-26, cy-6), (cx+22, cy-6)],
+               fill=scale_col(pal.secondary, 0.8) + (255,), width=2)
+        d.line([(cx-26, cy+6), (cx+22, cy+6)],
+               fill=scale_col(pal.secondary, 0.8) + (255,), width=2)
+        # empty hardpoints: two flank rails + the tail socket
+        for sy in (-1, 1):
+            d.line([(cx-13, cy + sy*15), (cx+13, cy + sy*17)],
+                   fill=KIT_STEEL + (110,), width=2)
+        d.rectangle([cx-46, cy-8, cx-36, cy+8], outline=KIT_STEEL + (110,), width=2)
+        # sensor eye + aft thrusters
+        dot(f, (cx+20, cy), 8, scale_col(pal.accent, b))
+        dot(f, (cx+20, cy), 4, (255, 255, 255))
+        for ey in (-6, 6):
+            dot(f, (cx-34, cy+ey), 4, scale_col(pal.secondary, b))
+        # A tighter halo than the drone this replaces (0.14/150): the slimmer
+        # hull leaves more empty frame, and at that spread the four pods' halos
+        # merged into a haze covering the whole tile — which reads on a dark
+        # floor as a lit square rotating with the ship.
+        f = add_halo(shrink(f), pal.primary, spread=0.085, strength=120)
         frames.append(f)
     return frames
+
+
+# ---------------------------------------------------------------------------
+# The upgrade kit (D133) — one overlay per shop upgrade row, authored in the
+# SAME 128-space as the chassis so it composites 1:1 at any size. Every part is
+# mirrored about the horizontal axis (art faces right and rotates, never flips)
+# and owns one longitudinal station, so all seven can be worn at once:
+#
+#   muzzle   +40..+62   coils / long barrel
+#   collar   +32..+42   heavy collar (wraps whatever barrel is fitted)
+#   nose-out  y +/-15   twin barrels
+#   flank    -14..+15   hull plating (the authored rails)
+#   spine    -26..-14   heavy drums
+#   tail     -48..-34   overclock heat-sink (the authored socket)
+#   tail-out  y +/-17   aux nozzles
+#
+# Shield Capacitor is NOT here: shields have live state, so the shield is the
+# animated field ring in shield_frames().
+# ---------------------------------------------------------------------------
+KIT_HOT = (255, 226, 150)    # bolt-on accent: warm gold, never reads as hull
+KIT_STEEL = (150, 168, 186)  # bolt-on body: neutral against the cyan hull
+
+
+def kit_plating():
+    """HULL PLATING — armour slabs seated on the flank rails."""
+    f = frame()
+    cx, cy = S/2, S/2
+    for sy in (-1, 1):
+        pts = [(cx-14, cy + sy*15), (cx+12, cy + sy*20),
+               (cx+15, cy + sy*14), (cx-14, cy + sy*11)]
+        neon_poly(f, pts, scale_col(KIT_STEEL, 0.55), outline=KIT_HOT, ow=2)
+        for k in range(3):
+            dot(f, (cx-8 + k*9, cy + sy*15), 2, KIT_HOT)
+    return f
+
+
+def kit_thruster():
+    """AUX THRUSTER — nozzles in the tail corners, aft of everything else."""
+    f = frame()
+    cx, cy = S/2, S/2
+    d = draw(f)
+    for sy in (-1, 1):
+        box = [cx-45, cy + sy*17 - 4, cx-33, cy + sy*17 + 4]
+        d.rectangle(box, fill=scale_col(KIT_STEEL, 0.75) + (255,))
+        d.rectangle(box, outline=KIT_HOT + (255,), width=2)
+        dot(f, (cx-46, cy + sy*17), 5, CORE.accent)
+        dot(f, (cx-49, cy + sy*17), 2, (255, 255, 255))
+    return f
+
+
+def kit_heatsink():
+    """OVERCLOCK — the finned heat-sink dropped into the tail socket."""
+    f = frame()
+    cx, cy = S/2, S/2
+    d = draw(f)
+    d.rectangle([cx-48, cy-9, cx-34, cy+9],
+                fill=scale_col(KIT_STEEL, 0.5) + (255,), outline=KIT_HOT + (255,), width=2)
+    for k in range(5):
+        y = cy - 7 + k*3.5
+        d.line([(cx-47, y), (cx-35, y)], fill=KIT_HOT + (255,), width=2)
+    for sy in (-1, 1):
+        d.line([(cx-46, cy + sy*11), (cx-36, cy + sy*11)], fill=CORE.accent + (255,), width=3)
+    return f
+
+
+def kit_drums():
+    """HEAVY ROUNDS — magazine drums on the spine + a collar at the barrel base.
+    The collar is what lets this compose with Long Barrel and the coils."""
+    f = frame()
+    cx, cy = S/2, S/2
+    d = draw(f)
+    for sy in (-1, 1):
+        d.ellipse([cx-26, cy + sy*8 - 6, cx-14, cy + sy*8 + 6],
+                  fill=scale_col(KIT_STEEL, 0.6) + (255,), outline=KIT_HOT + (255,), width=2)
+        dot(f, (cx-20, cy + sy*8), 2, KIT_HOT)
+    d.rectangle([cx+32, cy-6, cx+42, cy+6],
+                fill=scale_col(KIT_STEEL, 0.7) + (255,), outline=KIT_HOT + (255,), width=2)
+    return f
+
+
+def kit_twin():
+    """TWIN BARREL — a second pair of barrels outboard, over the front booms."""
+    f = frame()
+    cx, cy = S/2, S/2
+    d = draw(f)
+    for sy in (-1, 1):
+        box = [cx+14, cy + sy*15 - 3, cx+52, cy + sy*15 + 3]
+        d.rectangle(box, fill=scale_col(CORE.primary, 0.75) + (255,))
+        d.rectangle(box, outline=KIT_HOT + (255,), width=2)
+        dot(f, (cx+53, cy + sy*15), 4, CORE.accent)
+    return f
+
+
+def kit_longbarrel():
+    """LONG BARREL — the centre barrel, extended well past the nose."""
+    f = frame()
+    cx, cy = S/2, S/2
+    d = draw(f)
+    d.rectangle([cx+40, cy-4, cx+62, cy+4], fill=scale_col(CORE.primary, 0.8) + (255,))
+    d.rectangle([cx+40, cy-4, cx+62, cy+4], outline=KIT_HOT + (255,), width=2)
+    for sy in (-1, 1):
+        d.line([(cx+44, cy + sy*4), (cx+36, cy + sy*9)], fill=KIT_HOT + (255,), width=2)
+    dot(f, (cx+62, cy), 4, CORE.accent)
+    return f
+
+
+def kit_coils():
+    """RICOCHET COILS — induction rings wrapping the muzzle, one per level."""
+    f = frame()
+    cx, cy = S/2, S/2
+    d = draw(f)
+    d.rectangle([cx+44, cy-3, cx+58, cy+3], fill=scale_col(KIT_STEEL, 0.5) + (255,))
+    for k, x in enumerate((cx+44, cx+51, cx+58)):
+        r = 9 - k
+        d.ellipse([x-3, cy-r, x+3, cy+r], outline=KIT_HOT + (255,), width=2)
+    dot(f, (cx+60, cy), 3, CORE.accent)
+    return f
+
+
+# Index-aligned with GameData.json's shop.upgrades rows. Index 1 (Shield
+# Capacitor) has no static part — it is the field ring — so it is a hole here
+# and kit_visuals.hpp maps around it.
+KIT_PARTS = [
+    (0, "kit_plating", kit_plating),
+    (2, "kit_thruster", kit_thruster),
+    (3, "kit_heatsink", kit_heatsink),
+    (4, "kit_drums", kit_drums),
+    (5, "kit_twin", kit_twin),
+    (6, "kit_longbarrel", kit_longbarrel),
+    (7, "kit_coils", kit_coils),
+]
+
+
+# ---------------------------------------------------------------------------
+# The shield field (D134) — the Shield Capacitor is not a bolt-on part, because
+# a shield HAS LIVE STATE and a static overlay cannot show it. It is a ring that
+# hums around the drone, never touching it: radius 70 in the chassis's 128-space
+# against a hull whose halo ends about 55, so there is a clear standoff gap all
+# round. The frame is 192px (the ring would not fit in 128), so the runtime
+# wears it at 1.5x the player's size — SHIELD_FRAME / S.
+#
+# ONE STRIP, NO CLIPS: the frame is chosen per-frame by a pure function of the
+# shield's state (kit_visuals::shield_frame), not by an Animation component.
+# That keeps four different behaviours — a loop, a one-shot, a static and a
+# progress bar — as one indexable strip and one unit-testable picker.
+#
+#   0..7   hum     the living field, phase-looped
+#   8..11  hit     impact bloom decaying, played from the hit bearing
+#   12     down    broken: dead emitter stubs
+#   13..20 regen   rebuilding, indexed by FRACTION not by time
+# ---------------------------------------------------------------------------
+SHIELD_FRAME = 192
+SHIELD_R = 70.0               # ring radius in the chassis's 128-space
+SHIELD_ICE = (120, 200, 255)  # the shield colour the HUD already uses
+
+SHIELD_HUM_START, SHIELD_HUM_COUNT = 0, 8
+SHIELD_HIT_START, SHIELD_HIT_COUNT = 8, 4
+SHIELD_DOWN_FRAME = 12
+SHIELD_REGEN_START, SHIELD_REGEN_COUNT = 13, 8
+SHIELD_TOTAL = 21
+
+
+def _shield_frame_img():
+    return Image.new("RGBA", (SHIELD_FRAME * SS, SHIELD_FRAME * SS), (0, 0, 0, 0))
+
+
+def _shield_scale():
+    """Draw proxy scale: the ring is authored in 128-space but lives on a 192px
+    frame, so the two-step (128-space -> 192 frame -> 4x canvas) is one factor."""
+    return SS * SHIELD_FRAME / S
+
+
+def _shield_ring(mode, t, frac=1.0, hit_ang=0.0):
+    """One field frame. `t` is 0..1 phase; `frac` is regen progress."""
+    img = _shield_frame_img()
+    d = draw(img, _shield_scale())
+    c = S / 2                                   # centre, in 128-space
+    hum = SHIELD_R + 1.6 * math.sin(t * 2 * math.pi)
+    box = [c - hum, c - hum, c + hum, c + hum]
+
+    if mode == "down":
+        for k in range(6):
+            a = k * 60 + 12
+            d.arc(box, a, a + 18, fill=SHIELD_ICE + (44,), width=2)
+        return shrink(img, SHIELD_FRAME)
+
+    if mode == "regen":
+        half = 180.0 * frac                     # rebuilds symmetrically from the nose
+        alpha = int(90 + 60 * frac)
+        d.arc(box, -half, half, fill=SHIELD_ICE + (alpha,), width=3)
+        for sgn in (-1, 1):
+            a = math.radians(sgn * half)
+            x, y = c + hum * math.cos(a), c + hum * math.sin(a)
+            dot(img, (x, y), 3, (255, 255, 255), 230, s=_shield_scale())
+        return shrink(img, SHIELD_FRAME)
+
+    d.arc(box, 0, 360, fill=SHIELD_ICE + (150,), width=3)          # membrane
+    d.arc([box[0]+2, box[1]+2, box[2]-2, box[3]-2],
+          0, 360, fill=SHIELD_ICE + (60,), width=6)                # outer skin
+    # shimmer: arcs sweeping at different speeds and directions
+    for k, (speed, length, w, al) in enumerate(
+            [(1.0, 70, 4, 220), (-0.62, 40, 3, 180), (1.7, 24, 3, 140)]):
+        a0 = (t * 360 * speed + k * 137) % 360
+        d.arc(box, a0, a0 + length, fill=SHIELD_ICE + (al,), width=w)
+    # lattice cells flickering in a travelling wave
+    inner = [c - hum + 5, c - hum + 5, c + hum - 5, c + hum - 5]
+    for j in range(12):
+        ph = math.sin(2 * math.pi * (t * 2 + j * 0.23))
+        al = int(28 + 80 * max(0.0, ph) ** 2)
+        a = j * 30 + 15
+        d.arc(inner, a, a + 14, fill=(170, 225, 255, al), width=2)
+
+    if mode == "hit":
+        al = int(255 * (1.0 - t))
+        d.arc(box, hit_ang - 26, hit_ang + 26, fill=(255, 255, 255, al), width=6)
+        a = math.radians(hit_ang)
+        x, y = c + hum * math.cos(a), c + hum * math.sin(a)
+        dot(img, (x, y), 6 + 10 * t, (255, 255, 255), al // 2, s=_shield_scale())
+        for j in (-1, 0, 1):
+            a2 = hit_ang + j * 30
+            d.arc(inner, a2 - 8, a2 + 8, fill=(255, 255, 255, al), width=3)
+    return shrink(img, SHIELD_FRAME)
+
+
+def shield_frames():
+    """The strip. Hit frames are drawn at bearing 0 (the nose): the runtime spins
+    the whole ring entity to the impact bearing rather than baking 8 bearings."""
+    fr = [_shield_ring("hum", i / SHIELD_HUM_COUNT) for i in range(SHIELD_HUM_COUNT)]
+    fr += [_shield_ring("hit", i / SHIELD_HIT_COUNT) for i in range(SHIELD_HIT_COUNT)]
+    fr += [_shield_ring("down", 0.0)]
+    fr += [_shield_ring("regen", i / SHIELD_REGEN_COUNT,
+                        frac=i / (SHIELD_REGEN_COUNT - 1))
+           for i in range(SHIELD_REGEN_COUNT)]
+    assert len(fr) == SHIELD_TOTAL, len(fr)
+    return fr
 
 
 # ---------------------------------------------------------------------------
@@ -670,6 +921,20 @@ def main():
     save_png("hazard_mine", mine_sprite())
     # D105: the boss's carrier. Single frame, worn as Images by BossSystem.
     save_png("enemy_boss_carrier", carrier_sprite())
+    # D133: the upgrade kit. Single-frame overlays worn as Images by the kit
+    # followers, authored in the chassis's own 128-space so they composite 1:1.
+    # No halo on a kit part: it is composited ON TOP of a chassis that already
+    # bakes one, and seven stacked halos put a visible square of haze around the
+    # drone (the frame edge clips the blur, and the box then rotates with the
+    # hull). The parts read from their own bright outlines.
+    for _row, name, fn in KIT_PARTS:
+        save_png(name, shrink(fn()))
+    # D134: the shield field strip. A SpriteSheet, but with no Animation —
+    # kit_visuals::shield_frame picks the frame from the shield's state.
+    write_sprite("shield_field", shield_frames(), 7,
+                 {"hum": {"start_frame": SHIELD_HUM_START,
+                          "frame_count": SHIELD_HUM_COUNT,
+                          "frame_duration": 0.08, "looping": True}})
 
 
 if __name__ == "__main__":

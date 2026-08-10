@@ -125,6 +125,21 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
 
 ## Session Notes
 
+- **Iteration 6 (2026-08-10): the modular drone (D133/D134).** The player chassis
+  is redesigned to wear its upgrades — slimmer hull, pods outboard, hardpoints
+  drawn empty — and each shop row has an overlay worn by a follower entity, with
+  the Shield Capacitor promoted to a live field ring instead of a static part.
+  Spec: `specs/modular-drone-and-upgrade-kit.md`. New: `kit_*.png` x7 +
+  `shield_field.png` (21 frames) from the generator, the kit/field half of
+  `upgrade_visuals.hpp`, `test_kit_visuals.cpp`, follower creation in
+  `spawn_world` and the per-frame update beside the item aura, and a cosmetic
+  `player.hit_bearing` publish in `player_damage_system.cpp`.
+  Verified: build clean (only Lua's `tmpnam`), `ctest` 8/8, manifest OK (13
+  sidecars), canary byte-identical twice on `--seed 42`, and real in-game frames
+  captured via `--screenshot` under a TEMPORARY full-kit patch (**reverted** —
+  `grep "TEMPORARY VERIFICATION" main.cpp` returns 0). **Not playtested in a
+  window.** Design sketches were reviewed and approved before any code.
+
 - **Art (2026-08-10): the sprite generator supersamples.** Pillow's polygon/line
   rasteriser has no antialiasing, so every 128px sprite shipped with stepped
   neon outlines that only the baked halo hid. `make_sprites.py` now draws the

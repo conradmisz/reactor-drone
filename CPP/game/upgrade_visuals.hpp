@@ -2,6 +2,7 @@
 #define UPGRADE_VISUALS_HPP
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 #include "engine/ecs/component_storage.hpp"
@@ -96,6 +97,127 @@ inline void apply_to_player(ComponentStorage& storage, Entity player,
     e.start_size = l.start_size;
     e.particle_lifetime = l.particle_lifetime;
     if (s.dash_timer <= 0.0f) e.emission_rate = l.emission_rate;
+}
+
+/**
+ * ===========================================================================
+ * The upgrade kit (D133) and the shield field (D134)
+ * ===========================================================================
+ *
+ * D123 shipped the plume ramp with the note "the real ceiling is a kitted-out
+ * hull sprite". This is that ceiling: the chassis was redesigned with authored
+ * hardpoints (empty flank rails and a tail socket), and each shop upgrade row
+ * has an overlay that seats into one of them.
+ *
+ * The overlays are FOLLOWER ENTITIES, not baked variants: max_stacks runs 2..8
+ * across the eight rows, so baking every combination is ~1.6M sprites. Each
+ * part is a single-frame Images wearer authored in the chassis's own 128-space,
+ * so it composites 1:1 at whatever size the player is drawn at.
+ *
+ * Everything here is a pure function of ShipState — no RNG, no accumulated
+ * state of its own — so the kit cannot move the replay canary.
+ */
+
+/// One overlay, and the shop upgrade row that turns it on. Index-aligned with
+/// GameData.json's shop.upgrades EXCEPT row 1 (Shield Capacitor), which has no
+/// static part: a shield has live state, so it is the field ring below.
+struct KitPart {
+    int row;                 // index into ShipState.upg_counts
+    const char* image;       // texture, relative to assets/images/
+};
+
+constexpr int KIT_COUNT = 7;
+
+inline constexpr KitPart KIT[KIT_COUNT] = {
+    {0, "v2/kit_plating.png"},     // Hull Plating   — flank rails
+    {2, "v2/kit_thruster.png"},    // Aux Thruster   — tail corners
+    {3, "v2/kit_heatsink.png"},    // Overclock      — tail socket
+    {4, "v2/kit_drums.png"},       // Heavy Rounds   — spine + barrel collar
+    {5, "v2/kit_twin.png"},        // Twin Barrel    — outboard barrels
+    {6, "v2/kit_longbarrel.png"},  // Long Barrel    — centre barrel
+    {7, "v2/kit_coils.png"},       // Ricochet Coils — muzzle rings
+};
+
+/// Is part `i` worn? One purchase in its row is enough — the part shows what you
+/// own, and the plume ramp (above) already shows how much.
+inline bool part_worn(const ShipState& s, int i) {
+    if (i < 0 || i >= KIT_COUNT) return false;
+    const int row = KIT[i].row;
+    if (row < 0 || row >= 8) return false;
+    return s.upg_counts[row] > 0;
+}
+
+// --- The shield field -------------------------------------------------------
+//
+// FRAME LAYOUT — must match shield_frames() in make_sprites.py:
+//   0..7   hum     the living field, phase-looped
+//   8..11  hit     impact bloom decaying
+//   12     down    broken: dead emitter stubs
+//   13..20 regen   rebuilding, indexed by FRACTION not by time
+//
+// There is deliberately no Animation component: four different behaviours (a
+// loop, a one-shot, a static, and a progress bar) are one indexable strip and
+// one picker, rather than four clips plus the machinery to switch between them.
+
+constexpr int FIELD_HUM_START = 0,   FIELD_HUM_COUNT = 8;
+constexpr int FIELD_HIT_START = 8,   FIELD_HIT_COUNT = 4;
+constexpr int FIELD_DOWN_FRAME = 12;
+constexpr int FIELD_REGEN_START = 13, FIELD_REGEN_COUNT = 8;
+constexpr int FIELD_TOTAL = 21;
+
+/// The field sprite is 192px against the chassis's 128, so it is worn at 1.5x
+/// the player's size. That is what puts the ring clear of the hull instead of
+/// on it.
+constexpr float FIELD_SIZE_MULT = 192.0f / 128.0f;
+
+/// How long after a hit the impact bloom plays.
+constexpr float FIELD_HIT_TIME = 0.36f;
+
+enum class FieldState { Hidden, Hum, Hit, Down, Regen };
+
+/**
+ * What the field is doing, from ShipState alone.
+ *
+ * `delay_total` is the configured quiet time (blackboard "ship.shield_regen_delay").
+ * ShipState.shield_delay counts that DOWN, so a delay close to the total means
+ * the hit landed a moment ago — which is exactly the bloom's window, with no
+ * second timer to keep in sync.
+ */
+inline FieldState field_state(const ShipState& s, float delay_total) {
+    if (s.shield_max <= 0.0f) return FieldState::Hidden;   // no capacitor bought
+    if (delay_total > 0.0f && s.shield_delay > delay_total - FIELD_HIT_TIME)
+        return FieldState::Hit;
+    if (s.shield <= 0.0f) return FieldState::Down;
+    if (s.shield < s.shield_max && s.shield_delay <= 0.0f) return FieldState::Regen;
+    return FieldState::Hum;
+}
+
+/**
+ * The frame to draw. `phase` is a free-running 0..1 loop (the hum and the bloom
+ * read it); `frac` is shield/shield_max. Always returns a valid frame index.
+ */
+inline int field_frame(FieldState st, float frac, float phase) {
+    const float p = phase - std::floor(phase);      // wrap, tolerate any input
+    const float f = std::clamp(frac, 0.0f, 1.0f);
+    switch (st) {
+        case FieldState::Hidden:
+            return FIELD_HUM_START;
+        case FieldState::Down:
+            return FIELD_DOWN_FRAME;
+        case FieldState::Hit: {
+            const int i = static_cast<int>(p * FIELD_HIT_COUNT);
+            return FIELD_HIT_START + std::min(i, FIELD_HIT_COUNT - 1);
+        }
+        case FieldState::Regen: {
+            const int i = static_cast<int>(f * FIELD_REGEN_COUNT);
+            return FIELD_REGEN_START + std::min(i, FIELD_REGEN_COUNT - 1);
+        }
+        case FieldState::Hum:
+        default: {
+            const int i = static_cast<int>(p * FIELD_HUM_COUNT);
+            return FIELD_HUM_START + std::min(i, FIELD_HUM_COUNT - 1);
+        }
+    }
 }
 
 }  // namespace upgrade_visuals

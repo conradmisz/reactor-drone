@@ -3,6 +3,7 @@
 #include "tower_components.hpp"    // DamageEvent
 #include "feedback.hpp"            // add_trauma
 #include <algorithm>
+#include <cmath>
 
 void PlayerDamageSystem::update(EntityManager& entity_manager,
                                 ComponentStorage& storage,
@@ -57,6 +58,21 @@ void PlayerDamageSystem::update(EntityManager& entity_manager,
             if (amount > 0.0f) {
                 Entity event_entity = entity_manager.create_entity();
                 storage.add_component<DamageEvent>(event_entity, DamageEvent{player, amount});
+            }
+
+            // D134: publish the bearing the hit came from, so the shield field's
+            // impact bloom plays where the hit landed instead of always at the
+            // nose. Cosmetic and write-only — nothing in the sim reads it, so it
+            // cannot move the replay canary.
+            if (auto ppos = storage.get_component<Position>(player); ppos.has_value()) {
+                if (auto opos = storage.get_component<Position>(other); opos.has_value()) {
+                    const float dx = opos->get().x - ppos->get().x;
+                    const float dy = opos->get().y - ppos->get().y;
+                    if (dx != 0.0f || dy != 0.0f) {
+                        blackboard.set<float>("player.hit_bearing",
+                            std::atan2(dy, dx) * 180.0f / 3.14159265358979323846f);
+                    }
+                }
             }
 
             // v2 Phase 4: kick the camera and flash the drone red on the hit.

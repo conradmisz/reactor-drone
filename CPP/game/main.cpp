@@ -295,6 +295,14 @@ int main(int argc, char* argv[]) {
     // equipped. A single reconfigured emitter rather than four per-item props —
     // the items differ only in colour, radius and rate, which is data.
     Entity item_aura = 0;
+    // D133/D134: the upgrade kit's overlay entities and the shield field ring.
+    // Followers, not components on the player: an entity draws ONE sprite, and
+    // the player's is the chassis. Created by spawn_world beside the item aura,
+    // parked (zero size) until the matching upgrade is bought — the same "pool
+    // it once, park it when idle" shape the minimap blips use (D58).
+    Entity kit_parts[upgrade_visuals::KIT_COUNT] = {0};
+    Entity shield_field = 0;
+    float field_phase = 0.0f;      // free-running 0..1 loop for the hum/bloom
     int active_arena = -1;
     // Hazards, tracked separately from arena_props so the glow tick has a list to
     // walk without a HazardTag component (which would mean a storage map, two
@@ -683,6 +691,42 @@ int main(int argc, char* argv[]) {
             component_storage.add_component<SpriteSheet>(player, player_sprite->sprite_sheet);
             component_storage.add_component<Animation>(player, player_sprite->animation);
         }
+
+        // D133: one follower per kit part. Each wears its overlay as an Images,
+        // authored in the chassis's own 128-space, so it is drawn at exactly the
+        // player's size and rides the same rotation — the part lands in the
+        // hardpoint the chassis draws empty.
+        for (int i = 0; i < upgrade_visuals::KIT_COUNT; ++i) {
+            Entity e = entity_manager.create_entity();
+            kit_parts[i] = e;
+            component_storage.add_component<Position>(e, Position{0.0f, 0.0f});
+            component_storage.add_component<Size>(e, Size{0.0f, 0.0f});   // parked
+            component_storage.add_component<Rotation>(e, Rotation{0.0f, 0.0f, false});
+            component_storage.add_component<Images>(e,
+                Images{{std::string(upgrade_visuals::KIT[i].image)}, 0});
+            component_storage.add_component<RenderLayer>(e, RenderLayer{4});  // over the hull
+        }
+
+        // D134: the shield field. A SpriteSheet with NO Animation — main.cpp
+        // writes current_frame from upgrade_visuals::field_frame every playing
+        // frame, because the four states are a loop, a one-shot, a static and a
+        // progress bar, and only one of those is a clip.
+        {
+            shield_field = entity_manager.create_entity();
+            component_storage.add_component<Position>(shield_field, Position{0.0f, 0.0f});
+            component_storage.add_component<Size>(shield_field, Size{0.0f, 0.0f});  // parked
+            // Rotation carries the impact bearing on a hit; the ring itself is a
+            // circle, so spinning it is free and only moves the bloom.
+            component_storage.add_component<Rotation>(shield_field, Rotation{0.0f, 0.0f, false});
+            SpriteSheet ss{};
+            ss.atlas_filename = "v2/shield_field.png";
+            ss.frame_width = 192; ss.frame_height = 192;
+            ss.columns = 7; ss.total_frames = upgrade_visuals::FIELD_TOTAL;
+            ss.current_frame = 0;
+            component_storage.add_component<SpriteSheet>(shield_field, ss);
+            component_storage.add_component<RenderLayer>(shield_field, RenderLayer{5});
+        }
+        field_phase = 0.0f;
 
         game_hud.init(component_storage, entity_manager, blackboard);
 
@@ -1138,6 +1182,15 @@ int main(int argc, char* argv[]) {
 
             player_aim.update(component_storage, blackboard);
 
+            // D134: the field's hum is a free-running loop, advanced once per
+            // playing frame (not per player) so it cannot double-step.
+            {
+                constexpr float FIELD_HUM_PERIOD = 0.64f;   // 8 frames at ~0.08s
+                field_phase += static_cast<float>(
+                    blackboard.get_or<double>("delta_time", 0.0)) / FIELD_HUM_PERIOD;
+                field_phase -= std::floor(field_phase);
+            }
+
             // v2 Phase 5c: equipment visuals. Both ride the aim angle the line
             // above just wrote, so they run here rather than with the render step.
             for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
@@ -1155,6 +1208,80 @@ int main(int argc, char* argv[]) {
                 if (auto em = component_storage.get_component<ParticleEmitter>(p); em.has_value()) {
                     em->get().direction = rot->get().angle + 180.0f;
                     em->get().cone_half_angle = 26.0f;
+                }
+
+                // D133/D134: the upgrade kit and the shield field. Both ride the
+                // aim angle written above, so they belong here rather than with
+                // the render step. Pure functions of ShipState — no RNG, nothing
+                // accumulated but a cosmetic phase — so the canary cannot move.
+                if (auto st = component_storage.get_component<ShipState>(p); st.has_value()) {
+                    const ShipState& ship = st->get();
+                    const float ang = rot->get().angle;
+                    const float pw = sz->get().width, ph = sz->get().height;
+
+                    for (int i = 0; i < upgrade_visuals::KIT_COUNT; ++i) {
+                        const bool worn = upgrade_visuals::part_worn(ship, i);
+                        auto ksz = component_storage.get_component<Size>(kit_parts[i]);
+                        auto kps = component_storage.get_component<Position>(kit_parts[i]);
+                        auto krt = component_storage.get_component<Rotation>(kit_parts[i]);
+                        if (!ksz.has_value() || !kps.has_value() || !krt.has_value()) continue;
+                        // Parked = zero size (D58's idiom): the entity stays
+                        // pooled, and a zero-extent sprite draws nothing.
+                        ksz->get().width  = worn ? pw : 0.0f;
+                        ksz->get().height = worn ? ph : 0.0f;
+                        kps->get().x = pcx - pw * 0.5f;
+                        kps->get().y = pcy - ph * 0.5f;
+                        krt->get().angle = ang;
+                    }
+
+                    // The field. Its sprite is 192px against the chassis's 128,
+                    // which is what holds the ring clear of the hull.
+                    const float delay_total =
+                        blackboard.get_or<float>("ship.shield_regen_delay", 0.0f);
+                    const auto fstate = upgrade_visuals::field_state(ship, delay_total);
+                    const float fw = pw * upgrade_visuals::FIELD_SIZE_MULT;
+                    const float fh = ph * upgrade_visuals::FIELD_SIZE_MULT;
+                    const bool shown = (fstate != upgrade_visuals::FieldState::Hidden);
+                    if (auto fs = component_storage.get_component<Size>(shield_field);
+                        fs.has_value()) {
+                        fs->get().width  = shown ? fw : 0.0f;
+                        fs->get().height = shown ? fh : 0.0f;
+                    }
+                    if (auto fp = component_storage.get_component<Position>(shield_field);
+                        fp.has_value()) {
+                        fp->get().x = pcx - fw * 0.5f;
+                        fp->get().y = pcy - fh * 0.5f;
+                    }
+                    if (auto fr = component_storage.get_component<Rotation>(shield_field);
+                        fr.has_value()) {
+                        // The bloom is baked pointing right, so the ring turns to
+                        // put it where the hit came from. Everything else on the
+                        // ring is radially symmetric, so this is invisible except
+                        // during a bloom.
+                        fr->get().angle =
+                            (fstate == upgrade_visuals::FieldState::Hit)
+                                ? blackboard.get_or<float>("player.hit_bearing", 0.0f)
+                                : 0.0f;
+                    }
+                    if (auto fss = component_storage.get_component<SpriteSheet>(shield_field);
+                        fss.has_value()) {
+                        const float frac = ship.shield_max > 0.0f
+                                               ? ship.shield / ship.shield_max : 0.0f;
+                        // The bloom decays, so it reads its progress through the
+                        // hit window rather than the free-running hum phase —
+                        // otherwise which bloom frame you got would depend on
+                        // when in the loop the hit happened.
+                        float phase = field_phase;
+                        if (fstate == upgrade_visuals::FieldState::Hit &&
+                            upgrade_visuals::FIELD_HIT_TIME > 0.0f) {
+                            phase = std::clamp(
+                                (delay_total - ship.shield_delay) /
+                                    upgrade_visuals::FIELD_HIT_TIME,
+                                0.0f, 0.999f);
+                        }
+                        fss->get().current_frame =
+                            upgrade_visuals::field_frame(fstate, frac, phase);
+                    }
                 }
 
                 // Item aura: one emitter, reconfigured from the equipped item.
