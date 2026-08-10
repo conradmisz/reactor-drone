@@ -53,7 +53,7 @@ across builds.
 |---|---|
 | Arrows / WASD | Move |
 | Mouse | Aim (hold to fire) |
-| Left Shift | Thruster dash — damages what you pass through |
+| Space | Thruster dash — damages what you pass through (10 s cooldown) |
 | ESC | Pause |
 | 1-8 | Buy / equip in the shop |
 | TAB / B | Change shop page / launch |

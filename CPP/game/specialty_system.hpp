@@ -26,6 +26,13 @@
  * EnemyTag: tier 0 is "the mine", tiers >= 1 are "the thing that drops mines".
  * That reuses the scaffolded component instead of registering a MineTag, which
  * costs edits in three shared files (code-standards, ECS).
+ *
+ * Lane N (D122): a mine is destroyable — a player shot that overlaps an armed
+ * mine sets it off where it stands and is consumed. Shooting one from range is
+ * therefore how you clear it safely. Done with a direct overlap test here rather
+ * than by giving the mine a Collider + Health + EnemyTag: EnemyTag is what the
+ * wave-clear check, the minimap, the arena clamp and the loot drop all key off,
+ * so a mine wearing it would stall a wave and drop coins.
  */
 
 namespace specialty {
@@ -39,7 +46,11 @@ constexpr float MINE_SIZE        = 44.0f;
 constexpr float MINE_ARM_DELAY   = 0.8f;   // seconds before a fresh mine can trigger
 constexpr float MINE_LIFETIME    = 14.0f;  // a mine nobody walks into eventually rots
 constexpr float MINE_TRIGGER     = 90.0f;  // proximity radius (px)
-constexpr float MINE_BLAST_SIZE  = 150.0f;
+// Lane N (D121): 150 -> 100 (a box, so 75px -> 50px of reach from the mine).
+// At 75 the blast caught a drone that had already turned and left; at 50 it is
+// about the trigger's own bite, so walking into a mine still hurts and backing
+// off the moment it lights up is now a real escape.
+constexpr float MINE_BLAST_SIZE  = 100.0f;
 constexpr float MINE_BLAST_TIME  = 0.35f;
 constexpr float BULWARK_ARC      = 1.0472f;   // 60 degrees half-arc, i.e. a 120 deg shield
 constexpr float BULWARK_ARMOR    = 0.35f;     // damage multiplier inside the arc

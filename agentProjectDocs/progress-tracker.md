@@ -125,3 +125,14 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   with no save file, twice with a populated one). **Not playtested** — the
   headless canary dies in wave 1 with zero kills, so the placement change is
   covered by `test_loot_placement.cpp` rather than by a live run.
+
+- **Lane N (2026-08-10) — controls & bombs (D120-D123).** Dash moved to SPACE on a
+  10 s cooldown, edge-triggered so the title screen's start press cannot also
+  spend it (`--keys 10:SPACE 200:SPACE 260:SPACE` shows the run start at 10, the
+  dash at 200, and 260 refused by the cooldown). Foundry mines: blast 150 -> 100
+  and an armed mine detonates when shot, consuming the shot — no `EnemyTag` and no
+  `Collider`, so wave-clear/minimap/loot are untouched. Shop upgrades now drive the
+  drone's engine plume (`upgrade_visuals.hpp`) and the shop's preview glow.
+  Verified: `ctest` 8/8, zero warnings from our code, canary byte-identical twice.
+  **Not playtested**, and the mine changes are covered by `test_lane_n.cpp` only —
+  the headless canary never reaches the Foundry.

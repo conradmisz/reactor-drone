@@ -62,6 +62,8 @@
 // Lane B (iteration 3): sustain pickups (#10), thruster dash (#5), minimap (#7).
 #include "sustain_spawn_system.hpp"
 #include "dash_system.hpp"
+// Lane N (iteration 5, D123): the shop-upgrade look on the drone's plume.
+#include "upgrade_visuals.hpp"
 #include "minimap_system.hpp"
 #include "wave_spawner_system.hpp"
 #include "shop_system.hpp"
@@ -1022,11 +1024,34 @@ int main(int argc, char* argv[]) {
             // the frame's velocity and before player_fire, so the burst overrides
             // ordinary movement for its window. Nothing else may edit this block.
             {
-                // Everything the dash needs is here rather than in the shared
-                // key-edge block above, so this hook stays a self-contained diff
-                // (D57). Held, not edge-triggered: dash_cd is the gate, so holding
-                // LSHIFT simply dashes again the moment it comes off cooldown.
-                bool dash_key = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
+                // Lane N (D123): the drone wears its shop upgrades as its engine
+                // plume. Here because this is the one per-frame block this lane
+                // owns; it is idempotent, so a resumed run and a restart both get
+                // the right look with no second application site. Before
+                // tick_dash, so the burst captures this tier's emission rate as
+                // the one to restore.
+                for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+                    if (auto s = component_storage.get_component<ShipState>(p); s.has_value())
+                        upgrade_visuals::apply_to_player(component_storage, p, s->get());
+                    break;
+                }
+
+                // Lane N (D120): the dash is SPACE now, on a 10 s cooldown.
+                //
+                // SPACE is also the title screen's start key, and the two can
+                // never collide: this block only runs in PHASE_PLAYING && sim,
+                // and the title/game-over branches only run when it does not. The
+                // remaining case is one physical press spanning both — press at
+                // the title, still held on the run's first frame — and that is why
+                // the trigger is `space_edge`, the same one-frame edge the title
+                // consumed, rather than the held key it used to be. The press that
+                // started the run cannot also spend the dash, and a dash cannot
+                // restart a run.
+                //
+                // LSHIFT stays as the scripted/headless alias: a scripted SPACE
+                // also means "start the run" (see the key parser above), so a
+                // headless script has no other way to ask for a dash on its own.
+                bool dash_key = space_edge;
                 for (const auto& ka : opts.keys)
                     if (ka.frame == frame && ka.key == "LSHIFT") dash_key = true;
                 static DashState dash_state;   // one dash's scratch; see dash_system.hpp

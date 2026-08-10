@@ -3,7 +3,31 @@
 #include "enemy_components.hpp"
 #include "enemy_fire_system.hpp"   // type_for, player_centre
 #include "hazard_patch.hpp"
+#include "tower_components.hpp"    // ProjectileTag
 #include <algorithm>
+
+namespace {
+
+/// The player shot overlapping this mine, or 0. Circle-vs-circle on the same
+/// centre/radius convention the rest of the file uses. Lane N (D122).
+/// ponytail: a linear scan — shots and live mines are both single digits, and
+/// the engine's collision pass cannot be reused here without giving the mine a
+/// Collider, which drags in ProjectileHitSystem's EnemyTag rules.
+Entity shot_on_mine(ComponentStorage& storage, float cx, float cy, float r) {
+    for (Entity p : storage.entities_with_component<ProjectileTag>()) {
+        if (storage.has_component<DestroyRequest>(p)) continue;
+        auto pp = storage.get_component<Position>(p);
+        auto ps = storage.get_component<Size>(p);
+        if (!pp.has_value() || !ps.has_value()) continue;
+        const float pr = ps->get().width * 0.5f;
+        const float dx = pp->get().x + pr - cx;
+        const float dy = pp->get().y + ps->get().height * 0.5f - cy;
+        if (dx * dx + dy * dy <= (r + pr) * (r + pr)) return p;
+    }
+    return 0;
+}
+
+}  // namespace
 
 void SpecialtySystem::update(ComponentStorage& storage, EntityManager& entity_manager,
                              Blackboard& blackboard) {
@@ -40,13 +64,24 @@ void SpecialtySystem::update(ComponentStorage& storage, EntityManager& entity_ma
 
         case behavior_kinds::MINER: {
             // tier 0 is a *deployed mine*, not a dropper. It arms, then detonates
-            // on proximity — no collider until it does, so it cannot be shot or
-            // walked through by accident.
+            // on proximity — or on a player shot (D122). It still carries no
+            // Collider, so it is not a wall and nothing walks into it by accident;
+            // both triggers are the tests below.
             if (beh.tier == 0) {
                 if (beh.timer > 0.0f) { beh.timer -= dt; break; }
-                if (!have_player) break;
-                const float dx = px - cx, dy = py - cy;
-                if (dx * dx + dy * dy > beh.aim * beh.aim) break;
+                // Two ways to set an armed mine off: walk into it, or shoot it
+                // (D122). A shot is consumed by the mine it pops, so one bullet
+                // clears one bomb — from outside the blast, which is the whole
+                // point of making them destroyable.
+                const Entity shot = shot_on_mine(storage, cx, cy,
+                                                 sz->get().width * 0.5f);
+                if (shot != 0) {
+                    storage.add_component<DestroyRequest>(shot, DestroyRequest{});
+                } else {
+                    if (!have_player) break;
+                    const float dx = px - cx, dy = py - cy;
+                    if (dx * dx + dy * dy > beh.aim * beh.aim) break;
+                }
                 hazard::PatchSpec blast;
                 blast.size = specialty::MINE_BLAST_SIZE;
                 blast.lifetime = specialty::MINE_BLAST_TIME;

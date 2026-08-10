@@ -2734,7 +2734,7 @@
   "dash": {
     "speed": 900.0,
     "duration": 0.15,
-    "cooldown": 2.5,
+    "cooldown": 10.0,
     "damage": 30.0
   },
   "//minimap": "Lane B / note #7 - arena minimap (D58). x/y/size are in the 800x600 design canvas and are the ONE authority for the map's geometry: MinimapSystem writes them over the authored rect of the 'minimap_frame' panel on the gameplay screen. max_blips is a hard cap; the overflow is logged, never dropped silently.",
