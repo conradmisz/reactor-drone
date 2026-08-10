@@ -46,6 +46,7 @@ Each style id carries four states (`normal` / `hovered` / `pressed` /
 | `minimap_frame` | The radar pane: translucent smoke + a neon rim |
 | `hud_hp_ok` / `hud_hp_warn` / `hud_hp_crit` | HP fill, swapped by fraction |
 | `hud_shield` | Shield fill |
+| `ghost` | The hidden-button style (D137): bg = panel colour, because buttons always fill their rect with blend NONE. Blank the caption too — text ignores style alpha |
 
 Adding a widget colour means adding a style id here, never a literal in
 `ui_render_system.cpp`.
@@ -63,8 +64,10 @@ SDL3_ttf renders it; there is no second face and no icon font.
   the drawn rect and the clickable rect cannot drift apart.
 - **Screens are data**, in `GameData.json` → `screens`. Current screens:
   `gameplay` (the HUD — always on the stack, so its visibility is a *phase*
-  question, see D86), `wave_intermission`, `pause`, `main_menu`, `shop` and
-  `boss_reward`. Planned: `game_over`, `victory`, `save_slots`, `options`.
+  question, see D86), `wave_intermission`, `pause`, `main_menu`, `run_setup`,
+  `save_slots`, `settings`, `records`, `how_to_play`, `shop`, `boss_reward`
+  and `prestige_offer`. Title screens replace each other via CLEAR_TO (D137);
+  hidden buttons use the `ghost` style. Planned: `game_over`, `victory`.
 - **The layout grid (D88)**: 4px grid, one left-aligned content column inset 24px
   from its panel edge, buttons ≥44px tall, headings followed by a `rule`, one
   `pulse_hz` widget per screen. Labels are flush-left; only button captions

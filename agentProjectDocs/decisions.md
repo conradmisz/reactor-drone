@@ -1634,3 +1634,34 @@ Verified: build clean, ctest 8/8, replay canary byte-identical twice (and
 again after the capture-buff revert), and headless captures — the Foundry
 rampart curves continuously, the Core→Foundry shift dissolves old props and
 grows the new wall mid-fight, and the red-tinted vents keep their shapes.
+
+### D137 — The title is a hub, and title screens replace instead of stacking  *(2026-08-10)*
+
+Main-menu suite (spec: `specs/main-menu-suite.md`), shipped as three
+gate-green phases. The calls that will matter later:
+
+- **Title screens use CLEAR_TO, never PUSH.** They fully overlap on the
+  canvas and a stacked lower screen still renders — the hub's pulsing PLAY
+  bled through run_setup's panel. The stack's modality machinery is for
+  gameplay overlays; the title is a state machine of full screens.
+  **Rejected:** an engine visibility flag (out of scope by spec, D82's wall
+  stands) and per-screen opaque cover panels (fights the alpha-242 style).
+- **The "ghost" ui_style is how a button hides.** Buttons always fill their
+  bg rect with blend NONE, so the Lane-K blank-subtitle trick painted an
+  opaque black bar the moment the widget moved inside a panel. ghost's bg IS
+  the panel colour; captions are blanked too because the text path ignores
+  style alpha.
+- **Slots: first-empty for fresh runs, own-slot for loaded ones, newest
+  (saved_at) for CONTINUE.** saved_at is caller-set wall clock, write-only
+  into the sim (D80). Legacy run.json migrates to slot 1 once, never
+  overwriting.
+- **Settings gate the applied effect, not the computation.** The shake rng
+  draws whether or not shake is shown, so a toggle cannot shift a single
+  later draw; the minimap reuses its zero-size hide. Defaults = pre-settings
+  behaviour, so canaries and old scripts are unaffected.
+- **Scripted-input limitation, now on record:** menu_paused stops the frame
+  counter, so a --clicks/--keys frame after ESC never arrives — scripts must
+  schedule pause-screen clicks AT the frozen frame. This bit Phase B's E2E
+  and explains why Lane K verified SAVE by unit test only.
+- SPACE keeps meaning "Normal run, now" from any title screen: it is the
+  replay canary's entry path and its meaning is pinned by the baseline diff.

@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved — owner interview 2026-08-10 (scope), design approved same day.
+Done — shipped 2026-08-10 in three phases (D137); all verification headless.
 
 ## User Story
 

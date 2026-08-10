@@ -259,3 +259,16 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   Foundry rampart and a mid-crossfade prop swap. **Not playtested** beyond
   scripted runs; Prism/Bio-lab/Galaxy walls seen only in sprite form, not
   in-arena.
+
+- **Main-menu suite (2026-08-10) — spec main-menu-suite, D137, 3 commits.**
+  The title is now a hub (CONTINUE-newest / PLAY / SAVE SLOTS / RECORDS /
+  HOW TO PLAY / SETTINGS / QUIT); PLAY opens run_setup (difficulty tabs +
+  ship + LAUNCH); three save slots with load/delete and legacy migration;
+  settings (screen shake, minimap) in saves/settings.json applied live;
+  records from new meta.json fields (best_wave, runs_played); pause MENU and
+  end-screen ESC return to the hub over a frozen world. All screens are
+  GameData-authored on the D88 grid; every gate green per phase (build,
+  ctest 8/8, canary x2 = pre-feature baseline). **Not playtested** — all
+  verification headless (--clicks E2E + screenshots read back). Open edge:
+  ESC-from-game-over shares the pause-MENU handler but was not click-driven;
+  worth one real death-screen check next playtest.
