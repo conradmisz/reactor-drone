@@ -60,6 +60,18 @@ Three rules keep the output honest:
 - The high-value sections get pushed on. "Out of Scope", "Invariants", and "Never Do" are where the real constraints live, and empty ones aren't accepted.
 - "You decide" is a valid answer. The skill decides, then records the choice and its reasoning in `decisions.md` so you can audit it later.
 
+## GitHub auto-backup
+
+Phase 5 asks one more thing: should the project back itself up to GitHub as you go?
+
+Say yes and the generated context files carry a standing instruction to push the code **and** `CLAUDE.md` and `agentProjectDocs/` together, every few checkpoints — so a fresh clone never ends up with documentation describing a commit it doesn't have.
+
+The interesting part is the gate. A push requires that **you** confirmed the work is verified since the last one, in your own words. The agent's own confidence doesn't open the gate, and neither does a green test suite on its own — that's evidence, not consent. The whole point is that nothing reaches the remote unless a human has said it works, which is exactly the failure mode "commit early, commit often" has when an agent is the one doing the committing.
+
+Three more rules come with it: the pre-push checklist has to be green, the working tree must be free of debug scaffolding and the temporary tuning edits agents make to reach a test state, and a repository that doesn't exist yet is never created without asking whether it should be private.
+
+Decline, and the skill strips the backup sections entirely rather than leaving dormant instructions in your context files. Kickoff itself never runs `git init`, creates a remote, or pushes — it writes the policy; the first verified checkpoint acts on it.
+
 ## Example
 
 ```
@@ -84,7 +96,12 @@ $ claude
   ▸ Yes, out of scope
     In scope — changes the storage model significantly
 
-  [phases 3–5 ...]
+  [phases 3–4 ...]
+
+? Enable automatic GitHub backups of code and context files?
+  ▸ Yes — verified checkpoints only (Recommended)
+    Yes — confirm each push
+    No — manual pushes only
 
 ● Wrote 9 files:
     CLAUDE.md

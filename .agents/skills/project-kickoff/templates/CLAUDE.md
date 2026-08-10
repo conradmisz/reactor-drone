@@ -30,6 +30,25 @@ conditionally — do not read all of them for every task.
 - Lint: `[e.g. npm run lint]`
 - Typecheck: `[e.g. npx tsc --noEmit]`
 
+## Context Backup
+
+<!-- Filled from the kickoff interview. If auto-backup was
+     declined, replace this whole section with the single
+     line: "Backups are manual — push when asked." -->
+
+Auto-backup: **[on/off]**. Remote `[url]`, branch `[main]`.
+
+- Push only from a **verified checkpoint** — a state the
+  *user* has confirmed works. A green test run is evidence,
+  not confirmation; nobody but the user can supply it.
+- Cadence: after every **[3]** verified checkpoints, or
+  whenever asked. Never mid-feature.
+- Every push carries `CLAUDE.md` and `agentProjectDocs/`
+  alongside the code, so a fresh clone's context always
+  describes the commit it ships with.
+- Nothing verified since the last push? Skip it and say so.
+  Do not push to "keep the remote current".
+
 ## Keeping Context in Sync
 
 - Update `agentProjectDocs/progress-tracker.md` after

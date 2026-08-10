@@ -75,3 +75,27 @@ changes:
 5. `progress-tracker.md` reflects the completed work
 6. Any lasting technical decision made during the unit is
    recorded in `decisions.md`
+
+## Backing Up to GitHub
+
+<!-- Delete this section if auto-backup was declined at
+     kickoff. Cadence and remote live in CLAUDE.md. -->
+
+A push carries the code and the context spine together, so
+a clone never has docs describing a different commit.
+
+**The gate — all three, every push:**
+
+1. **The user confirmed the work is verified** since the
+   last push, in their own words. Agent judgement does not
+   count; a passing test suite is evidence, not consent.
+2. The checklist above is green.
+3. The tree holds no debug scaffolding, no temporary edits
+   made to reach a test state, no secrets. Revert, re-verify.
+
+**Cadence:** every [3] verified checkpoints, or on request;
+the count resets at each push.
+
+**Never:** push unverified work to keep the remote fresh,
+push mid-feature, force-push a shared branch, or create a
+remote repo without asking whether it should be private.

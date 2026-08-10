@@ -63,14 +63,51 @@ memory.
 | 2. Architecture | Stack, storage, auth model, core entities, invariants, env/setup | architecture.md |
 | 3. UI | Theme direction, palette, fonts, component library, layout patterns | ui-context.md |
 | 4. Standards & workflow | Deviations from defaults only | code-standards.md, ai-workflow-rules.md |
-| 5. Commands | Confirm dev/build/test/lint commands for chosen stack | CLAUDE.md |
+| 5. Commands & backup | Confirm dev/build/test/lint commands for chosen stack; offer GitHub auto-backup (below) | CLAUDE.md, ai-workflow-rules.md |
 
 Phase order matters: product answers constrain
 architecture; architecture constrains UI and commands.
 
 Phases 4–5 should usually be a single confirmation, not
 an interrogation — propose sensible defaults derived from
-the chosen stack and ask only "any objections?"
+the chosen stack and ask only "any objections?" The one
+exception is the backup question below: it is a real
+choice, so ask it explicitly.
+
+## GitHub Auto-Backup (Phase 5)
+
+Ask every project, once, with AskUserQuestion:
+
+> Enable automatic GitHub backups of this project's code
+> and context files?
+
+| Option | Means |
+|--------|-------|
+| Yes — verified checkpoints only *(Recommended)* | Push after every ~3 states **the user** has confirmed working |
+| Yes — confirm each push | Same gate, plus an explicit prompt before every push |
+| No | Manual pushes only |
+
+If enabled, also capture: the remote URL (or "not created
+yet"), the branch, and the checkpoint count if they want
+something other than 3. Then fill the **Context Backup**
+section of `CLAUDE.md` and keep the **Backing Up to
+GitHub** section of `ai-workflow-rules.md`. If declined,
+collapse the `CLAUDE.md` section to one line and delete
+the `ai-workflow-rules.md` section outright — a disabled
+feature must not leave instructions lying around.
+
+**The gate is the whole point of the feature.** An
+automatic push must never carry code the *user* has not
+confirmed works; the agent's own confidence and a green
+test suite are both insufficient on their own. Write the
+rule into *both* files: `CLAUDE.md` is loaded every
+session, `ai-workflow-rules.md` only before feature work,
+and the rule has to hold in either entry path.
+
+Do **not** create the remote during kickoff. Record the
+intent; the first verified checkpoint creates the repo,
+asking public-or-private at that moment. Kickoff writes
+documentation, not side effects.
 
 ## Rules
 
@@ -85,7 +122,10 @@ the chosen stack and ask only "any objections?"
 - If the user says "you decide", decide, and record it in
   decisions.md as your recommendation with reasoning.
 - Do not scaffold application code. This skill produces
-  documentation only.
+  documentation only — including no `git init`, no remote
+  creation, and no first push.
+- The backup answer is recorded in `decisions.md` like any
+  other choice, with its cadence and gate.
 
 ## Common Mistakes
 
@@ -96,3 +136,5 @@ the chosen stack and ask only "any objections?"
 | Copying placeholder commands into CLAUDE.md | Write actual commands for the chosen stack |
 | Writing files into the template directory | Output goes to the *current working directory* |
 | Skipping decisions.md seeding | Every interview choice with a "why" belongs there |
+| Leaving backup instructions in place after the user declined | Collapse the `CLAUDE.md` section, delete the `ai-workflow-rules.md` one |
+| Treating a green test run as the user's verification | Only the user's own confirmation opens the gate |
