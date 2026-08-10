@@ -106,3 +106,14 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
 - A windowed run absorbs real desktop mouse input and will corrupt a scripted
   run; `offscreen` isolates it but has no mouse, so a zero-score run there is
   expected.
+- **Lane K (2026-08-09) — run save/quit + loot placement (D100-D103).** Pause ->
+  SAVE writes `saves/run.json` (run state only: wave, credits, score, hull,
+  shield, gear, items, ship, difficulty, seed); the title screen's
+  `menu_continue` widget offers CONTINUE when one exists and resumes through the
+  same `start_run` path a fresh run uses. Coins now nudge off obstacles, hazards,
+  mines and other loot along a pure golden-angle spiral — no RNG in the search,
+  so the draw count per kill is unchanged. Verified: `ctest` 8/8, zero warnings
+  from our code, and the replay canary byte-identical across four runs (twice
+  with no save file, twice with a populated one). **Not playtested** — the
+  headless canary dies in wave 1 with zero kills, so the placement change is
+  covered by `test_loot_placement.cpp` rather than by a live run.

@@ -16,7 +16,85 @@ namespace {
 constexpr float SPLIT_SIZE_FRAC  = 0.6f;
 constexpr float SPLIT_HP_FRAC    = 0.4f;
 constexpr float SPLIT_SPEED_MULT = 1.35f;
+
+/// Do two axis-aligned boxes overlap? Both are given as centre + half-extents.
+bool boxes_overlap(float ax, float ay, float ahw, float ahh,
+                   float bx, float by, float bhw, float bhh) {
+    return std::fabs(ax - bx) < (ahw + bhw) && std::fabs(ay - by) < (ahh + bhh);
+}
+
+/// Centre + half-extents of an entity that has a Position and (usually) a Size.
+bool entity_box(ComponentStorage& s, Entity e, float& cx, float& cy, float& hw, float& hh) {
+    auto pos = s.get_component<Position>(e);
+    if (!pos.has_value()) return false;
+    auto sz = s.get_component<Size>(e);
+    const float w = sz.has_value() ? sz->get().width : 0.0f;
+    const float h = sz.has_value() ? sz->get().height : 0.0f;
+    cx = pos->get().x + w * 0.5f;
+    cy = pos->get().y + h * 0.5f;
+    hw = w * 0.5f;
+    hh = h * 0.5f;
+    return true;
+}
 }  // namespace
+
+namespace loot_place {
+
+bool blocked(ComponentStorage& storage, float cx, float cy, float half) {
+    float ex, ey, ehw, ehh;
+
+    // Obstacles and hazards both carry a Collider, and its layer bit is the one
+    // thing that can never disagree with what the entity actually is. That single
+    // test covers arena pillars, the permanent vents, Bio-lab poison patches and
+    // mine blasts alike (D69's shared hazard recipe).
+    for (Entity e : storage.entities_with_component<Collider>()) {
+        auto col = storage.get_component<Collider>(e);
+        if (!col.has_value()) continue;
+        const uint8_t layer = col->get().layer;
+        if ((layer & (layers::OBSTACLE | layers::HAZARD)) == 0) continue;
+        if (!entity_box(storage, e, ex, ey, ehw, ehh)) continue;
+        if (boxes_overlap(cx, cy, half, half, ex, ey, ehw, ehh)) return true;
+    }
+
+    // A deployed mine (D68: EnemyBehavior{MINER, tier 0}) carries no Collider at
+    // all — it triggers on proximity — so it needs its own test or a coin would
+    // happily sit on top of one.
+    for (Entity e : storage.entities_with_component<EnemyBehavior>()) {
+        auto beh = storage.get_component<EnemyBehavior>(e);
+        if (!beh.has_value()) continue;
+        if (beh->get().kind != behavior_kinds::MINER || beh->get().tier != 0) continue;
+        if (!entity_box(storage, e, ex, ey, ehw, ehh)) continue;
+        if (boxes_overlap(cx, cy, half, half, ex, ey, ehw, ehh)) return true;
+    }
+
+    // Other loot, including the coins this very drop has already placed — they
+    // are in storage the moment they are created, so a scatter cannot stack.
+    for (Entity e : storage.entities_with_component<Pickup>()) {
+        if (!entity_box(storage, e, ex, ey, ehw, ehh)) continue;
+        if (boxes_overlap(cx, cy, half, half, ex, ey, ehw, ehh)) return true;
+    }
+    return false;
+}
+
+void nudge_free(ComponentStorage& storage, float& x, float& y, float half, float reach) {
+    if (!blocked(storage, x, y, half)) return;
+    // Golden-angle spiral: evenly spread, never clumped, and completely
+    // determined by the starting point — no RNG, so the draw count per kill is
+    // the same whether this rejects nothing or everything.
+    constexpr float GOLDEN_ANGLE = 2.39996322972865332f;
+    for (int k = 1; k <= SEARCH_STEPS; ++k) {
+        const float t = static_cast<float>(k) / static_cast<float>(SEARCH_STEPS);
+        const float r = reach * std::sqrt(t);
+        const float a = GOLDEN_ANGLE * static_cast<float>(k);
+        const float nx = x + std::cos(a) * r;
+        const float ny = y + std::sin(a) * r;
+        if (!blocked(storage, nx, ny, half)) { x = nx; y = ny; return; }
+    }
+    // ponytail: nothing free within reach — keep the drawn point. Widening the
+    // search is a bigger reach constant, not more code.
+}
+
+}  // namespace loot_place
 
 const sidecar_loader::LoadedSprite* EnemyDeathSystem::effect_sprite() {
     if (effect_.has_value()) return &effect_.value();
@@ -53,9 +131,17 @@ void EnemyDeathSystem::drop_loot(ComponentStorage& component_storage,
     const float key_roll = unit(rng_);
 
     const float half = ec.pickup_size * 0.5f;
+    // Lane K (D101): how far a coin may be nudged to get off a hazard. Three
+    // scatter radii (~78px at the shipped tuning) clears a 90px arena vent from
+    // dead centre, and still keeps the loot visibly "that enemy's". A coin that
+    // finds nothing free inside it keeps its drawn spot.
+    const float nudge_reach = ec.pickup_scatter * 3.0f;
     auto make_pickup = [&](float x, float y, PickupKind kind, int value,
                            uint8_t r, uint8_t g, uint8_t b,
                            const char* image = nullptr) {
+        // Pure, RNG-free placement fix-up. It must stay that way: a draw in here
+        // would make the stream depend on how many candidates were rejected.
+        loot_place::nudge_free(component_storage, x, y, half, nudge_reach);
         Entity e = entity_manager.create_entity();
         component_storage.add_component<Position>(e, Position{x - half, y - half});
         component_storage.add_component<Size>(e, Size{ec.pickup_size, ec.pickup_size});

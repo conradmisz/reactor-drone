@@ -114,6 +114,15 @@ public:
         wave_just_cleared_ = false;
     }
 
+    /// Lane K (D100): resume a saved run at wave `w` (0-based). A full reset
+    /// followed by one assignment — the run-state save deliberately restores the
+    /// *wave number*, not a snapshot of a wave in progress, so a resumed run
+    /// always starts its wave cleanly from the top.
+    void resume_at_wave(int w) {
+        reset();
+        current_wave_ = w < 0 ? 0 : w;
+    }
+
     int current_wave_index() const { return current_wave_; }
     int enemies_spawned_in_wave() const { return enemies_spawned_; }
     bool all_complete() const { return all_waves_complete_; }

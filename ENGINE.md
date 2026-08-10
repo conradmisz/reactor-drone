@@ -323,8 +323,14 @@ render:
   `current_wave_index() + 1`.
 - **There is no audio.** Eight `.wav` files are committed under `assets/Audio/` and nothing
   plays them. No mixer, no `SDL_INIT_AUDIO`. Phase 7.
-- **There is no persistence.** No save/load anywhere; every run starts fresh. The pause
-  screen says so rather than showing a dead Save button.
+- **Persistence is two small files, and neither one touches the simulation.**
+  `saves/meta.json` is one number, lifetime score (Lane F, D80). `saves/run.json` is the
+  mid-run save/quit: run *state* only — wave, credits, score, hull/shield, gear, items,
+  ship, difficulty, seed — with no entity snapshot, no `SerializationRegistry` and no
+  `LoadSystem` (Lane K, D100). Both are read **once at startup** and applied only on paths
+  a fresh run never takes, which is what keeps the replay canary byte-identical whether or
+  not a save file exists (D83, D103). Anything that later reads a save from inside a system
+  breaks that guarantee.
 - **`PHASE_INTERMISSION` deliberately does NOT freeze the arena.** It was frozen at first,
   copying `PHASE_SHOP`, and that stranded every credit the wave's last kill had dropped:
   visible on the floor, unreachable, gone when the run moved on. It now runs the movement

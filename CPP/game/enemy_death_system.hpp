@@ -24,6 +24,37 @@
  * in WaveSpawnerSystem. A draw that happens only on one code path desynchronises
  * every later roll and breaks `--seed` replay.
  */
+/**
+ * loot_place — keep a dropped coin out of the things that would make picking it
+ * up a punishment (Lane K, D101).
+ *
+ * The user's note: money must not share space with obstacles, hazards, enemy
+ * mines or other pickups. A rejection loop over fresh RNG draws is the obvious
+ * build and the wrong one here — it would draw a variable number of times per
+ * kill and desynchronise the replay stream (the R2 discipline `drop_loot`
+ * spells out at length). So the search draws **nothing**: the scattered point
+ * comes from the RNG exactly as before, and if it lands on something the coin is
+ * nudged along a fixed golden-angle spiral of candidates until one is free. The
+ * whole search is a pure function of the point, so it cannot move an RNG draw
+ * (D101 — the same reasoning as Lane B's spiral, D56).
+ */
+namespace loot_place {
+
+/// Candidate offsets tried after the drawn point. Fixed, and a coin that finds
+/// no free spot keeps its drawn position — worse placement is better than a
+/// loop that could run long.
+constexpr int SEARCH_STEPS = 16;
+
+/// True if an axis-aligned box of half-extent `half` centred on (cx, cy)
+/// overlaps an obstacle, a hazard patch, a deployed mine or an existing pickup.
+bool blocked(ComponentStorage& storage, float cx, float cy, float half);
+
+/// Nudge (x, y) to the nearest free spot on the spiral, within `reach` pixels.
+/// No-op when the point is already free. Draws no random numbers, ever.
+void nudge_free(ComponentStorage& storage, float& x, float& y, float half, float reach);
+
+}  // namespace loot_place
+
 class EnemyDeathSystem {
 public:
     /// Drop tuning + the RNG seed. Call once at startup; re-seeds the drop RNG.

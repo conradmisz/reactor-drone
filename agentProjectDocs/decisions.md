@@ -908,3 +908,115 @@ Decisions seeded from the gameplay plan (D1–D12) and made during Phases 1-4
   already the levelling mechanism for that page, so "levelable like the rest"
   needed no new machinery at all. The 8 authored `shop_card_*` widgets now hold
   exactly 8 upgrade rows.
+---
+
+## Iteration 3 — Lane K: run save/quit + pickup placement
+
+### D100 — The run save is a second file, and it stores state, not a world  *(2026-08-09)*
+- **Decision:** `saves/run.json` (`CPP/game/run_save.{hpp,cpp}`) holds the run's
+  *state* — seed, difficulty index + name, ship id, 0-based wave, score, hull and
+  hull max, shield/regen/delay, credits, keys, speed mult, item/consumable/active
+  ids, extra shots, `upg_counts[8]`, `gear_levels[8]`, and the five weapon
+  numbers. No entity snapshot, no `SerializationRegistry`, no `LoadSystem`.
+- **Why a second file and not a field on the meta-save:** D80's file is the one
+  number that outlives *every* run and is written at every run end; this one is a
+  run in progress and is written only when the player asks. Merging them would
+  make the lifetime score hostage to the resume format's version check.
+- **Resume goes through `start_run`.** `start_run(difficulty, const RunSave*
+  resume)` gained one parameter and nothing else: the pristine `base_config`
+  re-copy, `apply_ship`, `apply_difficulty`, `set_config` and `spawn_world` are
+  all shared with a fresh start, so `apply_difficulty` keeps the single
+  non-idempotent application site D50 requires. Only three things happen on the
+  resume branch: `config.seed` is taken from the save, `wave_spawner
+  .resume_at_wave(saved wave)`, and `run_save_apply` overlays the numbers onto
+  the world `spawn_world` just built.
+- **Why the wave restarts from the top:** the save records a wave *number*, so
+  there is nothing half-spawned to reconcile — which is exactly what makes the
+  no-snapshot decision cheap rather than merely smaller.
+- **Weapon stats are stored as stats, not as a purchase history to replay.** The
+  shop's apply-an-upgrade path is private and belongs to another lane, and the
+  number the run actually has is the number worth restoring. `upg_counts` is
+  still saved, so prices keep escalating from where the player left them.
+- **Tolerant per field, not per file.** `jget` checks the JSON type of each key
+  and falls back individually, so a truncated save still resumes; a wrong
+  *version* is treated as no save at all, because silently reading a future
+  file's fields is how a save format starts lying. `run_save_apply` additionally
+  ignores nonsense: a missing hull leaves the freshly spawned full-health drone
+  alone rather than resuming you as a corpse.
+- **Cleared on death and victory only**, never in `bank_run_score` — that lambda
+  also fires on quit-from-pause and on closing the window, and a player who
+  pressed SAVE and then QUIT must find their run still there.
+- **Known, accepted:** `enemy_death.set_economy(config.economy, config.seed)` is
+  called once at startup, so a resumed run's *drop* RNG follows the launch seed
+  rather than the saved one. Re-calling it in `start_run` would also re-apply the
+  economy at a second site, which D50 exists to prevent, for a stream nothing
+  compares against.
+- **Rejected:** porting `SerializationRegistry` / `LoadSystem` (an order of
+  magnitude more code and every line of it a determinism hazard — the same
+  reasoning as D80); autosave at the intermission edge (SAVE is an explicit act,
+  and a cadence is one extra call site whenever it is wanted).
+
+### D101 — Loot placement is a spiral nudge, not a rejection loop  *(2026-08-09)*
+- **Decision:** `loot_place::blocked` / `loot_place::nudge_free` in
+  `enemy_death_system.{hpp,cpp}`. The scattered point comes off the RNG exactly
+  as before; if it overlaps something, the coin walks a fixed golden-angle spiral
+  of 16 candidates and takes the first free one. Reach is `pickup_scatter * 3`.
+- **Why, and this is the whole point:** a rejection loop that re-draws until it
+  finds a free spot would consume a *variable* number of random values per kill
+  and desynchronise every later roll — the single easiest way to break this
+  project (ENGINE.md §4; `drop_loot` spells the discipline out at length). The
+  spiral draws nothing at all, so the question of "how many draws did the search
+  take" cannot arise. Same reasoning as Lane B's sustain spiral (D56), reached
+  independently from the opposite direction: B avoided a stream, K avoids
+  perturbing one.
+- **Pinned by test:** `test_loot_placement.cpp` kills an enemy in two
+  identically-seeded worlds — one empty, one blanketed in hazards so every
+  candidate is rejected — then kills a second enemy in clean space in each. The
+  second kill's coin positions are asserted **identical**. That test fails the
+  moment anyone puts a draw inside the search.
+- **What counts as blocked:** `Collider.layer & (OBSTACLE|HAZARD)` (which covers
+  arena pillars, permanent vents, Bio-lab poison and mine blasts through D69's
+  shared recipe), `EnemyBehavior{MINER, tier 0}` (a deployed mine carries *no*
+  collider — D68 — so it needs its own test), and any existing `Pickup`. Coins
+  are in storage the instant they are created, so a scatter cannot stack on
+  itself.
+- **What is deliberately NOT a blocker:** enemies and projectiles. Loot under a
+  live enemy resolves itself, and treating every collider as solid would nudge
+  most coins in a crowded arena for no gameplay gain.
+- **Fallback is the drawn point.** Nothing free within reach means the coin stays
+  where it fell. A worse placement is better than a search that could run long.
+- **Rejected:** clamping loot to the arena circle at the same time. The drawn
+  scatter could already land slightly outside; that is a separate (and much
+  rarer) complaint, and folding it in here would hide which change did what.
+
+### D102 — CONTINUE is one inert widget, not a screen that appears  *(2026-08-09)*
+- **Decision:** `menu_continue` on `main_menu` is a single button that main.cpp
+  relabels every title frame: a `default_button` reading
+  `CONTINUE - wave N, <difficulty>` when a usable save exists, and an empty
+  `subtitle` when one does not. A click with no save is consumed and ignored.
+- **Why:** `UIElement` has no visibility flag and adding one is an engine change
+  for a label that can simply say nothing — the wall D82 hit with `menu_ship`,
+  and the same answer. It also means the title screen has one layout, not two.
+- **Placement:** below the main-menu panel rather than inside it. The panel is
+  full, and moving another lane's widgets to make room during a parallel restyle
+  is a merge conflict for no gain.
+- **The pause SAVE button is the same idea:** `pause_save` shows `SAVE`, becomes
+  `SAVED` (or `SAVE FAILED`) on click, and is reset to `SAVE` every time Escape
+  opens the screen — the confirmation is the only feedback a save has, and a
+  stale one from last visit would be a lie. The label `Save & Options: coming
+  soon` became `Options: coming soon`; Save is no longer coming soon.
+
+### D103 — The save is proved harmless to determinism, not assumed to be  *(2026-08-09)*
+- **Decision:** `saves/run.json` is read exactly once, at startup, into a
+  `RunSave` whose only consumers are the CONTINUE widget's label and the resume
+  branch of `start_run`. `run_save_apply` returns immediately unless
+  `present` is set, and a fresh run never sets it.
+- **Why stated as a decision:** "the save does not affect the sim" is the kind of
+  claim that rots. Writing down *where* the boundary is makes a future autosave,
+  or a save read from inside a system, an obvious violation rather than a subtle
+  one. This is the D80-D83 discipline applied to a much larger file.
+- **Verified:** the replay canary
+  (`--seed 42 --keys 10:SPACE --stopframe 3000`) run twice with no
+  `saves/run.json` and twice with a fully populated one — all four summary lines
+  byte-identical. Plus a unit test that `run_save_apply` on a non-`present`
+  struct with tempting contents changes nothing.

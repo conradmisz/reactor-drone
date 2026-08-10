@@ -87,6 +87,7 @@
 #include "obstacles.hpp"
 #include "enemy_path.hpp"
 #include "meta_save.hpp"
+#include "run_save.hpp"
 
 struct SDL_WindowDeleter { void operator()(SDL_Window* w) const { if (w) SDL_DestroyWindow(w); } };
 struct SDL_RendererDeleter { void operator()(SDL_Renderer* r) const { if (r) SDL_DestroyRenderer(r); } };
@@ -148,6 +149,14 @@ int main(int argc, char* argv[]) {
     // The ship *choice* is deliberately not persisted, for the same reason.
     MetaSave meta = meta_load(meta_save_path());
     int selected_ship = 0;
+
+    // Lane K (D100): the mid-run save, read exactly once and for exactly one
+    // purpose — whether the title screen offers CONTINUE. It is applied only on
+    // the resume path, so a save file that merely exists cannot move a single RNG
+    // draw of a fresh run (verified: the replay canary is byte-identical with and
+    // without `saves/run.json`).
+    RunSave saved_run = run_save_load(run_save_path());
+    int run_difficulty = 0;   // which difficulty the live run was started at
 
     const int win_w = blackboard.get_or<int>("window_width", 980);
     const int win_h = blackboard.get_or<int>("window_height", 660);
@@ -703,8 +712,27 @@ int main(int argc, char* argv[]) {
         meta_write(meta_save_path(), meta);
     };
 
-    auto start_run = [&](size_t difficulty_index) {
+    // Lane K (D100): `resume` is the ONE difference between starting a run and
+    // continuing one. Everything else — the pristine base_config re-copy, the
+    // ship overlay, apply_difficulty, set_config, spawn_world — is shared, so a
+    // resumed run cannot drift from a fresh one, and `apply_difficulty` keeps its
+    // single non-idempotent application site (D50).
+    // Lane K (D100): a run that ENDED cannot be continued, so its save goes.
+    // Deliberately not routed through bank_run_score, which also fires on quit
+    // and on closing the window — a player who just pressed SAVE and quit must
+    // still find their run there.
+    auto end_saved_run = [&]() {
+        run_save_clear(run_save_path());
+        saved_run = RunSave{};
+    };
+
+    auto start_run = [&](size_t difficulty_index, const RunSave* resume = nullptr) {
         config = base_config;
+        if (resume != nullptr && resume->present) {
+            config.seed = resume->seed;
+            if (resume->ship_id >= 0 && resume->ship_id < static_cast<int>(config.ships.size()))
+                selected_ship = resume->ship_id;
+        }
         // Lane F (D82): the ship overlay lands here, in the one place the pristine
         // base_config is re-copied — apply_ship is no more idempotent than
         // apply_difficulty, so there must never be a second application site.
@@ -713,6 +741,7 @@ int main(int argc, char* argv[]) {
             load_player_sprite();
         }
         run_banked = false;
+        run_difficulty = static_cast<int>(difficulty_index);
         std::string label = "Normal";
         if (difficulty_index < config.difficulties.size()) {
             const DifficultyDef& d = config.difficulties[difficulty_index];
@@ -732,6 +761,16 @@ int main(int argc, char* argv[]) {
                   << "\n";
         wave_spawner.set_config(&config);
         spawn_world();
+        // Lane K (D100): the run's *state* is overlaid onto the world the shared
+        // path just built. No entity graph is restored — the wave restarts from
+        // the top of the saved wave, which is why there is nothing half-spawned
+        // to reconcile.
+        if (resume != nullptr && resume->present) {
+            wave_spawner.resume_at_wave(resume->wave);
+            run_save_apply(*resume, component_storage, blackboard);
+            std::cout << "Run resumed: wave " << (resume->wave + 1)
+                      << "  score " << resume->score << "\n";
+        }
         phase = PHASE_PLAYING;
     };
 
@@ -766,6 +805,42 @@ int main(int argc, char* argv[]) {
                                      + std::to_string(meta.lifetime_score) + ")";
                 break;
             }
+        }
+    };
+
+    // Lane K (D100): the two widgets this lane owns, resolved by name through
+    // ui.widget_id.<name> — the same path the HUD gauges and the ship selector
+    // use, deliberately not a second lookup mechanism. Widget ids are load-time
+    // and survive spawn_world, so each is resolved once.
+    auto widget_by_name = [&](const char* name, Entity& cache, bool& resolved) {
+        if (!resolved) {
+            const double v = blackboard.get_or<double>(std::string("ui.widget_id.") + name, -1.0);
+            cache = v < 0.0 ? 0 : static_cast<Entity>(v);
+            resolved = true;
+        }
+        return cache;
+    };
+    Entity save_w = 0, continue_w = 0;
+    bool save_w_resolved = false, continue_w_resolved = false;
+    auto save_widget = [&]() { return widget_by_name("pause_save", save_w, save_w_resolved); };
+
+    // CONTINUE is one widget that is either an offer or nothing at all: UIElement
+    // has no visibility flag (D82 hit the same wall), so with no save it renders
+    // as an empty flat label and its click is ignored below.
+    auto refresh_continue_widget = [&]() {
+        const Entity w = widget_by_name("menu_continue", continue_w, continue_w_resolved);
+        if (w == 0) return;
+        auto el = component_storage.get_component<UIElement>(w);
+        if (!el.has_value()) return;
+        if (saved_run.present) {
+            el->get().style_id = "default_button";
+            el->get().label_text = "CONTINUE  -  wave " + std::to_string(saved_run.wave + 1)
+                                 + ", " + (saved_run.difficulty_name.empty()
+                                               ? std::string("Normal")
+                                               : saved_run.difficulty_name);
+        } else {
+            el->get().style_id = "subtitle";
+            el->get().label_text.clear();
         }
     };
 
@@ -877,6 +952,12 @@ int main(int argc, char* argv[]) {
         if (blackboard.get_or<bool>("ui.escape_pressed", false) && phase != PHASE_TITLE) {
             if (ScreenStackSystem::depth(blackboard) <= 1) {
                 blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH, std::string(SCREEN_PAUSE));
+                // Lane K: the button says SAVE again each time the screen opens,
+                // rather than showing the last visit's "SAVED" confirmation.
+                if (Entity w = save_widget(); w != 0) {
+                    if (auto el = component_storage.get_component<UIElement>(w); el.has_value())
+                        el->get().label_text = "SAVE";
+                }
             } else {
                 blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
             }
@@ -906,6 +987,23 @@ int main(int argc, char* argv[]) {
             if (pause_click == "on_resume_click") {
                 blackboard.remove(UISystem::UI_CLICK_KEY);
                 blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
+            } else if (pause_click == "on_save_run_click") {
+                // Lane K (D100): the pause menu's Save. Captures the run's state —
+                // wave, credits, gear, hull — and nothing about the world. Writing
+                // fails silently by design: a read-only disk must not end the run.
+                blackboard.remove(UISystem::UI_CLICK_KEY);
+                saved_run = run_save_capture(component_storage, blackboard,
+                                             wave_spawner.current_wave_index(),
+                                             run_difficulty,
+                                             blackboard.get_or<std::string>("difficulty",
+                                                                            std::string("Normal")),
+                                             selected_ship, config.seed);
+                const bool ok = run_save_write(run_save_path(), saved_run);
+                if (!ok) saved_run.present = false;
+                if (Entity w = save_widget(); w != 0) {
+                    if (auto el = component_storage.get_component<UIElement>(w); el.has_value())
+                        el->get().label_text = ok ? "SAVED" : "SAVE FAILED";
+                }
             } else if (pause_click == "on_quit_click") {
                 blackboard.remove(UISystem::UI_CLICK_KEY);
                 bank_run_score(blackboard);   // Lane F: quitting still ends the run
@@ -1248,10 +1346,12 @@ int main(int argc, char* argv[]) {
             if (!player_alive) {
                 phase = PHASE_GAMEOVER;
                 bank_run_score(blackboard);   // Lane F: the run ended, so it counts
+                end_saved_run();              // Lane K: and a dead run is not resumable
             } else if (wave_spawner.all_complete() &&
                        component_storage.entities_with_component<EnemyTag>().empty()) {
                 phase = PHASE_VICTORY;
                 bank_run_score(blackboard);
+                end_saved_run();
             } else if (shop_due || key_entry) {
                 // The shop no longer opens itself. The same trigger now raises the
                 // between-waves prompt, and the player picks: shop, or push on.
@@ -1357,10 +1457,23 @@ int main(int argc, char* argv[]) {
                                                        meta.lifetime_score);
                     blackboard.remove(UISystem::UI_CLICK_KEY);
                 }
+                // Lane K (D100): CONTINUE resumes the saved run. Handled before
+                // the fresh-start branch and returns early, so the two can never
+                // both fire on one click.
+                bool resumed = false;
+                if (menu_click == "on_continue_run_click" && saved_run.present) {
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
+                    start_run(static_cast<size_t>(saved_run.difficulty), &saved_run);
+                    resumed = true;
+                } else if (menu_click == "on_continue_run_click") {
+                    blackboard.remove(UISystem::UI_CLICK_KEY);   // no save: an inert widget
+                }
                 refresh_ship_widget();
+                refresh_continue_widget();
                 if (chosen >= 0) blackboard.remove(UISystem::UI_CLICK_KEY);
                 else if (space_edge) chosen = 0;
-                if (chosen >= 0) {
+                if (chosen >= 0 && !resumed) {
                     blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
                     start_run(static_cast<size_t>(chosen));
                 }
