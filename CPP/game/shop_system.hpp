@@ -6,6 +6,7 @@
 #include "engine/ecs/blackboard.hpp"
 #include "arena_config.hpp"        // ShopConfig
 #include "player_components.hpp"   // ShipState
+#include <string>
 #include <vector>
 
 /**
@@ -18,9 +19,12 @@
  * phase variable. Everything else — catalogue, prices, rendering, purchases —
  * lives here (R7: main.cpp gets calls, not logic).
  *
- * The UI is a numbered keyboard list rendered as Text + ScreenPosition entities,
- * the same pattern GameHUDSystem uses; they are created on open() and destroyed
- * on close(). Clickable cards are Phase 6 (D11).
+ * Iteration 3 / Lane C (D61-D65) turned the presentation into a real menu: a
+ * `shop` screen authored in GameData.json, one clickable card per catalogue row,
+ * hover tooltips and a live drone preview, all driven from menu_tick(). The old
+ * numbered Text list stays as the fallback for a data file that carries no shop
+ * screen, and the 1-8 / TAB / B keyboard path is unchanged so headless scripts
+ * keep working.
  *
  * Purchases write straight into the player's existing components — Health,
  * WeaponStats, ShipState — plus one derived blackboard key for the barrel count
@@ -51,9 +55,48 @@ public:
     /// Price of the next purchase of catalogue row `index` for a given count.
     int price_for(int index, int already_bought) const;
 
+    // --- Lane C: the widget menu -------------------------------------------
+
+    /// Screen authored in GameData.json -> screens. Pushed while the shop is open.
+    static constexpr const char* SCREEN_NAME = "shop";
+
+    /**
+     * One frame of the clickable menu, fired from main.cpp's `shop-menu` hook.
+     * Builds/tears the screen down to follow is_open(), routes confirmed clicks
+     * off UISystem::UI_CLICK_KEY (and removes the key), and refreshes the cards,
+     * the hover tooltip and the drone preview.
+     *
+     * Returns true when the player pressed LAUNCH — the caller then closes the
+     * shop exactly as it does for the keyboard path. A data file with no `shop`
+     * screen leaves this a permanent no-op returning false.
+     */
+    bool menu_tick(ComponentStorage& storage, EntityManager& entity_manager,
+                   Blackboard& blackboard);
+
+    // --- Gear levels (#11) --------------------------------------------------
+    // Levels apply to the ONE fitted passive item, indexed into
+    // ShipState.gear_levels by its row in cfg_->items. See D62.
+
+    /// Price of the next level of item row `index` at `level`: base * growth^level.
+    int gear_price(int index, int level) const;
+
+    /// True when that item row is the one currently fitted (D62: only fitted gear levels).
+    bool owns_gear(const ShipState& ship, int index) const;
+
+    /// Buy one level. False (with a hud_message) when unowned, unaffordable, or
+    /// the row has no scalable amount.
+    bool upgrade_gear(int index, ComponentStorage& storage, Blackboard& blackboard,
+                      ShipState& ship);
+
+    /// Last tooltip text written, for tests. Empty when nothing is hovered.
+    const std::string& tooltip_name() const { return tip_name_text_; }
+    const std::string& tooltip_detail() const { return tip_detail_text_; }
+
 private:
     void apply(const ShopUpgradeDef& def, Entity player,
                ComponentStorage& storage, Blackboard& blackboard);
+    void buy_upgrade(int index, Entity player, ComponentStorage& storage,
+                     Blackboard& blackboard, ShipState& ship);
     /// Equip an item (`is_item`) or a consumable. Flat price, replaces the slot.
     void equip(const ShopUpgradeDef& def, bool is_item, Entity player,
                ComponentStorage& storage, Blackboard& blackboard);
@@ -63,10 +106,39 @@ private:
     /// Rows the widest page needs, so a page flip only rewrites text.
     size_t page_rows() const;
 
+    // --- menu internals ---
+    /// Resolve the named widgets, hide the legacy text rows, push the screen and
+    /// spawn the preview. False when the data file carries no shop screen.
+    bool menu_build(ComponentStorage& storage, EntityManager& entity_manager,
+                    Blackboard& blackboard);
+    void menu_teardown(ComponentStorage& storage, Blackboard& blackboard);
+    /// Card slot -> catalogue index for the current page.
+    void rebuild_visible(const ShipState& ship);
+    void refresh_cards(ComponentStorage& storage, const ShipState& ship);
+    /// Card slot under the pointer, or -1. Reads UIState.hovered (UISystem owns it).
+    int  hovered_card(const ComponentStorage& storage) const;
+    void refresh_tooltip(ComponentStorage& storage, const ShipState& ship, int card);
+    void refresh_preview(ComponentStorage& storage, const Blackboard& blackboard,
+                         const ShipState& ship, int card);
+    void buy_visible_row(int card, Entity player, ComponentStorage& storage,
+                         Blackboard& blackboard, ShipState& ship);
+
     const ShopConfig* cfg_ = nullptr;
     std::vector<Entity> rows_;   // [0] title, [1] credits, [2] slots, then page_rows(), then the footer
     bool open_ = false;
-    int page_ = 0;               // 0 = upgrades, 1 = gear (items + consumables)
+    int page_ = 0;               // 0 = upgrades, 1 = gear (items + consumables), 2 = gear levels
+
+    static constexpr int MENU_CARDS = 8;
+    bool   menu_built_ = false;
+    bool   menu_pushed_ = false;
+    bool   menu_absent_ = false;         // no `shop` screen in the data file
+    Entity card_[MENU_CARDS] = {};
+    UIRect card_rect_[MENU_CARDS] = {};  // authored rects, restored when a card is used
+    Entity title_ = 0, credits_ = 0, tab_[3] = {}, leave_ = 0;
+    Entity tip_panel_ = 0, tip_name_ = 0, tip_desc_ = 0;
+    Entity preview_glow_ = 0, preview_ship_ = 0;
+    std::vector<int> visible_;           // card slot -> catalogue index
+    std::string tip_name_text_, tip_detail_text_;
 };
 
 #endif // SHOP_SYSTEM_HPP

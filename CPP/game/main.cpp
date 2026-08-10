@@ -1244,6 +1244,10 @@ int main(int argc, char* argv[]) {
             // UISystem::UI_CLICK_KEY, which was published earlier this frame by
             // ui_system.update, and must consume the key so it cannot re-fire.
             // The 1-8 keyboard path above stays as the headless fallback.
+            if (shop.menu_tick(component_storage, entity_manager, blackboard)) {
+                shop.close(component_storage);
+                phase = PHASE_PLAYING;
+            }
             // === END HOOK: shop-menu ===
 
             animation.update(component_storage, blackboard);
