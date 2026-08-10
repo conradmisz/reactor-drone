@@ -316,10 +316,21 @@ buffers and this doc are its landing pad. Revisit after Wave 3.
 
 ## Execution roadmap
 
-One **Phase 0 scaffolding session**, then three waves of parallel lanes with
-exclusive file ownership, then an integration session per wave — the
-iteration-3/5 playbook. Waves are sized so each lane fits one focused session;
-that is the usage-window control.
+**Execution mode (owner decision, 2026-08-10): hybrid pairs.** One Phase 0
+scaffolding session, then **two lanes per session** — paired so one is
+sim-side and one is render-only/isolated, so their files can never collide.
+Each session builds both lanes, merges them, and re-runs the full gate itself;
+a playtest checkpoint lands at every wave boundary. ~8 medium sessions total:
+
+| Session | Lanes | Pairing logic |
+|---------|-------|---------------|
+| 0 | Phase 0 scaffolding | all shared-file edits, inert, canary-gated |
+| 1 | P (#1 timescale) + R (RG grid) | sim + render |
+| 2 | Q (#8 director) + S (#10 flight report) | sim + passive — **Wave 1 playtest after** |
+| 3 | T (#3 forces) + V (#6 scars) | sim + render |
+| 4 | U (#9 destructible) + W (#5 palette) | sim + render — **Wave 2 playtest after** |
+| 5 | X (#7 surges) + Y (#2 danmaku) | both sim-side but disjoint hooks/files; surges consume forces (merged in session 3) |
+| 6 | Z (#4 chip-synth audio) solo | last and rip-out-able, per project law — **Wave 3 playtest + full-suite playtest after** |
 
 **Phase 0 (D138):** every shared-file edit made once, inert — the eleven hook
 blocks in `main.cpp` (`timescale`, `director`, `forces`, `surge`, `crumble`,
