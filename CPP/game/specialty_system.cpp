@@ -67,7 +67,11 @@ void SpecialtySystem::update(ComponentStorage& storage, EntityManager& entity_ma
             const float half = specialty::MINE_SIZE * 0.5f;
             storage.add_component<Position>(mine, Position{cx - half, cy - half});
             storage.add_component<Size>(mine, Size{specialty::MINE_SIZE, specialty::MINE_SIZE});
+            // D96: an actual bomb — round body, fuse, spark — instead of the
+            // orange square. Images beats Color in the render chain; Color stays
+            // as the fallback if the texture fails to load.
             storage.add_component<Color>(mine, Color{255, 140, 50, 230});
+            storage.add_component<Images>(mine, Images{{"v2/hazard_mine.png"}, 0});
             storage.add_component<Lifetime>(mine, Lifetime{specialty::MINE_LIFETIME});
             storage.add_component<RenderLayer>(mine, RenderLayer{3});
             // tier 0 = the mine. timer = arm delay, cooldown = its blast damage,

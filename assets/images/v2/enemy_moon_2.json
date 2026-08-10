@@ -1,0 +1,21 @@
+{
+  "atlas": "v2/enemy_moon_2.png",
+  "frame_width": 128,
+  "frame_height": 128,
+  "columns": 4,
+  "total_frames": 14,
+  "animations": {
+    "march": {
+      "start_frame": 0,
+      "frame_count": 8,
+      "frame_duration": 0.1,
+      "looping": true
+    },
+    "death": {
+      "start_frame": 8,
+      "frame_count": 6,
+      "frame_duration": 0.08,
+      "looping": false
+    }
+  }
+}

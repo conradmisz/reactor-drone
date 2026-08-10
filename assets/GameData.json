@@ -1808,7 +1808,7 @@
     },
     {
       "name": "moon_1",
-      "sidecar": "images/v2/enemy_warden.json",
+      "sidecar": "images/v2/enemy_moon_1.json",
       "clip": "march",
       "speed": 62.0,
       "health": 35.0,
@@ -1826,7 +1826,7 @@
     },
     {
       "name": "moon_2",
-      "sidecar": "images/v2/enemy_warden.json",
+      "sidecar": "images/v2/enemy_moon_2.json",
       "clip": "march",
       "speed": 74.0,
       "health": 60.0,
@@ -1844,7 +1844,7 @@
     },
     {
       "name": "moon_3",
-      "sidecar": "images/v2/enemy_warden.json",
+      "sidecar": "images/v2/enemy_moon_3.json",
       "clip": "march",
       "speed": 58.0,
       "health": 100.0,

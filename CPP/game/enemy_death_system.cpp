@@ -54,11 +54,16 @@ void EnemyDeathSystem::drop_loot(ComponentStorage& component_storage,
 
     const float half = ec.pickup_size * 0.5f;
     auto make_pickup = [&](float x, float y, PickupKind kind, int value,
-                           uint8_t r, uint8_t g, uint8_t b) {
+                           uint8_t r, uint8_t g, uint8_t b,
+                           const char* image = nullptr) {
         Entity e = entity_manager.create_entity();
         component_storage.add_component<Position>(e, Position{x - half, y - half});
         component_storage.add_component<Size>(e, Size{ec.pickup_size, ec.pickup_size});
         component_storage.add_component<Color>(e, Color{r, g, b, 255});
+        // D95: currency is a struck circular coin, not a gold square. Images wins
+        // over Color in the render chain; Color remains the load fallback.
+        if (image != nullptr)
+            component_storage.add_component<Images>(e, Images{{image}, 0});
         component_storage.add_component<Pickup>(e,
             Pickup{static_cast<int>(kind), value, ec.pickup_magnet_speed});
         component_storage.add_component<Lifetime>(e, Lifetime{ec.pickup_lifetime});
@@ -76,7 +81,8 @@ void EnemyDeathSystem::drop_loot(ComponentStorage& component_storage,
         // stream as a paying one.
         if (!drops || i >= count) continue;
         make_pickup(cx + std::cos(a) * d, cy + std::sin(a) * d,
-                    PickupKind::Currency, currency_value, 255, 210, 90);
+                    PickupKind::Currency, currency_value, 255, 210, 90,
+                    "v2/pickup_coin.png");
     }
 
     if (drops && key_roll < ec.key_drop_chance) {

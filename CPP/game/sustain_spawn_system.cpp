@@ -129,10 +129,12 @@ void sustain_spawn(ComponentStorage& component_storage,
     Entity e = entity_manager.create_entity();
     component_storage.add_component<Position>(e, Position{x - sz * 0.5f, y - sz * 0.5f});
     component_storage.add_component<Size>(e, Size{sz, sz});
-    // Flat colour for now: green scrap for hull, ice blue for shield. A generated
-    // sprite is an offline asset change (assets/generator/v2), not this lane's.
+    // D94: generated sprites — a medical cross for hull, a barrier crest for
+    // shield. Color stays underneath as the render chain's load fallback.
     component_storage.add_component<Color>(e, shield ? Color{120, 200, 255, 255}
                                                      : Color{110, 235, 130, 255});
+    component_storage.add_component<Images>(e, Images{
+        {shield ? "v2/pickup_shield.png" : "v2/pickup_health.png"}, 0});
     component_storage.add_component<Pickup>(e, Pickup{
         static_cast<int>(shield ? PickupKind::Shield : PickupKind::Health),
         static_cast<int>(amount + 0.5f),

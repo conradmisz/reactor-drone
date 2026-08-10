@@ -792,3 +792,34 @@ Decisions seeded from the gameplay plan (D1–D12) and made during Phases 1-4
 - **Threshold:** `field_should_fire` uses strict `<` on 20 %. At exactly 20 % the
   device has **not** fired — it is a *below* 20 % effect, so a drone sitting on
   the line still owns its panic button. Pinned as a boundary unit test.
+
+### D93 — Moons are waning crescents, not discs  *(2026-08-09)*
+- **Decision:** `moon_1/2/3` get their own generated sprites (`enemy_moon_*`)
+  instead of sharing `enemy_warden`'s octagon. The shape is a lit disc with a
+  second disc punched out of its **leading** edge — art faces right, so the horns
+  point the way the moon travels.
+- **Escalation is silhouette, not colour** (the arena tint owns colour): tier 1
+  is a bare crescent, tier 2 adds barbed horn tips, tier 3 is thicker and carries
+  a bright focus in the crescent's mouth for the laser.
+- **Rejected:** tinting the warden per tier — the tiers would still be the same
+  shape, which is what made them unreadable in the first place.
+
+### D94 — Sustain pickups wear sprites; `Color` stays as the fallback  *(2026-08-09)*
+- **Decision:** health = a medical cross in a housing ring, shield = a barrier
+  crest with a charge chevron. Added as `Images` **alongside** the existing
+  `Color`, never replacing it: the render chain is SpriteSheet > Images > Color,
+  so the flat colour is a free load-failure fallback.
+- **Names are relative to `assets/images/`** (`"v2/pickup_health.png"`), unlike
+  sidecar paths which are relative to `assets/` and carry `images/`.
+
+### D95 — Currency is a struck circular coin  *(2026-08-09)*
+- **Decision:** hard bright rim, inner ring, one thick credit bar, specular arc.
+- **Why those four marks and no more:** the coin is the most common thing on
+  screen and is drawn ~26 px. A finer glyph turned to mush at that size (tried a
+  bar-through-a-ring first, and looked at it). The hard rim is also what keeps it
+  from reading as a projectile — bullets here are soft edgeless glow blobs.
+
+### D96 — Mines look like bombs  *(2026-08-09)*
+- **Decision:** dark round body, cap, curved fuse, lit spark, hot orange rim.
+  The body is deliberately near-black so the rim and the spark carry the read
+  against a near-black arena; a bright body would have been a second coin.
