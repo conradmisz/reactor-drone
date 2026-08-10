@@ -50,6 +50,13 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   smaller radar-style minimap, and "REACTOR SHIFT" (D90). Spec:
   `specs/ui-and-menu-overhaul.md`.
 
+- **Lane L — art overhaul (iteration 5, 2026-08-10):** the boss's "Capital Drone
+  Carrier" sprite and the `Images`-must-not-wear-an-atlas fix (D105), sprites on
+  the boss's adds (D106), the player and the four generic enemies rebuilt as
+  rotor drones (D107), red player projectiles (D108), and moon shooters that face
+  their target and fire from the crescent's mouth (D109). Spec:
+  `specs/art-overhaul.md`.
+
 ## In Progress
 
 - Nothing being edited right now. The tree is green: `cmake --build` clean,
@@ -125,3 +132,9 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   with no save file, twice with a populated one). **Not playtested** — the
   headless canary dies in wave 1 with zero kills, so the placement change is
   covered by `test_loot_placement.cpp` rather than by a live run.
+- Lane L verification (2026-08-10): build clean (only Lua's `tmpnam`), `ctest`
+  8/8, canary byte-identical twice on `--seed 42`. Sprites were checked by
+  reading `--screenshot` BMPs, not by a playtest: the carrier, its adds and a
+  crescent turned toward the drone were all confirmed in-frame after a
+  *temporary* `"boss": true` on wave 1 and `moon_1.first_wave = 1`, both reverted
+  with `git checkout -- assets/GameData.json`.

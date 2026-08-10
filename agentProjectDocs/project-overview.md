@@ -79,6 +79,11 @@ the graded course submission.
 - Additive glow blending, `Tint` colour/alpha mod, `RenderLayer` bucketing,
   sprite flip.
 - Hit feedback: trauma-driven screen shake (seeded, replay-safe) and `Flash`.
+- Drone art language (D107): player and enemies are rotor-and-boom drones with
+  blades that turn with the animation phase; the boss is a 256px "Capital Drone
+  Carrier" (D105) and its adds wear the spawner's sprites (D106).
+- Player fire is red (D108); moon shooters turn to face their target and shoot
+  out of the crescent's mouth (D109).
 - Data-authored UI layer (Option-040 port): `ui_styles` + `screens` in
   `GameData.json`, pulsing buttons, HUD chips/bars driven as UI widgets.
 

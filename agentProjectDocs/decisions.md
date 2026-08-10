@@ -1138,3 +1138,76 @@ Decisions seeded from the gameplay plan (D1–D12) and made during Phases 1-4
   `begin_arena_shift` is deliberately unrenamed — it is code vocabulary, cited from
   D72/D76-D79 and two specs, and renaming it would churn four documents to change
   nothing the player sees.
+
+### D105 — The boss is a real "Capital Drone Carrier", and an `Images` never wears an atlas  *(2026-08-10)*
+- **Decision:** `assets/images/v2/enemy_boss_carrier.png` — one 256px frame, drawn
+  at 512 and downsampled — replaces `v2/enemy_hulk.png` on the boss entity.
+- **Why:** the boss wore an `Images{"v2/enemy_hulk.png"}`, and an `Images` wearer
+  draws the **whole texture**. `enemy_hulk.png` is a 4x4, 14-frame atlas, so the
+  boss rendered as a literal grid of hexagons (iteration-5 item #10). This is the
+  general trap, not a boss bug: `Images` = a single full image, `SpriteSheet` =
+  an atlas. Anything wearing an atlas through `Images` draws the contact sheet.
+- **Drawn MONO like every enemy**, so `BossSystem`'s per-arena `enemy_tint` still
+  themes it — Foundry orange, Core magenta, Bio-lab violet, and so on.
+- **Single frame on purpose.** Animating it would mean a `SpriteSheet` + sidecar,
+  i.e. the same atlas the fix removes, for a 260px ship that already carries four
+  rotor rings, two flight decks and an engine bank.
+- **Rejected: shrinking the hulk atlas to one frame.** It is a legitimate 14-frame
+  enemy sprite; the boss was the thing pointing at it wrongly.
+
+### D106 — Boss adds wear the spawner's art  *(2026-08-10)*
+- **Decision:** `BossSystem`'s summoned adds get the `SpriteSheet`/`Animation`
+  pair from `enemy_types[0]`'s sidecar, loaded once per summon volley.
+- **Why:** they carried a `Color` and a `Tint` and nothing else, so every boss
+  fight was the carrier ringed by flat magenta squares — the `Color` fallback that
+  `WaveSpawnerSystem` only ever means to use when a sidecar fails to load.
+- **A failed load still falls back to the rect**, exactly as the spawner does; the
+  load is wrapped and cannot throw into the frame.
+- **Ponytail ceiling:** one sidecar JSON read per volley (every 6s), not cached.
+  Cache it if it ever appears in a profile.
+
+### D107 — One drone vocabulary: rotors, booms, a lit chassis  *(2026-08-10)*
+- **Decision:** the player and the four generic enemies (spark / runner / hulk /
+  warden) are rebuilt in `make_sprites.py` around a shared `rotor()` + `boom()`
+  pair: rotor pods with **blades that turn with the frame phase**, structural
+  booms, and a lit chassis on top. Items #8 and #11.
+- **Why:** every body was a single polygon, so nothing read as a machine and the
+  player's "drone" was an arrow. The spinning blades are what buy the read — the
+  march animation was previously only a brightness pulse.
+- **Nothing else moved:** same 128px frames, same 8 march + 6 death frames, same
+  4 columns, same MONO luminance, same sidecars. `test_manifest.py` passes and no
+  `GameData.json` row changed, so the four specialty units inherit the new art for
+  free through the atlases they already share.
+- **The moon shooters are untouched** (D93 is recent and deliberate); their
+  generator output is byte-identical after this change.
+- **Rejected: per-unit sprites for the specialty units.** That is a `GameData.json`
+  `enemy_types` edit and four more atlases to serve four rows that already read.
+
+### D108 — The drone's shots are red  *(2026-08-10)*
+- **Decision:** player projectiles and their trails are `(255,70,60)` (item #1).
+- **Why:** they were `(120,225,255)` — the same cyan as the hull, the HUD text and
+  the Core arena's primary. A shot in flight read as part of the ship. Red is the
+  one hue no arena palette and no `enemy_tint` uses, so player fire is now the
+  only red thing on the screen.
+- **Still a literal in `player_fire_system.cpp`**, where the old cyan was. It is
+  not a per-arena colour and it is not a playtest knob — it is "the player's fire
+  is red". Moving it into `GameData.json` would be a config key with one value.
+
+### D109 — Moon shooters fire from the mouth, and turn to face what they shoot  *(2026-08-10)*
+- **Decision:** the shot spawns at `moon_muzzle_frac(tier) * size` ahead of the
+  entity centre along the aim, and the shooter gains a `Rotation` set to its aim
+  every frame (`flip_when_left = false`, pure rotation). Item #3.
+- **Why:** the shot spawned at the centre, and the crescent (D93) is a lit disc
+  minus a bite offset *toward* the facing — on the axis the body ends **behind**
+  the centre, so shots left through the moon's back. And enemies carry no
+  `Rotation` at all, so the sprite was drawn mouth-right forever: fixing only the
+  offset would have been right one direction in four.
+- **`moon_muzzle_frac` keeps the derivation, not the three answers**: the horn
+  tips are the circle-circle intersection `hx = (r²-br²+dx²)/(2dx)`, which is the
+  middle of the mouth's aperture. The `(r, dx, br)` table mirrors `make_sprites.py`
+  so the two can be diffed when the art changes.
+- **Render-only for the facing:** nothing reads `Rotation` back on an enemy, so
+  this cannot reach the simulation. The muzzle offset *does* move a shot's origin,
+  which is a deliberate simulation change and is covered by the canary.
+- **Rejected: baking the offset into the sprite** (drawing the crescent off-centre
+  so the centre *is* the mouth). It would move the collider off the silhouette.
