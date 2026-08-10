@@ -185,7 +185,7 @@ His original is available as a free guide: **[jsmastery.com/waitlist/six-file-co
 What this skill contributes is the part his guide leaves to you:
 
 - **The interview.** A five-phase, pre-filled questioning pass that populates the files instead of handing you templates to fill in by hand.
-- **Three additional files.** `decisions.md` (append-only decision log), `progress-tracker.md` (ephemeral state, deliberately split from decisions), and `specs/feature-template.md` (per-feature acceptance criteria).
+- **Four additional files.** `decisions.md` (append-only decision log), `progress-tracker.md` (ephemeral state, deliberately split from decisions), `specs/feature-template.md` (per-feature acceptance criteria), and `bugs/bug-template.md` (one file per bug, with an append-only record of what each test has ruled out).
 - **Enforcement rules.** No `[placeholder]` may survive into the output; "Out of Scope", "Invariants", and "Never Do" can't be left empty.
 
 The templates in [`templates/`](templates) are my own rewrite of the structure, so any clumsiness in them is mine and not his.
