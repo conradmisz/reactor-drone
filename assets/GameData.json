@@ -3892,6 +3892,21 @@
           "label_text": "Arrows move, mouse aims, hold fire. SPACE = Normal.",
           "style_id": "subtitle",
           "z_order": 10
+        },
+        {
+          "//": "Lane K (D100): resume a run saved from the pause menu. Sits below the panel because the panel is full. main.cpp rewrites it every title frame: a CONTINUE button naming the wave and difficulty when saves/run.json holds a usable run, or an empty flat label when it does not - UIElement has no visibility flag, so an inert widget is how 'hidden' is spelled here (the menu_ship precedent, D82).",
+          "element_type": "button",
+          "name": "menu_continue",
+          "rect": {
+            "x": 210,
+            "y": 84,
+            "w": 380,
+            "h": 44
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "on_click_fn": "on_continue_run_click",
+          "z_order": 10
         }
       ]
     },
@@ -4117,14 +4132,29 @@
           "z_order": 10
         },
         {
+          "//": "Lane K (D100): save & quit mid-run. main.cpp rewrites label_text to SAVED / SAVE FAILED on click and back to SAVE each time the pause screen opens. Writes saves/run.json, which the title screen's menu_continue widget then offers.",
+          "element_type": "button",
+          "name": "pause_save",
+          "rect": {
+            "x": 300.0,
+            "y": 204.0,
+            "w": 200.0,
+            "h": 46.0
+          },
+          "label_text": "SAVE",
+          "style_id": "default_button",
+          "on_click_fn": "on_save_run_click",
+          "z_order": 10
+        },
+        {
           "element_type": "label",
           "rect": {
             "x": 250.0,
-            "y": 208.0,
+            "y": 176.0,
             "w": 300.0,
             "h": 24.0
           },
-          "label_text": "Save & Options: coming soon",
+          "label_text": "Options: coming soon",
           "style_id": "subtitle",
           "z_order": 10
         }
