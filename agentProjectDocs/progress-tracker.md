@@ -125,6 +125,22 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
 
 ## Session Notes
 
+- **Art (2026-08-10): the sprite generator supersamples.** Pillow's polygon/line
+  rasteriser has no antialiasing, so every 128px sprite shipped with stepped
+  neon outlines that only the baked halo hid. `make_sprites.py` now draws the
+  whole S-family on a 512px canvas through a `ScaledDraw` proxy (authored
+  coordinates, pen widths and radii multiplied by `SS=4`) and box-filters down
+  in `shrink()` before `add_halo` — the trick `carrier_sprite()` already used
+  (D105), applied to the roster. Shape code is unchanged: it still authors in
+  128-space. Art already authored at its working size (the carrier, the 96px
+  pickups) passes `s=1` and is byte-identical apart from the carrier's
+  LANCZOS -> BOX swap. Generator run: 0.35s -> 0.78s. Verified: manifest test
+  OK (12 sidecars), `ctest` 8/8, headless canary byte-identical twice on
+  `--seed 42`, before/after sheets read at 3x zoom and at true game size under
+  arena tint. **Not playtested in a window.**
+  Pillow is not installed system-wide here (PEP 668); the wheel was unpacked to
+  a scratch dir and used via PYTHONPATH.
+
 - **Docs (2026-08-10): `docs/features.html` refreshed to the shipped game.** It
   was written against the 20-wave/4-arena Phase-4 game and its header still
   called the dash/minimap/boss/sustain/actives blocks "inert scaffolding". Now

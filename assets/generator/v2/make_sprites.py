@@ -9,6 +9,10 @@ atlas + sidecar in the engine's documented format.
 Entities: player drone, 4 enemies (spark / runner / hulk / warden), 2 projectiles
 (plasma / bolt), 8-frame explosion, 4-frame impact flash.
 
+Everything in the S-family (player, enemies, projectiles, effects) is drawn on a
+canvas SS times the output edge and box-filtered down — see shrink(). Shape code
+below keeps authoring in 128-space; ScaledDraw does the multiplying.
+
 Run: python make_sprites.py
 """
 from __future__ import annotations
@@ -20,24 +24,81 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter
 from common import add_halo, write_sprite, save_png
 from palette import CORE, FOUNDRY, BIOLAB, MONO
 
-S = 128  # frame size
+S = 128   # OUTPUT frame size — the size art is authored at, and written at
+SS = 4    # supersample factor
+W = S * SS  # working canvas edge
 
 
 def frame():
-    return Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    return Image.new("RGBA", (W, W), (0, 0, 0, 0))
 
 
-def neon_poly(img, pts, fill, outline=None, ow=3):
+def _scale_xy(xy, s):
+    """Scale either coordinate form Pillow accepts: a flat [x0,y0,x1,y1] box or
+    a list of (x, y) points."""
+    if isinstance(xy, (list, tuple)) and xy and isinstance(xy[0], (int, float)):
+        return [v * s for v in xy]
+    return [(x * s, y * s) for x, y in xy]
+
+
+class ScaledDraw:
+    """An ImageDraw proxy that multiplies authored coordinates, pen widths and
+    corner radii by `s`.
+
+    Pillow's polygon/line rasteriser has no antialiasing, so drawing a 128px
+    sprite directly gave visibly stepped neon outlines that only the baked halo
+    hid. Everything is drawn at SSx and box-filtered down instead — the same
+    trick carrier_sprite() has always used (D105), applied to the whole roster.
+
+    This proxy exists so that stays a one-line change per draw site: every shape
+    function keeps its coordinates in the 128-space the art was authored in.
+    """
+
+    _SCALED_KW = ("width", "radius")
+
+    def __init__(self, d, s):
+        self._d, self._s = d, s
+
+    def __getattr__(self, name):
+        fn = getattr(self._d, name)
+
+        def call(xy, *args, **kw):
+            for k in self._SCALED_KW:
+                if kw.get(k) is not None:
+                    kw[k] = max(1, int(round(kw[k] * self._s)))
+            return fn(_scale_xy(xy, self._s), *args, **kw)
+        return call
+
+
+def draw(img, s=SS):
+    """ImageDraw.Draw for art authored in 128-space. `s=1` for art already
+    authored at its working size (the carrier, the pickups)."""
+    return ScaledDraw(ImageDraw.Draw(img), s)
+
+
+def shrink(img, size=S):
+    """SSx working canvas -> output frame. BOX is an exact area average over each
+    SSxSS block, which is textbook supersampling for an integer factor and cannot
+    ring the way a windowed filter does on hard neon edges.
+
+    ponytail: straight (non-premultiplied) resize. The transparent black outside
+    the silhouette can darken the outermost edge pixels; add_halo runs after this
+    and paints over them. If a dark fringe ever shows, premultiply alpha here.
+    """
+    return img.resize((size, size), Image.BOX)
+
+
+def neon_poly(img, pts, fill, outline=None, ow=3, s=SS):
     """Filled polygon with a bright neon outline drawn onto a fresh overlay so the
     core stays crisp under the baked halo."""
-    d = ImageDraw.Draw(img)
+    d = draw(img, s)
     d.polygon(pts, fill=(fill[0], fill[1], fill[2], 255))
     if outline:
         d.line(pts + [pts[0]], fill=(outline[0], outline[1], outline[2], 255), width=ow)
 
 
-def dot(img, xy, r, col, a=255):
-    d = ImageDraw.Draw(img)
+def dot(img, xy, r, col, a=255, s=SS):
+    d = draw(img, s)
     d.ellipse([xy[0]-r, xy[1]-r, xy[0]+r, xy[1]+r],
               fill=(col[0], col[1], col[2], a))
 
@@ -51,13 +112,13 @@ def scale_col(c, m):
     return (min(255, int(c[0]*m)), min(255, int(c[1]*m)), min(255, int(c[2]*m)))
 
 
-def boom(img, p0, p1, col, w):
+def boom(img, p0, p1, col, w, s=SS):
     """A structural arm between the chassis and a rotor pod."""
-    d = ImageDraw.Draw(img)
+    d = draw(img, s)
     d.line([p0, p1], fill=(col[0], col[1], col[2], 255), width=w)
 
 
-def rotor(img, xy, r, body, accent, b, t, blades=2, w=3):
+def rotor(img, xy, r, body, accent, b, t, blades=2, w=3, s=SS):
     """A rotor pod: pod ring + a translucent swept disc + blades at phase `t`.
 
     The blades rotate with the frame phase, which is the whole reason these read
@@ -66,7 +127,7 @@ def rotor(img, xy, r, body, accent, b, t, blades=2, w=3):
     """
     x, y = xy
     lay = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    d = ImageDraw.Draw(lay)
+    d = draw(lay, s)
     d.ellipse([x-r, y-r, x+r, y+r], fill=(body[0], body[1], body[2], 70))
     d.ellipse([x-r, y-r, x+r, y+r], outline=(accent[0], accent[1], accent[2], 255), width=w)
     deg = 360.0 * t
@@ -78,12 +139,12 @@ def rotor(img, xy, r, body, accent, b, t, blades=2, w=3):
     img.alpha_composite(lay)
 
 
-def quad_pods(f, pal, col, b, t, pods, r, hub, bw):
+def quad_pods(f, pal, col, b, t, pods, r, hub, bw, s=SS):
     """Four (or two) rotor pods on booms from `hub`, drawn back-to-front."""
     for px, py in pods:
-        boom(f, hub, (px, py), scale_col(col, 0.45), bw)
+        boom(f, hub, (px, py), scale_col(col, 0.45), bw, s=s)
     for px, py in pods:
-        rotor(f, (px, py), r, scale_col(col, 0.8), scale_col(pal.accent, b), b, t)
+        rotor(f, (px, py), r, scale_col(col, 0.8), scale_col(pal.accent, b), b, t, s=s)
 
 
 # ---------------------------------------------------------------------------
@@ -107,7 +168,7 @@ def player_frames(n=6):
         neon_poly(f, hull, scale_col(pal.primary, 0.7),
                   outline=scale_col(pal.accent, b), ow=3)
         # spine plating
-        d = ImageDraw.Draw(f)
+        d = draw(f)
         d.line([(cx-16, cy-8), (cx+18, cy-8)], fill=scale_col(pal.secondary, 0.8) + (255,), width=2)
         d.line([(cx-16, cy+8), (cx+18, cy+8)], fill=scale_col(pal.secondary, 0.8) + (255,), width=2)
         # sensor eye
@@ -116,7 +177,7 @@ def player_frames(n=6):
         # thrusters
         for ey in (-9, 9):
             dot(f, (cx-24, cy+ey), 5, scale_col(pal.secondary, b))
-        f = add_halo(f, pal.primary, spread=0.14, strength=150)
+        f = add_halo(shrink(f), pal.primary, spread=0.14, strength=150)
         frames.append(f)
     return frames
 
@@ -130,7 +191,7 @@ def enemy_frames(shape_fn, pal, body_col, n=8):
         f = frame()
         b = pulse(i / n)
         shape_fn(f, pal, body_col, b, i / n)
-        f = add_halo(f, body_col, spread=0.16, strength=150)
+        f = add_halo(shrink(f), body_col, spread=0.16, strength=150)
         frames.append(f)
     # death: n-frame dissolve (fade + shrink into a flash)
     death = []
@@ -141,15 +202,15 @@ def enemy_frames(shape_fn, pal, body_col, n=8):
         base = frame()
         shape_fn(base, pal, body_col, 1.0, t)
         sc = 1.0 - 0.5 * t
-        small = base.resize((int(S*sc), int(S*sc)))
-        f.paste(small, (int((S-small.size[0])/2), int((S-small.size[1])/2)), small)
+        small = base.resize((int(W*sc), int(W*sc)))
+        f.paste(small, (int((W-small.size[0])/2), int((W-small.size[1])/2)), small)
         # fade alpha
         alpha = f.split()[3].point(lambda v: int(v * (1 - t)))
         f.putalpha(alpha)
         if t < 0.6:  # early flash
             fl = frame(); dot(fl, (S/2, S/2), int(18 + 30*t), pal.accent, int(180*(1-t)))
             f = Image.alpha_composite(f, fl)
-        f = add_halo(f, body_col, spread=0.16, strength=int(150*(1-t)))
+        f = add_halo(shrink(f), body_col, spread=0.16, strength=int(150*(1-t)))
         death.append(f)
     return frames, death
 
@@ -176,7 +237,7 @@ def runner_shape(f, pal, col, b, t):
     neon_poly(f, [(cx+42, cy), (cx+4, cy-15), (cx-22, cy-9),
                   (cx-22, cy+9), (cx+4, cy+15)],
               scale_col(col, 0.6), outline=scale_col(pal.accent, b), ow=3)
-    d = ImageDraw.Draw(f)
+    d = draw(f)
     d.line([(cx-16, cy), (cx+22, cy)], fill=scale_col(pal.secondary, 0.9) + (255,), width=2)
     dot(f, (cx+2, cy), 7, scale_col(pal.accent, b))
     dot(f, (cx+20, cy), 4, (255, 255, 255))
@@ -192,7 +253,7 @@ def hulk_shape(f, pal, col, b, t):
     pts = [(cx + r*math.cos(a), cy + r*math.sin(a))
            for a in [math.pi*k/3 for k in range(6)]]
     neon_poly(f, pts, scale_col(col, 0.55), outline=scale_col(pal.accent, b), ow=4)
-    d = ImageDraw.Draw(f)
+    d = draw(f)
     r2 = 17
     d.polygon([(cx + r2*math.cos(a), cy + r2*math.sin(a))
                for a in [math.pi*k/3 for k in range(6)]],
@@ -218,7 +279,7 @@ def warden_shape(f, pal, col, b, t):
     pts = [(cx + r*math.cos(a+math.pi/8), cy + r*math.sin(a+math.pi/8))
            for a in [math.pi*k/4 for k in range(8)]]
     neon_poly(f, pts, scale_col(col, 0.5), outline=scale_col(pal.accent, b), ow=3)
-    d = ImageDraw.Draw(f)
+    d = draw(f)
     d.rectangle([cx+r-6, cy-8, cx+r+20, cy+8], fill=scale_col(col, 0.7) + (255,))
     d.rectangle([cx+r-6, cy-8, cx+r+20, cy+8],
                 outline=scale_col(pal.accent, b) + (255,), width=2)
@@ -239,8 +300,8 @@ def _crescent(f, r, dx, br, fill, outline, ow):
     (art faces right, so the horns point the way the moon is travelling).
     Returns the two horn tips for tier decoration."""
     cx, cy = S/2, S/2
-    lay = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    d = ImageDraw.Draw(lay)
+    lay = Image.new("RGBA", f.size, (0, 0, 0, 0))
+    d = draw(lay)
     d.ellipse([cx-r, cy-r, cx+r, cy+r], fill=fill + (255,))
     d.ellipse([cx-r, cy-r, cx+r, cy+r], outline=outline + (255,), width=ow)
     # Inner rim: a ring hugging the OUTSIDE of the bite, so it survives the punch
@@ -249,8 +310,8 @@ def _crescent(f, r, dx, br, fill, outline, ow):
     d.ellipse([cx+dx-g, cy-g, cx+dx+g, cy+g], outline=outline + (255,), width=ow)
     # Punch the shadowed lobe, and clip everything to the lit disc so no stray
     # rim escapes the silhouette.
-    mask = Image.new("L", (S, S), 0)
-    md = ImageDraw.Draw(mask)
+    mask = Image.new("L", f.size, 0)
+    md = draw(mask)
     md.ellipse([cx-r, cy-r, cx+r, cy+r], fill=255)
     md.ellipse([cx+dx-br, cy-br, cx+dx+br, cy+br], fill=0)
     lay.putalpha(ImageChops.multiply(lay.split()[3], mask))
@@ -317,7 +378,7 @@ def carrier_sprite():
     for sx in (-1, 1):
         for sy in (-1, 1):
             px, py = cx + sx*104, cy + sy*152
-            rotor(f, (px, py), 54, scale_col(col, 0.55), rim, 1.0, 0.12, blades=4, w=7)
+            rotor(f, (px, py), 54, scale_col(col, 0.55), rim, 1.0, 0.12, blades=4, w=7, s=1)
             d = ImageDraw.Draw(f)
             d.ellipse([px-58, py-58, px+58, py+58], outline=plate + (255,), width=4)
 
@@ -359,8 +420,8 @@ def carrier_sprite():
               (cx+34, cy+30), (cx+86, cy+34)]
     d.polygon(bridge, fill=scale_col(col, 0.58) + (255,))
     d.line(bridge + [bridge[0]], fill=rim + (255,), width=4)
-    dot(f, (cx+72, cy), 20, rim)
-    dot(f, (cx+72, cy), 10, (255, 255, 255))
+    dot(f, (cx+72, cy), 20, rim, s=1)
+    dot(f, (cx+72, cy), 10, (255, 255, 255), s=1)
 
     # --- prow: main bay aperture, split by an armoured beak ---
     d = ImageDraw.Draw(f)
@@ -376,15 +437,15 @@ def carrier_sprite():
     for k, ey in enumerate((-40, 0, 40)):
         d.rectangle([cx-232, cy+ey-17, cx-198, cy+ey+17], fill=plate + (255,))
         d.rectangle([cx-232, cy+ey-17, cx-198, cy+ey+17], outline=rim + (255,), width=3)
-        dot(f, (cx-230, cy+ey), 12, rim, 230)
-        dot(f, (cx-236, cy+ey), 6, (255, 255, 255))
+        dot(f, (cx-230, cy+ey), 12, rim, 230, s=1)
+        dot(f, (cx-236, cy+ey), 6, (255, 255, 255), s=1)
 
     # --- masts ---
     for sy in (-1, 1):
         d.line([(cx+20, cy + sy*72), (cx+4, cy + sy*118)], fill=plate + (255,), width=5)
-        dot(f, (cx+4, cy + sy*118), 7, rim)
+        dot(f, (cx+4, cy + sy*118), 7, rim, s=1)
 
-    f = f.resize((CO, CO), Image.LANCZOS)
+    f = f.resize((CO, CO), Image.BOX)
     return add_halo(f, col, spread=0.11, strength=140)
 
 
@@ -405,7 +466,7 @@ def health_pickup():
     exact colour the flat-Color placeholder used, so nothing else has to move."""
     body, edge = (60, 170, 90), (170, 255, 195)
     f = _pickup_frame()
-    d = ImageDraw.Draw(f)
+    d = draw(f, 1)
     c = P/2
     d.ellipse([c-38, c-38, c+38, c+38], outline=(60, 140, 90, 255), width=4)
     for box in ([c-10, c-30, c+10, c+30], [c-30, c-10, c+30, c+10]):
@@ -421,7 +482,7 @@ def shield_pickup():
     Ice blue (120,200,255) — the placeholder's colour."""
     body, edge = (55, 115, 180), (190, 230, 255)
     f = _pickup_frame()
-    d = ImageDraw.Draw(f)
+    d = draw(f, 1)
     c = P/2
     crest = [(c, c-34), (c+28, c-18), (c+28, c+4), (c, c+34), (c-28, c+4), (c-28, c-18)]
     d.polygon(crest, fill=body + (255,))
@@ -437,7 +498,7 @@ def coin_sprite():
     glyph, so it never reads as a projectile (those are soft glow blobs with no
     edge). Gold (255,210,90) — the placeholder's colour."""
     f = _pickup_frame()
-    d = ImageDraw.Draw(f)
+    d = draw(f, 1)
     c = P/2
     d.ellipse([c-34, c-34, c+34, c+34], fill=(190, 140, 35, 255))
     d.ellipse([c-34, c-34, c+34, c+34], outline=(255, 235, 150, 255), width=5)
@@ -454,7 +515,7 @@ def mine_sprite():
     spark. The body is dark so the hot orange rim and the spark carry it against
     a near-black arena."""
     f = _pickup_frame()
-    d = ImageDraw.Draw(f)
+    d = draw(f, 1)
     c = P/2
     cy = c + 8
     d.ellipse([c-30, cy-30, c+30, cy+30], fill=(38, 26, 30, 255))
@@ -484,7 +545,7 @@ def plasma_frames(n=4):
         dot(f, (S/2, S/2), int(16*b), pal.primary)
         dot(f, (S/2, S/2), 8, pal.accent)
         dot(f, (S/2, S/2), 4, (255, 255, 255))
-        f = add_halo(f, pal.primary, spread=0.22, strength=180)
+        f = add_halo(shrink(f), pal.primary, spread=0.22, strength=180)
         frames.append(f)
     return frames
 
@@ -495,13 +556,12 @@ def bolt_frames(n=4):
     for i in range(n):
         f = frame()
         b = pulse(i / n)
-        d = ImageDraw.Draw(f)
         cx, cy = S/2, S/2
         # elongated dart facing right
         pts = [(cx+30, cy), (cx-18, cy-9), (cx-10, cy), (cx-18, cy+9)]
         neon_poly(f, pts, scale_col(pal.primary, 0.8), outline=scale_col(pal.accent, b), ow=2)
         dot(f, (cx+12, cy), 4, (255, 255, 255))
-        f = add_halo(f, pal.primary, spread=0.2, strength=170)
+        f = add_halo(shrink(f), pal.primary, spread=0.2, strength=170)
         frames.append(f)
     return frames
 
@@ -519,7 +579,7 @@ def explosion_frames(n=8):
         r = 10 + t * 54
         a = int(255 * (1 - t) ** 1.3)
         # expanding ring
-        d = ImageDraw.Draw(f)
+        d = draw(f)
         col = pal.accent if t < 0.4 else pal.primary
         d.ellipse([cx-r, cy-r, cx+r, cy+r], outline=(col[0], col[1], col[2], a),
                   width=max(2, int(10*(1-t))))
@@ -532,7 +592,7 @@ def explosion_frames(n=8):
             rr = r*0.9
             dot(f, (cx+math.cos(ang)*rr, cy+math.sin(ang)*rr), max(1,int(5*(1-t))),
                 pal.secondary, a)
-        f = f.filter(ImageFilter.GaussianBlur(1.2))
+        f = shrink(f.filter(ImageFilter.GaussianBlur(1.2 * SS)))
         frames.append(f)
     return frames
 
@@ -551,7 +611,7 @@ def impact_frames(n=4):
             dot(f, (cx+math.cos(ang)*r, cy+math.sin(ang)*r), max(1,int(4*(1-t)+1)),
                 pal.accent, a)
         dot(f, (cx, cy), int(8*(1-t)+2), (255,255,255), a)
-        f = f.filter(ImageFilter.GaussianBlur(0.8))
+        f = shrink(f.filter(ImageFilter.GaussianBlur(0.8 * SS)))
         frames.append(f)
     return frames
 
