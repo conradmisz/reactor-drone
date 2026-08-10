@@ -4159,6 +4159,33 @@
         },
         {
           "element_type": "button",
+          "rect": { "x": 408, "y": 276, "w": 188, "h": 44 },
+          "label_text": "RECORDS",
+          "style_id": "default_button",
+          "z_order": 10,
+          "on_click_fn": "on_records_click",
+          "name": "menu_records"
+        },
+        {
+          "element_type": "button",
+          "rect": { "x": 204, "y": 228, "w": 188, "h": 44 },
+          "label_text": "HOW TO PLAY",
+          "style_id": "default_button",
+          "z_order": 10,
+          "on_click_fn": "on_how_click",
+          "name": "menu_how"
+        },
+        {
+          "element_type": "button",
+          "rect": { "x": 408, "y": 228, "w": 188, "h": 44 },
+          "label_text": "SETTINGS",
+          "style_id": "default_button",
+          "z_order": 10,
+          "on_click_fn": "on_settings_click",
+          "name": "menu_settings"
+        },
+        {
+          "element_type": "button",
           "rect": { "x": 204, "y": 180, "w": 392, "h": 44 },
           "label_text": "QUIT",
           "style_id": "default_button",
@@ -4372,6 +4399,248 @@
           "z_order": 10,
           "on_click_fn": "on_back_click",
           "name": "slots_back"
+        }
+      ]
+    },
+    "settings": {
+      "widgets": [
+        {
+          "element_type": "panel",
+          "rect": { "x": 180, "y": 104, "w": 440, "h": 392 },
+          "label_text": "",
+          "style_id": "panel",
+          "z_order": 0,
+          "//": "Main-menu-suite Phase C. Checkbox values are synced from saves/settings.json at boot and written back by the on_toggle_* handlers; defaults (both on) are exactly the pre-settings behaviour."
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 412, "w": 392, "h": 44 },
+          "label_text": "SETTINGS",
+          "style_id": "title",
+          "z_order": 10
+        },
+        {
+          "element_type": "panel",
+          "rect": { "x": 204, "y": 400, "w": 392, "h": 2 },
+          "label_text": "",
+          "style_id": "rule",
+          "z_order": 10
+        },
+        {
+          "//": "The checkbox draw path renders box + check only, never label_text - so each toggle is a label beside a narrow checkbox.",
+          "element_type": "label",
+          "rect": { "x": 204, "y": 320, "w": 280, "h": 44 },
+          "label_text": "SCREEN SHAKE",
+          "style_id": "subtitle",
+          "z_order": 10
+        },
+        {
+          "element_type": "checkbox",
+          "rect": { "x": 500, "y": 320, "w": 96, "h": 44 },
+          "label_text": "",
+          "style_id": "default_button",
+          "z_order": 10,
+          "value": 1,
+          "on_click_fn": "on_toggle_shake",
+          "name": "settings_shake"
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 264, "w": 280, "h": 44 },
+          "label_text": "MINIMAP",
+          "style_id": "subtitle",
+          "z_order": 10
+        },
+        {
+          "element_type": "checkbox",
+          "rect": { "x": 500, "y": 264, "w": 96, "h": 44 },
+          "label_text": "",
+          "style_id": "default_button",
+          "z_order": 10,
+          "value": 1,
+          "on_click_fn": "on_toggle_minimap",
+          "name": "settings_minimap"
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 216, "w": 392, "h": 24 },
+          "label_text": "Applies immediately. Stored between sessions.",
+          "style_id": "caption",
+          "z_order": 10
+        },
+        {
+          "element_type": "button",
+          "rect": { "x": 204, "y": 112, "w": 188, "h": 44 },
+          "label_text": "BACK",
+          "style_id": "default_button",
+          "z_order": 10,
+          "on_click_fn": "on_back_click",
+          "name": "settings_back"
+        }
+      ]
+    },
+    "records": {
+      "widgets": [
+        {
+          "element_type": "panel",
+          "rect": { "x": 180, "y": 104, "w": 440, "h": 392 },
+          "label_text": "",
+          "style_id": "panel",
+          "z_order": 0,
+          "//": "Main-menu-suite Phase C. The four rows are rewritten from meta.json every title frame."
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 412, "w": 392, "h": 44 },
+          "label_text": "RECORDS",
+          "style_id": "title",
+          "z_order": 10
+        },
+        {
+          "element_type": "panel",
+          "rect": { "x": 204, "y": 400, "w": 392, "h": 2 },
+          "label_text": "",
+          "style_id": "rule",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 344, "w": 392, "h": 30 },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "records_0"
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 304, "w": 392, "h": 30 },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "records_1"
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 264, "w": 392, "h": 30 },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "records_2"
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 224, "w": 392, "h": 30 },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "records_3"
+        },
+        {
+          "element_type": "button",
+          "rect": { "x": 204, "y": 112, "w": 188, "h": 44 },
+          "label_text": "BACK",
+          "style_id": "default_button",
+          "z_order": 10,
+          "on_click_fn": "on_back_click",
+          "name": "records_back"
+        }
+      ]
+    },
+    "how_to_play": {
+      "widgets": [
+        {
+          "element_type": "panel",
+          "rect": { "x": 180, "y": 52, "w": 440, "h": 484 },
+          "label_text": "",
+          "style_id": "panel",
+          "z_order": 0,
+          "//": "Main-menu-suite Phase C. The field manual's ten-second version - static text, one screen."
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 452, "w": 392, "h": 44 },
+          "label_text": "HOW TO PLAY",
+          "style_id": "title",
+          "z_order": 10
+        },
+        {
+          "element_type": "panel",
+          "rect": { "x": 204, "y": 440, "w": 392, "h": 2 },
+          "label_text": "",
+          "style_id": "rule",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 400, "w": 392, "h": 26 },
+          "label_text": "Move with WASD or arrows. Aim with the mouse.",
+          "style_id": "subtitle",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 368, "w": 392, "h": 26 },
+          "label_text": "Hold left mouse to fire. SPACE dashes.",
+          "style_id": "subtitle",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 336, "w": 392, "h": 26 },
+          "label_text": "Q uses your consumable. E fires your active.",
+          "style_id": "subtitle",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 296, "w": 392, "h": 24 },
+          "label_text": "Touching enemies hurts. Keep moving.",
+          "style_id": "caption",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 268, "w": 392, "h": 24 },
+          "label_text": "Fly over credits to collect them - they expire.",
+          "style_id": "caption",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 240, "w": 392, "h": 24 },
+          "label_text": "Every 5th wave the shop opens. Spend or bank.",
+          "style_id": "caption",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 212, "w": 392, "h": 24 },
+          "label_text": "Bosses on waves 10, 20, 30 drop new powers.",
+          "style_id": "caption",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 184, "w": 392, "h": 24 },
+          "label_text": "Hull never regenerates by itself. Shields do.",
+          "style_id": "caption",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 156, "w": 392, "h": 24 },
+          "label_text": "Clear wave 30 to win. ESC pauses and saves.",
+          "style_id": "caption",
+          "z_order": 10
+        },
+        {
+          "element_type": "button",
+          "rect": { "x": 204, "y": 72, "w": 188, "h": 44 },
+          "label_text": "BACK",
+          "style_id": "default_button",
+          "z_order": 10,
+          "on_click_fn": "on_back_click",
+          "name": "how_back"
         }
       ]
     },
@@ -4664,7 +4933,7 @@
           "rect": {
             "x": 164,
             "y": 36,
-            "w": 149,
+            "w": 110,
             "h": 48
           },
           "label_text": "RESUME",
@@ -4677,9 +4946,9 @@
         {
           "element_type": "button",
           "rect": {
-            "x": 325,
+            "x": 286,
             "y": 36,
-            "w": 149,
+            "w": 110,
             "h": 48
           },
           "label_text": "SAVE",
@@ -4691,9 +4960,9 @@
         {
           "element_type": "button",
           "rect": {
-            "x": 486,
+            "x": 530,
             "y": 36,
-            "w": 150,
+            "w": 106,
             "h": 48
           },
           "label_text": "QUIT",
@@ -4701,6 +4970,21 @@
           "z_order": 40,
           "on_click_fn": "on_quit_click",
           "name": "pause_quit"
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 408,
+            "y": 36,
+            "w": 110,
+            "h": 48
+          },
+          "label_text": "MENU",
+          "style_id": "default_button",
+          "z_order": 40,
+          "on_click_fn": "on_to_menu_click",
+          "name": "pause_menu",
+          "//": "Main-menu-suite Phase C: back to the hub. Banks the score like QUIT but keeps the app alive; the world freezes behind the menu."
         }
       ]
     },

@@ -23,6 +23,8 @@ MetaSave meta_load(const std::string& path) {
         if (j.is_object()) {
             m.lifetime_score = j.value("lifetime_score", 0LL);
             m.prestige       = j.value("prestige", 0);
+            m.best_wave      = std::max(0, j.value("best_wave", 0));
+            m.runs_played    = std::max(0LL, j.value("runs_played", 0LL));
         }
     } catch (...) {
         return MetaSave{};
@@ -41,7 +43,9 @@ bool meta_write(const std::string& path, const MetaSave& m) {
         std::ofstream out(path, std::ios::trunc);
         if (!out.is_open()) return false;
         out << nlohmann::json{{"lifetime_score", m.lifetime_score},
-                              {"prestige", m.prestige}}.dump(2) << "\n";
+                              {"prestige", m.prestige},
+                              {"best_wave", m.best_wave},
+                              {"runs_played", m.runs_played}}.dump(2) << "\n";
         return out.good();
     } catch (...) {
         return false;  // ponytail: a lost save is a lost unlock, never a crashed game

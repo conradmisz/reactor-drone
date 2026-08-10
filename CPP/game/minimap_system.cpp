@@ -63,7 +63,10 @@ void MinimapSystem::update(ComponentStorage& component_storage,
     // which is written over the authored rect here. One authority for where the
     // map is, rather than two that can silently disagree. Written every frame
     // rather than once at pool time, because hiding the radar collapses it.
-    const bool show = hud_visible_in_phase(blackboard.get_or<int>("phase", 0));
+    // Main-menu-suite Phase C: the settings screen can switch the radar off.
+    // Same zero-size hide as the phase rule — the pool stays allocated.
+    const bool show = hud_visible_in_phase(blackboard.get_or<int>("phase", 0))
+                   && blackboard.get_or<bool>("settings.minimap", true);
     const double frame_id =
         blackboard.get_or<double>(std::string("ui.widget_id.") + FRAME_WIDGET, -1.0);
     if (frame_id >= 0.0) {

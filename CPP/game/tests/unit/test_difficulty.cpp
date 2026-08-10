@@ -205,8 +205,20 @@ TEST_CASE("the shipped menu screens carry the callbacks main.cpp compares",
         CHECK(slots.count("on_slot_del_" + std::to_string(i)));
     }
     CHECK(slots.count("on_back_click"));
+    // Phase C: settings / records / how_to_play, and the pause MENU button.
+    CHECK(hub.count("on_settings_click"));
+    CHECK(hub.count("on_records_click"));
+    CHECK(hub.count("on_how_click"));
+    const auto settings = screen_fns("settings");
+    CHECK(settings.count("on_toggle_shake"));
+    CHECK(settings.count("on_toggle_minimap"));
+    CHECK(settings.count("on_back_click"));
+    CHECK(screen_fns("records").count("on_back_click"));
+    CHECK(screen_fns("how_to_play").count("on_back_click"));
+    CHECK(screen_fns("pause").count("on_to_menu_click"));
 
-    for (const char* name : {"main_menu", "run_setup", "save_slots"}) {
+    for (const char* name : {"main_menu", "run_setup", "save_slots",
+                             "settings", "records", "how_to_play"}) {
         bool screen_found = false, boots_inactive = false;
         for (Entity e : cs.entities_with_component<UIScreen>()) {
             auto s = cs.get_component<UIScreen>(e);

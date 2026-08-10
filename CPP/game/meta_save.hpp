@@ -32,6 +32,11 @@ struct MetaSave {
     /// This one DOES reach the simulation, unlike lifetime score: it scales
     /// `config.player` at run start, so a replay is reproducible at a fixed level.
     int prestige = 0;
+
+    /// Main-menu-suite Phase C: the records screen. Pure bookkeeping, updated
+    /// where scores bank, read only to write labels — never reaches the sim.
+    int best_wave = 0;      ///< 1-based highest wave reached across all runs
+    long long runs_played = 0;
 };
 
 /// Absolute path of the meta-save (`<project root>/saves/meta.json`).

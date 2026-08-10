@@ -93,6 +93,7 @@
 #include "meta_save.hpp"
 #include "prestige.hpp"
 #include "run_save.hpp"
+#include "settings_save.hpp"
 
 struct SDL_WindowDeleter { void operator()(SDL_Window* w) const { if (w) SDL_DestroyWindow(w); } };
 struct SDL_RendererDeleter { void operator()(SDL_Renderer* r) const { if (r) SDL_DestroyRenderer(r); } };
@@ -109,6 +110,9 @@ constexpr const char* SCREEN_PAUSE        = "pause";
 constexpr const char* SCREEN_MAIN_MENU    = "main_menu";
 constexpr const char* SCREEN_RUN_SETUP    = "run_setup";    // main-menu-suite Phase A
 constexpr const char* SCREEN_SAVE_SLOTS   = "save_slots";   // main-menu-suite Phase B
+constexpr const char* SCREEN_SETTINGS     = "settings";     // main-menu-suite Phase C
+constexpr const char* SCREEN_RECORDS      = "records";
+constexpr const char* SCREEN_HOW          = "how_to_play";
 constexpr const char* SCREEN_PRESTIGE     = "prestige_offer";   // Lane O (D128)
 
 int main(int argc, char* argv[]) {
@@ -792,6 +796,11 @@ int main(int argc, char* argv[]) {
         if (run_banked) return;
         run_banked = true;
         meta.lifetime_score += bb.get_or<int>("score", 0);
+        // Main-menu-suite Phase C: the records screen's numbers, banked in the
+        // same breath as the score so they can never disagree with it.
+        meta.runs_played += 1;
+        meta.best_wave = std::max(meta.best_wave,
+                                  wave_spawner.current_wave_index() + 1);
         meta_write(meta_save_path(), meta);
     };
 
@@ -945,6 +954,36 @@ int main(int argc, char* argv[]) {
         }
     };
 
+    // Main-menu-suite Phase C: settings — loaded once, published to the two
+    // Blackboard flags the apply sites read, checkbox widgets synced at boot.
+    SettingsSave settings = settings_load(settings_save_path());
+    blackboard.set<bool>("settings.screen_shake", settings.screen_shake);
+    blackboard.set<bool>("settings.minimap", settings.minimap);
+    Entity shake_w = 0, mini_w = 0, rec_w[4] = {};
+    bool shake_w_resolved = false, mini_w_resolved = false, rec_w_resolved[4] = {};
+    auto sync_settings_widgets = [&]() {
+        const Entity sw = widget_by_name("settings_shake", shake_w, shake_w_resolved);
+        const Entity mw = widget_by_name("settings_minimap", mini_w, mini_w_resolved);
+        if (auto st = component_storage.get_component<UIState>(sw); st.has_value())
+            st->get().value = settings.screen_shake ? 1.0f : 0.0f;
+        if (auto st = component_storage.get_component<UIState>(mw); st.has_value())
+            st->get().value = settings.minimap ? 1.0f : 0.0f;
+    };
+    auto refresh_records = [&]() {
+        const std::string rows[4] = {
+            "Lifetime score      " + std::to_string(meta.lifetime_score),
+            "Prestige level      " + std::to_string(meta.prestige),
+            "Best wave           " + std::to_string(meta.best_wave),
+            "Runs flown          " + std::to_string(meta.runs_played),
+        };
+        for (int i = 0; i < 4; ++i) {
+            const Entity w = widget_by_name(("records_" + std::to_string(i)).c_str(),
+                                            rec_w[i], rec_w_resolved[i]);
+            if (auto el = component_storage.get_component<UIElement>(w); el.has_value())
+                el->get().label_text = rows[i];
+        }
+    };
+
     // Main-menu-suite Phase B: the save_slots rows. Labels are rewritten every
     // title frame; an empty slot's LOAD/DELETE buttons go ghost + disabled (the
     // same hidden-button spelling as menu_continue).
@@ -1007,6 +1046,7 @@ int main(int argc, char* argv[]) {
     // The title *is* the main menu, so it is pushed before the first frame; the
     // stack consumes the command at the top of the loop.
     blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH, std::string(SCREEN_MAIN_MENU));
+    sync_settings_widgets();   // Phase C: checkboxes reflect the loaded file
 
     Timer timer(opts.fps > 0 ? static_cast<double>(opts.fps) : 60.0);
     if (opts.seed.has_value()) timer.set_deterministic(true);
@@ -1116,9 +1156,22 @@ int main(int argc, char* argv[]) {
         if (blackboard.get_or<bool>("ui.escape_pressed", false) && phase == PHASE_TITLE) {
             const std::vector<std::string> stack = ScreenStackSystem::get_stack(blackboard);
             if (!stack.empty() && (stack.back() == SCREEN_RUN_SETUP ||
-                                   stack.back() == SCREEN_SAVE_SLOTS))
+                                   stack.back() == SCREEN_SAVE_SLOTS ||
+                                   stack.back() == SCREEN_SETTINGS ||
+                                   stack.back() == SCREEN_RECORDS ||
+                                   stack.back() == SCREEN_HOW))
                 blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
                                             std::string(SCREEN_MAIN_MENU));
+        }
+        // Main-menu-suite Phase C: ESC on the end screens returns to the hub
+        // (click / SPACE still restarts, unchanged). Depth check keeps the
+        // prestige-offer modal's ESC as a plain dismiss.
+        if (blackboard.get_or<bool>("ui.escape_pressed", false) &&
+            (phase == PHASE_GAMEOVER || phase == PHASE_VICTORY) &&
+            ScreenStackSystem::depth(blackboard) <= 1) {
+            phase = PHASE_TITLE;
+            blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                        std::string(SCREEN_MAIN_MENU));
         }
         if (blackboard.get_or<bool>("ui.escape_pressed", false) && phase != PHASE_TITLE) {
             if (ScreenStackSystem::depth(blackboard) <= 1) {
@@ -1183,6 +1236,18 @@ int main(int argc, char* argv[]) {
                 blackboard.remove(UISystem::UI_CLICK_KEY);
                 bank_run_score(blackboard);   // Lane F: quitting still ends the run
                 running = false;
+            } else if (pause_click == "on_to_menu_click") {
+                // Main-menu-suite Phase C: back to the hub without exiting. Banks
+                // like QUIT (the run is over as far as progression is concerned;
+                // the slot file survives, so CONTINUE can pick it back up). The
+                // world's entities stay where they are — PHASE_TITLE runs no sim,
+                // so the arena simply freezes behind the menu until the next
+                // start_run's spawn_world rebuilds it.
+                blackboard.remove(UISystem::UI_CLICK_KEY);
+                bank_run_score(blackboard);
+                phase = PHASE_TITLE;
+                blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                            std::string(SCREEN_MAIN_MENU));
             }
         }
 
@@ -1834,6 +1899,37 @@ int main(int argc, char* argv[]) {
                     blackboard.remove(UISystem::UI_CLICK_KEY);
                     blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
                                                 std::string(SCREEN_SAVE_SLOTS));
+                } else if (menu_click == "on_settings_click") {
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    sync_settings_widgets();
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                std::string(SCREEN_SETTINGS));
+                } else if (menu_click == "on_records_click") {
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    refresh_records();
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                std::string(SCREEN_RECORDS));
+                } else if (menu_click == "on_how_click") {
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                std::string(SCREEN_HOW));
+                } else if (menu_click == "on_toggle_shake" ||
+                           menu_click == "on_toggle_minimap") {
+                    // UISystem already flipped the checkbox's UIState.value — read
+                    // it back as the truth, persist, and publish to the apply sites.
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    const bool shake_toggle = (menu_click == "on_toggle_shake");
+                    const Entity w = shake_toggle
+                        ? widget_by_name("settings_shake", shake_w, shake_w_resolved)
+                        : widget_by_name("settings_minimap", mini_w, mini_w_resolved);
+                    if (auto st = component_storage.get_component<UIState>(w);
+                        st.has_value()) {
+                        const bool on = st->get().value >= 0.5f;
+                        (shake_toggle ? settings.screen_shake : settings.minimap) = on;
+                        blackboard.set<bool>(shake_toggle ? "settings.screen_shake"
+                                                          : "settings.minimap", on);
+                        settings_write(settings_save_path(), settings);
+                    }
                 } else if (menu_click.rfind("on_slot_load_", 0) == 0) {
                     blackboard.remove(UISystem::UI_CLICK_KEY);
                     const int i = menu_click.back() - '0';
@@ -1957,9 +2053,17 @@ int main(int argc, char* argv[]) {
             float amp = feedback::shake_amplitude(trauma, config.feedback.max_shake_px);
             float ox = 0.0f, oy = 0.0f;
             if (amp > 0.0f) {
+                // Main-menu-suite Phase C: the rng draw happens whether or not the
+                // shake setting is on, so toggling it mid-run cannot shift a
+                // single later draw — only the APPLIED offset is gated. (The
+                // offset does still steer real-mouse aim through the camera, the
+                // same way a window resize does; scripted --hover aim is world-
+                // space and never sees it, so the canary cannot either.)
                 float ang = shake_angle(shake_rng);
-                ox = std::cos(ang) * amp;
-                oy = std::sin(ang) * amp;
+                if (blackboard.get_or<bool>("settings.screen_shake", true)) {
+                    ox = std::cos(ang) * amp;
+                    oy = std::sin(ang) * amp;
+                }
             }
             float base_x = config.arena.center_x, base_y = config.arena.center_y;
             for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
