@@ -36,8 +36,21 @@
  * Default global cap on the number of live particles. The ParticleSystem stops
  * emitting once this many Particle entities exist, preventing runaway emitters
  * from exhausting memory or tanking the frame rate.
+ *
+ * Raised 2000 -> 4000 at the iteration-3 integration (D84). 2000 was already
+ * truncating at wave 20 before iteration 3, and the lanes' measured peaks are:
+ * arena destruction 463, boss fight + adds 301, actives on cooldown 991, and
+ * **boss wave + actives sustained 1998 — exactly at the old cap**, i.e. dropping
+ * particles silently in the game's climactic fight. The drop is by design
+ * (particle_system.cpp: "global budget reached: silent drop") so it degrades
+ * invisibly rather than failing loudly.
+ *
+ * 4000 is headroom over the worst measured case, not a measured ceiling: the
+ * frame-rate cost has NOT been verified in a real window. If a playtest shows
+ * the wave-50 fight dropping frames, cut per-effect emission rates rather than
+ * raising this again — the effects are data, this is a memory/perf backstop.
  */
-inline constexpr int DEFAULT_MAX_PARTICLES = 2000;
+inline constexpr int DEFAULT_MAX_PARTICLES = 4000;
 
 // ---------------------------------------------------------------------------
 // Pure helpers — interpolation

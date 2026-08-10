@@ -251,7 +251,7 @@ render:
   See `EnemyDeathSystem::drop_loot` and `WaveSpawnerSystem::spawn_enemy`. The canary is two
   runs of `./CPP/build/game/game --seed 42 --keys 5:SPACE --stopframe 3000` printing an
   identical summary line.
-- **`DEFAULT_MAX_PARTICLES` is 2000 and truncates silently.** Measure before adding an
+- **`DEFAULT_MAX_PARTICLES` is 4000 (was 2000) and truncates silently.** Measure before adding an
   emitter. See §5 — the live budget is not as free as it looks.
 - **Generators are offline.** `assets/generator/v2/*.py` are run by hand and their output is
   committed. They must never run at build time. They need Pillow, which is not installed
@@ -267,8 +267,9 @@ render:
 - **`--dump` and `--trace` are parsed but never consumed.** `CliOptions::dump_frames` /
   `trace_frames` are populated by `cli_parser.cpp` and `main.cpp` never reads them. There is
   no state dump. `--screenshot` *does* work.
-- **The 2000-particle budget is already exhausted, in two distinct ways.** Measured over a
-  full 20-wave headless run (seed 42, sampled every 120 frames):
+- **The particle budget is now 4000 (D84), raised from 2000 at the iteration-3
+  integration.** The old cap was exhausted in two distinct ways even before iteration 3.
+  Measured over a full 20-wave headless run (seed 42, sampled every 120 frames):
 
   | Situation | Live particles |
   |---|---|
@@ -276,6 +277,23 @@ render:
   | Mass death, early waves (~12 enemies) | 300-500 |
   | Mass death, wave 20 (~96 enemies) | **2000 — capped, silently truncating** |
   | Any frame with the shop open after a mass kill | ~1900-2000 indefinitely — **fixed**, now 0 |
+
+  Iteration 3 then added four new consumers. Measured per lane, against the old 2000 cap:
+
+  | Situation | Live particles | Lane |
+  |---|---|---|
+  | Full-arena destruction during a shift | 336 alone / **463** overlapping the shockwave | E |
+  | Boss fight, adds + spitter patches, no actives | **301** | D |
+  | Actives firing on cooldown, waves 1-5, no boss | **991** | D |
+  | Boss wave + actives, sustained | **1998 — exactly at the old cap** | D |
+
+  Worst single consumers: missiles ~130 live (8 x 55/s x 0.3s), laser ~110 (4 x 90/s x
+  0.3s), boss aura ~72, mine blast ~91 one-shot. Lane B's dash and minimap add **zero** new
+  emitters (the dash drives the existing thruster, ~36 extra live particles).
+
+  4000 is headroom over the worst measured case, **not a measured ceiling** — the frame-rate
+  cost has not been verified in a real window. If the wave-50 fight drops frames, cut
+  per-effect emission rates (they are data) rather than raising this again.
 
   The shop case was a leak, fixed in Phase 5: `lifetime.update` runs only in
   `PHASE_PLAYING`, but `particles.update` runs in every simulated phase, so the one-shot FX
