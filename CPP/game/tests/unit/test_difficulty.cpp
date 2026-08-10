@@ -5,6 +5,7 @@
  * of the loaded config on every run start — so the two things worth pinning are
  * that it scales what it claims to, and that it never touches the player.
  */
+#include <set>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
@@ -164,32 +165,48 @@ TEST_CASE("the shipped GameData difficulties are Normal-first and enemy-side",
     }
 }
 
-TEST_CASE("the shipped main_menu screen carries the callbacks main.cpp compares",
+TEST_CASE("the shipped menu screens carry the callbacks main.cpp compares",
           "[Game][difficulty][menu]") {
-    // Same invisible seam as test_intermission_screen.cpp: these two names live
-    // as string literals in main.cpp, so a rename in the JSON would leave a
-    // title screen whose buttons silently do nothing.
+    // Same invisible seam as test_intermission_screen.cpp: these names live as
+    // string literals in main.cpp, so a rename in the JSON would leave menu
+    // buttons that silently do nothing. Main-menu-suite Phase A: the hub carries
+    // PLAY/QUIT/CONTINUE; run_setup carries the difficulty tabs, ship cycle,
+    // LAUNCH and BACK.
     EntityManager em;
     ComponentStorage cs;
     Blackboard bb;
     load_game_data(project_paths::assets_dir() + "/GameData.json", em, cs, bb);
 
-    bool normal = false, hard_btn = false, screen_found = false, boots_inactive = false;
-    for (Entity e : cs.entities_with_component<UIElement>()) {
-        auto m = cs.get_component<ScreenMembership>(e);
-        if (!m.has_value() || m->get().screen_name != "main_menu") continue;
-        auto el = cs.get_component<UIElement>(e);
-        if (el->get().on_click_fn == "on_start_normal_click") normal = true;
-        if (el->get().on_click_fn == "on_start_hard_click") hard_btn = true;
+    auto screen_fns = [&](const char* screen) {
+        std::set<std::string> fns;
+        for (Entity e : cs.entities_with_component<UIElement>()) {
+            auto m = cs.get_component<ScreenMembership>(e);
+            if (!m.has_value() || m->get().screen_name != screen) continue;
+            const std::string& fn = cs.get_component<UIElement>(e)->get().on_click_fn;
+            if (!fn.empty()) fns.insert(fn);
+        }
+        return fns;
+    };
+    const auto hub = screen_fns("main_menu");
+    CHECK(hub.count("on_play_click"));
+    CHECK(hub.count("on_menu_quit_click"));
+    CHECK(hub.count("on_continue_run_click"));
+    const auto setup = screen_fns("run_setup");
+    CHECK(setup.count("on_pick_normal"));
+    CHECK(setup.count("on_pick_hard"));
+    CHECK(setup.count("on_ship_cycle"));
+    CHECK(setup.count("on_launch_click"));
+    CHECK(setup.count("on_back_click"));
+
+    for (const char* name : {"main_menu", "run_setup"}) {
+        bool screen_found = false, boots_inactive = false;
+        for (Entity e : cs.entities_with_component<UIScreen>()) {
+            auto s = cs.get_component<UIScreen>(e);
+            if (!s.has_value() || s->get().screen_name != name) continue;
+            screen_found = true;
+            boots_inactive = !s->get().active;   // pushed by main.cpp, not the loader
+        }
+        CHECK(screen_found);
+        CHECK(boots_inactive);
     }
-    for (Entity e : cs.entities_with_component<UIScreen>()) {
-        auto s = cs.get_component<UIScreen>(e);
-        if (!s.has_value() || s->get().screen_name != "main_menu") continue;
-        screen_found = true;
-        boots_inactive = !s->get().active;   // pushed by main.cpp, not by the loader
-    }
-    CHECK(normal);
-    CHECK(hard_btn);
-    CHECK(screen_found);
-    CHECK(boots_inactive);
 }

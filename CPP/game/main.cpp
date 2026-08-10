@@ -106,6 +106,7 @@ enum Phase { PHASE_TITLE = 0, PHASE_PLAYING = 1, PHASE_GAMEOVER = 2, PHASE_VICTO
 constexpr const char* SCREEN_INTERMISSION = "wave_intermission";
 constexpr const char* SCREEN_PAUSE        = "pause";
 constexpr const char* SCREEN_MAIN_MENU    = "main_menu";
+constexpr const char* SCREEN_RUN_SETUP    = "run_setup";    // main-menu-suite Phase A
 constexpr const char* SCREEN_PRESTIGE     = "prestige_offer";   // Lane O (D128)
 
 int main(int argc, char* argv[]) {
@@ -154,6 +155,9 @@ int main(int argc, char* argv[]) {
     // The ship *choice* is deliberately not persisted, for the same reason.
     MetaSave meta = meta_load(meta_save_path());
     int selected_ship = 0;
+    // Main-menu-suite Phase A: the difficulty picked on the run_setup screen,
+    // consumed by LAUNCH. SPACE quick-start ignores it on purpose (always Normal).
+    int setup_difficulty = 0;
 
     // Lane K (D100): the mid-run save, read exactly once and for exactly one
     // purpose — whether the title screen offers CONTINUE. It is applied only on
@@ -908,9 +912,24 @@ int main(int argc, char* argv[]) {
                                                ? std::string("Normal")
                                                : saved_run.difficulty_name);
         } else {
-            el->get().style_id = "subtitle";
+            // "ghost", not "subtitle": buttons always fill their bg, and only the
+            // ghost style's bg matches the panel it sits on (see ui_styles).
+            el->get().style_id = "ghost";
             el->get().label_text.clear();
         }
+    };
+
+    // Main-menu-suite Phase A: the run_setup difficulty tabs use the shop-tab
+    // convention — UIState.disabled on the selected tab is the selected look.
+    Entity normal_w = 0, hard_w = 0;
+    bool normal_w_resolved = false, hard_w_resolved = false;
+    auto refresh_difficulty_tabs = [&]() {
+        const Entity n = widget_by_name("menu_normal", normal_w, normal_w_resolved);
+        const Entity h = widget_by_name("menu_hard", hard_w, hard_w_resolved);
+        if (auto st = component_storage.get_component<UIState>(n); st.has_value())
+            st->get().disabled = (setup_difficulty == 0);
+        if (auto st = component_storage.get_component<UIState>(h); st.has_value())
+            st->get().disabled = (setup_difficulty == 1);
     };
 
     // The title *is* the main menu, so it is pushed before the first frame; the
@@ -1018,6 +1037,16 @@ int main(int argc, char* argv[]) {
         //
         // Not at the title: the main menu is the only thing on screen there, and
         // popping it would leave a run that can only be started by SPACE.
+        // Main-menu-suite Phase A: at the title, ESC backs out of run_setup to the
+        // hub. Title screens REPLACE each other (CLEAR_TO, never PUSH): they fully
+        // overlap on the canvas, and a stacked lower screen still renders — the
+        // hub's pulsing PLAY would bleed through run_setup's panel.
+        if (blackboard.get_or<bool>("ui.escape_pressed", false) && phase == PHASE_TITLE) {
+            const std::vector<std::string> stack = ScreenStackSystem::get_stack(blackboard);
+            if (!stack.empty() && stack.back() == SCREEN_RUN_SETUP)
+                blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                            std::string(SCREEN_MAIN_MENU));
+        }
         if (blackboard.get_or<bool>("ui.escape_pressed", false) && phase != PHASE_TITLE) {
             if (ScreenStackSystem::depth(blackboard) <= 1) {
                 blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH, std::string(SCREEN_PAUSE));
@@ -1672,16 +1701,39 @@ int main(int argc, char* argv[]) {
             destroy_marked_entities(entity_manager, component_storage);
 
             if (phase == PHASE_TITLE) {
-                // Phase B (D50): the main menu picks the difficulty. SPACE — not
-                // `advance` — is the fallback, because `advance` also fires on the
-                // very mouse click that pressed HARD, which would start a Normal
-                // run in the same frame.
+                // Main-menu-suite Phase A: hub (PLAY / CONTINUE / QUIT) plus the
+                // run_setup screen (difficulty tabs + ship + LAUNCH). SPACE — not
+                // `advance` — remains the quick-start fallback, because `advance`
+                // also fires on the very mouse click that pressed a button. SPACE
+                // always means "Normal run, now", from either screen: it is the
+                // replay canary's documented entry path and keeps its meaning.
                 const std::string menu_click =
                     blackboard.get_or<std::string>(UISystem::UI_CLICK_KEY, std::string());
-                int chosen = -1;
-                if (menu_click == "on_start_normal_click") chosen = 0;
-                else if (menu_click == "on_start_hard_click") chosen = 1;
-                else if (menu_click == "on_ship_cycle") {
+                bool launch = false;      // fresh start via LAUNCH or SPACE
+                size_t launch_difficulty = 0;
+                bool resumed = false;
+                if (menu_click == "on_play_click") {
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                std::string(SCREEN_RUN_SETUP));
+                } else if (menu_click == "on_back_click") {
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                std::string(SCREEN_MAIN_MENU));
+                } else if (menu_click == "on_menu_quit_click") {
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    running = false;      // nothing to bank at the title
+                } else if (menu_click == "on_pick_normal") {
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    setup_difficulty = 0;
+                } else if (menu_click == "on_pick_hard") {
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    setup_difficulty = 1;
+                } else if (menu_click == "on_launch_click") {
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    launch = true;
+                    launch_difficulty = static_cast<size_t>(setup_difficulty);
+                } else if (menu_click == "on_ship_cycle") {
                     // Lane F (D82): cycle to the next *unlocked* ship. A locked one
                     // is never landed on, so there is no "you can't fly that" case
                     // to report — with only one ship unlocked this is a no-op and
@@ -1689,14 +1741,12 @@ int main(int argc, char* argv[]) {
                     selected_ship = next_unlocked_ship(config.ships, selected_ship,
                                                        meta.lifetime_score);
                     blackboard.remove(UISystem::UI_CLICK_KEY);
-                }
-                // Lane K (D100): CONTINUE resumes the saved run. Handled before
-                // the fresh-start branch and returns early, so the two can never
-                // both fire on one click.
-                bool resumed = false;
-                if (menu_click == "on_continue_run_click" && saved_run.present) {
+                } else if (menu_click == "on_continue_run_click" && saved_run.present) {
+                    // Lane K (D100): CONTINUE resumes the saved run. Handled apart
+                    // from the fresh-start branch so the two can never both fire.
                     blackboard.remove(UISystem::UI_CLICK_KEY);
-                    blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                std::string());
                     start_run(static_cast<size_t>(saved_run.difficulty), &saved_run);
                     resumed = true;
                 } else if (menu_click == "on_continue_run_click") {
@@ -1704,11 +1754,18 @@ int main(int argc, char* argv[]) {
                 }
                 refresh_ship_widget();
                 refresh_continue_widget();
-                if (chosen >= 0) blackboard.remove(UISystem::UI_CLICK_KEY);
-                else if (space_edge) chosen = 0;
-                if (chosen >= 0 && !resumed) {
-                    blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
-                    start_run(static_cast<size_t>(chosen));
+                refresh_difficulty_tabs();
+                if (space_edge && !launch && !resumed) {
+                    launch = true;        // SPACE: quick-start Normal from anywhere
+                    launch_difficulty = 0;
+                }
+                if (launch && !resumed) {
+                    // CLEAR_TO(""), not POP: LAUNCH fires at depth 3 (hub + setup),
+                    // SPACE can fire at either depth — both must land on the bare
+                    // gameplay base.
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                std::string());
+                    start_run(launch_difficulty);
                 }
             } else if (advance && (phase == PHASE_GAMEOVER || phase == PHASE_VICTORY)) {
                 // Restart keeps the difficulty the run was started at — `config`

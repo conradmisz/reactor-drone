@@ -2587,6 +2587,13 @@
   ],
   "//ui": "UI & menu layer (Option-040 port). Rects are authored in the 800x600 design canvas; ui_canvas_transform letterboxes them onto the live window.",
   "ui_styles": {
+    "ghost": {
+      "//": "Main-menu-suite Phase A: the 'hidden widget' style. Buttons always fill their bg rect (UIRenderSystem draws with blend NONE, so a 0-alpha bg paints opaque black) - ghost's bg IS the panel colour, so a blanked button vanishes against the panel it sits on. Text is fully transparent for good measure.",
+      "normal":   { "bg": [8, 12, 26, 242], "text": [0, 0, 0, 0] },
+      "hovered":  { "bg": [8, 12, 26, 242], "text": [0, 0, 0, 0] },
+      "pressed":  { "bg": [8, 12, 26, 242], "text": [0, 0, 0, 0] },
+      "disabled": { "bg": [8, 12, 26, 242], "text": [0, 0, 0, 0] }
+    },
     "panel": {
       "normal": {
         "bg": [
@@ -4101,135 +4108,148 @@
       "widgets": [
         {
           "element_type": "panel",
-          "rect": {
-            "x": 180,
-            "y": 104,
-            "w": 440,
-            "h": 392
-          },
+          "rect": { "x": 180, "y": 64, "w": 440, "h": 472 },
           "label_text": "",
           "style_id": "panel",
           "z_order": 0,
-          "//": "Lane H: 800x600 design canvas, 4px grid. One left-aligned content column per panel (inset 24 from the panel edge), a 44px+ hit target on every button, and a type/colour scale of title > subtitle > caption. Text can no longer overflow its rect - UIRenderSystem fits it (fit_text_in_rect) - but the rects here are authored to fit at full size so nothing has to shrink."
+          "//": "Main-menu-suite Phase A: the hub. D88 grid - 24px inset column, 44px+ buttons, one pulse_hz. Rects reserve rows at y=276 and y=228 for the SAVE SLOTS / RECORDS / HOW TO PLAY / SETTINGS buttons Phases B and C add, so later phases insert widgets without moving these."
         },
         {
           "element_type": "label",
-          "rect": {
-            "x": 204,
-            "y": 412,
-            "w": 392,
-            "h": 44
-          },
+          "rect": { "x": 204, "y": 452, "w": 392, "h": 44 },
           "label_text": "REACTOR DRONE",
           "style_id": "title",
           "z_order": 10
         },
         {
           "element_type": "panel",
-          "rect": {
-            "x": 204,
-            "y": 400,
-            "w": 392,
-            "h": 2
-          },
+          "rect": { "x": 204, "y": 440, "w": 392, "h": 2 },
           "label_text": "",
           "style_id": "rule",
           "z_order": 10
         },
         {
-          "element_type": "label",
-          "rect": {
-            "x": 204,
-            "y": 362,
-            "w": 392,
-            "h": 30
-          },
-          "label_text": "Choose your difficulty.",
-          "style_id": "subtitle",
+          "//": "Lane K (D100): resume offer. main.cpp rewrites it every title frame - a CONTINUE button naming wave and difficulty when a usable save exists, an empty flat label when none does (no visibility flag; the D82 spelling of hidden).",
+          "element_type": "button",
+          "name": "menu_continue",
+          "rect": { "x": 204, "y": 384, "w": 392, "h": 48 },
+          "label_text": "",
+          "style_id": "ghost",
+          "on_click_fn": "on_continue_run_click",
           "z_order": 10
         },
         {
           "element_type": "button",
-          "rect": {
-            "x": 204,
-            "y": 284,
-            "w": 188,
-            "h": 56
-          },
-          "label_text": "NORMAL",
-          "style_id": "default_button",
-          "z_order": 10,
-          "pulse_hz": 1.1,
-          "on_click_fn": "on_start_normal_click",
-          "name": "menu_normal"
-        },
-        {
-          "element_type": "button",
-          "rect": {
-            "x": 408,
-            "y": 284,
-            "w": 188,
-            "h": 56
-          },
-          "label_text": "HARD",
+          "rect": { "x": 204, "y": 328, "w": 392, "h": 48 },
+          "label_text": "PLAY",
           "style_id": "shop_button",
           "z_order": 10,
-          "on_click_fn": "on_start_hard_click",
-          "name": "menu_hard"
+          "pulse_hz": 1.1,
+          "on_click_fn": "on_play_click",
+          "name": "menu_play"
         },
         {
           "element_type": "button",
-          "rect": {
-            "x": 204,
-            "y": 216,
-            "w": 392,
-            "h": 48
-          },
-          "label_text": "",
-          "style_id": "subtitle",
+          "rect": { "x": 204, "y": 180, "w": 392, "h": 44 },
+          "label_text": "QUIT",
+          "style_id": "default_button",
           "z_order": 10,
-          "on_click_fn": "on_ship_cycle",
-          "//": "Lane F (D82): ship selector AND lock readout, deliberately one widget. main.cpp rewrites its label every title frame.",
-          "name": "menu_ship"
+          "on_click_fn": "on_menu_quit_click",
+          "name": "menu_quit"
         },
         {
           "element_type": "label",
-          "rect": {
-            "x": 204,
-            "y": 170,
-            "w": 392,
-            "h": 26
-          },
+          "rect": { "x": 204, "y": 140, "w": 392, "h": 24 },
           "label_text": "Arrows move   Mouse aims   Hold fire",
           "style_id": "caption",
           "z_order": 10
         },
         {
           "element_type": "label",
-          "rect": {
-            "x": 204,
-            "y": 140,
-            "w": 392,
-            "h": 26
-          },
-          "label_text": "SPACE starts a Normal run   ESC pauses",
+          "rect": { "x": 204, "y": 112, "w": 392, "h": 24 },
+          "label_text": "SPACE quick-starts a Normal run",
           "style_id": "caption",
+          "z_order": 10
+        }
+      ]
+    },
+    "run_setup": {
+      "widgets": [
+        {
+          "element_type": "panel",
+          "rect": { "x": 180, "y": 104, "w": 440, "h": 392 },
+          "label_text": "",
+          "style_id": "panel",
+          "z_order": 0,
+          "//": "Main-menu-suite Phase A: PLAY opens this. Difficulty tabs use shop_tab (disabled state = selected look, the D88 tab convention, set from main.cpp like shop_system's set_disabled); menu_ship is the Lane F selector/lock-readout widget relocated from the old title screen."
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 412, "w": 392, "h": 44 },
+          "label_text": "RUN SETUP",
+          "style_id": "title",
           "z_order": 10
         },
         {
-          "//": "Lane K (D100): resume a run saved from the pause menu. Sits below the panel because the panel is full. main.cpp rewrites it every title frame: a CONTINUE button naming the wave and difficulty when saves/run.json holds a usable run, or an empty flat label when it does not - UIElement has no visibility flag, so an inert widget is how 'hidden' is spelled here (the menu_ship precedent, D82).",
+          "element_type": "panel",
+          "rect": { "x": 204, "y": 400, "w": 392, "h": 2 },
+          "label_text": "",
+          "style_id": "rule",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 362, "w": 392, "h": 28 },
+          "label_text": "Pick a difficulty and a hull.",
+          "style_id": "subtitle",
+          "z_order": 10
+        },
+        {
           "element_type": "button",
-          "name": "menu_continue",
-          "rect": {
-            "x": 210,
-            "y": 84,
-            "w": 380,
-            "h": 44
-          },
+          "rect": { "x": 204, "y": 296, "w": 188, "h": 52 },
+          "label_text": "NORMAL",
+          "style_id": "shop_tab",
+          "z_order": 10,
+          "on_click_fn": "on_pick_normal",
+          "name": "menu_normal"
+        },
+        {
+          "element_type": "button",
+          "rect": { "x": 408, "y": 296, "w": 188, "h": 52 },
+          "label_text": "HARD",
+          "style_id": "shop_tab",
+          "z_order": 10,
+          "on_click_fn": "on_pick_hard",
+          "name": "menu_hard"
+        },
+        {
+          "element_type": "button",
+          "rect": { "x": 204, "y": 236, "w": 392, "h": 48 },
           "label_text": "",
           "style_id": "subtitle",
-          "on_click_fn": "on_continue_run_click",
-          "z_order": 10
+          "z_order": 10,
+          "on_click_fn": "on_ship_cycle",
+          "name": "menu_ship",
+          "//": "Lane F (D82): ship selector AND lock readout, one widget, label rewritten every title frame."
+        },
+        {
+          "element_type": "button",
+          "rect": { "x": 204, "y": 164, "w": 392, "h": 56 },
+          "label_text": "LAUNCH",
+          "style_id": "shop_button",
+          "z_order": 10,
+          "pulse_hz": 1.1,
+          "on_click_fn": "on_launch_click",
+          "name": "menu_launch"
+        },
+        {
+          "element_type": "button",
+          "rect": { "x": 204, "y": 112, "w": 188, "h": 44 },
+          "label_text": "BACK",
+          "style_id": "default_button",
+          "z_order": 10,
+          "on_click_fn": "on_back_click",
+          "name": "menu_back"
         }
       ]
     },
