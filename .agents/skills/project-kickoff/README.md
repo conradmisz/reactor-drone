@@ -28,13 +28,17 @@ your-project/
     ├── ai-workflow-rules.md             # How work gets scoped, split, and verified before moving on
     ├── decisions.md                     # Append-only log of technical decisions and their reasoning
     ├── progress-tracker.md              # Current phase, next up, open questions, session notes
-    └── specs/
-        └── feature-template.md          # Copy per feature; acceptance criteria before code
+    ├── specs/
+    │   └── feature-template.md          # Copy per feature; acceptance criteria before code
+    └── bugs/
+        └── bug-template.md              # Copy per bug; append-only record of what's been ruled out
 ```
 
 Two design choices do most of the work here.
 
 **Ephemeral state and permanent record are separate files.** `progress-tracker.md` holds only what's true right now — current goal, in progress, next up — and gets pruned as it grows. `decisions.md` is append-only: a reversed decision gets a new entry that supersedes the old one, never an edit. Mixing these is the usual failure mode of a single sprawling context file, where last month's status notes quietly rot into misinformation.
+
+**Bug investigations get their own files, not a section.** `bugs/` holds one markdown file per bug, status in the frontmatter — no index file and no `open/`/`closed/` folders, because both encode status a second time and the two will drift. `rg -N '^(id|title|status):' agentProjectDocs/bugs/[0-9]*.md` is the index, and it cannot go stale. The load-bearing part is an append-only **Ruled Out** section where every entry says what was tested, what was observed, and *what that eliminates*. Negative results are the expensive ones and the ones you forget; without somewhere to put them you re-run the same test in three weeks. This also keeps `progress-tracker.md` honest — one long investigation living there is the usual way that file blows past its line budget.
 
 **Every file carries a line budget.** The templates open with comments like `<!-- Keep under ~120 lines when filled. -->`. Those aren't decoration — they're the reason the system stays usable. Context files get read on every session; a 400-line architecture doc costs you real tokens forever and stops being read carefully.
 
@@ -103,9 +107,9 @@ $ claude
     Yes — confirm each push
     No — manual pushes only
 
-● Wrote 9 files:
+● Wrote 10 files:
     CLAUDE.md
-    agentProjectDocs/  (7 files + specs/feature-template.md)
+    agentProjectDocs/  (7 files + specs/ and bugs/ templates)
 
   Open questions carried into progress-tracker.md:
     · Streak reset rule across timezones — undecided

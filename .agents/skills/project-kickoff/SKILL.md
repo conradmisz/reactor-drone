@@ -42,7 +42,8 @@ memory.
    the inference and let them correct it.
 4. **Write the files** into the current working directory:
    - `agentProjectDocs/` — all context files filled out,
-     plus `specs/feature-template.md` copied as-is
+     plus `specs/feature-template.md` and
+     `bugs/bug-template.md` copied as-is
    - `CLAUDE.md` at the project root — Commands section
      filled with the *real* commands for the chosen stack,
      not placeholders
@@ -52,6 +53,10 @@ memory.
    - `progress-tracker.md` — phase "Not started", Next Up
      = first feature unit, every unresolved interview
      item listed under Open Questions
+   - `agentProjectDocs/bugs/` — the template only. A new
+     project has no bugs yet, so do not invent any and do not
+     add a bug phase to the interview. The template and the
+     CLAUDE.md rules are the whole feature.
 6. **Report:** list files written, open questions, and
    the suggested first feature to spec out.
 

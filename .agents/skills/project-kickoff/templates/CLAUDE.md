@@ -51,6 +51,31 @@ Auto-backup: **[on/off]**. Remote `[url]`, branch `[main]`.
 
 ## Keeping Context in Sync
 
+### Bugs
+
+- **Before investigating any bug or unexplained behavior, read
+  `agentProjectDocs/bugs/` first.** A report may already exist,
+  and its Ruled Out section will stop you re-running a test
+  that was already done.
+- Bug investigations live in `bugs/`, **not** in
+  `progress-tracker.md`. That file is for phase and next-steps
+  state only; letting one long investigation live there is how
+  it grows past its size budget.
+- New bug: copy `bugs/bug-template.md` to `bugs/NNN-slug.md`,
+  next free number. Status lives in the frontmatter — there is
+  no index file and no open/closed folders to keep in sync. To
+  list every bug and its state:
+
+      rg -N '^(id|title|status|severity):' agentProjectDocs/bugs/[0-9]*.md
+
+- **Log every test into Ruled Out as you run it, including
+  negative and inconclusive results.** Each entry states what
+  was tested, what was observed, and what it eliminates. A test
+  whose result was never written down will be run again.
+- **Never close a bug on a passing build alone.** Fill in
+  Resolution with the root cause and how it was verified, then
+  set `resolved:`.
+
 - Update `agentProjectDocs/progress-tracker.md` after
   each meaningful implementation change.
 - Record significant technical decisions (and why) in
