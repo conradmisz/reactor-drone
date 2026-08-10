@@ -2737,10 +2737,10 @@
     "cooldown": 2.5,
     "damage": 30.0
   },
-  "//minimap": "Lane B / note #7 - arena minimap (D58). x/y/size are in the 800x600 design canvas and are the ONE authority for the map's geometry: MinimapSystem writes them over the authored rect of the 'minimap_frame' panel on the gameplay screen. max_blips is a hard cap; the overflow is logged, never dropped silently.",
+  "//minimap": "Lane B / note #7 - arena minimap (D58). x/y/size are in the 800x600 design canvas and are the ONE authority for the map's geometry: MinimapSystem writes them over the authored rect of the 'minimap_frame' panel on the gameplay screen. max_blips is a hard cap; the overflow is logged, never dropped silently. Lane M (D115): x deliberately runs PAST 800 - the canvas is letterboxed 50px in from each side of the 980x660 window, so an on-canvas x sits 68px from the window's right edge while y=486 sits 20px from the top. 731.3 makes both margins 20px in WINDOW pixels, which is the edge the player actually sees. Pinned by test_minimap.cpp.",
   "minimap": {
     "enabled": true,
-    "x": 688.0,
+    "x": 731.3,
     "y": 486.0,
     "size": 96.0,
     "max_blips": 120
@@ -3631,6 +3631,64 @@
           255,
           70,
           70,
+          255
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "minimap_health": {
+      "normal": {
+        "bg": [
+          80,
+          255,
+          140,
+          255
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "hovered": {
+        "bg": [
+          80,
+          255,
+          140,
+          255
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pressed": {
+        "bg": [
+          80,
+          255,
+          140,
+          255
+        ],
+        "text": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "disabled": {
+        "bg": [
+          80,
+          255,
+          140,
           255
         ],
         "text": [
@@ -4592,114 +4650,157 @@
           "z_order": 20,
           "//": "Placeholder geometry only: MinimapSystem writes x/y/size from the `minimap` config block over this rect every frame (D58), and collapses it when the HUD is hidden.",
           "name": "minimap_frame"
+        },
+        {
+          "element_type": "panel",
+          "rect": {
+            "x": 16,
+            "y": 16,
+            "w": 100,
+            "h": 100
+          },
+          "label_text": "",
+          "style_id": "minimap_frame",
+          "z_order": 20,
+          "name": "item_slot_frame",
+          "//": "Lane M (D116): the boss-reward active-item slot. PauseStatsSystem relabels the two inner labels and collapses all three when no active is held or the HUD is hidden (D86)."
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 24,
+            "y": 52,
+            "w": 84,
+            "h": 40
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 21,
+          "name": "item_slot_name"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 24,
+            "y": 26,
+            "w": 84,
+            "h": 18
+          },
+          "label_text": "",
+          "style_id": "caption",
+          "z_order": 21,
+          "name": "item_slot_key"
         }
       ]
     },
     "pause": {
+      "//": "Lane M (D113): re-authored after the SAVE button was appended straight on top of the two captions at y=204-250. Rows here run 512 (title) down to 36 (buttons) with the 480..128 band RESERVED for the stat sheet PauseStatsSystem places from pause_stats::line_rect() - nothing may be authored inside it. test_pause_screen.cpp fails on any overlap.",
       "widgets": [
         {
           "element_type": "panel",
           "rect": {
-            "x": 250,
-            "y": 164,
-            "w": 300,
-            "h": 316
+            "x": 140,
+            "y": 28,
+            "w": 520,
+            "h": 532
           },
           "label_text": "",
           "style_id": "panel",
-          "z_order": 0
+          "z_order": 30,
+          "name": "pause_panel"
         },
         {
           "element_type": "label",
           "rect": {
-            "x": 274,
-            "y": 412,
-            "w": 252,
-            "h": 40
+            "x": 164,
+            "y": 512,
+            "w": 200,
+            "h": 34
           },
           "label_text": "PAUSED",
           "style_id": "title",
-          "z_order": 10
+          "z_order": 40
         },
         {
           "element_type": "panel",
           "rect": {
-            "x": 274,
-            "y": 400,
-            "w": 252,
+            "x": 164,
+            "y": 504,
+            "w": 472,
             "h": 2
           },
           "label_text": "",
           "style_id": "rule",
-          "z_order": 10
+          "z_order": 40,
+          "name": "pause_rule_top"
+        },
+        {
+          "element_type": "panel",
+          "rect": {
+            "x": 164,
+            "y": 116,
+            "w": 472,
+            "h": 2
+          },
+          "label_text": "",
+          "style_id": "rule",
+          "z_order": 40,
+          "name": "pause_rule_bottom"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 164,
+            "y": 88,
+            "w": 472,
+            "h": 20
+          },
+          "label_text": "ESC also resumes.  E fires your active item.",
+          "style_id": "caption",
+          "z_order": 40
         },
         {
           "element_type": "button",
           "rect": {
-            "x": 274,
-            "y": 332,
-            "w": 252,
-            "h": 52
+            "x": 164,
+            "y": 36,
+            "w": 149,
+            "h": 48
           },
           "label_text": "RESUME",
           "style_id": "default_button",
-          "z_order": 10,
-          "pulse_hz": 1.1,
+          "z_order": 40,
           "on_click_fn": "on_resume_click",
-          "name": "pause_resume"
+          "name": "pause_resume",
+          "pulse_hz": 1.1
         },
         {
           "element_type": "button",
           "rect": {
-            "x": 274,
-            "y": 268,
-            "w": 252,
-            "h": 52
-          },
-          "label_text": "QUIT",
-          "style_id": "default_button",
-          "z_order": 10,
-          "on_click_fn": "on_quit_click",
-          "name": "pause_quit"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 274,
-            "y": 218,
-            "w": 252,
-            "h": 24
-          },
-          "label_text": "ESC also resumes.",
-          "style_id": "caption",
-          "z_order": 10
-        },
-        {
-          "//": "Lane K (D100): save & quit mid-run. main.cpp rewrites label_text to SAVED / SAVE FAILED on click and back to SAVE each time the pause screen opens. Writes saves/run.json, which the title screen's menu_continue widget then offers.",
-          "element_type": "button",
-          "name": "pause_save",
-          "rect": {
-            "x": 300.0,
-            "y": 204.0,
-            "w": 200.0,
-            "h": 46.0
+            "x": 325,
+            "y": 36,
+            "w": 149,
+            "h": 48
           },
           "label_text": "SAVE",
           "style_id": "default_button",
+          "z_order": 40,
           "on_click_fn": "on_save_run_click",
-          "z_order": 10
+          "name": "pause_save"
         },
         {
-          "element_type": "label",
+          "element_type": "button",
           "rect": {
-            "x": 274,
-            "y": 192,
-            "w": 252,
-            "h": 24
+            "x": 486,
+            "y": 36,
+            "w": 150,
+            "h": 48
           },
-          "label_text": "Options: coming soon",
-          "style_id": "caption",
-          "z_order": 10
+          "label_text": "QUIT",
+          "style_id": "default_button",
+          "z_order": 40,
+          "on_click_fn": "on_quit_click",
+          "name": "pause_quit"
         }
       ]
     },

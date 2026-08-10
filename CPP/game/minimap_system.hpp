@@ -39,6 +39,8 @@ public:
     static constexpr const char* STYLE_PLAYER   = "minimap_player";
     static constexpr const char* STYLE_ENEMY    = "minimap_enemy";
     static constexpr const char* STYLE_PICKUP   = "minimap_pickup";
+    /// Health packs only (#4, D114) — the one pickup worth crossing the arena for.
+    static constexpr const char* STYLE_HEALTH   = "minimap_health";
 
     void set_config(const MinimapConfig& minimap, const ArenaConfig& arena) {
         cfg_ = minimap;

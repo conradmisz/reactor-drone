@@ -63,6 +63,7 @@
 #include "sustain_spawn_system.hpp"
 #include "dash_system.hpp"
 #include "minimap_system.hpp"
+#include "pause_stats.hpp"
 #include "wave_spawner_system.hpp"
 #include "shop_system.hpp"
 // Iteration 3 / Lane D (#3, #9, #4). Headers only — every call site is inside
@@ -1535,6 +1536,18 @@ int main(int argc, char* argv[]) {
             minimap.update(component_storage, entity_manager, blackboard);
         }
         // === END HOOK: minimap ===
+
+        // === HOOK: ship-readout === (Iteration 5 — Lane M / #5, #13)
+        // The pause screen's character sheet and the HUD's active-item slot, both
+        // driven from one query of the player. Here, beside game_hud and minimap,
+        // because it is the same kind of work — a per-frame refresh of screen-space
+        // furniture — and it must run while the sim is frozen, which everything
+        // inside the `sim` block above does not.
+        {
+            static PauseStatsSystem ship_readout;   // label pool allocated once
+            ship_readout.update(component_storage, entity_manager, blackboard, config);
+        }
+        // === END HOOK: ship-readout ===
 
         // v2 Phase 4 + Upgrade Phase 2: follow camera & screen shake. Decay
         // trauma, then set look-at to the player's centre offset by
