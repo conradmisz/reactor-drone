@@ -403,3 +403,38 @@ renamed, because a lane whose hook has vanished has nowhere to land.
 Every default is **inert** (`sustain.interval 0`, `minimap.enabled false`,
 `actives []`, no wave flagged `boss`, no type carrying a `behavior`), which is why
 the phase could be verified by the replay canary staying byte-identical.
+
+### 6a. Lane B — what landed in `sustain-spawn`, `dash` and `minimap` (D56-D58)
+
+- **`sustain_spawn_system.{hpp,cpp}`** — a free function, not a class (the
+  `tick_shields` idiom). Its whole state is three Blackboard keys
+  (`sustain.timer/count/wave`), so there is nothing to construct in `main.cpp` and
+  nothing that can survive a restart holding the wrong value. **No RNG**: the n-th
+  placement walks a golden-angle spiral, so the R2 "draw on every path, in a fixed
+  order" discipline is not merely followed, it is unnecessary. Health/Shield
+  pickups ride the existing `Pickup` component and are collected by
+  `PickupSystem`'s two new kind branches, which clamp into `Health.max_hp` and
+  `ShipState.shield_max` respectively.
+- **`dash_system.hpp`** — header-only free function, same idiom. `ShipState`
+  already carries `dash_cd`/`dash_timer`; the only scratch that does not belong on
+  a component (the per-dash already-hit list) lives in a `DashState` the hook
+  block owns. LSHIFT is read **inside the hook block**, not in main's shared
+  key-edge section, so the whole feature is one contiguous diff. `--keys 20:LSHIFT`
+  drives it headlessly.
+- **`minimap_math.hpp` + `minimap_system.{hpp,cpp}`** — the mapping is a pure,
+  engine-free header; the system is a thin shell over a pooled set of blip
+  widgets.
+
+  ⚠️ **Correction to the Phase-0 note in the `minimap` hook**: a screen-space
+  entity carrying `ScreenPosition + Size + Color` and **no** `Position` is drawn by
+  **nothing**. `RenderSystem::render` iterates
+  `entities_with_component<Position>()`, and `HUDSystem` only draws `Text`. Adding
+  a `Position` hands the entity to `CameraSystem`, which overwrites
+  `ScreenPosition` every frame. The HUD *text* rows work only because `HUDSystem`
+  has its own `Text`+`ScreenPosition` path. The blips are therefore pooled
+  **`UIElement` panel widgets** on the always-active `gameplay` screen — the
+  mechanism `GameHUDSystem`'s hull/shield gauges already use. That also buys
+  design-canvas coordinates (resolution independence), `z_order` above the frame
+  panel, style-driven colours, and survival across `spawn_world`, which
+  deliberately skips `UIElement` entities — so the pool is allocated exactly once
+  per process and only ever repositioned. A parked blip is a zero-width rect.

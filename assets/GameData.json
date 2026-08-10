@@ -2449,9 +2449,9 @@
     ]
   },
   "//iteration3": "Iteration-3 scaffolding (D51). Each block below is OWNED BY ONE LANE and every value here is an inert default: the game plays exactly as it did before iteration 3 until the owning lane fills its block in. Do not let two lanes edit the same block.",
-  "//sustain": "Lane B / note #10 - periodic health & shield pickups. interval 0 = feature off.",
+  "//sustain": "Lane B / note #10 - periodic health & shield pickups (D56). interval 0 = feature off. Placement walks a golden-angle spiral, not an RNG stream, so a run replays identically.",
   "sustain": {
-    "interval": 0.0,
+    "interval": 14.0,
     "max_live": 3,
     "health_amount": 25.0,
     "shield_amount": 20.0,
@@ -2465,11 +2465,11 @@
     "cooldown": 2.5,
     "damage": 30.0
   },
-  "//minimap": "Lane B / note #7 - arena minimap. x/y/size are in the 800x600 design canvas; enabled=false until the lane lands.",
+  "//minimap": "Lane B / note #7 - arena minimap (D58). x/y/size are in the 800x600 design canvas and are the ONE authority for the map's geometry: MinimapSystem writes them over the authored rect of the 'minimap_frame' panel on the gameplay screen. max_blips is a hard cap; the overflow is logged, never dropped silently.",
   "minimap": {
-    "enabled": false,
+    "enabled": true,
     "x": 640.0,
-    "y": 430.0,
+    "y": 410.0,
     "size": 140.0,
     "max_blips": 120
   },
@@ -3182,6 +3182,24 @@
           220
         ]
       }
+    },
+    "minimap_player": {
+      "normal": { "bg": [120, 225, 255, 255], "text": [0, 0, 0, 0] },
+      "hovered": { "bg": [120, 225, 255, 255], "text": [0, 0, 0, 0] },
+      "pressed": { "bg": [120, 225, 255, 255], "text": [0, 0, 0, 0] },
+      "disabled": { "bg": [120, 225, 255, 255], "text": [0, 0, 0, 0] }
+    },
+    "minimap_enemy": {
+      "normal": { "bg": [255, 70, 70, 255], "text": [0, 0, 0, 0] },
+      "hovered": { "bg": [255, 70, 70, 255], "text": [0, 0, 0, 0] },
+      "pressed": { "bg": [255, 70, 70, 255], "text": [0, 0, 0, 0] },
+      "disabled": { "bg": [255, 70, 70, 255], "text": [0, 0, 0, 0] }
+    },
+    "minimap_pickup": {
+      "normal": { "bg": [255, 210, 90, 255], "text": [0, 0, 0, 0] },
+      "hovered": { "bg": [255, 210, 90, 255], "text": [0, 0, 0, 0] },
+      "pressed": { "bg": [255, 210, 90, 255], "text": [0, 0, 0, 0] },
+      "disabled": { "bg": [255, 210, 90, 255], "text": [0, 0, 0, 0] }
     }
   },
   "screens": {
@@ -3432,6 +3450,19 @@
           "label_text": "",
           "style_id": "hud_shield",
           "z_order": 12
+        },
+        {
+          "element_type": "panel",
+          "name": "minimap_frame",
+          "rect": {
+            "x": 640.0,
+            "y": 410.0,
+            "w": 140.0,
+            "h": 140.0
+          },
+          "label_text": "",
+          "style_id": "hud_bar_bg",
+          "z_order": 20
         }
       ]
     },

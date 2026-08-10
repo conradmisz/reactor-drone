@@ -365,3 +365,96 @@ Decisions seeded from the gameplay plan (D1–D12) and made during Phases 1-4
 - **Next step:** either a `player_drone_purple` sidecar from the offline
   generator (then it is a one-line `ships[1].sidecar` edit, no rebuild), or give
   `FlashSystem::base_tint` a per-entity resting tint so the player can own one.
+
+### D56 — Sustain pickups place on a spiral, not on an RNG draw  *(2026-08-09)*
+- **Decision:** `sustain_spawn` is a free function with **no RNG at all**. The
+  n-th placement sits at `centre + (cos, sin)(n * golden_angle) * radius *
+  0.88 * sqrt(frac(n * 0.618))`, and the health/shield split is an exact
+  Bresenham-style walk over `shield_weight` (100 placements at 0.35 give exactly
+  35 shields). Its whole state is three Blackboard keys —
+  `sustain.timer/count/wave`.
+- **Why:** determinism is a project invariant, and the way it usually breaks is a
+  conditional or reordered draw (the R2 discipline `EnemyDeathSystem::drop_loot`
+  has to spell out at length). A spiral cannot have that bug: there is no stream
+  to get out of step. It is also better-distributed than uniform sampling — the
+  sunflower packing never clumps — and it removed the need for a system object,
+  a seed to plumb through `main.cpp`, and a reset hook in `spawn_world` (a lambda
+  this lane does not own). New-run detection is instead "the wave counter went
+  down", which only ever happens when `spawn_world` has rebuilt the world.
+- **Rejected:** a `std::mt19937` seeded from `cfg.seed` held in a system object —
+  the plan's original shape. It needs a construction site outside the hook block
+  and a re-seed site inside `spawn_world`, and buys nothing a low-discrepancy
+  sequence does not already give.
+- **Also decided:** a shield cell is placed only once the player owns a capacitor
+  (`shield_max > 0`); before that every placement is hull, because an unbanked
+  cell is a pickup that visibly does nothing. `PickupSystem` still clamps to
+  `shield_max` regardless, so the rule holds for any future producer. Sustain
+  pickups carry **no `Lifetime`** — unlike coins (D52, which despawn to make
+  grabbing them a risk call), they are the arena's standing offer of a heal and
+  `max_live` is what bounds them.
+- **Timer epsilon:** the countdown fires at `timer <= 1e-4`, not `<= 0`. A
+  countdown of N equal float steps lands a hair either side of zero, which slips
+  the placement to the following frame about half the time; 1e-4 s is 0.006 of a
+  frame and makes the cadence an exact, testable frame count.
+- **Numbers (provisional, unplayed):** `interval 14s`, `max_live 3`,
+  `health 25`, `shield 20`, `shield_weight 0.35`, `min_player_dist 220` in a
+  1400-radius arena.
+
+### D57 — The dash is held, not edge-triggered, and reads its own key  *(2026-08-09)*
+- **Decision:** `tick_dash` (free functions in `dash_system.hpp`, the
+  `tick_shields` idiom) fires while LSHIFT/RSHIFT is **held** and `dash_cd` is
+  zero. The key is read inside the `dash` hook block — physical state plus a scan
+  of `opts.keys` for a scripted `LSHIFT` — rather than in main's shared key-edge
+  section above.
+- **Why:** `ShipState.dash_cd` is already the gate, so edge detection would add a
+  `bool` of state to disambiguate nothing: holding the key simply dashes again the
+  moment the cooldown expires, which is what a player holding it wants anyway.
+  Reading the key in the hook keeps the entire feature a single contiguous diff in
+  a file five other lanes are editing in parallel — the one thing the multi-agent
+  protocol most needs to be true.
+- **Damage rules** (straight from the playtest note): each enemy takes exactly one
+  `DamageEvent` per dash, tracked by a per-dash already-hit list in `DashState`
+  (0.15 s is ~9 frames; without the list a dash would delete the swarm). The
+  player's first contact is deliberately let through untouched so
+  `PlayerDamageSystem` resolves it normally; every frame after it holds
+  `player.iframes` above the remaining burst, so ploughing through a crowd costs
+  one hit, not one per body.
+- **Rejected:** damaging on collision-enter via `CollidedWith` — collision runs
+  *after* this hook, so it would be a frame stale and would still need the
+  already-hit list for bodies that stay in contact.
+- **Particle cost:** zero new entities. The drone's existing thruster emitter is
+  driven at 240/s for the burst and restored afterwards: ~36 extra live particles
+  at a 0.4 s lifetime, under 2% of `DEFAULT_MAX_PARTICLES`, and it decays well
+  before the cooldown is up so dashes cannot stack their cost.
+
+### D58 — Minimap blips are UI widgets, because screen-space entities do not render  *(2026-08-09)*
+- **Decision:** the blips are a pooled set of **`UIElement` panel widgets**
+  (+ `UIState` + `ScreenMembership{"gameplay"}`) created once and repositioned
+  every frame, with a parked blip expressed as a zero-width rect. The mapping
+  itself is `minimap_math.hpp`: pure, engine-free, and the only thing that knows
+  about arena circles.
+- **Why (this overrides the plan):** the plan specified `ScreenPosition + Size +
+  Color + RenderLayer` entities with no `Position`. **Nothing draws those.**
+  `RenderSystem::render` iterates `entities_with_component<Position>()`, so a
+  `ScreenPosition`-only entity is never reached; `HUDSystem` draws only `Text`,
+  which is why the HUD *text* rows work and why they are not the precedent they
+  look like. Adding a `Position` hands the entity straight back to `CameraSystem`,
+  which overwrites `ScreenPosition` every frame — the trap the plan correctly
+  named, with no escape on that path. The working precedent is
+  `GameHUDSystem`'s hull/shield gauges, which are widgets.
+- **What it buys beyond just working:** design-canvas coordinates (so the map is
+  resolution-independent through `ui_canvas_transform` for free), `z_order` above
+  the frame panel, style-driven colours, and survival across `spawn_world` —
+  which deliberately skips `UIElement` entities — so the pool really is allocated
+  once per process rather than once per run.
+- **Geometry has one authority:** the `minimap` config block. `MinimapSystem`
+  writes `x/y/size` over the authored rect of the `minimap_frame` panel, so the
+  JSON rect is a placeholder and the two can never disagree.
+- **Out-of-arena clamping** clamps the offset **vector's length**, not x and y
+  independently: a body past the wall sits on the rim on its true bearing, where
+  per-axis clamping would slide it into a corner and point the player the wrong
+  way.
+- **The cap is loud:** priority order is player, then boss, then the swarm, then
+  loot, so overflow only ever drops the least informative blips; the overflow is
+  logged whenever it gets *worse* (logging every frame would print 60 lines a
+  second and bury everything else).
