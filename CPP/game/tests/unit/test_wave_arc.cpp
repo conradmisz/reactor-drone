@@ -94,7 +94,10 @@ TEST_CASE("pressure never decreases across the arc", "[Game][wavearc][ramp]") {
 
 TEST_CASE("eight arenas activate on the two-pass schedule", "[Game][wavearc][arena]") {
     const GameConfig cfg = shipped();
-    REQUIRE(cfg.arenas.size() == 8);
+    // Lane D (D72) appended a 9th arena, the wave-50 Singularity void. The
+    // two-pass schedule this case owns is still the FIRST eight; the 9th and its
+    // activation are asserted in test_boss.cpp.
+    REQUIRE(cfg.arenas.size() == 9);
 
     const int first[8] = {1, 7, 13, 20, 26, 32, 38, 45};
     for (int i = 0; i < 8; ++i) {
@@ -104,17 +107,18 @@ TEST_CASE("eight arenas activate on the two-pass schedule", "[Game][wavearc][are
         // Still the same arena the wave before the NEXT activation.
         if (i < 7) CHECK(active_arena_index(cfg.arenas, first[i + 1] - 1) == i);
     }
-    CHECK(active_arena_index(cfg.arenas, 50) == 7);
+    // Wave 49 is still the last of the two passes; wave 50 is Lane D's void.
+    CHECK(active_arena_index(cfg.arenas, 49) == 7);
 
     std::set<std::string> names;
     for (const ArenaDef& a : cfg.arenas) names.insert(a.name);
-    CHECK(names.size() == 8);   // eight distinct arenas, not four listed twice
+    CHECK(names.size() == 9);   // eight distinct arenas + the wave-50 void
 }
 
 TEST_CASE("the second pass reuses the art and changes only the layout",
           "[Game][wavearc][arena]") {
     const GameConfig cfg = shipped();
-    REQUIRE(cfg.arenas.size() == 8);
+    REQUIRE(cfg.arenas.size() == 9);   // 8 two-pass themes + Lane D's wave-50 void
 
     for (size_t i = 0; i < 4; ++i) {
         const ArenaDef& a = cfg.arenas[i];       // pass 1

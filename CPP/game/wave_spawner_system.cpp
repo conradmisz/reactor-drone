@@ -1,4 +1,5 @@
 #include "wave_spawner_system.hpp"
+#include "enemy_fire_system.hpp"   // behavior_kind_for
 #include "enemy_components.hpp"    // EnemyTag, Health, PathFollower (seek speed)
 #include "player_components.hpp"   // ContactDamage
 #include "collision_layers.hpp"
@@ -45,6 +46,27 @@ void WaveSpawnerSystem::spawn_enemy(const WaveDef& wave,
     } else {
         type_index = enemies_spawned_ % static_cast<int>(cfg_->enemy_types.size());
     }
+
+    // Iteration 3 (D67): the arena's specialty unit and the unlocked moon
+    // shooters are injected on a spawn cadence rather than being written into 50
+    // wave rosters. The live arena is derived from the wave number here rather
+    // than pushed in from main.cpp: it is the same pure function main uses, and
+    // deriving it keeps the spawner off the arena-shift timing entirely.
+    const int wave_number = current_wave_ + 1;
+    int specialty_tier = 1;
+    if (cfg_->specialty.every_n_spawns > 0 || cfg_->specialty.moon_every_n_spawns > 0) {
+        int specialty_unit = -1;
+        const int ai = active_arena_index(cfg_->arenas, wave_number);
+        if (ai >= 0) {
+            specialty_unit = cfg_->arenas[static_cast<size_t>(ai)].specialty_unit;
+            specialty_tier = cfg_->arenas[static_cast<size_t>(ai)].specialty_tier;
+        }
+        const int inj = injected_type(enemies_spawned_, cfg_->specialty, specialty_unit,
+                                      unlocked_injections(cfg_->enemy_types, wave_number));
+        if (inj >= 0) type_index = inj;
+        if (inj != specialty_unit) specialty_tier = 1;   // a moon is not tiered by arena
+    }
+
     type_index = std::max(0, std::min(type_index, static_cast<int>(cfg_->enemy_types.size()) - 1));
     const EnemyType& type = cfg_->enemy_types[static_cast<size_t>(type_index)];
 
@@ -92,10 +114,27 @@ void WaveSpawnerSystem::spawn_enemy(const WaveDef& wave,
     }
     // PathFollower reused purely as the enemy's seek speed (EnemySeekSystem).
     // Per-wave multipliers scale the shared enemy_types (D10 — no new types).
+    // Iteration 3 (D68): a specialty unit on the second pass over the four themes
+    // (waves 26-50) is the SAME unit, harder — two multipliers, not a new row.
+    const int beh_kind = enemy_fire::behavior_kind_for(type.behavior);
+    const bool tier2 = specialty_tier >= 2 && beh_kind != behavior_kinds::SEEKER &&
+                       beh_kind != behavior_kinds::SHOOTER;
+    const float sp_hp    = tier2 ? cfg_->specialty.tier2_hp_mult : 1.0f;
+    const float sp_speed = tier2 ? cfg_->specialty.tier2_speed_mult : 1.0f;
+
     component_storage.add_component<PathFollower>(e,
-        PathFollower{1, 0.0f, type.speed * wave.speed_mult, 0.0f, 0.0f, 0.0f, tint_phase});
-    float hp = type.health * wave.hp_mult;
+        PathFollower{1, 0.0f, type.speed * wave.speed_mult * sp_speed,
+                     0.0f, 0.0f, 0.0f, tint_phase});
+    float hp = type.health * wave.hp_mult * sp_hp;
     component_storage.add_component<Health>(e, Health{hp, hp});
+    // Iteration 3 (D66): whatever this type does beyond seeking. The timer starts
+    // at a full cooldown, so nothing fires on the frame it spawns.
+    if (beh_kind != behavior_kinds::SEEKER) {
+        const float interval = type.fire_interval > 0.0f ? type.fire_interval : 2.0f;
+        const int tier = tier2 ? 2 : type.behavior_tier;
+        component_storage.add_component<EnemyBehavior>(e,
+            EnemyBehavior{beh_kind, tier, interval, interval, 0.0f});
+    }
     component_storage.add_component<EnemyTag>(e, EnemyTag{});
     // Enemies used to fall to layer 0 — behind the walls. At 64-78 px that reads
     // as a bug, so they share the obstacle layer and still sit under the player(3).
@@ -151,6 +190,11 @@ void WaveSpawnerSystem::update(Blackboard& blackboard,
     }
 
     if (!quota_done) return;
+
+    // Iteration 3 (D70): a boss wave is held open by BossSystem until the boss is
+    // dead AND its reward has been taken. Placed before the straggler force-kill,
+    // which would otherwise execute the boss the moment the adds ran out.
+    if (clear_hold_) { stall_timer_ = 0.0f; return; }
 
     // D4: a wave ends only on a *cleared* arena, so the shop always opens with
     // nothing alive. R3: an enemy that somehow becomes unreachable would soft-lock

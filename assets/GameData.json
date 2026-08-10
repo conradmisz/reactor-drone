@@ -1594,6 +1594,140 @@
         }
       ],
       "specialty_tier": 2
+    },
+    {
+      "name": "Singularity",
+      "first_wave": 50,
+      "tie_dye": false,
+      "enemy_tint": {
+        "r": 255,
+        "g": 200,
+        "b": 80
+      },
+      "wall_image": "v2/pillar_galaxy.png",
+      "obstacle_image": "v2/pillar_galaxy.png",
+      "hazard_image": "v2/vent_galaxy.png",
+      "backdrop_layers": [
+        {
+          "image": "v2/bg_galaxy_far.png",
+          "scroll_factor": 0.9
+        },
+        {
+          "image": "v2/bg_galaxy_mid.png",
+          "scroll_factor": 0.6
+        },
+        {
+          "image": "v2/bg_galaxy_near.png",
+          "scroll_factor": 0.25
+        }
+      ],
+      "obstacles": [
+        {
+          "x": 2342.8,
+          "y": 1837.9,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 2244.3,
+          "y": 2479.2,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 1603.2,
+          "y": 2380.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 963.0,
+          "y": 2484.5,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 859.2,
+          "y": 1844.1,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 562.0,
+          "y": 1267.5,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 1138.9,
+          "y": 970.9,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 1595.5,
+          "y": 510.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 2055.8,
+          "y": 967.1,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 2635.2,
+          "y": 1258.9,
+          "w": 120.0,
+          "h": 120.0
+        }
+      ],
+      "hazards": [
+        {
+          "x": 2070.0,
+          "y": 1600.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 18.0
+        },
+        {
+          "x": 1835.0,
+          "y": 2007.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 18.0
+        },
+        {
+          "x": 1365.0,
+          "y": 2007.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 18.0
+        },
+        {
+          "x": 1130.0,
+          "y": 1600.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 18.0
+        },
+        {
+          "x": 1365.0,
+          "y": 1193.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 18.0
+        },
+        {
+          "x": 1835.0,
+          "y": 1193.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 18.0
+        }
+      ],
+      "specialty_tier": 2
     }
   ],
   "feedback": {
@@ -1671,6 +1805,128 @@
       "score": 30,
       "currency": 4,
       "drop_chance": 1.0
+    },
+    {
+      "name": "moon_1",
+      "sidecar": "images/v2/enemy_warden.json",
+      "clip": "march",
+      "speed": 62.0,
+      "health": 35.0,
+      "contact_damage": 6.0,
+      "size": 62.0,
+      "score": 20,
+      "currency": 2,
+      "drop_chance": 0.8,
+      "behavior": "shooter",
+      "behavior_tier": 1,
+      "fire_interval": 2.6,
+      "shot_speed": 240.0,
+      "shot_damage": 7.0,
+      "first_wave": 3
+    },
+    {
+      "name": "moon_2",
+      "sidecar": "images/v2/enemy_warden.json",
+      "clip": "march",
+      "speed": 74.0,
+      "health": 60.0,
+      "contact_damage": 6.0,
+      "size": 66.0,
+      "score": 30,
+      "currency": 3,
+      "drop_chance": 0.8,
+      "behavior": "shooter",
+      "behavior_tier": 2,
+      "fire_interval": 2.1,
+      "shot_speed": 230.0,
+      "shot_damage": 9.0,
+      "first_wave": 15
+    },
+    {
+      "name": "moon_3",
+      "sidecar": "images/v2/enemy_warden.json",
+      "clip": "march",
+      "speed": 58.0,
+      "health": 100.0,
+      "contact_damage": 6.0,
+      "size": 70.0,
+      "score": 45,
+      "currency": 4,
+      "drop_chance": 0.8,
+      "behavior": "shooter",
+      "behavior_tier": 3,
+      "fire_interval": 1.7,
+      "shot_speed": 200.0,
+      "shot_damage": 12.0,
+      "first_wave": 30
+    },
+    {
+      "name": "bio_spitter",
+      "sidecar": "images/v2/enemy_runner.json",
+      "clip": "march",
+      "speed": 80.0,
+      "health": 70.0,
+      "contact_damage": 10.0,
+      "size": 72.0,
+      "score": 35,
+      "currency": 3,
+      "drop_chance": 0.9,
+      "behavior": "spitter",
+      "behavior_tier": 1,
+      "fire_interval": 2.2,
+      "shot_speed": 0.0,
+      "shot_damage": 9.0
+    },
+    {
+      "name": "foundry_miner",
+      "sidecar": "images/v2/enemy_hulk.json",
+      "clip": "march",
+      "speed": 62.0,
+      "health": 95.0,
+      "contact_damage": 12.0,
+      "size": 76.0,
+      "score": 40,
+      "currency": 4,
+      "drop_chance": 0.9,
+      "behavior": "miner",
+      "behavior_tier": 1,
+      "fire_interval": 3.0,
+      "shot_speed": 0.0,
+      "shot_damage": 22.0
+    },
+    {
+      "name": "core_bulwark",
+      "sidecar": "images/v2/enemy_hulk.json",
+      "clip": "march",
+      "speed": 48.0,
+      "health": 130.0,
+      "contact_damage": 16.0,
+      "size": 82.0,
+      "score": 45,
+      "currency": 5,
+      "drop_chance": 1.0,
+      "behavior": "bulwark",
+      "behavior_tier": 1,
+      "fire_interval": 1.0,
+      "shot_speed": 0.0,
+      "shot_damage": 0.0
+    },
+    {
+      "name": "prism_splitter",
+      "sidecar": "images/v2/enemy_spark.json",
+      "clip": "march",
+      "speed": 92.0,
+      "health": 80.0,
+      "contact_damage": 10.0,
+      "size": 74.0,
+      "score": 35,
+      "currency": 3,
+      "drop_chance": 0.9,
+      "behavior": "splitter",
+      "behavior_tier": 1,
+      "fire_interval": 1.0,
+      "shot_speed": 0.0,
+      "shot_damage": 0.0
     }
   ],
   "wave_stall_timeout": 30.0,
@@ -2290,7 +2546,8 @@
       "speed_mult": 1.0,
       "currency_mult": 1.0,
       "hazard_damage_mult": 1.0,
-      "type_lookahead": 0
+      "type_lookahead": 0,
+      "boss_mult": 1.0
     },
     {
       "name": "Hard",
@@ -2300,7 +2557,8 @@
       "speed_mult": 1.15,
       "currency_mult": 1.4,
       "hazard_damage_mult": 1.5,
-      "type_lookahead": 2
+      "type_lookahead": 2,
+      "boss_mult": 1.6
     }
   ],
   "//ships": "Selectable ships (Lane F, D82). A ship is a variant of the player block's sidecar/idle_clip/weapon, overlaid onto PlayerConfig at run start. unlock_score is compared against the LIFETIME score in saves/meta.json; 0 = always available. Purple is a gatling: 12/s x 6 dmg = 72 DPS against Standard's 4/s x 20 = 80, i.e. 3x the cadence for 90% of the sustained damage. PROVISIONAL and unplayed. Purple reuses the standard drone art for now (D83).",
@@ -2473,7 +2731,52 @@
     "size": 140.0,
     "max_blips": 120
   },
-  "//boss": "Lane D / note #4 - the every-10th-wave boss. health_growth compounds per appearance; the boss is themed to whichever arena is live.",
+  "//specialty": "Lane D / notes #3 + #9 (D67). Two cadences over the spawn counter, not RNG: every_n_spawns injects the live arena's specialty unit, moon_every_n_spawns injects one unlocked shooter (a type with first_wave > 0). by_arena maps an arena NAME to an enemy_types NAME - names, not indices, because the two lists are authored by different lanes. tier2_* is what makes the second pass over the same four themes (waves 26-50) harder. PROVISIONAL: unplayed.",
+  "specialty": {
+    "every_n_spawns": 7,
+    "moon_every_n_spawns": 4,
+    "tier2_hp_mult": 1.6,
+    "tier2_speed_mult": 1.15,
+    "by_arena": [
+      {
+        "arena": "Core",
+        "type": "core_bulwark"
+      },
+      {
+        "arena": "Foundry",
+        "type": "foundry_miner"
+      },
+      {
+        "arena": "Bio-lab",
+        "type": "bio_spitter"
+      },
+      {
+        "arena": "Prism",
+        "type": "prism_splitter"
+      },
+      {
+        "arena": "Core II",
+        "type": "core_bulwark"
+      },
+      {
+        "arena": "Foundry II",
+        "type": "foundry_miner"
+      },
+      {
+        "arena": "Bio-lab II",
+        "type": "bio_spitter"
+      },
+      {
+        "arena": "Prism II",
+        "type": "prism_splitter"
+      },
+      {
+        "arena": "Singularity",
+        "type": "prism_splitter"
+      }
+    ]
+  },
+  "//boss": "Lane D / note #4 - the every-10th-wave boss. health_growth compounds per appearance; the boss is themed to whichever arena is live and borrows that arena's specialty attack. final_* is the wave-50 fight, which is a different fight rather than a bigger one. shift_hp_frac is the wave-50 mid-fight arena shift, which is NOT wired yet - see the SEAM comment in boss_system.cpp. PROVISIONAL: unplayed.",
   "boss": {
     "health": 3000.0,
     "health_growth": 1.6,
@@ -2481,10 +2784,35 @@
     "contact_damage": 30.0,
     "summon_interval": 6.0,
     "summon_count": 4,
-    "reward_choices": 3
+    "reward_choices": 3,
+    "final_mult": 1.8,
+    "final_summon_bonus": 4,
+    "shift_hp_frac": 0.5
   },
-  "//actives": "Lane D - boss-reward active items. All three sit on the 30s cooldown the design note fixes. Empty until the boss phase lands.",
-  "actives": [],
+  "//actives": "Lane D - boss-reward active items, offered on the boss_reward screen and fired with E. All three sit on the 30s cooldown the design note fixes. `effect` is the dispatch key (D26): never a row index. repulsor_field auto-fires below 20% hull instead of on the key. PROVISIONAL: unplayed.",
+  "actives": [
+    {
+      "name": "Heat-Seeking Missiles",
+      "effect": "missiles",
+      "cooldown": 30.0,
+      "amount": 45.0,
+      "duration": 4.0
+    },
+    {
+      "name": "Laser Cannon",
+      "effect": "laser",
+      "cooldown": 30.0,
+      "amount": 30.0,
+      "duration": 1.6
+    },
+    {
+      "name": "Repulsion Device",
+      "effect": "repulsor_field",
+      "cooldown": 30.0,
+      "amount": 420.0,
+      "duration": 5.0
+    }
+  ],
   "//ui": "UI & menu layer (Option-040 port). Rects are authored in the 800x600 design canvas; ui_canvas_transform letterboxes them onto the live window.",
   "ui_styles": {
     "panel": {
@@ -3798,6 +4126,91 @@
           },
           "label_text": "Save & Options: coming soon",
           "style_id": "subtitle",
+          "z_order": 10
+        }
+      ]
+    },
+    "boss_reward": {
+      "//": "Lane D (D71): the boss-kill reward. BossSystem rewrites reward_0/1/2's label_text from the `actives` block every time it pushes this screen (the menu_ship pattern), so the offer can change per boss without a second screen. The click fns are matched as string literals in boss_system.cpp - test_boss.cpp pins the pair.",
+      "active": false,
+      "widgets": [
+        {
+          "element_type": "panel",
+          "rect": {
+            "x": 100,
+            "y": 190,
+            "w": 600,
+            "h": 220
+          },
+          "label_text": "",
+          "style_id": "panel",
+          "z_order": 0
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 250,
+            "y": 355,
+            "w": 300,
+            "h": 40
+          },
+          "label_text": "BOSS DOWN",
+          "style_id": "title",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 160,
+            "y": 320,
+            "w": 480,
+            "h": 28
+          },
+          "label_text": "Salvage one active system.  E fires it.",
+          "style_id": "subtitle",
+          "z_order": 10
+        },
+        {
+          "element_type": "button",
+          "name": "reward_0",
+          "rect": {
+            "x": 120,
+            "y": 225,
+            "w": 180,
+            "h": 66
+          },
+          "label_text": "",
+          "style_id": "shop_button",
+          "on_click_fn": "on_active_pick_0",
+          "pulse_hz": 1.1,
+          "z_order": 10
+        },
+        {
+          "element_type": "button",
+          "name": "reward_1",
+          "rect": {
+            "x": 310,
+            "y": 225,
+            "w": 180,
+            "h": 66
+          },
+          "label_text": "",
+          "style_id": "default_button",
+          "on_click_fn": "on_active_pick_1",
+          "z_order": 10
+        },
+        {
+          "element_type": "button",
+          "name": "reward_2",
+          "rect": {
+            "x": 500,
+            "y": 225,
+            "w": 180,
+            "h": 66
+          },
+          "label_text": "",
+          "style_id": "default_button",
+          "on_click_fn": "on_active_pick_2",
           "z_order": 10
         }
       ]

@@ -155,6 +155,7 @@ GameConfig load_arena_config(const std::string& file_path) {
             t.fire_interval  = e.value("fire_interval", t.fire_interval);
             t.shot_speed     = e.value("shot_speed", t.shot_speed);
             t.shot_damage    = e.value("shot_damage", t.shot_damage);
+            t.first_wave     = e.value("first_wave", t.first_wave);
             cfg.enemy_types.push_back(std::move(t));
         }
     }
@@ -213,6 +214,41 @@ GameConfig load_arena_config(const std::string& file_path) {
         bc.summon_interval = b.value("summon_interval", bc.summon_interval);
         bc.summon_count    = b.value("summon_count", bc.summon_count);
         bc.reward_choices  = b.value("reward_choices", bc.reward_choices);
+        bc.final_mult         = b.value("final_mult", bc.final_mult);
+        bc.final_summon_bonus = b.value("final_summon_bonus", bc.final_summon_bonus);
+        bc.shift_hp_frac      = b.value("shift_hp_frac", bc.shift_hp_frac);
+    }
+    // Iteration 3 (D67): the specialty/moon injection cadences, plus the arena ->
+    // specialty-unit map. Resolved to an enemy_types index here, once, so no
+    // system has to carry a name lookup — and so a typo is one silent -1 rather
+    // than a per-frame string compare.
+    if (data.contains("specialty")) {
+        const auto& sp = data["specialty"];
+        auto& sc = cfg.specialty;
+        sc.every_n_spawns      = sp.value("every_n_spawns", sc.every_n_spawns);
+        sc.moon_every_n_spawns = sp.value("moon_every_n_spawns", sc.moon_every_n_spawns);
+        sc.tier2_hp_mult       = sp.value("tier2_hp_mult", sc.tier2_hp_mult);
+        sc.tier2_speed_mult    = sp.value("tier2_speed_mult", sc.tier2_speed_mult);
+        if (sp.contains("by_arena")) {
+            for (const auto& p : sp["by_arena"]) {
+                SpecialtyPick pick;
+                pick.arena = p.value("arena", std::string());
+                pick.type  = p.value("type", std::string());
+                sc.by_arena.push_back(std::move(pick));
+            }
+        }
+        for (ArenaDef& a : cfg.arenas) {
+            for (const SpecialtyPick& p : sc.by_arena) {
+                if (p.arena != a.name) continue;
+                for (size_t i = 0; i < cfg.enemy_types.size(); ++i) {
+                    if (cfg.enemy_types[i].name == p.type) {
+                        a.specialty_unit = static_cast<int>(i);
+                        break;
+                    }
+                }
+                break;
+            }
+        }
     }
     if (data.contains("actives")) {
         for (const auto& a : data["actives"]) {
@@ -239,6 +275,7 @@ GameConfig load_arena_config(const std::string& file_path) {
             d.currency_mult       = e.value("currency_mult", d.currency_mult);
             d.hazard_damage_mult  = e.value("hazard_damage_mult", d.hazard_damage_mult);
             d.type_lookahead      = e.value("type_lookahead", d.type_lookahead);
+            d.boss_mult           = e.value("boss_mult", d.boss_mult);   // D73
             cfg.difficulties.push_back(std::move(d));
         }
     }

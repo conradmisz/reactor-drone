@@ -624,3 +624,171 @@ Decisions seeded from the gameplay plan (D1–D12) and made during Phases 1-4
   loot, so overflow only ever drops the least informative blips; the overflow is
   logged whenever it gets *worse* (logging every frame would print 60 lines a
   second and bury everything else).
+### D66 — Enemy fire is a float countdown, and needs no damage system  *(2026-08-09)*
+- **Decision:** `EnemyFireSystem` ticks `EnemyBehavior::timer` down by `dt` and
+  fires at zero. A shot is `Position`+`Velocity`+`Size`+`Color`+
+  `Collider(ENEMY_SHOT)`+`ContactDamage`+`Lifetime`+`EnemyShot`+ a trail — the
+  `PlayerFireSystem` recipe on a different layer.
+- **Why:** a per-entity float is deterministic for free, where a "P(fire) this
+  frame" roll would put an RNG draw on every enemy on every frame and make the
+  replay stream depend on the live enemy count. And Phase 0 already proved the
+  damage path: `PlayerDamageSystem` hurts the drone for *anything* carrying
+  `ContactDamage` in its `CollidedWith`, so enemy projectiles cost zero new
+  damage code. A second damage path was the obvious wrong build here.
+- **Tier asymmetry:** tier 1 straight, tier 2 tracking with a clamped turn rate,
+  tier 3 laser — and the laser is the only shot **not** destroyed on contact.
+  Piercing *is* the tier-3 upgrade, so it lives in the shot's own `EnemyBehavior`
+  tier rather than needing a `Piercing` component.
+- **Rejected:** a `MoonTag`/`EnemyShotSpec` component. Registering a component
+  type is an edit in three shared files (code-standards); the tier already rides
+  on a component the shot has to carry anyway.
+
+### D67 — The moons arrive on a spawn cadence, not in a wave roster  *(2026-08-09)*
+- **Decision:** `EnemyType::first_wave` (0 = never) plus a top-level `specialty`
+  block with two cadences over the spawn counter: `moon_every_n_spawns` injects
+  one unlocked shooter, `every_n_spawns` injects the live arena's specialty unit.
+  `by_arena` maps an arena **name** to an enemy_types **name**, resolved to an
+  index once at load.
+- **Why:** the plan said to gate the moons into wave `types` lists at waves
+  3/15/30, but the `waves` block belongs to Lane A and the 50 rows were already
+  authored. A cadence gets the same result with a nine-line data block and no
+  edit to another lane's file — and it scales to 50 waves without 50 edits.
+  Names rather than indices because the arena list and the enemy_types list are
+  authored by different lanes, and an index would rot silently if either moved.
+- **Consequence, handled:** `type_lookahead` (Hard's "types unlock earlier")
+  reads wave rosters, so it would have skipped this second unlock axis entirely.
+  `apply_difficulty` now also pulls `first_wave` forward by `type_lookahead` —
+  in the one place difficulty scaling happens (D50), never a second.
+- **Rejected:** editing the 50 wave rows. Not this lane's block, and a merge
+  conflict with Lane A for no gameplay difference.
+
+### D68 — One specialty system, and the splitter lives in the death system  *(2026-08-09)*
+- **Decision:** spitter, miner and bulwark are three cases of one
+  `SpecialtySystem`; the Prism splitter is ~40 lines inside `EnemyDeathSystem`.
+  Second-pass escalation is two multipliers (`tier2_hp_mult`,
+  `tier2_speed_mult`), not four new `enemy_types` rows.
+- **Why:** all four are "an `EnemyBehavior` countdown that does something on
+  expiry" — except the splitter, whose entire behaviour *is* a death event, and
+  that is the system already holding the death event's RNG ordering. Splitting it
+  out would mean a second pass over the corpse. The tier-2 multipliers follow
+  D10: per-wave multipliers over the shared types, never a parallel table.
+- **Mine representation:** a deployed mine is `EnemyBehavior{MINER, tier 0}` with
+  no `EnemyTag`; tier 0 = the mine, tier >= 1 = the thing that drops mines. Its
+  three spare fields carry arm delay, blast damage and trigger radius.
+- **Why not a `MineTag`:** three shared-file edits for one bool, against a
+  component the mine already needs. Children of a splitter carry **no**
+  `EnemyBehavior` at all — that, not a depth counter, is what bounds recursion.
+- **Determinism:** the split draws no RNG and runs after `drop_loot`, which is
+  the only RNG in that function.
+
+### D69 — The hazard recipe is shared, but `spawn_arena_props` is left alone  *(2026-08-09)*
+- **Decision:** `hazard::spawn_patch` in a new `hazard_patch.hpp` is the one
+  recipe for "a static thing that hurts the drone and expires". Poison patches,
+  mine blasts and the boss's borrowed attacks all call it. `main.cpp`'s
+  permanent arena vents were **not** re-pointed at it.
+- **Why:** the plan asked for the recipe to be extracted from
+  `spawn_arena_props`. The extraction's purpose — no copy-paste of the component
+  list — is met by every new caller using the helper. Re-pointing the existing
+  vents means editing the exact lambda Lane E's arena-VFX phase is rewriting, in
+  parallel, for zero gameplay gain. Marked with a `ponytail:` comment.
+- **Next step:** after Lane E merges, pointing `spawn_arena_props` at the helper
+  is a ~30-line deletion in `main.cpp`.
+
+### D70 — The boss holds the wave open; the spawner learns nothing about bosses  *(2026-08-09)*
+- **Decision:** `WaveSpawnerSystem::set_clear_hold(bool)`. `BossSystem` raises it
+  the frame it spawns a boss and drops it only once the reward has been taken.
+  Spawning is unaffected — only the wave *clear*.
+- **Why:** three problems, one flag. (1) "The wave clears when the boss dies"
+  needs the spawner to not finish a wave whose adds happen to be dead. (2) The
+  30 s straggler force-kill (R3) would otherwise **execute the boss** the moment
+  the adds ran out. (3) The load-bearing one: `BossSystem` runs from a hook
+  inside `PHASE_PLAYING`. Without the hold, the wave clears one frame after the
+  boss dies, `main.cpp` switches to `PHASE_INTERMISSION`, and the reward screen
+  would be pushed onto a phase where this system never runs again — a modal the
+  player could never dismiss. The hold keeps the phase in `PHASE_PLAYING` until
+  the pick is made.
+- **Rejected:** an "undead boss" held at 1 HP (a corpse standing in the arena);
+  and teaching the spawner what a boss is (it would need the boss config, the
+  behaviour kind and the reward state — all of which are `BossSystem`'s).
+
+### D71 — The reward screen is data, and re-picking is the upgrade  *(2026-08-09)*
+- **Decision:** a `boss_reward` screen in `GameData.json` with three buttons
+  (`reward_0/1/2` -> `on_active_pick_0/1/2`). `BossSystem` rewrites their labels
+  from the `actives` catalogue each time it pushes the screen, resolving widgets
+  by name through `ui.widget_id.<name>`. The held active is offered **first** as
+  "UPGRADE <name>"; re-picking it multiplies a `ship.active_cd_mult` blackboard
+  key by 0.75, floored at 0.35.
+- **Why:** the `menu_ship` pattern exactly (D82) — one widget set, relabelled,
+  and no second widget-lookup mechanism. The upgrade is a blackboard key rather
+  than a sixth `ShipState` float, per D28/D41: it is a single number with one
+  reader. `test_boss.cpp` pins the widget names against the string literals
+  `boss_system.cpp` compares to, the `test_intermission_screen.cpp` idiom.
+- **Note:** the widgets are a data-authored `screens` entry, so the
+  "screen-space entities need no `Position`" trap does not apply — that is a
+  `RenderSystem` concern, and widgets render through `UIRenderSystem`.
+
+### D72 — Wave 50 is a 9th arena; the mid-fight shift is one wired line  *(2026-08-09)*
+- **Decision:** a 9th `arenas` entry, `Singularity`, `first_wave: 50`, using the
+  existing `bg_galaxy_*` / `pillar_galaxy` / `vent_galaxy` art with a gold
+  `enemy_tint` (255,200,80). `BossConfig` gains `final_mult` and
+  `final_summon_bonus`, applied on the **last** boss wave. `BossSystem` latches
+  `wants_arena_shift()` once the final boss drops below `shift_hp_frac`.
+- **Why gold:** everything else in that arena is black and royal purple; gold is
+  the complement that keeps enemies readable against a void.
+- **Why `first_wave: 50` and not 51:** it makes wave 50 the void *now*, so the
+  themed, extra-hard finale ships even before the mid-fight transition is wired.
+  The transition then upgrades a cut into a transformation.
+- **Outstanding, deliberately:** this worktree was cut before Lane E's
+  `begin_arena_shift(int)` existed, so the hook calls
+  `lane_d_arena_shift_stub(idx)` — which sets the *same* Phase-5b crossfade
+  fields `main.cpp` already drives on a cleared wave. It is a subset of Lane E's
+  behaviour, not a second transition. The merge is one line, flagged with a
+  `MERGE ACTION` comment. It is named differently from `begin_arena_shift` **on
+  purpose**: a block-scoped lambda of that name would silently shadow Lane E's
+  after the merge, and the wiring would look done while doing the old thing.
+
+### D73 — Hard-mode boss lethality is one field  *(2026-08-09)*
+- **Decision:** `DifficultyDef::boss_mult`, scaling `BossConfig::health` and
+  `contact_damage` together inside `apply_difficulty`. Hard ships 1.6.
+- **Why:** the open item from the Phase-B interview ("more lethal ... boss") that
+  could not land until the boss did. One field, scaled in the one place
+  difficulty scaling happens (D50), keeps `apply_difficulty` the single
+  non-idempotent overlay — a boss-specific difficulty path would be a second
+  place to forget to re-copy `base_config` from.
+- **Rejected:** separate `boss_hp_mult` / `boss_damage_mult`. Nothing in the
+  notes wants a boss that is tanky but gentle, and two knobs nobody turns
+  independently is speculative generality.
+
+### D74 — The actives are free functions, and the push is extracted, not copied  *(2026-08-09)*
+- **Decision:** `actives::tick` in `active_items.{hpp,cpp}` — the
+  `item_system.hpp` idiom. The repulsion device reuses the Repulsor Field's shove
+  via a new `items::push_enemies_out(storage, px, py, radius, push, dt)`, which
+  `items::repulse_enemies` now also calls. Cross-frame state (beam clock, sweep
+  angle, sphere timer) is three Blackboard floats.
+- **Why:** `repulse_enemies` gates on "is the Repulsor Field equipped", which the
+  boss reward is not — so reuse meant splitting the question from the shove. Two
+  copies of a clamped push would drift apart the first time either was retuned.
+  Blackboard over components per D28/D41; free functions because there is no
+  per-frame state to own.
+- **Missile marker:** a missile is identified by `ProjectileData.target !=
+  NO_TARGET`, since `PlayerFireSystem` always writes `NO_TARGET`. Marked
+  `ponytail:` — a missile whose target dies stops homing and flies straight; the
+  4 s fuse bounds the cost. Re-acquiring would need a real marker component.
+- **Beams** reuse the already-registered `BeamTag` and are recycled per frame,
+  the `HealthBarSystem` idiom. The hit test is a pure forward-ray distance, so a
+  "beam" can never be a full-length line through the drone in both directions.
+
+### D75 — The actives are on `E`, with no headless alias  *(2026-08-09)*
+- **Decision:** `E` fires the two aimed actives, edge-detected by a
+  function-local `static` **inside** the `actives` hook. The repulsion device is
+  not on a key at all — it auto-fires below 20 % hull.
+- **Why:** the `*_prev` key edges at the top of the frame loop are outside this
+  lane's hook, and the scripted-key parser (`--keys`) is not this lane's file
+  either. A local static keeps every line Lane D adds to `main.cpp` inside a hook
+  block, which was the whole point of the Phase-0 scaffolding.
+- **Cost, stated plainly:** no `--keys E`, so the actives cannot be driven by a
+  headless script. They are covered by unit tests instead, and their particle
+  cost was measured with a temporary forced trigger that has been reverted.
+- **Threshold:** `field_should_fire` uses strict `<` on 20 %. At exactly 20 % the
+  device has **not** fired — it is a *below* 20 % effect, so a drone sitting on
+  the line still owns its panic button. Pinned as a boundary unit test.

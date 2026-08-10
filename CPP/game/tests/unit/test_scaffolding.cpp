@@ -90,17 +90,17 @@ TEST_CASE("the scaffolded config blocks parse from the shipped GameData",
     CHECK(cfg.minimap.max_blips == 120);
     CHECK_THAT(cfg.boss.health_growth, WithinAbs(1.6f, 1e-5f));
 
-    // ...and INERT. These assertions are the whole gate on Phase 0: they say "no
-    // behaviour shipped". The lane that turns each feature on deletes its line
-    // here and asserts the real thing in its own test file.
-    // Lane B (D56/D58) has landed: `sustain.interval` and `minimap.enabled` are
-    // live and asserted in test_sustain_spawn.cpp / test_minimap.cpp.
-    CHECK(cfg.actives.empty());                                // no actives offered
+    // ...and INERT. These assertions were the whole gate on Phase 0: they said
+    // "no behaviour shipped". The lane that turns each feature on deletes its
+    // line here and asserts the real thing in its own test file.
+    // Lane B (D56/D58): `sustain.interval` and `minimap.enabled` are live, and
+    // asserted in test_sustain_spawn.cpp / test_minimap.cpp.
+    // Lane D (D66-D75): `actives` is live, asserted in test_active_items.cpp.
 
     // Boss flags are live as of Lane A (D53) — asserted in test_wave_arc.cpp.
-    // No enemy type has a behaviour yet (Lane D authors those).
-    for (const EnemyType& t : cfg.enemy_types) CHECK(t.behavior.empty());
-    for (const ArenaDef& a : cfg.arenas) CHECK(a.specialty_unit == -1);
+    // `actives`, the enemy behaviours and ArenaDef::specialty_unit went live with
+    // Lane D (D66-D75); their three "still inert" lines were deleted here and the
+    // real behaviour is asserted in test_enemy_fire / test_specialty / test_boss.
 }
 
 TEST_CASE("the scaffolded ShipState fields default to off", "[Game][scaffold]") {
