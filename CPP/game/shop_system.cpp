@@ -502,7 +502,11 @@ bool ShopSystem::menu_build(ComponentStorage& storage, EntityManager& entity_man
     };
     preview_glow_ = make_preview(6);
     storage.add_component<Images>(preview_glow_,
-        Images{{"images/v2/glow_disc_128.png"}, 0});
+        // ResourceManager::load_texture prepends "<assets>/images/", so an
+        // Images name is relative to assets/images — NOT to assets. (Sidecar
+        // paths, e.g. PlayerConfig::sidecar, *are* relative to assets and do
+        // carry the "images/" prefix; the two are not interchangeable.)
+        Images{{"v2/glow_disc_128.png"}, 0});
     storage.add_component<Tint>(preview_glow_, Tint{255, 255, 255, 0, true});
 
     preview_ship_ = make_preview(7);
