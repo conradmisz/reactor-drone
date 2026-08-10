@@ -89,14 +89,20 @@ struct ProjectileTag {};
 /**
  * ProjectileData — stores projectile movement and damage parameters.
  *
- * target: entity ID of the target enemy
- * speed:  movement speed in pixels per second
- * damage: damage to apply on hit
+ * target:  entity ID of the target enemy
+ * speed:   movement speed in pixels per second
+ * damage:  damage to apply on hit
+ * bounces: ricochets left before a wall kills the shot (D98). 0 = the original
+ *          behaviour, a shot that stops dead on the first solid surface. A field
+ *          here rather than a new component: ProjectileData is already every
+ *          projectile's per-shot record and is already registered, so this costs
+ *          no component_storage or CMake edit.
  */
 struct ProjectileData {
     Entity target = 0;
     float speed = 300.0f;
     float damage = 25.0f;
+    int bounces = 0;
 };
 
 /**

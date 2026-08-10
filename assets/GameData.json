@@ -2648,6 +2648,20 @@
         "price": 220,
         "amount": 1.0,
         "max_stacks": 2
+      },
+      {
+        "name": "Long Barrel",
+        "effect": "range",
+        "price": 80,
+        "amount": 0.3,
+        "max_stacks": 3
+      },
+      {
+        "name": "Ricochet Coils",
+        "effect": "bounce",
+        "price": 180,
+        "amount": 1.0,
+        "max_stacks": 3
       }
     ],
     "//gear": "PROVISIONAL PRICES, same caveat as the upgrades above and for the same reason: no full run has been played, so these are anchored to the upgrade rows rather than to a measured credits-per-wave curve. Uniform within each list on purpose \u2014 one slot each, so the choice should be about the effect, not the cost. `effect` maps to the fixed ids in player_components.hpp (item_ids / consumable_ids), NOT to row order; re-order these freely.",

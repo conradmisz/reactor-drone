@@ -4,6 +4,7 @@
 #include "engine/ecs/component_storage.hpp"
 #include "engine/ecs/entity_manager.hpp"
 #include "engine/ecs/blackboard.hpp"
+#include "arena_config.hpp"   // ArenaConfig (ring centre + radius, for ricochets)
 
 /**
  * ProjectileHitSystem — detects projectile arrival and creates DamageEvent.
@@ -21,6 +22,14 @@ public:
     void update(EntityManager& entity_manager,
                 ComponentStorage& component_storage,
                 const Blackboard& blackboard);
+
+    /// The boundary ring a ricocheting shot reflects off (D98). The ring is a
+    /// clamp rather than a collider, so it cannot arrive through CollidedWith.
+    /// Never set = no boundary bounce; obstacles still work.
+    void set_arena(const ArenaConfig* arena) { arena_ = arena; }
+
+private:
+    const ArenaConfig* arena_ = nullptr;
 };
 
 #endif // PROJECTILE_HIT_SYSTEM_HPP

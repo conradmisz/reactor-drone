@@ -53,7 +53,11 @@ the graded course submission.
 - Currency economy: 1-3 pickups per kill plus a 0.5% shop-key roll, magnet-able,
   expiring on a `Lifetime`.
 - Shop: Hull Plating, Shield Capacitor, Aux Thruster, Overclock, Heavy Rounds,
-  Twin Barrel — price escalates per purchase (`price_growth` 1.5).
+  Twin Barrel, Long Barrel, Ricochet Coils — price escalates per purchase
+  (`price_growth` 1.5).
+- Long Barrel buys range as `projectile_lifetime`, never speed (D97); Ricochet
+  Coils gives each shot a bounce budget that reflects it off obstacles and the
+  arena ring instead of killing it (D98).
 - Gear: Magnet Core, Repulsor Field, Reactive Plating, Salvager (1 item slot);
   Repair Kit, Overdrive, EMP Burst, Phase Shift (1 consumable slot, `Q` to use).
 - Shields regen after a quiet delay and drain before hull; a fully-absorbed hit
