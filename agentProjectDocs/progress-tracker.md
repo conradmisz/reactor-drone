@@ -5,18 +5,21 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
 
 ## Current Phase
 
-- **Iteration 3 Phase 0 (scaffolding) is done and green** — see D51 and
-  `ENGINE.md` §6. It adds no behaviour; the canary is byte-identical. The five
-  feature lanes it unblocks (plan:
-  `~/.claude/plans/create-a-plan-to-polymorphic-gosling.md`) have not started.
-- Everything from visual Phase 5 onward — the UI layer, Phase A, Phase B and now
-  Phase 0 — is still **uncommitted** in one large tree, no slices chosen yet.
+- **`feature/gameplay-polish` (2026-08-10): the 12-item playtest batch is
+  implemented and committed** as D181-D191 (one decisions.md entry) — bug 002
+  fix, boss-wave spawn gate, coin expiry blink, projectile colour identity,
+  enemy facing + spark nose, poison-cloud sprite, pause pips, shop
+  hold-to-buy / kit preview / two-column table. Two scope-only specs added:
+  `specs/mechanics-page.md`, `specs/tutorial-stage.md` (both Status: Scoped).
+- Verified per commit: clean build (only the Lua tmpnam warning), 8/8 ctest,
+  replay canary byte-identical. **No windowed playtest yet** — the visual
+  items (facing, poison, blink, shop table, hold bar) need real eyes.
 
 ## Current Goal
 
-- Get the uncommitted work committed in sensible slices, then **play it**: the
-  Phase B numbers are the user's stated target, not a measured one, and nobody
-  has seen Phase A or the new title menu in a real window.
+- Playtest the polish batch in a window (dash to check bug 002, idle a coin
+  12 s, reach wave 10, buy in the shop with the mouse), then decide whether
+  to implement `specs/mechanics-page.md` and `specs/tutorial-stage.md`.
 
 ## Completed
 

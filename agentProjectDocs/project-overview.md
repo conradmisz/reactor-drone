@@ -71,6 +71,15 @@ the graded course submission.
   Repair Kit, Overdrive, EMP Burst, Phase Shift (1 consumable slot, `Q` to use).
 - Shields regen after a quiet delay and drain before hull; a fully-absorbed hit
   still costs i-frames, trauma and a flash.
+- Boss waves spawn nothing but the boss and its summons (D182); coins blink
+  accelerating over their last 3 s before expiring (D183).
+- Player shots fire in the complement of the ship's hull hue (D184); every
+  enemy shot is red (D185); every enemy rotates to face its heading (D186);
+  poison patches are red-rimmed vapour clouds (D187).
+- Pause sheet shows 5-circle stat pips and per-upgrade percentages (D188).
+- Shop: purchases are press-and-hold with a progress strip (D189), the preview
+  drone wears the kit and tries parts on when a row is hovered (D190), and the
+  cards are a two-column aligned table with green/red pip previews (D191).
 
 ### Arenas & world
 - Four arenas (Core / Foundry / Bio-lab / Prism), each with 3 parallax backdrop

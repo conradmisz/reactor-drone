@@ -1665,3 +1665,51 @@ gate-green phases. The calls that will matter later:
   and explains why Lane K verified SAVE by unit test only.
 - SPACE keeps meaning "Normal run, now" from any title screen: it is the
   replay canary's entry path and its meaning is pinned by the baseline diff.
+
+### D181-D191 — Gameplay-polish batch: readability, shop UX, boss waves  *(2026-08-10)*
+
+Twelve playtest items shipped on `feature/gameplay-polish` (branched off
+master; the engine-suite branch separately reserves D138-D180, so this batch
+starts at D181). One entry — the calls are small and share one theme: the
+game should *show* its state, not make you infer it.
+
+- **D181 — equipment visuals run after movement, not after aim.** The kit /
+  field / aura follow block copied the player's pre-movement Position and
+  rendered a frame behind (bug 002). It is now `update_equipment_visuals()`,
+  called after clamp + push-out in both the playing and intermission
+  branches. **Rejected:** per-follower interpolation — the followers are
+  copies, not physics.
+- **D182 — a boss wave spawns nothing but the boss.** The spawner's quota
+  reads a `boss_engaged_` latch raised by `set_clear_hold`; suppression can
+  therefore never skip a boss the resume path hasn't spawned yet. Adds
+  pacing stays data (`boss.summon_interval` / `summon_count`).
+- **D183 — timed pickups blink out their last 3 s**, hard on/off Tint alpha,
+  period 0.6 s → 0.12 s, driven only by remaining Lifetime. **Rejected:**
+  alpha fade (feedback.hpp: pops on both render paths).
+- **D184 — player shots are the complement of the ship's hull hue**
+  (`ShipDef.color` in GameData → Blackboard `ship.shot_*`), supersedes
+  D108's literal red; the Standard drone's complement + brightness offsets
+  reproduce D108's exact `{255,70,60}`, so the default look is unchanged.
+- **D185 — every enemy shot is red.** One hue always means "hurts you";
+  tiers read by speed/size/tracking/pierce and brightness, not hue.
+  **Rejected:** keeping the pink/amber/violet tier palette.
+- **D186 — every enemy faces its heading** (Rotation from steered velocity
+  in EnemySeekSystem; shooters' aim-facing writes win later in the frame).
+  The scout hub got a nose in `make_sprites.py` so it has a front to point.
+- **D187 — poison patches wear a red-rimmed blotchy cloud sprite**
+  (`hazard_poison.png`); the flat green rect stays as load fallback.
+- **D188 — pause sheet stat pips**: 5 circles, `round(5*owned/max_stacks)`,
+  and upgrades print the percent they add. Strings only; the 17-label pool,
+  rects and z untouched.
+- **D189 — shop purchases are press-and-hold (1 s)**, click only selects; a
+  6 px fill strip rides the held card and the detail pane says HOLD to buy.
+  `UIState.pressed` is sticky for the whole press, so no engine change. The
+  1-8 digit path keeps instant buy for headless scripts.
+- **D190 — the shop preview wears the kit** (same 7 followers as the flying
+  drone) and hovering an UPGRADES row lights the part it would buy. The
+  shield ring is not previewed: live-state animation, no static frame.
+- **D191 — shop cards are a two-column table** of pooled labels over
+  caption-less hit-target buttons: name/price at a fixed left edge (fixed x
+  is the alignment; no tab stops, D85 stands), pip meter right, restyled
+  `pip_gain`/`pip_loss` on hover preview. **Rejected:** space-padding
+  against the proportional font (drifts, the pause sheet's old hack).
