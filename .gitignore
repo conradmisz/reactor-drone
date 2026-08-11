@@ -6,6 +6,9 @@ logs/
 saves/
 scripts/local/
 installer/stage/
+backend/GAME_KEY.local
+backend/node_modules/
+backend/.wrangler/
 *.bmp
 __pycache__/
 .claude/worktrees/

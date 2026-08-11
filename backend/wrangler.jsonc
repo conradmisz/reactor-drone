@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "reactor-drone-api",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-08-11",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "reactor-drone-db",
+      "database_id": "cdd6faa6-001c-4ff0-a3c6-8cecb04462ab"
+    }
+  ],
+  "vars": {
+    "RELEASE_VERSION": "2.0.0",
+    "INSTALLER_URL": "https://github.com/conradmisz/reactor-drone/releases/download/v2.0.0/ReactorDrone-Setup-2.0.0.exe"
+  }
+}
