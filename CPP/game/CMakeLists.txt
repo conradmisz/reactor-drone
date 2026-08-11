@@ -47,11 +47,14 @@ set(ENGINE_SOURCES
 # Collect game source files
 file(GLOB GAME_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 
-# Create the executable
-add_executable(game ${ENGINE_SOURCES} ${GAME_SOURCES})
+find_package(CURL REQUIRED)
 
-# Link SDL3, SDL3_image, SDL3_ttf, nlohmann_json, and Lua
-target_link_libraries(game PRIVATE SDL3::SDL3 SDL3_image::SDL3_image SDL3_ttf::SDL3_ttf nlohmann_json::nlohmann_json lua_static)
+# Create the executable
+add_executable(game ${ENGINE_SOURCES} ${GAME_SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/net/http_client.cpp")
+
+# Link SDL3, SDL3_image, SDL3_ttf, nlohmann_json, Lua, and libcurl (async
+# leaderboard/update client — Task 6)
+target_link_libraries(game PRIVATE SDL3::SDL3 SDL3_image::SDL3_image SDL3_ttf::SDL3_ttf nlohmann_json::nlohmann_json lua_static CURL::libcurl)
 
 # Set include directories so games can #include "engine/..."
 target_include_directories(game PRIVATE 

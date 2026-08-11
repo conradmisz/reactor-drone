@@ -27,14 +27,17 @@ if(GAME_UNIT_TESTS)
     # Collect game source files (exclude main.cpp to avoid duplicate main)
     file(GLOB GAME_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/../../game/*.cpp")
     list(FILTER GAME_SOURCES EXCLUDE REGEX "main\\.cpp$")
-    
-    add_executable(game_unit_tests 
+
+    find_package(CURL REQUIRED)
+
+    add_executable(game_unit_tests
         ${GAME_UNIT_TESTS}
         ${ENGINE_SOURCES}
         ${GAME_SOURCES}
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../game/net/http_client.cpp"
     )
-    
-    # Link Catch2, SDL3, SDL3_image, SDL3_ttf, nlohmann_json, and Lua
+
+    # Link Catch2, SDL3, SDL3_image, SDL3_ttf, nlohmann_json, Lua, and libcurl
     target_link_libraries(game_unit_tests PRIVATE
         Catch2::Catch2WithMain
         SDL3::SDL3
@@ -42,6 +45,7 @@ if(GAME_UNIT_TESTS)
         SDL3_ttf::SDL3_ttf
         nlohmann_json::nlohmann_json
         lua_static
+        CURL::libcurl
     )
     
     # Set include directories

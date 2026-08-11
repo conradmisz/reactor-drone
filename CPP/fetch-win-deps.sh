@@ -15,4 +15,15 @@ fetch SDL_ttf SDL3_ttf "$TTF_VER"
 for d in SDL3-$SDL_VER SDL3_image-$IMG_VER SDL3_ttf-$TTF_VER; do
   cp -rn "$d/x86_64-w64-mingw32/"* . 2>/dev/null || true
 done
+
+# curl for the game's async HTTP client (Task 6). Pin checked against
+# https://curl.se/windows/ as of 2026-08-11.
+CURL_VER=8.21.0_6
+if [ ! -d "curl-mingw" ]; then
+  curl -fLO "https://curl.se/windows/dl-$CURL_VER/curl-$CURL_VER-win64-mingw.zip"
+  unzip -q "curl-$CURL_VER-win64-mingw.zip" -d curl-tmp
+  mv curl-tmp/curl-* curl-mingw && rm -r curl-tmp
+  cp -rn curl-mingw/include/* include/ && cp -rn curl-mingw/lib/* lib/ && cp -n curl-mingw/bin/*.dll bin/
+fi
+
 echo "win-deps ready"

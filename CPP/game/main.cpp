@@ -44,6 +44,7 @@
 #include "engine/ecs/systems/hud_system.hpp"
 #include "engine/ecs/systems/screenshot_system.hpp"
 
+#include "net/http_client.hpp"
 #include "cli_parser.hpp"
 #include "script_loader.hpp"
 #include "debug_state.hpp"
@@ -125,6 +126,10 @@ int main(int argc, char* argv[]) {
         opts = load_script(script_path);
         opts.script_file = script_path;
     }
+    // Determinism invariant: any scripted/headless run (--stopframe) must make
+    // zero network calls, so the leaderboard/update client is disabled whenever
+    // one is present. See agentProjectDocs/architecture.md Invariants #4.
+    net::set_enabled(!opts.stop_frame.has_value());
 
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         std::cerr << "Failed to initialize SDL: " << SDL_GetError() << std::endl;
