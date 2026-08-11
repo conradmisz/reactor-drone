@@ -29,6 +29,20 @@ std::string fmt(const char* f, double a) {
     return buf;
 }
 
+/// Five-glyph ownership meter for a shop row (D188): filled = round(5*owned/max).
+/// Font is DejaVu, so the UTF-8 dots render as-is. max <= 0 reads as empty.
+std::string pips(int owned, int max) {
+    const int filled = max > 0 ? std::clamp<int>(static_cast<int>(std::lround(5.0 * owned / max)), 0, 5) : 0;
+    std::string s;
+    for (int i = 0; i < 5; ++i) s += i < filled ? "●" : "○";
+    return s;
+}
+
+// Stack caps per shop row, in row order (hull, shield, speed, fire_rate, damage,
+// extra_shot, range, bounce). GameData.json shop.upgrades is the source of truth
+// (D188) — the fixed stat rows below have no ShopUpgradeDef in hand to read from.
+constexpr int kMaxStacks[8] = {8, 5, 5, 6, 8, 2, 3, 3};
+
 /// Pad `label` out to a fixed width so the values line up in a column. The font
 /// is proportional, so this is an approximation — but a leading-space column is
 /// still far more scannable than ragged "NAME value" pairs, and the alternative
@@ -40,14 +54,24 @@ std::string row(const char* label, const std::string& value) {
 }
 
 /// One purchased upgrade's cumulative effect, from its catalogue `effect` string
-/// (D26 — never the row index) and the number of stacks bought.
-std::string effect_total(const std::string& effect, float amount, int count) {
+/// (D26 — never the row index) and the number of stacks bought. Stats with a
+/// natural base also show the gain as a percent of it (D188); the base is
+/// recovered as current-minus-added, so prestige and gear stay accounted for.
+std::string effect_total(const std::string& effect, float amount, int count,
+                         const Snapshot& s) {
     const double total = static_cast<double>(amount) * count;
-    if (effect == "hull")       return fmt("+%.0f hull", total);
-    if (effect == "shield")     return fmt("+%.0f shield", total);
+    // "+N unit (+P%)" when the base is recoverable, bare "+N unit" when not
+    // (a fresh shield's base is 0, and the raw number is the truth then).
+    auto with_pct = [&](const char* f, double base) {
+        std::string out = fmt(f, total);
+        if (base > 0.0) out += fmt(" (+%.0f%%)", total / base * 100.0);
+        return out;
+    };
+    if (effect == "hull")       return with_pct("+%.0f hull", s.hull_max - total);
+    if (effect == "shield")     return with_pct("+%.0f shield", s.shield_max - total);
     if (effect == "speed")      return fmt("+%.0f%% speed", total * 100.0);
-    if (effect == "fire_rate")  return fmt("+%.1f/s fire rate", total);
-    if (effect == "damage")     return fmt("+%.0f damage", total);
+    if (effect == "fire_rate")  return with_pct("+%.1f/s fire rate", s.fire_rate - total);
+    if (effect == "damage")     return with_pct("+%.0f damage", s.damage - total);
     if (effect == "extra_shot") return fmt("+%.0f shot", total);
     if (effect == "range")      return fmt("+%.0f%% range", total * 100.0);
     if (effect == "bounce")     return fmt("+%.0f bounce", total);
@@ -86,16 +110,23 @@ std::vector<std::string> stat_lines(const Snapshot& s,
     // line rather than a label/value pair (#5 asks for the bonuses, not the level).
     if (s.prestige > 0) out.push_back(prestige_summary(s.prestige));
 
+    // Each stat row ends in its shop row's pip meter (D188) — strings only, the
+    // numbers and the backend math are untouched.
     out.push_back(row("HULL", fmt("%.0f", static_cast<double>(s.hull)) + " / " +
-                              fmt("%.0f", static_cast<double>(s.hull_max))));
+                              fmt("%.0f", static_cast<double>(s.hull_max))) +
+                  "  " + pips(s.upg_counts[0], kMaxStacks[0]));
     out.push_back(row("SHIELD", s.shield_max > 0.0f
                                     ? fmt("%.0f", static_cast<double>(s.shield)) + " / " +
                                           fmt("%.0f", static_cast<double>(s.shield_max))
-                                    : std::string("none")));
+                                    : std::string("none")) +
+                  "  " + pips(s.upg_counts[1], kMaxStacks[1]));
     out.push_back(row("SPEED", fmt("%.0f px/s", static_cast<double>(s.base_speed * s.speed_mult)) +
-                                   fmt("   (base %.0f)", static_cast<double>(s.base_speed))));
-    out.push_back(row("FIRE RATE", fmt("%.1f/s", static_cast<double>(s.fire_rate)) +
-                                       fmt("    DAMAGE  %.0f", static_cast<double>(s.damage))));
+                                   fmt("   (base %.0f)", static_cast<double>(s.base_speed))) +
+                  "  " + pips(s.upg_counts[2], kMaxStacks[2]));
+    out.push_back(row("FIRE RATE", fmt("%.1f/s", static_cast<double>(s.fire_rate)) + " " +
+                                       pips(s.upg_counts[3], kMaxStacks[3]) +
+                                       fmt("   DAMAGE  %.0f", static_cast<double>(s.damage)) + " " +
+                                       pips(s.upg_counts[4], kMaxStacks[4])));
 
     out.push_back(std::string());
     out.push_back("UPGRADES");
@@ -104,7 +135,8 @@ std::vector<std::string> stat_lines(const Snapshot& s,
         const int n = s.upg_counts[i];
         if (n <= 0) continue;
         out.push_back("  " + upgrades[i].name + " x" + std::to_string(n) + "   " +
-                      effect_total(upgrades[i].effect, upgrades[i].amount, n));
+                      effect_total(upgrades[i].effect, upgrades[i].amount, n, s) +
+                      "  " + pips(n, upgrades[i].max_stacks));
     }
     if (out.size() == before) out.push_back("  none purchased");
 

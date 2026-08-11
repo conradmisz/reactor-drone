@@ -234,6 +234,17 @@ TEST_CASE("the stat sheet reports the drone the player is actually flying",
     }
 }
 
+TEST_CASE("the pip meter rounds, not truncates, at the stack boundary",
+          "[Game][ui][pause][stats]") {
+    // D188: HULL's cap is 8, so 3 stacks is 15/8 = 1.875 pips — round says 2
+    // filled, floor would say 1. The one input at this cap where they disagree.
+    pause_stats::Snapshot s;
+    s.upg_counts[0] = 3;
+    const auto lines = pause_stats::stat_lines(s, {});
+    REQUIRE_FALSE(lines.empty());
+    CHECK(lines.front().find("●●○○○") != std::string::npos);
+}
+
 TEST_CASE("the repulsion device is not advertised on a key it does not have",
           "[Game][ui][item-slot]") {
     CHECK(pause_stats::active_key(0) == "[E]");     // missiles
