@@ -1887,3 +1887,26 @@ game should *show* its state, not make you infer it.
      three separate `currency < cost` sites; pinning the balance keeps all three
      real and touched no shop code. Everything is inside `if (opts.dev)`, so the
      default path draws no RNG and adds no per-frame state — canary verified.
+
+## v3 — the neon polish branch (visual-overhaul)
+
+- **D194 — Tier 0+1: vsync and render-target bloom.** The branch's goal is the
+  Wii Play *Laser Hockey* read: near-black ground, few crisp lines, real halos.
+  - *Vsync on* (`SDL_SetRenderVSync(1)`): tear-free presentation. The Timer's
+    busy-wait stays as a pacing floor; `--seed` still forces deterministic dt,
+    so the canary is untouched. **Rejected:** vsync-off + higher target FPS
+    (still tears) and adaptive vsync (`-1`, not universally supported).
+  - *Backdrop restraint*: far stars 55@120a (was 140@200a), mid machinery
+    5@55a (was 14@130a), near grid 128px@26a (was 64px@40a). The backdrop was
+    competing with the enemies for density; the foreground owns the frame now.
+  - *Bloom is a render-target chain, not a shader* (`bloom_system.{hpp,cpp}` +
+    pure `bloom_math.hpp`): world+UI render into a scene target, which is
+    walked down 4 halving linearly-filtered targets (each halving is a free
+    box blur) and composited back additively with per-level GameData weights.
+    **No bright-pass**: on a near-black field the emissives are the only
+    bright content — Tier 2 will move bloom onto a dedicated emissive target
+    instead of thresholding. **Self-disabling**: any target-creation failure
+    (dummy/offscreen drivers) turns begin()/resolve() into no-ops, so headless
+    runs and the screenshot path render the exact pre-bloom pipeline.
+    **Rejected:** SDL_GPU shaders now (Tier 4's job, needs a toolchain) and
+    per-sprite baked halos as the only glow (they cannot bleed or saturate).

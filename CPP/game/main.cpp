@@ -81,6 +81,7 @@
 #include "engine/lua_manager.hpp"
 #include "engine/ecs/systems/screen_stack_system.hpp"
 #include "engine/ecs/systems/ui_render_system.hpp"
+#include "engine/ecs/systems/bloom_system.hpp"
 #include "engine/ecs/systems/ui_render_math.hpp"   // ui_canvas_transform (#11 dash face)
 #include "engine/ecs/systems/ui_system.hpp"
 #include "shield_system.hpp"
@@ -281,6 +282,10 @@ int main(int argc, char* argv[]) {
     ResourceManager& resource_manager = *resource_manager_ptr;
     RenderSystem render_system(renderer.get(), resource_manager);
     HUDSystem hud_system(renderer.get(), resource_manager, win_w, win_h);
+    // v3 Tier 1: render-target bloom. Constructed after the renderer at the
+    // logical surface size; self-disables (begin/resolve become no-ops) when
+    // the driver has no render-target support or GameData turns it off.
+    BloomSystem bloom_system(renderer.get(), win_w, win_h, config.bloom);
 
     // === UI & menu layer (Option-040 port) ===
     // ScreenStackSystem is the single writer of the stack and of every
@@ -2265,11 +2270,18 @@ int main(int argc, char* argv[]) {
                               ? arena_vfx::smoothstep(shift_timer / SHIFT_SECONDS)
                               : 1.0f);
         }
+        // v3 Tier 1: everything between begin() and resolve() renders into the
+        // bloom scene target; resolve() composites scene + blur chain onto the
+        // backbuffer. UI is inside the pass on purpose — menus glow too. When
+        // bloom is disabled (config or target-less driver) both are no-ops and
+        // this block is byte-for-byte the old pipeline.
+        bloom_system.begin();
         render_system.render_layers(bg_layers);
         render_system.render(component_storage, blackboard);
         hud_system.render(component_storage, blackboard);
         // Menus composite last, on top of the world and the gameplay HUD.
         ui_render_system.render(component_storage, blackboard);
+        bloom_system.resolve();
 
         if (!opts.screenshot_frames.empty()) {
             for (uint64_t sf : opts.screenshot_frames) if (sf == frame) blackboard.set("screenshot_frame", frame);

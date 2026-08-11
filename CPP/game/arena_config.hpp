@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include "engine/ecs/systems/bloom_system.hpp"  // BloomConfig (v3 Tier 1)
 
 /**
  * Typed, data-driven configuration for the "Reactor Drone" arena, parsed from
@@ -396,6 +397,7 @@ struct GameConfig {
     BossConfig boss;               // #4 boss every 10 waves
     SpecialtyConfig specialty;     // #3/#9 spawn-stream injections
     std::vector<ActiveItemDef> actives;  // boss-reward active items
+    BloomConfig bloom;             // v3 Tier 1: render-target bloom
     unsigned int seed = 1234u;     // RNG seed for spread/spawn/drops
 };
 

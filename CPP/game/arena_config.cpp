@@ -209,6 +209,14 @@ GameConfig load_arena_config(const std::string& file_path) {
         cfg.battery.fire_time     = b.value("fire_time", cfg.battery.fire_time);
         cfg.battery.recharge_time = b.value("recharge_time", cfg.battery.recharge_time);
     }
+    if (data.contains("bloom")) {
+        const auto& b = data["bloom"];
+        cfg.bloom.enabled           = b.value("enabled", cfg.bloom.enabled);
+        cfg.bloom.levels            = b.value("levels", cfg.bloom.levels);
+        cfg.bloom.default_intensity = b.value("default_intensity", cfg.bloom.default_intensity);
+        if (b.contains("intensities"))
+            cfg.bloom.intensities = b["intensities"].get<std::vector<float>>();
+    }
     if (data.contains("minimap")) {
         const auto& m = data["minimap"];
         cfg.minimap.enabled   = m.value("enabled", cfg.minimap.enabled);

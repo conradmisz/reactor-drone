@@ -88,6 +88,8 @@ Current measured state: **150 identical · 31 modified · 27 new** (208 source f
 | `ecs/systems/particle_system.{hpp,cpp}` | The whole particle simulation: emitters, per-particle lerp, `DEFAULT_MAX_PARTICLES` budget, and the `emit` flag that separates ageing from spawning (see §5) |
 | `tests/unit/test_particle_system.cpp`, `tests/property/test_particle_properties.cpp` | Its tests |
 | `tests/unit/test_tint.cpp` | `modulate_color` / Tint semantics |
+| `ecs/systems/bloom_math.hpp`, `ecs/systems/bloom_system.{hpp,cpp}` | v3 Tier 1 render-target bloom: scene target + halving linear-filtered downsample chain composited back additively. Self-disables without render-target support (headless = old pipeline). `BloomConfig` lives here; parsed from GameData's optional `"bloom"` block (D194) |
+| `tests/unit/test_bloom_math.cpp` | Chain geometry + intensity clamp |
 | `ui_style.{hpp,cpp}` | `StyleTable`, `WidgetState`, `parse_ui_styles` — widget colours as pure data (Option-040 port) |
 | `ui_focus_math.hpp`, `ui_fade_math.hpp` | Tab-order and fade-curve helpers (Option-040 port) |
 | `ecs/systems/ui_render_math.hpp` | Widget-state precedence, the design→window canvas transform, inclusive hit-test, z-order sort — **plus the v2-only `pulse_alpha_scale` / `apply_alpha_scale` and `fit_text_in_rect` (D85)** |
@@ -239,10 +241,15 @@ every phase, if sim:
 
 render:
   camera.update
+  bloom.begin()                             — v3 Tier 1: redirect into the scene target
+                                              (no-op when bloom is off/unsupported)
   render_system.render_layers(bg_layers)    — outgoing arena at alpha 1, incoming fading in
   render_system.render
   hud_system.render
   ui_render_system.render                   — menus composite last, over world AND HUD
+  bloom.resolve()                           — back to the backbuffer: scene 1:1 + blur
+                                              chain additive. UI is INSIDE the pass (menus
+                                              glow); screenshot captures the bloomed frame
   screenshot_system.update
   render_system.present
 ```

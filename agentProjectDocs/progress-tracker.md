@@ -5,6 +5,12 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
 
 ## Current Phase
 
+- **`visual-overhaul` (2026-08-11): v3 neon-polish branch started** — plan in
+  `plans/v3-neon-polish-plan.md` (5 tiers). Tier 0 (vsync + backdrop restraint)
+  and Tier 1 (render-target bloom, D194) are committed. Verified per tier:
+  clean build, ctest 8/8, canary byte-identical twice, headless screenshots
+  read back. **Unplayed in a window.** Next: Tier 2 emissive separation.
+
 - **`feature/gameplay-polish` (2026-08-11): the THIRD playtest batch is
   implemented** as D193 (one decisions.md entry, numbered by feedback item) —
   loot lifetime back to 14 s, +2 on every unit, a wave-15 credit vacuum and
