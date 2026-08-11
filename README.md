@@ -7,6 +7,8 @@ waves, banking credits from loot and spending them between waves on permanent up
 Everything the player sees — waves, arenas, enemies, the shop catalogue, menus, colours —
 is authored as data in `assets/GameData.json`. Tuning the game needs no rebuild.
 
+**[▶ Watch the walkthrough](https://www.youtube.com/watch?v=1y5MgQmIUT0)**
+
 ```
 python3 run.py            # interactive build / test / run menu
 ```
