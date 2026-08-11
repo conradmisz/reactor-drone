@@ -118,10 +118,12 @@ private:
     void menu_teardown(ComponentStorage& storage, Blackboard& blackboard);
     /// Card slot -> catalogue index for the current page.
     void rebuild_visible(const ShipState& ship);
-    /// D191: `hovered` is the card under the pointer (-1 none) — its pip meter
-    /// previews the purchase in green/red instead of showing the current level.
-    void refresh_cards(ComponentStorage& storage, const ShipState& ship,
-                       int hovered = -1);
+    void refresh_cards(ComponentStorage& storage, const ShipState& ship);
+    /// The right-hand stat sheet (playtest #5). One row per shop upgrade, showing
+    /// the live stat it moves; `card` is the hovered card (-1 none), whose row
+    /// shows "now > after" in the gain colour instead of its pip meter.
+    void refresh_stats(ComponentStorage& storage, const Blackboard& blackboard,
+                       Entity player, const ShipState& ship, int card);
     /// Card slot under the pointer, or -1. Reads UIState.hovered (UISystem owns it).
     int  hovered_card(const ComponentStorage& storage) const;
     void refresh_tooltip(ComponentStorage& storage, const ShipState& ship, int card);
@@ -149,10 +151,16 @@ private:
     int    hold_card_ = -1;
     Entity hold_bar_ = 0;
     // D191: the two-column card table — pooled labels layered over the (now
-    // caption-less) card buttons. [0] name+price at a fixed left edge, so first
-    // letters align; [1] the pip meter, restyled green/red on hover preview.
+    // caption-less) card buttons. [0] name at a fixed left edge, so first letters
+    // align; [1] the price column.
     Entity col_name_[MENU_CARDS] = {};
     Entity col_pips_[MENU_CARDS] = {};
+    // Playtest #5: the stat sheet in the right column, one name/value pair per
+    // shop upgrade row. The value column is what previews a hovered purchase —
+    // the per-row pip previews that used to sit on the cards moved here.
+    static constexpr int STAT_ROWS = 8;
+    Entity stat_name_[STAT_ROWS] = {};
+    Entity stat_val_[STAT_ROWS] = {};
     Entity preview_glow_ = 0, preview_ship_ = 0;
     // D190: the 7 kit overlays on the preview drone — worn parts always show,
     // and hovering an upgrade row lights up the part that row would buy.

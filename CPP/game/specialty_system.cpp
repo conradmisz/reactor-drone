@@ -91,7 +91,29 @@ void SpecialtySystem::update(ComponentStorage& storage, EntityManager& entity_ma
                 blast.damage = beh.cooldown;   // the dropper stored blast damage here
                 blast.r = 255; blast.g = 170; blast.b = 60;
                 blast.emission_rate = 260.0f;  // one-shot: ~90 live particles for 0.35s
+                // #5: a mushroom cloud with a red rim, not the flat orange rect.
+                // Images beats Color in the render chain; the Color above stays
+                // as the load fallback, exactly like the mine's own sprite.
+                blast.image = "v2/hazard_blast.png";
                 hazard::spawn_patch(storage, entity_manager, cx, cy, blast);
+                // #4: a bomb hurts whatever is standing next to it, including the
+                // swarm that dropped it. The patch itself can't do this — HAZARD
+                // only masks PLAYER — so the blast is applied here as one-shot
+                // DamageEvents, the same currency the dash uses. Radius, not the
+                // patch's square: a circular blast reads as one.
+                const float br = specialty::MINE_BLAST_SIZE * 0.5f;
+                for (Entity v : storage.entities_with_component<EnemyTag>()) {
+                    if (storage.has_component<DestroyRequest>(v)) continue;
+                    auto vp = storage.get_component<Position>(v);
+                    auto vs = storage.get_component<Size>(v);
+                    if (!vp.has_value() || !vs.has_value()) continue;
+                    const float vr = vs->get().width * 0.5f;
+                    const float ddx = vp->get().x + vr - cx;
+                    const float ddy = vp->get().y + vs->get().height * 0.5f - cy;
+                    if (ddx * ddx + ddy * ddy > (br + vr) * (br + vr)) continue;
+                    Entity ev = entity_manager.create_entity();
+                    storage.add_component<DamageEvent>(ev, DamageEvent{v, beh.cooldown});
+                }
                 storage.add_component<DestroyRequest>(e, DestroyRequest{});
                 break;
             }

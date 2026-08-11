@@ -20,6 +20,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include "game/cli_parser.hpp"
+#include "game/debug_state.hpp"
 
 #include <string>
 #include <vector>
@@ -595,4 +596,31 @@ TEST_CASE("--seed is preserved by options_to_argv round trip",
         }
     }
     REQUIRE(found);
+}
+
+// ===========================================================================
+// Dev / god mode (--dev, --god) — opt-in, and free money once opted in
+// ===========================================================================
+
+TEST_CASE("dev mode is off by default and free only when opted in",
+          "[cli_parser][dev][unit]") {
+    SECTION("a normal run never enables it") {
+        CHECK(parse_args({"game"}).dev == false);
+        CHECK(parse_args({"game", "--seed", "42"}).dev == false);
+        // ...and the spend path is untouched: the top-up is a no-op.
+        int units = 7;
+        dev_top_up(parse_args({"game"}).dev, units);
+        CHECK(units == 7);
+    }
+
+    SECTION("--dev and --god both enable it, and UNITS outrun any price") {
+        CHECK(parse_args({"game", "--dev"}).dev == true);
+        CHECK(parse_args({"game", "--god"}).dev == true);
+        int units = 0;
+        dev_top_up(parse_args({"game", "--dev"}).dev, units);
+        // ShopSystem's checks are `ship.currency < cost`; the dearest catalogue
+        // entry is three orders of magnitude below this, so nothing is refused.
+        CHECK(units == DEV_UNITS);
+        CHECK(units > 10000);
+    }
 }

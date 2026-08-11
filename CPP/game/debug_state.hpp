@@ -95,4 +95,23 @@ inline double step_delta_time(double target_fps) {
     return 1.0 / target_fps;
 }
 
+/**
+ * Dev-mode UNITS top-up (--dev / --god).
+ *
+ * Unlimited money is done by pinning the existing ShipState::currency rather
+ * than by short-circuiting each of ShopSystem's three deduct sites: the shop
+ * then keeps its real affordability checks, its real "Units:" readout and its
+ * real deduction, and a purchase simply cannot run the balance down.
+ *
+ * No-op when `dev` is false, so the default path is untouched (replay canary).
+ *
+ * @param dev       True only when --dev / --god was passed
+ * @param currency  [in/out] ShipState::currency, pinned to DEV_UNITS when dev
+ */
+inline constexpr int DEV_UNITS = 999999;
+
+inline void dev_top_up(bool dev, int& currency) {
+    if (dev) currency = DEV_UNITS;
+}
+
 #endif // DEBUG_STATE_HPP

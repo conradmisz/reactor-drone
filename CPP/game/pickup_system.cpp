@@ -32,6 +32,11 @@ void PickupSystem::update(ComponentStorage& component_storage,
     ShipState& ship = ship_opt->get();
 
     const bool magnet = (ship.item_id == ITEM_MAGNET_CORE);
+    // D193: from wave 15 the drone has a passive credit vacuum — units inside
+    // roughly melee reach drift in on their own. Same steering as the Magnet
+    // Core, a much shorter leash, and currency only: hull/shield/key pickups
+    // still have to be flown over.
+    const bool vacuum = blackboard.get_or<int>("wave", 0) >= VACUUM_FIRST_WAVE;
     // Salvager (Phase 4): every credit pickup is worth more. Values are small
     // ints (1/2/4), so a bare multiply would round 1 x 1.25 straight back to 1 —
     // the floor of +1 guarantees the item is never a no-op on the common drop.
@@ -69,8 +74,13 @@ void PickupSystem::update(ComponentStorage& component_storage,
         float dx = px - cx, dy = py - cy;
         float dist = std::sqrt(dx * dx + dy * dy);
 
-        if (magnet && dist > 0.001f && dist <= economy_.pickup_magnet_radius) {
-            const Pickup& pk = component_storage.get_component<Pickup>(e)->get();
+        const Pickup& pk = component_storage.get_component<Pickup>(e)->get();
+
+        float pull_radius = magnet ? economy_.pickup_magnet_radius : 0.0f;
+        if (vacuum && pk.kind == static_cast<int>(PickupKind::Currency))
+            pull_radius = std::max(pull_radius, VACUUM_RADIUS);
+
+        if (pull_radius > 0.0f && dist > 0.001f && dist <= pull_radius) {
             float step = pk.magnet_speed * dt;
             if (step > dist) step = dist;         // never overshoot past the ship
             pos->get().x += (dx / dist) * step;
@@ -82,7 +92,6 @@ void PickupSystem::update(ComponentStorage& component_storage,
 
         if (dist > pr + half) continue;
 
-        const Pickup& pk = component_storage.get_component<Pickup>(e)->get();
         if (pk.kind == static_cast<int>(PickupKind::Key)) {
             ship.keys += pk.value;
         } else if (pk.kind == static_cast<int>(PickupKind::Health)) {

@@ -71,7 +71,7 @@ TEST_CASE("A dead enemy drops currency pickups carrying its type's value",
     for (Entity d : drops) {
         const Pickup& pk = storage.get_component<Pickup>(d)->get();
         CHECK(pk.kind == static_cast<int>(PickupKind::Currency));
-        CHECK(pk.value == 2);
+        CHECK(pk.value == 4);   // type value 2 + D193's flat base bonus of 2
         CHECK(storage.has_component<Lifetime>(d));   // uncollected loot expires
     }
 }

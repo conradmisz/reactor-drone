@@ -2337,7 +2337,7 @@
     },
     {
       "name": "Purple Gatling",
-      "sidecar": "images/v2/player_drone.json",
+      "sidecar": "images/v2/player_drone_violet.json",
       "idle_clip": "march",
       "color": [180, 110, 255],
       "unlock_score": 4000,
@@ -2355,7 +2355,7 @@
     "min_drops": 0,
     "max_drops": 3,
     "key_drop_chance": 0.005,
-    "pickup_lifetime": 12.0,
+    "pickup_lifetime": 14.0,
     "pickup_size": 16.0,
     "pickup_scatter": 26.0,
     "pickup_magnet_speed": 420.0,
@@ -2492,10 +2492,17 @@
   },
   "//dash": "Lane B / note #5 - thruster dash. Damage is dealt to every enemy the dash passes through.",
   "dash": {
-    "speed": 900.0,
+    "//": "Playtest #9: distance is speed*duration. 900 -> 1060 is +18% reach with the burst window (and every duration-dependent rule) untouched.",
+    "speed": 1060.0,
     "duration": 0.15,
     "cooldown": 10.0,
-    "damage": 30.0
+    "damage": 30.0,
+    "charges": 1
+  },
+  "//battery": "Primary fire runs off a battery. fire_time = seconds of CONTINUOUS fire from full; recharge_time = seconds from empty to full at a constant rate. Emptying it locks the trigger until it is full again - that lockout is the whole cost of holding the button down.",
+  "battery": {
+    "fire_time": 12.0,
+    "recharge_time": 3.0
   },
   "//minimap": "Lane B / note #7 - arena minimap (D58). x/y/size are in the 800x600 design canvas and are the ONE authority for the map's geometry: MinimapSystem writes them over the authored rect of the 'minimap_frame' panel on the gameplay screen. max_blips is a hard cap; the overflow is logged, never dropped silently. Lane M (D115): x deliberately runs PAST 800 - the canvas is letterboxed 50px in from each side of the 980x660 window, so an on-canvas x sits 68px from the window's right edge while y=486 sits 20px from the top. 731.3 makes both margins 20px in WINDOW pixels, which is the edge the player actually sees. Pinned by test_minimap.cpp.",
   "minimap": {
@@ -3248,6 +3255,32 @@
         ]
       }
     },
+    "//hud_new": "D192 additions. Every state carries the same colours: these are readouts, not controls, so hover/press must not move them. Written compactly - the expanded arrays above are the loader's output format, not a rule.",
+    "hud_battery": {
+      "normal":   { "bg": [255, 210, 90, 235], "text": [0, 0, 0, 0] },
+      "hovered":  { "bg": [255, 210, 90, 235], "text": [0, 0, 0, 0] },
+      "pressed":  { "bg": [255, 210, 90, 235], "text": [0, 0, 0, 0] },
+      "disabled": { "bg": [255, 210, 90, 235], "text": [0, 0, 0, 0] }
+    },
+    "hud_battery_low": {
+      "normal":   { "bg": [255, 90, 60, 245], "text": [0, 0, 0, 0] },
+      "hovered":  { "bg": [255, 90, 60, 245], "text": [0, 0, 0, 0] },
+      "pressed":  { "bg": [255, 90, 60, 245], "text": [0, 0, 0, 0] },
+      "disabled": { "bg": [255, 90, 60, 245], "text": [0, 0, 0, 0] }
+    },
+    "hud_boss": {
+      "normal":   { "bg": [255, 70, 110, 245], "text": [0, 0, 0, 0] },
+      "hovered":  { "bg": [255, 70, 110, 245], "text": [0, 0, 0, 0] },
+      "pressed":  { "bg": [255, 70, 110, 245], "text": [0, 0, 0, 0] },
+      "disabled": { "bg": [255, 70, 110, 245], "text": [0, 0, 0, 0] }
+    },
+    "hud_hold": {
+      "//": "Playtest #4: the hold-to-buy progress fills the item row itself, so this is a light-blue loading bar sweeping left-to-right across the card. Translucent, because the row's own text has to stay readable underneath it.",
+      "normal":   { "bg": [120, 205, 255, 120], "text": [0, 0, 0, 0] },
+      "hovered":  { "bg": [120, 205, 255, 120], "text": [0, 0, 0, 0] },
+      "pressed":  { "bg": [120, 205, 255, 120], "text": [0, 0, 0, 0] },
+      "disabled": { "bg": [120, 205, 255, 120], "text": [0, 0, 0, 0] }
+    },
     "hud_label": {
       "normal": {
         "bg": [
@@ -3742,16 +3775,17 @@
         ]
       },
       "pressed": {
+        "//": "Playtest #4: a held card must stay DARK. The press used to flip the whole row to solid cyan, which left the light-blue hold bar sweeping across it invisible - the fill is the progress readout, so the press state can only be a slightly warmer hover.",
         "bg": [
-          120,
-          225,
-          255,
+          18,
+          44,
+          68,
           255
         ],
         "text": [
-          8,
-          16,
-          30,
+          235,
+          252,
+          255,
           255
         ]
       },
@@ -3769,6 +3803,13 @@
           170
         ]
       }
+    },
+    "hud_slot_frame": {
+      "//": "Playtest #11: the ability row's two boxes. minimap_frame's rim with NO smoke behind it, because the dash button's face is a pair of screen-space SPRITES and RenderSystem draws them before the UI composites - a translucent fill over them is a 43% veil on the one thing the row is meant to show. The grey-out is the cooldown dial's job, not the frame's.",
+      "normal":   { "bg": [0, 0, 0, 0], "text": [120, 225, 255, 130] },
+      "hovered":  { "bg": [0, 0, 0, 0], "text": [120, 225, 255, 130] },
+      "pressed":  { "bg": [0, 0, 0, 0], "text": [120, 225, 255, 130] },
+      "disabled": { "bg": [0, 0, 0, 0], "text": [120, 225, 255, 130] }
     },
     "minimap_frame": {
       "normal": {
@@ -3867,7 +3908,7 @@
             "w": 352,
             "h": 24
           },
-          "label_text": "Credits: 0",
+          "label_text": "Units: 0",
           "style_id": "subtitle",
           "z_order": 10,
           "name": "shop_credits"
@@ -4082,9 +4123,36 @@
           "element_type": "panel",
           "rect": {
             "x": 448,
+            "y": 192,
+            "w": 328,
+            "h": 196
+          },
+          "label_text": "",
+          "style_id": "panel",
+          "z_order": 0,
+          "//": "Playtest #5: the stat sheet. The right column is where the loadout is shown, so it is also where the stats live - ShopSystem fills a pooled name/value label pair per shop upgrade row over this panel, and hovering that row on the UPGRADES page shows the value the purchase would buy.",
+          "name": "shop_stat_panel"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 464,
+            "y": 364,
+            "w": 296,
+            "h": 20
+          },
+          "label_text": "DRONE STATS",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "shop_stat_head"
+        },
+        {
+          "element_type": "panel",
+          "rect": {
+            "x": 448,
             "y": 116,
             "w": 328,
-            "h": 108
+            "h": 72
           },
           "label_text": "",
           "style_id": "panel",
@@ -4617,7 +4685,7 @@
         {
           "element_type": "label",
           "rect": { "x": 204, "y": 268, "w": 392, "h": 24 },
-          "label_text": "Fly over credits to collect them - they expire.",
+          "label_text": "Fly over units to collect them - they expire.",
           "style_id": "caption",
           "z_order": 10
         },
@@ -4706,7 +4774,7 @@
             "w": 392,
             "h": 28
           },
-          "label_text": "Spend your credits, or push on.",
+          "label_text": "Spend your units, or push on.",
           "style_id": "subtitle",
           "z_order": 10
         },
@@ -4823,6 +4891,48 @@
           "name": "hud_sh_fill"
         },
         {
+          "//": "D192 #9: the primary-fire battery, third in the same gauge stack. GameHUDSystem::BAR_FULL_W is the 240 these are authored at.",
+          "element_type": "panel",
+          "rect": { "x": 14, "y": 482, "w": 244, "h": 18 },
+          "label_text": "",
+          "style_id": "hud_bar_bg",
+          "z_order": 10,
+          "name": "hud_bat_bg"
+        },
+        {
+          "element_type": "panel",
+          "rect": { "x": 16, "y": 484, "w": 240, "h": 14 },
+          "label_text": "",
+          "style_id": "hud_battery",
+          "z_order": 12,
+          "name": "hud_bat_fill"
+        },
+        {
+          "//": "D192 #8: the boss health bar. Bottom-centre, because the top strip already carries HULL, the wave counter and the minimap, and the label needs a row of its own. Collapsed by GameHUDSystem whenever boss.hp_frac < 0.",
+          "element_type": "label",
+          "rect": { "x": 230, "y": 74, "w": 340, "h": 22 },
+          "label_text": "",
+          "style_id": "hud_label",
+          "z_order": 22,
+          "name": "hud_boss_label"
+        },
+        {
+          "element_type": "panel",
+          "rect": { "x": 230, "y": 50, "w": 340, "h": 20 },
+          "label_text": "",
+          "style_id": "hud_bar_bg",
+          "z_order": 20,
+          "name": "hud_boss_bg"
+        },
+        {
+          "element_type": "panel",
+          "rect": { "x": 232, "y": 52, "w": 336, "h": 16 },
+          "label_text": "",
+          "style_id": "hud_boss",
+          "z_order": 21,
+          "name": "hud_boss_fill"
+        },
+        {
           "element_type": "panel",
           "rect": {
             "x": 688,
@@ -4837,26 +4947,27 @@
           "name": "minimap_frame"
         },
         {
+          "//": "THE ABILITY ROW (playtest #2/#11/#12). Two 48x48 boxes on one baseline at y=24: the boss-item slot at x=16 and the dash at x=72. Was a single 100x100 slot that only appeared once an active had dropped - an empty box the player can see is the prompt that there is a slot to fill (the same argument as the always-present shield gauge). Both boxes and both inner glyph rows are authored identically so nothing in the row reads as a different size; 64 was still eating the corner of the arena, so the row shrank again.",
           "element_type": "panel",
           "rect": {
             "x": 16,
-            "y": 16,
-            "w": 100,
-            "h": 100
+            "y": 24,
+            "w": 48,
+            "h": 48
           },
           "label_text": "",
-          "style_id": "minimap_frame",
+          "style_id": "hud_slot_frame",
           "z_order": 20,
           "name": "item_slot_frame",
-          "//": "Lane M (D116): the boss-reward active-item slot. PauseStatsSystem relabels the two inner labels and collapses all three when no active is held or the HUD is hidden (D86)."
+          "//2": "Lane M (D116): the boss-reward active-item slot. PauseStatsSystem relabels the two inner labels and collapses all three when the HUD is hidden (D86)."
         },
         {
           "element_type": "label",
           "rect": {
-            "x": 24,
-            "y": 52,
-            "w": 84,
-            "h": 40
+            "x": 18,
+            "y": 44,
+            "w": 44,
+            "h": 18
           },
           "label_text": "",
           "style_id": "subtitle",
@@ -4866,15 +4977,33 @@
         {
           "element_type": "label",
           "rect": {
-            "x": 24,
-            "y": 26,
-            "w": 84,
-            "h": 18
+            "x": 18,
+            "y": 28,
+            "w": 44,
+            "h": 14
           },
           "label_text": "",
           "style_id": "caption",
           "z_order": 21,
           "name": "item_slot_key"
+        },
+        {
+          "//": "The dash button. Same frame, same size, one box to the right. GameHUDSystem owns it and the SPACE prompt - they ride its gauge array, so the phase gate hides them with the rest of the arena furniture for free. The button's FACE (booster glyph + circular cooldown dial) is NOT authored here: UIElement has no texture path, so those two are screen-space sprites main.cpp parks over this rect. This is the rect they read - move the box and the sprites follow.",
+          "element_type": "panel",
+          "rect": { "x": 72, "y": 24, "w": 48, "h": 48 },
+          "label_text": "",
+          "style_id": "hud_slot_frame",
+          "z_order": 20,
+          "name": "hud_dash_frame"
+        },
+        {
+          "//": "The key prompt, under the box. Nothing else on the HUD tells the player SPACE is the dash.",
+          "element_type": "label",
+          "rect": { "x": 72, "y": 6, "w": 48, "h": 16 },
+          "label_text": "SPACE",
+          "style_id": "caption",
+          "z_order": 21,
+          "name": "hud_dash_key"
         }
       ]
     },

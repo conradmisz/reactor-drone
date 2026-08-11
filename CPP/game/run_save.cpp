@@ -97,6 +97,7 @@ RunSave run_save_load(const std::string& path) {
         s.credits      = std::max(0, jget(j, "credits", 0));
         s.keys         = std::max(0, jget(j, "keys", 0));
         s.speed_mult   = jget(j, "speed_mult", 1.0f);
+        s.dash_max     = std::max(1, jget(j, "dash_max", 1));
         s.item_id       = jget(j, "item_id", -1);
         s.consumable_id = jget(j, "consumable_id", -1);
         s.active_id     = jget(j, "active_id", -1);
@@ -140,6 +141,7 @@ bool run_save_write(const std::string& path, const RunSave& s) {
             {"credits", s.credits},
             {"keys", s.keys},
             {"speed_mult", s.speed_mult},
+            {"dash_max", s.dash_max},
             {"item_id", s.item_id},
             {"consumable_id", s.consumable_id},
             {"active_id", s.active_id},
@@ -194,6 +196,7 @@ RunSave run_save_capture(ComponentStorage& storage, const Blackboard& blackboard
         s.shield_regen = st.shield_regen;
         s.shield_delay = st.shield_delay;
         s.speed_mult = st.speed_mult;
+        s.dash_max = st.dash_max;
         s.item_id = st.item_id;
         s.consumable_id = st.consumable_id;
         s.active_id = st.active_id;
@@ -237,6 +240,8 @@ void run_save_apply(const RunSave& s, ComponentStorage& storage, Blackboard& bla
         st.shield_regen = s.shield_regen;
         st.shield_delay = s.shield_delay;
         if (s.speed_mult > 0.0f) st.speed_mult = s.speed_mult;
+        st.dash_max = std::max(1, s.dash_max);
+        st.dash_charges = st.dash_max;
         st.item_id = s.item_id;
         st.consumable_id = s.consumable_id;
         st.active_id = s.active_id;

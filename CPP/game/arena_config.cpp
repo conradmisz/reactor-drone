@@ -1,4 +1,5 @@
 #include "arena_config.hpp"
+#include <algorithm>
 #include <fstream>
 #include <stdexcept>
 #include <nlohmann/json.hpp>
@@ -200,6 +201,13 @@ GameConfig load_arena_config(const std::string& file_path) {
         cfg.dash.duration = d.value("duration", cfg.dash.duration);
         cfg.dash.cooldown = d.value("cooldown", cfg.dash.cooldown);
         cfg.dash.damage   = d.value("damage", cfg.dash.damage);
+        cfg.dash.charges  = std::max(1, d.value("charges", cfg.dash.charges));
+    }
+
+    if (data.contains("battery")) {
+        const auto& b = data["battery"];
+        cfg.battery.fire_time     = b.value("fire_time", cfg.battery.fire_time);
+        cfg.battery.recharge_time = b.value("recharge_time", cfg.battery.recharge_time);
     }
     if (data.contains("minimap")) {
         const auto& m = data["minimap"];

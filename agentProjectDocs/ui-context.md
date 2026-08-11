@@ -44,6 +44,7 @@ Each style id carries four states (`normal` / `hovered` / `pressed` /
 | `card` | Shop rows — flatter than `default_button` on purpose (D88) |
 | `shop_tab` | Tab strip. Its **disabled** state is the *selected* look (D88) |
 | `minimap_frame` | The radar pane: translucent smoke + a neon rim |
+| `hud_slot_frame` | The ability row's two boxes: `minimap_frame`'s rim with **no** fill, because sprites are drawn under them (D193 rev) |
 | `hud_hp_ok` / `hud_hp_warn` / `hud_hp_crit` | HP fill, swapped by fraction |
 | `hud_shield` | Shield fill |
 | `ghost` | The hidden-button style (D137): bg = panel colour, because buttons always fill their rect with blend NONE. Blank the caption too — text ignores style alpha |
@@ -79,8 +80,10 @@ SDL3_ttf renders it; there is no second face and no icon font.
   then two buttons side by side — the primary one carries `pulse_hz` (1.1) so the
   eye lands on it.
 - **z-order**: panel `0`, everything on it `10`.
-- **World render layers**: 0 backdrop, 2 enemies, 3 player, 4 pickups. UI
-  composites last, over the world *and* the HUD.
+- **World render layers**: 0 backdrop, 2 enemies, 3 player, 4 pickups, 5 shield
+  field, 60/61 the dash button's screen-space face. UI composites last, over the
+  world *and* the HUD — which is why anything drawn as a sprite under a widget
+  needs that widget's fill to be transparent.
 - The shop is a data-authored screen (D61): a card panel on the left, drone
   preview and a fixed detail pane on the right (D89). The `1`-`8` / `TAB` / `B`
   keyboard path survives as the headless fallback.
@@ -90,4 +93,13 @@ SDL3_ttf renders it; there is no second face and no icon font.
 
 ## Icons
 
-None. Everything is generated sprite art or text.
+No icon font. Everything is generated sprite art or text.
+
+`UIElement` has no texture path, so a widget can never carry an image — but a
+HUD icon does not have to be a widget. The dash button's booster and its
+circular cooldown dial are ordinary sprite entities drawn in *screen* space
+(`hud_boost.png`, `hud_dash_sweep.png`), parked over the authored
+`hud_dash_frame` rect. If you add another: `CameraSystem` overwrites
+`ScreenPosition` for everything that has a `Position`, and `RenderSystem` only
+iterates entities that have one — so the placement must be written **after**
+`camera.update`, which is where `main.cpp` does it.

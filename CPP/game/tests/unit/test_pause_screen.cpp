@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "engine/ecs/blackboard.hpp"
+#include "game/dash_system.hpp"        // dash_sweep_frame (#11)
 #include "game/prestige.hpp"
 #include "engine/ecs/component_storage.hpp"
 #include "engine/ecs/components.hpp"
@@ -275,4 +276,91 @@ TEST_CASE("the pause sheet reads the prestige level Lane O actually publishes",
 
     pause_stats::Snapshot none;                                // no prestige -> no row
     CHECK(pause_stats::stat_lines(none, {}).front().rfind("PRESTIGE", 0) != 0);
+}
+
+// ---------------------------------------------------------------------------
+// D192 — the gameplay screen's new gauges (#8 boss bar, #9 battery). These are
+// resolved by NAME through "ui.widget_id.<name>", so a rename in GameData.json
+// makes them silently never draw; that is exactly the failure this pins.
+// ---------------------------------------------------------------------------
+TEST_CASE("the D192 HUD gauges exist, resolve a style and stay on-canvas",
+          "[Game][ui][d192]") {
+    LoadedWorld w;
+    auto table = w.bb.get_or<std::shared_ptr<StyleTable>>("ui_styles", nullptr);
+    REQUIRE(table != nullptr);
+
+    for (const char* name : {"hud_bat_bg", "hud_bat_fill",
+                             "hud_boss_bg", "hud_boss_fill", "hud_boss_label",
+                             // The ability row: the dash button and the boss-item
+                             // slot beside it, resolved by the same name lookup.
+                             "hud_dash_frame", "hud_dash_key",
+                             "item_slot_frame", "item_slot_name", "item_slot_key"}) {
+        INFO("gameplay widget: " << name);
+        const Entity e = w.by_name(name);
+        REQUIRE(e != 0);
+        auto el = w.cs.get_component<UIElement>(e);
+        REQUIRE(el.has_value());
+        REQUIRE(table->contains(el->get().style_id));
+        const UIRect& r = el->get().rect;
+        REQUIRE(r.x >= 0.0f);
+        REQUIRE(r.y >= 0.0f);
+        REQUIRE(r.x + r.w <= UI_DESIGN_WIDTH);
+        REQUIRE(r.y + r.h <= UI_DESIGN_HEIGHT);
+    }
+
+    // GameHUDSystem authors the battery fill at the same BAR_FULL_W = 240 it
+    // restores the hull and shield bars to; a mismatch here is a bar that jumps
+    // wider than its frame on the first refresh.
+    auto bat = w.cs.get_component<UIElement>(w.by_name("hud_bat_fill"));
+    REQUIRE(bat.has_value());
+    CHECK(bat->get().rect.w == 240.0f);
+
+    // The boss fill must sit inside its own frame, not over it.
+    auto bg = w.cs.get_component<UIElement>(w.by_name("hud_boss_bg"));
+    auto fill = w.cs.get_component<UIElement>(w.by_name("hud_boss_fill"));
+    REQUIRE(bg.has_value());
+    REQUIRE(fill.has_value());
+    CHECK(fill->get().rect.w == bg->get().rect.w - 4.0f);
+    CHECK(fill->get().z_order > bg->get().z_order);
+
+    // The ability row (playtest #2/#11/#12): the boss-item slot and the dash
+    // button are one row, so the two boxes must be the same size and share a
+    // baseline — that sameness IS the feedback item. The dash button's face is a
+    // pair of SPRITES parked over hud_dash_frame's live rect, so the box must
+    // stay square: a non-square rect would stretch the booster and turn the
+    // circular cooldown dial into an ellipse.
+    auto slot = w.cs.get_component<UIElement>(w.by_name("item_slot_frame"));
+    auto dash = w.cs.get_component<UIElement>(w.by_name("hud_dash_frame"));
+    REQUIRE(slot.has_value());
+    REQUIRE(dash.has_value());
+    CHECK(slot->get().rect.w == dash->get().rect.w);
+    CHECK(slot->get().rect.h == dash->get().rect.h);
+    CHECK(slot->get().rect.y == dash->get().rect.y);
+    CHECK(slot->get().rect.x + slot->get().rect.w <= dash->get().rect.x);  // no overlap
+    CHECK(dash->get().rect.w == dash->get().rect.h);
+}
+
+// ---------------------------------------------------------------------------
+// Playtest #11 — the dash button's circular cooldown dial. The sweep atlas is
+// authored at DASH_SWEEP_FRAMES even progress steps in make_sprites.py, and
+// nothing but this pins the picker to that count: an off-by-one reads a frame
+// past the end of the strip, which SDL happily draws as blank.
+// ---------------------------------------------------------------------------
+TEST_CASE("dash_sweep_frame stays in the strip and rises with the recharge",
+          "[Game][ui][dash]") {
+    CHECK(dash_sweep_frame(0.0f) == 0);                          // just dashed: all grey
+    CHECK(dash_sweep_frame(1.0f) == DASH_SWEEP_FRAMES - 1);      // ready (parked anyway)
+    CHECK(dash_sweep_frame(-5.0f) == 0);                         // total on garbage
+    CHECK(dash_sweep_frame(9.0f) == DASH_SWEEP_FRAMES - 1);
+    CHECK(dash_sweep_frame(0.5f) == DASH_SWEEP_FRAMES / 2);      // half way round
+
+    int prev = -1;
+    for (int i = 0; i <= 100; ++i) {
+        const int f = dash_sweep_frame(static_cast<float>(i) / 100.0f);
+        INFO("frac " << i << "%");
+        REQUIRE(f >= 0);
+        REQUIRE(f < DASH_SWEEP_FRAMES);
+        REQUIRE(f >= prev);            // monotone: the dial never runs backwards
+        prev = f;
+    }
 }

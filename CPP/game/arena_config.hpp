@@ -277,6 +277,14 @@ struct DashConfig {
     float duration = 0.15f;       // seconds the burst lasts
     float cooldown = 2.5f;        // seconds before it is ready again
     float damage = 30.0f;         // dealt to each enemy the dash passes through
+    int   charges = 1;            // bursts held at once; +1 per boss killed (#10)
+};
+
+/// BatteryConfig — the primary-fire battery (#9). Draining it to empty locks the
+/// trigger until it is full again; the recharge rate is constant either way.
+struct BatteryConfig {
+    float fire_time = 12.0f;      // seconds of continuous fire from full
+    float recharge_time = 3.0f;   // seconds from empty to full
 };
 
 /// MinimapConfig — the arena minimap (#7, Lane B).
@@ -383,6 +391,7 @@ struct GameConfig {
     // Iteration 3 (D51) — parsed now, consumed by the lane that owns each.
     SustainConfig sustain;         // #10 health/shield pickups
     DashConfig dash;               // #5 thruster dash
+    BatteryConfig battery;         // #9 primary-fire battery
     MinimapConfig minimap;         // #7 minimap
     BossConfig boss;               // #4 boss every 10 waves
     SpecialtyConfig specialty;     // #3/#9 spawn-stream injections

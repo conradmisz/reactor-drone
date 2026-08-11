@@ -6,6 +6,7 @@
 #include "engine/ecs/entity_manager.hpp"
 #include "arena_config.hpp"
 #include "wave_spawner_system.hpp"
+#include <string>
 #include <vector>
 
 /**
@@ -70,6 +71,7 @@ private:
     bool reward_open_ = false;
     bool shift_requested_ = false;
     bool final_boss_ = false;
+    std::string boss_name_;        // #8: the label on the boss health bar
     std::vector<int> offer_;
 };
 

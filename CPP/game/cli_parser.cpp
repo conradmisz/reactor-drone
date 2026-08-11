@@ -68,7 +68,13 @@ void print_usage(std::ostream& out) {
         << "  --screenshot N ...     Save a BMP screenshot at specified frames\n"
         << "  --debug-keys           Enable interactive J/T dump/trace keys (default)\n"
         << "  --no-debug-keys        Disable interactive J/T dump/trace keys\n"
-        << "  --level N              Start on level N (1-based; from assets/levels.json)\n"
+        << "  --level N              With --dev, start the run on wave N (1-based)\n"
+        << "  --dev, --god           Developer playtest mode (off by default):\n"
+        << "                           * UNITS topped up every frame (buy anything)\n"
+        << "                           * B opens the between-waves prompt any time,\n"
+        << "                             no shop key spent -> SHOP button\n"
+        << "                           * F5 skips to the next wave\n"
+        << "                           * --level N starts the run on wave N\n"
         << "  --script FILE          Load session from a JSON script file (exclusive)\n"
         << "  --help                 Show this help message\n";
 }
@@ -192,6 +198,10 @@ CommandLineOptions parse_command_line(int argc, char* argv[]) {
 
         } else if (arg == "--no-debug-keys") {
             opts.debug_keys = false;
+            ++i;
+
+        } else if (arg == "--dev" || arg == "--god") {
+            opts.dev = true;
             ++i;
 
         } else if (arg == "--fps") {
@@ -632,6 +642,11 @@ std::vector<std::string> options_to_argv(const CommandLineOptions& opts) {
         argv.push_back("--debug-keys");
     } else {
         argv.push_back("--no-debug-keys");
+    }
+
+    // --dev (emitted only when on: a normal run's argv is unchanged)
+    if (opts.dev) {
+        argv.push_back("--dev");
     }
 
     return argv;

@@ -252,7 +252,12 @@ void PauseStatsSystem::update(ComponentStorage& cs, EntityManager& em, Blackboar
     // --- HUD active-item slot (#13) ---
     // Same phase rule as the rest of the arena furniture (D86), and the same
     // hide: a zero-size rect, because UIElement has no visibility flag.
-    const bool show = hud_visible_in_phase(bb.get_or<int>("phase", 0)) && s.active_id >= 0;
+    //
+    // Playtest #2: the phase is now the ONLY condition. The slot used to vanish
+    // until a boss dropped an active, so nothing on the HUD said the slot
+    // existed; an empty box reads as something to fill, which is the same
+    // argument the always-present shield gauge already won.
+    const bool show = hud_visible_in_phase(bb.get_or<int>("phase", 0));
     for (int i = 0; i < 3; ++i) {
         if (slot_[i] == 0) continue;
         auto el = cs.get_component<UIElement>(slot_[i]);
@@ -261,16 +266,24 @@ void PauseStatsSystem::update(ComponentStorage& cs, EntityManager& em, Blackboar
                               : UIRect{slot_rect_[i].x, slot_rect_[i].y, 0.0f, 0.0f};
     }
     if (!show) return;
+    const bool held = s.active_id >= 0;
     if (slot_[1] != 0) {
         if (auto el = cs.get_component<UIElement>(slot_[1]); el.has_value())
-            el->get().label_text = pause_stats::active_tag(s.active_id);
+            el->get().label_text = held ? pause_stats::active_tag(s.active_id)
+                                        // Playtest #12: one word, and the word
+                                        // names the slot. "EMPTY / BOSS" spent
+                                        // two lines of a 48px box saying the box
+                                        // was empty, which the empty box said.
+                                        : std::string("ITEM");
     }
     if (slot_[2] != 0) {
         if (auto el = cs.get_component<UIElement>(slot_[2]); el.has_value()) {
             char cd[16];
             std::snprintf(cd, sizeof(cd), "%.0fs", std::ceil(static_cast<double>(active_cd)));
-            el->get().label_text = pause_stats::active_key(s.active_id) + " " +
-                                   (active_cd > 0.0f ? cd : "READY");
+            el->get().label_text =
+                held ? pause_stats::active_key(s.active_id) + " " +
+                           (active_cd > 0.0f ? cd : "READY")
+                     : std::string();         // empty: the row above says ITEM
         }
     }
 }

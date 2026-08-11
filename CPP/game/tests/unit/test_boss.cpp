@@ -368,17 +368,26 @@ TEST_CASE("an active fires once and then sits on its cooldown", "[Game][actives]
 
     actives::tick(w.cs, w.em, w.bb, w.cfg, /*fire=*/true);
     const size_t after_first = w.cs.entities_with_component<ProjectileTag>().size();
-    CHECK(after_first == 8);            // 8 radial missiles
+    CHECK(after_first == 8);            // 8 radial missiles, wave one
     CHECK_THAT(w.cs.get_component<ShipState>(p)->get().active_cd,
                WithinAbs(30.0f, 1e-3f));
 
+    // dt is 0.25 here, so wave two (0.45 s later) is still pending on this tick.
     actives::tick(w.cs, w.em, w.bb, w.cfg, /*fire=*/true);
     CHECK(w.cs.entities_with_component<ProjectileTag>().size() == after_first);
+
+    // ...and lands on the next one — off the salvo timer, not off the key.
+    actives::tick(w.cs, w.em, w.bb, w.cfg, /*fire=*/false);
+    CHECK(w.cs.entities_with_component<ProjectileTag>().size() == 16);
+
+    // Neither wave re-fires: the key is still down but the cooldown is not spent.
+    actives::tick(w.cs, w.em, w.bb, w.cfg, /*fire=*/true);
+    CHECK(w.cs.entities_with_component<ProjectileTag>().size() == 16);
 
     // Not pressing the key does not fire it either.
     w.cs.get_component<ShipState>(p)->get().active_cd = 0.0f;
     actives::tick(w.cs, w.em, w.bb, w.cfg, /*fire=*/false);
-    CHECK(w.cs.entities_with_component<ProjectileTag>().size() == after_first);
+    CHECK(w.cs.entities_with_component<ProjectileTag>().size() == 16);
 }
 
 TEST_CASE("the repulsion device fires BELOW 20% hull, not at it", "[Game][actives]") {

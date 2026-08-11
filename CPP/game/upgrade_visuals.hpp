@@ -165,10 +165,11 @@ constexpr int FIELD_DOWN_FRAME = 12;
 constexpr int FIELD_REGEN_START = 13, FIELD_REGEN_COUNT = 8;
 constexpr int FIELD_TOTAL = 21;
 
-/// The field sprite is 192px against the chassis's 128, so it is worn at 1.5x
-/// the player's size. That is what puts the ring clear of the hull instead of
-/// on it.
-constexpr float FIELD_SIZE_MULT = 192.0f / 128.0f;
+/// The field sprite is a 192px window on the chassis's 128-space (the extra 64
+/// is the margin that stops the r=70 ring being clipped square by the frame),
+/// so a 1.5x mult would draw 128-space at 1:1 and put the ring almost on the
+/// hull. 2.25x reproduces the standoff the stretched art used to have.
+constexpr float FIELD_SIZE_MULT = 288.0f / 128.0f;
 
 /// How long after a hit the impact bloom plays.
 constexpr float FIELD_HIT_TIME = 0.36f;

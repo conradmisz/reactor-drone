@@ -167,12 +167,15 @@ TEST_CASE("Every shop widget resolves a real style", "[Game][ui][shop]") {
         REQUIRE(table->contains(el->get().style_id));
     }
 
-    // D191: ShopSystem restyles its code-made pip labels by these names; they
-    // are invisible to the widget loop above, so pin them here.
+    // Playtest #5: the hover preview moved off the cards and onto the right-hand
+    // stat sheet, which ShopSystem restyles by these names. Code-made labels are
+    // invisible to the widget loop above, so pin them here.
     REQUIRE(table->contains("pip_gain"));
     REQUIRE(table->contains("pip_loss"));
-    // D189: the hold-to-buy fill strip borrows the HUD gauge style.
-    REQUIRE(table->contains("hud_hp_ok"));
+    // Playtest #4: the hold-to-buy progress is the WHOLE card filling left to
+    // right in light blue, so it has its own translucent style rather than
+    // borrowing the opaque HUD gauge.
+    REQUIRE(table->contains("hud_hold"));
 }
 
 TEST_CASE("Shop cards are on-canvas, clickable and disjoint", "[Game][ui][shop]") {

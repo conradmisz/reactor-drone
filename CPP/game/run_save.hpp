@@ -48,6 +48,7 @@ struct RunSave {
     int   item_id = -1, consumable_id = -1;
     int   active_id = -1;
     int   extra_shots = 0;
+    int   dash_max = 1;        ///< D192 #10: dash charges earned (base + one per boss)
     int   upg_counts[8] = {0};
     int   gear_levels[8] = {0};
 

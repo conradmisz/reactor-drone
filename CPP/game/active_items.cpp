@@ -18,9 +18,14 @@ constexpr float TAU = 6.28318530717958647692f;
 constexpr int   MISSILE_COUNT   = 8;
 constexpr float MISSILE_SPEED   = 420.0f;
 constexpr float MISSILE_TURN    = 3.4f;    // radians/sec of homing
-constexpr float MISSILE_R       = 7.0f;
-constexpr float MISSILE_AOE     = 130.0f;  // detonation radius
-constexpr float MISSILE_FUSE    = 34.0f;   // detonate this close to the target
+constexpr float MISSILE_R       = 11.0f;
+constexpr float MISSILE_AOE     = 200.0f;  // detonation radius
+// Proximity fuse. It must trip BEFORE the rocket physically touches its target,
+// or ProjectileHitSystem takes it on contact and the blast never happens — that
+// path pays single-target damage, not the AoE below. Bigger rocket (R 7 -> 11)
+// means contact happens sooner, so the fuse moved out with it.
+constexpr float MISSILE_FUSE    = 56.0f;   // detonate this close to the target
+constexpr float MISSILE_SALVO   = 0.45f;   // gap before the second wave
 
 // --- laser ----------------------------------------------------------------
 constexpr int   BEAM_COUNT      = 4;
@@ -38,6 +43,7 @@ constexpr const char* K_FIELD_T  = "active.field_t";    // seconds of sphere lef
 constexpr const char* K_FIELD_R  = "active.field_radius";
 constexpr const char* K_FIELD_P  = "active.field_push";
 constexpr const char* K_CD_MULT  = "ship.active_cd_mult";  // boss-reward upgrades
+constexpr const char* K_SALVO_T  = "active.salvo_t";    // <=0 = no wave pending
 
 bool centre_of(ComponentStorage& s, Entity e, float& cx, float& cy) {
     auto p = s.get_component<Position>(e);
@@ -60,8 +66,12 @@ Entity nearest_enemy(ComponentStorage& s, float x, float y) {
     return best;
 }
 
+/// `reach` is how far the particles travel in their 0.4 s life — the visual
+/// radius. Keep it equal to whatever gameplay radius the burst is standing in
+/// for, or the blast lies about its own size.
 void burst(ComponentStorage& s, EntityManager& em, float x, float y,
-           float rate, float life, uint8_t r, uint8_t g, uint8_t b) {
+           float rate, float life, uint8_t r, uint8_t g, uint8_t b,
+           float reach = 120.0f, float size = 8.0f) {
     Entity host = em.create_entity();
     s.add_component<Position>(host, Position{x, y});
     ParticleEmitter e;
@@ -69,24 +79,31 @@ void burst(ComponentStorage& s, EntityManager& em, float x, float y,
     e.additive = true;
     e.emission_rate = rate;
     e.particle_lifetime = 0.4f;
-    e.min_speed = 60.0f; e.max_speed = 300.0f;
+    e.min_speed = reach * 0.2f / e.particle_lifetime;
+    e.max_speed = reach / e.particle_lifetime;
     e.cone_half_angle = 180.0f;
-    e.start_size = 8.0f; e.end_size = 0.0f;
+    e.start_size = size; e.end_size = 0.0f;
     e.start_r = r; e.start_g = g; e.start_b = b; e.start_a = 255;
     e.end_r = 255; e.end_g = 255; e.end_b = 255; e.end_a = 0;
     s.add_component<ParticleEmitter>(host, e);
     s.add_component<Lifetime>(host, Lifetime{life});
 }
 
+/// `spin` offsets the fan; the second salvo passes half a step so the two waves
+/// interleave instead of flying the first wave's lines again.
 void launch_missiles(ComponentStorage& s, EntityManager& em,
-                     float px, float py, const ActiveItemDef& def) {
+                     float px, float py, const ActiveItemDef& def, float spin = 0.0f) {
     for (int i = 0; i < MISSILE_COUNT; ++i) {
-        const float a = TAU * static_cast<float>(i) / static_cast<float>(MISSILE_COUNT);
+        const float a = spin + TAU * static_cast<float>(i) / static_cast<float>(MISSILE_COUNT);
         Entity m = em.create_entity();
         s.add_component<Position>(m, Position{px - MISSILE_R, py - MISSILE_R});
         s.add_component<Velocity>(m, aim_math::velocity_from_angle(a, MISSILE_SPEED));
         s.add_component<Size>(m, Size{MISSILE_R * 2.0f, MISSILE_R * 2.0f});
         s.add_component<Color>(m, Color{255, 190, 90, 255});
+        // A rocket, not a dot: the sprite is authored facing right and the
+        // heading below turns it, so flip_when_left must stay off (D2 art rule).
+        s.add_component<Images>(m, Images{{"v2/projectile_rocket.png"}, 0});
+        s.add_component<Rotation>(m, Rotation{a, 0.0f, false});
         s.add_component<Collider>(m, Collider{MISSILE_R * 2.0f, MISSILE_R * 2.0f,
                                               layers::PROJECTILE, layers::PROJECTILE_MASK});
         s.add_component<CircleCollider>(m, CircleCollider{MISSILE_R, 0.0f, 0.0f});
@@ -135,6 +152,8 @@ void tick_missiles(ComponentStorage& s, EntityManager& em, float dt) {
         float d = aim_math::wrap_pi(want - cur);
         d = std::max(-MISSILE_TURN * dt, std::min(MISSILE_TURN * dt, d));
         vel->get() = aim_math::velocity_from_angle(cur + d, data->get().speed);
+        if (auto rot = s.get_component<Rotation>(m); rot.has_value())
+            rot->get().angle = cur + d;   // the rocket flies nose-first
 
         if ((tx - mx) * (tx - mx) + (ty - my) * (ty - my) > MISSILE_FUSE * MISSILE_FUSE)
             continue;
@@ -149,7 +168,7 @@ void tick_missiles(ComponentStorage& s, EntityManager& em, float dt) {
             Entity ev = em.create_entity();
             s.add_component<DamageEvent>(ev, DamageEvent{e, data->get().damage});
         }
-        burst(s, em, mx, my, 420.0f, 0.10f, 255, 190, 90);
+        burst(s, em, mx, my, 900.0f, 0.10f, 255, 190, 90, MISSILE_AOE, 14.0f);
         s.add_component<DestroyRequest>(m, DestroyRequest{});
     }
 }
@@ -291,6 +310,7 @@ void tick(ComponentStorage& storage, EntityManager& entity_manager,
         // Blackboard outlives spawn_world and the beam entities do not.
         blackboard.set<float>(K_BEAM_T, -1.0f);
         blackboard.set<float>(K_FIELD_T, 0.0f);
+        blackboard.set<float>(K_SALVO_T, 0.0f);
         return;
     }
     if (ship->active_cd > 0.0f) ship->active_cd = std::max(0.0f, ship->active_cd - dt);
@@ -303,6 +323,18 @@ void tick(ComponentStorage& storage, EntityManager& entity_manager,
 
     float px, py;
     if (!centre_of(storage, player, px, py)) return;
+
+    // The pending second wave. Same one-float-on-the-blackboard countdown the
+    // beam and the sphere use, fired from wherever the drone has drifted to.
+    if (ship->active_id == ids::MISSILES) {
+        const float salvo = blackboard.get_or<float>(K_SALVO_T, 0.0f);
+        if (salvo > 0.0f) {
+            blackboard.set<float>(K_SALVO_T, salvo - dt);
+            if (salvo - dt <= 0.0f)
+                launch_missiles(storage, entity_manager, px, py, *def,
+                                TAU / (2.0f * MISSILE_COUNT));
+        }
+    }
 
     if (ship->active_id == ids::REPULSOR_FIELD) {
         auto h = storage.get_component<Health>(player);
@@ -328,6 +360,7 @@ void tick(ComponentStorage& storage, EntityManager& entity_manager,
 
     if (ship->active_id == ids::MISSILES) {
         launch_missiles(storage, entity_manager, px, py, *def);
+        blackboard.set<float>(K_SALVO_T, MISSILE_SALVO);   // wave two
     } else if (ship->active_id == ids::LASER) {
         blackboard.set<float>(K_BEAM_T, 0.0f);
         blackboard.set<float>(K_BEAM_A, 0.0f);

@@ -53,13 +53,15 @@ void GameHUDSystem::init(ComponentStorage& component_storage,
     // DESIGN-CANVAS layout (bottom-left origin, 800x600), one 16px left margin
     // shared with the gauge widgets above it. Reading order top-down:
     //   HULL label 552..582 / hull bar 526..548 / shield bar 504..522  (widgets)
-    //   caption 480 / score 448 / credits 418 / gear 392               (text)
+    //   battery bar 482..500                                          (widget, D192)
+    //   caption 460 / score 428 / units 398 / gear 372                (text)
     // Rows are 26-30 apart: one line plus a half-line of air, which is what makes
-    // a stack of readouts scannable instead of a block.
-    score_entity_   = make(16.0f, 448.0f, 22.0f, white,  "Score: 0");
-    health_entity_  = make(16.0f, 480.0f, 17.0f, white,  "100 / 100");
-    credits_entity_ = make(16.0f, 418.0f, 22.0f, yellow, "Credits: 0");
-    slots_entity_   = make(16.0f, 392.0f, 18.0f, cyan,   "");
+    // a stack of readouts scannable instead of a block. The text stack moved down
+    // 20px when the battery gauge joined the bar stack above it (D192 #9).
+    score_entity_   = make(16.0f, 428.0f, 22.0f, white,  "Score: 0");
+    health_entity_  = make(16.0f, 460.0f, 17.0f, white,  "100 / 100");
+    credits_entity_ = make(16.0f, 398.0f, 22.0f, yellow, "Units: 0");
+    slots_entity_   = make(16.0f, 372.0f, 18.0f, cyan,   "");
     wave_entity_    = make(520.0f, 556.0f, 22.0f, white, "Wave: 0/0");
     status_entity_  = make(180.0f, 320.0f, 34.0f, yellow, "");
     message_entity_ = make(180.0f, 272.0f, 24.0f, cyan,   "");
@@ -77,12 +79,19 @@ void GameHUDSystem::resolve_bars(ComponentStorage& cs, const Blackboard& blackbo
     };
     static const char* kGaugeNames[GAUGE_WIDGETS] = {
         "hud_hp_label", "hud_hp_bg", "hud_hp_chip",
-        "hud_hp_fill",  "hud_sh_bg", "hud_sh_fill"
+        "hud_hp_fill",  "hud_sh_bg", "hud_sh_fill",
+        "hud_bat_bg",   "hud_bat_fill",
+        "hud_boss_bg",  "hud_boss_fill", "hud_boss_label",
+        "hud_dash_frame", "hud_dash_key"
     };
     for (int i = 0; i < GAUGE_WIDGETS; ++i) gauge_[i] = id(kGaugeNames[i]);
     hp_chip_ = gauge_[2];
     hp_fill_ = gauge_[3];
     sh_fill_ = gauge_[5];
+    bat_fill_ = gauge_[7];
+    boss_bg_ = gauge_[8];
+    boss_fill_ = gauge_[9];
+    boss_label_ = gauge_[10];
     // Cache the AUTHORED geometry before anything narrows a fill bar, so hiding
     // and re-showing the HUD is lossless.
     for (int i = 0; i < GAUGE_WIDGETS; ++i) {
@@ -90,6 +99,8 @@ void GameHUDSystem::resolve_bars(ComponentStorage& cs, const Blackboard& blackbo
         if (auto el = cs.get_component<UIElement>(gauge_[i]); el.has_value())
             gauge_rect_[i] = el->get().rect;
     }
+    boss_bg_rect_ = gauge_rect_[8];
+    boss_label_rect_ = gauge_rect_[10];
     // Resolve once: widget ids are load-time and survive spawn_world, so retrying
     // every frame would only cost lookups. If the screen is absent the ids stay 0
     // and this still latches — the gauges are simply never drawn.
@@ -161,6 +172,8 @@ void GameHUDSystem::update(ComponentStorage& component_storage, Blackboard& blac
     float hp_f = 0.0f, max_hp = 0.0f, shield_f = 0.0f, shield_max = 0.0f;
     int item_id = -1, consumable_id = -1, buff_id = -1;
     float buff_timer = 0.0f;
+    float battery = 1.0f;
+    bool battery_locked = false;
     for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
         if (auto h = component_storage.get_component<Health>(p); h.has_value()) {
             hp_f   = h->get().current;
@@ -177,6 +190,8 @@ void GameHUDSystem::update(ComponentStorage& component_storage, Blackboard& blac
             consumable_id = s->get().consumable_id;
             buff_id = s->get().buff_id;
             buff_timer = s->get().buff_timer;
+            battery = s->get().battery;
+            battery_locked = s->get().battery_locked;
         }
         break;
     }
@@ -206,16 +221,42 @@ void GameHUDSystem::update(ComponentStorage& component_storage, Blackboard& blac
     // Capacitor is bought — an empty slot the player can see is a nudge to fill it,
     // where the old text readout just vanished.
     set_bar(component_storage, sh_fill_, BAR_FULL_W, sh_frac);
+    // #9: the battery. It goes red while the trigger is locked out, which is the
+    // only feedback the player gets for "you emptied it, wait for full".
+    set_bar(component_storage, bat_fill_, BAR_FULL_W, battery,
+            battery_locked ? "hud_battery_low" : "hud_battery");
+
+    // #8: the boss bar. Collapsed to nothing unless BossSystem is publishing a
+    // fraction — the same zero-rect hide the phase gate uses, so a boss that dies
+    // mid-frame takes its bar with it.
+    const float boss_frac = blackboard.get_or<float>("boss.hp_frac", -1.0f);
+    const bool boss_on = boss_frac >= 0.0f;
+    for (Entity e : {boss_bg_, boss_fill_, boss_label_}) {
+        if (e == 0) continue;
+        if (auto el = component_storage.get_component<UIElement>(e); el.has_value() && !boss_on)
+            el->get().rect.w = 0.0f;
+    }
+    if (boss_on) {
+        if (auto el = component_storage.get_component<UIElement>(boss_bg_); el.has_value())
+            el->get().rect.w = boss_bg_rect_.w;
+        set_bar(component_storage, boss_fill_, boss_bg_rect_.w - 4.0f, boss_frac);
+        if (auto el = component_storage.get_component<UIElement>(boss_label_); el.has_value()) {
+            el->get().rect.w = boss_label_rect_.w;
+            el->get().label_text =
+                blackboard.get_or<std::string>("boss.name", std::string("Boss"));
+        }
+    }
 
     if (auto t = component_storage.get_component<Text>(health_entity_); t.has_value()) {
         t->get().content = int_str(hp) + " / " + int_str(static_cast<int>(max_hp + 0.5f)) +
                            (shield_max > 0.0f ? "    SHIELD " + int_str(shield) : std::string());
     }
 
-    // Credits, with the key count only once one has actually dropped (D2 keys are
-    // rare enough that a permanent "Keys: 0" would just be noise).
+    // Units (#11: the currency is a unit, not a credit or a coin), with the key
+    // count only once one has actually dropped (D2 keys are rare enough that a
+    // permanent "Keys: 0" would just be noise).
     if (auto t = component_storage.get_component<Text>(credits_entity_); t.has_value()) {
-        t->get().content = "Credits: " + int_str(credits) +
+        t->get().content = "Units: " + int_str(credits) +
                            (keys > 0 ? "   Keys: " + int_str(keys) : std::string());
     }
 

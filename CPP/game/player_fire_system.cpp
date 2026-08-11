@@ -23,9 +23,41 @@ void PlayerFireSystem::update(ComponentStorage& storage,
             wpn.cooldown_remaining -= dt;
         }
 
+        // Playtest #8: the trigger is the MOUSE, and only the mouse.
+        //
+        // The engine's InputSystem writes Input.fire from SDL_SCANCODE_SPACE, and
+        // this system used to OR that in — so SPACE fired the weapon on every
+        // frame the dash did not consume (no charge, mid-burst, cooldown), which
+        // read as "sometimes my dash key shoots instead". Fixed here rather than
+        // in InputSystem because that component is engine-general and Lua's
+        // engine.get_input still exposes the flag; SPACE-is-dash-only is a
+        // Reactor Drone rule, so it belongs in the game's fire system.
+        //
+        // The headless path is unaffected: a scripted SPACE sets "mouse.held"
+        // directly (see main.cpp's scripted_fire), it never went through Input.
         bool firing = mouse_held;
-        auto input_opt = storage.get_component<Input>(player);
-        if (input_opt.has_value() && input_opt->get().fire) firing = true;
+
+        // #9 (D192): the primary-fire battery. Holding the trigger drains it;
+        // anything else charges it at a constant rate. Draining it to EMPTY
+        // latches a lockout that only clears at full, so the cost of holding the
+        // button down is the whole recharge, not a sliver of it. The two rates
+        // arrive on the Blackboard (published once at run start) for the same
+        // reason the barrel count does: this system stays config-blind.
+        auto ship_opt = storage.get_component<ShipState>(player);
+        const float drain = blackboard.get_or<float>("battery.drain_per_s", 0.0f);
+        if (ship_opt.has_value() && drain > 0.0f) {
+            ShipState& s = ship_opt->get();
+            if (firing && !s.battery_locked) {
+                s.battery = std::max(0.0f, s.battery - drain * dt);
+                if (s.battery <= 0.0f) s.battery_locked = true;
+            } else {
+                s.battery = std::min(1.0f, s.battery +
+                    blackboard.get_or<float>("battery.charge_per_s", 0.0f) * dt);
+                if (s.battery >= 1.0f) s.battery_locked = false;
+            }
+            if (s.battery_locked) firing = false;
+        }
+
         if (!firing || wpn.cooldown_remaining > 0.0f) continue;
 
         // Ready to fire: reset cooldown from fire rate (guard against 0).
@@ -33,8 +65,7 @@ void PlayerFireSystem::update(ComponentStorage& storage,
         // Read here rather than written into WeaponStats on use, so a shop
         // purchase during the buff can never be undone by the expiry (D34).
         float rate = wpn.fire_rate;
-        if (auto s = storage.get_component<ShipState>(player);
-            s.has_value() && s->get().buff_id == consumable_ids::OVERDRIVE)
+        if (ship_opt.has_value() && ship_opt->get().buff_id == consumable_ids::OVERDRIVE)
             rate *= blackboard.get_or<float>("ship.buff_mult", 1.0f);
         wpn.cooldown_remaining = rate > 0.0f ? 1.0f / rate : 0.25f;
 

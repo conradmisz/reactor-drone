@@ -1,0 +1,8 @@
+{
+  "atlas": "v2/hud_dash_sweep.png",
+  "frame_width": 64,
+  "frame_height": 64,
+  "columns": 4,
+  "total_frames": 16,
+  "animations": {}
+}

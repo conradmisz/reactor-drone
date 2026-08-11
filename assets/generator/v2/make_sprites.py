@@ -139,12 +139,13 @@ def rotor(img, xy, r, body, accent, b, t, blades=2, w=3, s=SS):
     img.alpha_composite(lay)
 
 
-def quad_pods(f, pal, col, b, t, pods, r, hub, bw, s=SS):
+def quad_pods(f, pal, col, b, t, pods, r, hub, bw, s=SS, accent=None):
     """Four (or two) rotor pods on booms from `hub`, drawn back-to-front."""
+    accent = accent or pal.accent
     for px, py in pods:
         boom(f, hub, (px, py), scale_col(col, 0.45), bw, s=s)
     for px, py in pods:
-        rotor(f, (px, py), r, scale_col(col, 0.8), scale_col(pal.accent, b), b, t, s=s)
+        rotor(f, (px, py), r, scale_col(col, 0.8), scale_col(accent, b), b, t, s=s)
 
 
 # ---------------------------------------------------------------------------
@@ -152,7 +153,7 @@ def quad_pods(f, pal, col, b, t, pods, r, hub, bw, s=SS):
 # rotor pods on booms around a wedge chassis, sensor eye forward, twin thrusters
 # aft. Symmetric about the horizontal axis so pure rotation orients it.
 # ---------------------------------------------------------------------------
-def player_frames(n=6):
+def player_frames(n=6, hull=None, accent=None, trim=None):
     """The modular chassis (D133). Slimmer and longer than the drone it replaces,
     with the rotor pods pushed further outboard on longer booms — the hull reads
     as a frame with space in it, and that space is where the upgrade kit lands.
@@ -160,8 +161,16 @@ def player_frames(n=6):
     The two flank rails and the tail socket are drawn EMPTY here on purpose: the
     stock drone advertises its own hardpoints, so a purchase seats into a mount
     that was always there instead of appearing on bare hull.
+
+    hull/accent/trim default to the CORE palette (the Standard drone). A ship
+    whose catalogue colour is not cyan gets its OWN atlas from here rather than
+    a runtime Tint: the art bakes cyan, and multiplying cyan by violet is blue,
+    which is exactly why the Purple Gatling read as blue.
     """
     pal = CORE
+    hull = hull or pal.primary
+    accent = accent or pal.accent
+    trim = trim or pal.secondary
     frames = []
     cx, cy = S/2, S/2
     for i in range(n):
@@ -169,31 +178,31 @@ def player_frames(n=6):
         b = pulse(i / n)
         t = i / n
         pods = [(cx+30, cy-33), (cx+30, cy+33), (cx-30, cy-33), (cx-30, cy+33)]
-        quad_pods(f, pal, pal.primary, b, t, pods, 15, (cx+2, cy), 6)
-        hull = [(cx+48, cy), (cx+20, cy-13), (cx-34, cy-11),
-                (cx-34, cy+11), (cx+20, cy+13)]
-        neon_poly(f, hull, scale_col(pal.primary, 0.7),
-                  outline=scale_col(pal.accent, b), ow=3)
+        quad_pods(f, pal, hull, b, t, pods, 15, (cx+2, cy), 6, accent=accent)
+        chassis = [(cx+48, cy), (cx+20, cy-13), (cx-34, cy-11),
+                   (cx-34, cy+11), (cx+20, cy+13)]
+        neon_poly(f, chassis, scale_col(hull, 0.7),
+                  outline=scale_col(accent, b), ow=3)
         d = draw(f)
         d.line([(cx-26, cy-6), (cx+22, cy-6)],
-               fill=scale_col(pal.secondary, 0.8) + (255,), width=2)
+               fill=scale_col(trim, 0.8) + (255,), width=2)
         d.line([(cx-26, cy+6), (cx+22, cy+6)],
-               fill=scale_col(pal.secondary, 0.8) + (255,), width=2)
+               fill=scale_col(trim, 0.8) + (255,), width=2)
         # empty hardpoints: two flank rails + the tail socket
         for sy in (-1, 1):
             d.line([(cx-13, cy + sy*15), (cx+13, cy + sy*17)],
                    fill=KIT_STEEL + (110,), width=2)
         d.rectangle([cx-46, cy-8, cx-36, cy+8], outline=KIT_STEEL + (110,), width=2)
         # sensor eye + aft thrusters
-        dot(f, (cx+20, cy), 8, scale_col(pal.accent, b))
+        dot(f, (cx+20, cy), 8, scale_col(accent, b))
         dot(f, (cx+20, cy), 4, (255, 255, 255))
         for ey in (-6, 6):
-            dot(f, (cx-34, cy+ey), 4, scale_col(pal.secondary, b))
+            dot(f, (cx-34, cy+ey), 4, scale_col(trim, b))
         # A tighter halo than the drone this replaces (0.14/150): the slimmer
         # hull leaves more empty frame, and at that spread the four pods' halos
         # merged into a haze covering the whole tile — which reads on a dark
         # floor as a lit square rotating with the ship.
-        f = add_halo(shrink(f), pal.primary, spread=0.085, strength=120)
+        f = add_halo(shrink(f), hull, spread=0.085, strength=120)
         frames.append(f)
     return frames
 
@@ -334,8 +343,9 @@ KIT_PARTS = [
 # a shield HAS LIVE STATE and a static overlay cannot show it. It is a ring that
 # hums around the drone, never touching it: radius 70 in the chassis's 128-space
 # against a hull whose halo ends about 55, so there is a clear standoff gap all
-# round. The frame is 192px (the ring would not fit in 128), so the runtime
-# wears it at 1.5x the player's size — SHIELD_FRAME / S.
+# round. The frame is 192px so the r=70 ring has margin around the 128-wide
+# chassis box; the runtime wears it at FIELD_SIZE_MULT (2.25x the player's size,
+# which is what keeps the ring the same on-screen size as the old stretched art).
 #
 # ONE STRIP, NO CLIPS: the frame is chosen per-frame by a pure function of the
 # shield's state (kit_visuals::shield_frame), not by an Animation component.
@@ -363,16 +373,19 @@ def _shield_frame_img():
 
 
 def _shield_scale():
-    """Draw proxy scale: the ring is authored in 128-space but lives on a 192px
-    frame, so the two-step (128-space -> 192 frame -> 4x canvas) is one factor."""
-    return SS * SHIELD_FRAME / S
+    """Draw proxy scale. ONE 128-space unit is ONE frame pixel: the 192px frame
+    exists to give the r=70 ring MARGIN around the 128-wide chassis box, so it
+    must not be stretched to fit 128-space. (It used to be SS * SHIELD_FRAME / S,
+    which scaled 128-space up to fill the frame — the window stayed 128 wide, the
+    r=70 ring ran off all four edges and the bubble rendered as a square.)"""
+    return SS
 
 
 def _shield_ring(mode, t, frac=1.0, hit_ang=0.0):
     """One field frame. `t` is 0..1 phase; `frac` is regen progress."""
     img = _shield_frame_img()
     d = draw(img, _shield_scale())
-    c = S / 2                                   # centre, in 128-space
+    c = SHIELD_FRAME / 2                        # frame centre; 1 unit = 1 px
     hum = SHIELD_R + 1.6 * math.sin(t * 2 * math.pi)
     box = [c - hum, c - hum, c + hum, c + hum]
 
@@ -747,44 +760,99 @@ def shield_pickup():
 
 
 def coin_sprite():
-    """Currency: a struck circular coin. Hard bright rim + inner ring + a credit
-    glyph, so it never reads as a projectile (those are soft glow blobs with no
-    edge). Gold (255,210,90) — the placeholder's colour."""
+    """Currency: a UNIT — a hex data-chit, not a struck coin. Dark substrate,
+    hard amber hex rim, four circuit traces out to the corners and a stacked
+    bar glyph in the middle, so it reads as data rather than as metal. Keeps the
+    gold hue (255,210,90) so nothing downstream — HUD colour, Color fallback,
+    pickup tint — has to move; only the silhouette changed."""
     f = _pickup_frame()
     d = draw(f, 1)
     c = P/2
-    d.ellipse([c-34, c-34, c+34, c+34], fill=(190, 140, 35, 255))
-    d.ellipse([c-34, c-34, c+34, c+34], outline=(255, 235, 150, 255), width=5)
-    d.ellipse([c-21, c-21, c+21, c+21], outline=(255, 200, 70, 255), width=3)
-    # credit glyph: one bar. Anything finer turns to mush at pickup size.
-    d.line([(c, c-15), (c, c+15)], fill=(255, 245, 200, 255), width=5)
-    # struck-metal specular on the upper-left rim
-    d.arc([c-30, c-30, c+30, c+30], 195, 255, fill=(255, 255, 235, 255), width=4)
+    R = 33
+    hexa = [(c + R*math.cos(math.pi/3*k), c + R*math.sin(math.pi/3*k)) for k in range(6)]
+    # circuit traces: stubs running off the chit's flats, drawn first so the
+    # rim overdraws where they meet it.
+    for k in range(6):
+        x, y = hexa[k]
+        d.line([(c + (x-c)*0.55, c + (y-c)*0.55), (x*1.10 - c*0.10, y*1.10 - c*0.10)],
+               fill=(255, 180, 50, 200), width=3)
+        d.ellipse([x*1.10 - c*0.10 - 3, y*1.10 - c*0.10 - 3,
+                   x*1.10 - c*0.10 + 3, y*1.10 - c*0.10 + 3], fill=(255, 225, 140, 230))
+    d.polygon(hexa, fill=(46, 34, 12, 255))
+    d.line(hexa + [hexa[0]], fill=(255, 210, 90, 255), width=5)
+    # the unit glyph: two stacked bars through a vertical stem (a "digital U")
+    d.line([(c, c-16), (c, c+16)], fill=(255, 245, 200, 255), width=5)
+    for gy in (-8, 8):
+        d.line([(c-13, c+gy), (c+13, c+gy)], fill=(255, 235, 160, 255), width=4)
     return add_halo(f, (255, 210, 90), spread=0.14, strength=150)
 
 
-def poison_cloud():
-    """Bio-lab poison patch (D187): a blotchy vapour cloud instead of a flat
-    green square. Sickly green blobs over a RED rim — the rim is the danger
-    signal, painted as slightly larger red blobs underneath so it hugs the
-    cloud's own lumpy silhouette. Fixed blob layout, no randomness."""
+def blast_cloud():
+    """Bomb detonation (#5): a small mushroom cloud with a red outline. Cap +
+    stem + a ground collar, each drawn as a red silhouette with a hot core on
+    top — so the rim IS the outline rather than a stroke that has to follow a
+    lumpy shape. Replaces the flat orange rect the mine blast used to be."""
     f = _pickup_frame()
     d = draw(f, 1)
     c = P/2
-    # (dx, dy, r) lobes of the cloud, biggest in the middle
-    lobes = [(0, 0, 30), (-20, -8, 20), (19, -10, 18), (-12, 16, 17),
-             (15, 14, 16), (0, -20, 15)]
-    for dx, dy, r in lobes:            # red warning rim
-        d.ellipse([c+dx-r-5, c+dy-r-5, c+dx+r+5, c+dy+r+5], fill=(230, 40, 30, 235))
-    for dx, dy, r in lobes:            # poison body
-        d.ellipse([c+dx-r, c+dy-r, c+dx+r, c+dy+r], fill=(70, 150, 45, 235))
-    for dx, dy, r in lobes:            # brighter inner vapour
-        d.ellipse([c+dx-r*0.55, c+dy-r*0.55, c+dx+r*0.55, c+dy+r*0.55],
-                  fill=(120, 235, 90, 210))
-    # bubbles: the classic toxic read
-    for bx, by, br in [(-10, -6, 5), (8, 4, 4), (-2, 14, 3), (14, -12, 3)]:
-        d.ellipse([c+bx-br, c+by-br, c+bx+br, c+by+br], fill=(190, 255, 150, 230))
-    return add_halo(f, (120, 235, 90), spread=0.18, strength=140)
+    # One silhouette, four overlapping parts — an actual mushroom, not a string
+    # of beads. ("ell"/"rr", box, radius); boxes are centre-relative.
+    parts = [("ell", (-17, -46, 17, -26), 0),    # rising head
+             ("ell", (-31, -36, 31, -8), 0),     # cap
+             ("rr", (-10, -14, 10, 28), 9),      # stem
+             ("ell", (-33, 22, 33, 41), 0)]      # ground collar
+
+    def silhouette(pad, col):
+        for kind, (x0, y0, x1, y1), rad in parts:
+            box = [c+x0-pad, c+y0-pad, c+x1+pad, c+y1+pad]
+            if box[2] - box[0] < 2 or box[3] - box[1] < 2:
+                continue
+            if kind == "ell":
+                d.ellipse(box, fill=col)
+            else:
+                d.rounded_rectangle(box, radius=max(1, rad + pad), fill=col)
+
+    silhouette(3, (235, 45, 30, 245))     # the red outline
+    silhouette(0, (128, 22, 16, 240))     # scorched body
+    silhouette(-7, (255, 150, 45, 225))   # hot core
+    silhouette(-13, (255, 235, 190, 230))  # flash
+    return add_halo(f, (255, 80, 40), spread=0.16, strength=160)
+
+
+def poison_cloud():
+    """Bio-lab poison patch (D187, retuned): drifting gas, not a flower.
+
+    The first version drew six equal lobes under a 5px opaque red rim, which
+    outlined every lobe individually — six petals with a red edge. Now: a dozen
+    unequal lobes so the silhouette has no repeat period, the whole thing blurred
+    so the edge is vapour rather than a stroke, and the red is a THIN low-alpha
+    haze under the body (danger tint, not a border). No bubbles — they read as
+    the wrong gas. Fixed layout, no randomness."""
+    f = _pickup_frame()
+    c = P/2
+    # (dx, dy, r) — deliberately uneven: three big masses, the rest wisps.
+    lobes = [(-4, 2, 28), (14, -6, 22), (-16, -10, 19), (6, 17, 17),
+             (-19, 11, 14), (20, 12, 11), (-2, -22, 15), (25, -17, 9),
+             (-27, -2, 10), (11, 27, 9), (-13, 24, 8), (28, 4, 7)]
+
+    def lay(pad, col, alpha):
+        lyr = Image.new("RGBA", (P, P), (0, 0, 0, 0))
+        dd = draw(lyr, 1)
+        for dx, dy, r in lobes:
+            dd.ellipse([c+dx-r-pad, c+dy-r-pad, c+dx+r+pad, c+dy+r+pad],
+                       fill=col + (alpha,))
+        return lyr
+
+    # Thin red haze first (2px of dilation, ~40% alpha), then the gas over it.
+    f.alpha_composite(lay(2, (215, 55, 40), 105).filter(ImageFilter.GaussianBlur(2.2)))
+    f.alpha_composite(lay(0, (64, 132, 48), 190).filter(ImageFilter.GaussianBlur(2.6)))
+    inner = Image.new("RGBA", (P, P), (0, 0, 0, 0))
+    di = draw(inner, 1)
+    for dx, dy, r in lobes:
+        di.ellipse([c+dx-r*0.5, c+dy-r*0.5, c+dx+r*0.5, c+dy+r*0.5],
+                   fill=(126, 224, 96, 150))
+    f.alpha_composite(inner.filter(ImageFilter.GaussianBlur(4.0)))
+    return add_halo(f, (120, 235, 90), spread=0.18, strength=110)
 
 
 def mine_sprite():
@@ -843,6 +911,37 @@ def bolt_frames(n=4):
     return frames
 
 
+ROCKET_BODY = (196, 206, 218)   # steel casing: reads as hardware, not as plasma
+ROCKET_HOT = (255, 190, 90)     # the missile's existing Color and trail hue
+
+
+def rocket_sprite():
+    """HEAT-SEEKING MISSILE — an actual rocket, facing right like every other v2
+    projectile: warhead cone, steel casing with a warning band, swept tail fins
+    and a lit nozzle. Single frame: the runtime rotates it to the heading and the
+    trail emitter already supplies the motion, so animating the casing is waste."""
+    f = frame()
+    cx, cy = S/2, S/2
+    # tail fins first, so the casing overdraws where they meet it
+    for sy in (-1, 1):
+        neon_poly(f, [(cx-30, cy + sy*7), (cx-14, cy + sy*7),
+                      (cx-16, cy + sy*22), (cx-34, cy + sy*18)],
+                  scale_col(ROCKET_BODY, 0.45), outline=ROCKET_HOT, ow=2)
+    # casing + warhead cone
+    neon_poly(f, [(cx-30, cy-10), (cx+12, cy-10), (cx+12, cy+10), (cx-30, cy+10)],
+              scale_col(ROCKET_BODY, 0.7), outline=scale_col(ROCKET_BODY, 1.0), ow=2)
+    neon_poly(f, [(cx+12, cy-10), (cx+34, cy), (cx+12, cy+10)],
+              ROCKET_HOT, outline=(255, 240, 200), ow=2)
+    # warning band + seeker eye
+    neon_poly(f, [(cx-4, cy-10), (cx+3, cy-10), (cx+3, cy+10), (cx-4, cy+10)],
+              scale_col(ROCKET_HOT, 0.8), ow=0)
+    dot(f, (cx+18, cy), 3, (255, 255, 255))
+    # nozzle flare
+    dot(f, (cx-31, cy), 7, ROCKET_HOT, 220)
+    dot(f, (cx-34, cy), 4, (255, 255, 255), 230)
+    return add_halo(shrink(f), ROCKET_HOT, spread=0.2, strength=170)
+
+
 # ---------------------------------------------------------------------------
 # Effects
 # ---------------------------------------------------------------------------
@@ -893,12 +992,82 @@ def impact_frames(n=4):
     return frames
 
 
+# ---------------------------------------------------------------------------
+# HUD ability row (playtest #11)
+#
+# UIElement has no texture path and adding one is an engine change, so the dash
+# button's FACE is two screen-space sprites drawn over the authored 48x48 frame
+# — see main.cpp's dash-face block. Both are authored upright: a HUD glyph is
+# never rotated, unlike rocket_sprite() which faces right because the runtime
+# spins it.
+# ---------------------------------------------------------------------------
+BOOST_HOT = (255, 180, 80)
+
+
+def boost_icon():
+    """The booster: a rocket standing on its plume, nose UP."""
+    f = frame()
+    cx = S / 2
+    hull, trim = CORE.primary, CORE.accent
+    # plume first, so the nozzle overdraws where it meets the casing
+    neon_poly(f, [(cx - 10, 76), (cx + 10, 76), (cx + 16, 112), (cx, 100),
+                  (cx - 16, 112)],
+              scale_col(BOOST_HOT, 0.5), outline=BOOST_HOT, ow=3)
+    # swept fins
+    for sx in (-1, 1):
+        neon_poly(f, [(cx + sx * 11, 48), (cx + sx * 11, 78), (cx + sx * 28, 84),
+                      (cx + sx * 22, 58)],
+                  scale_col(hull, 0.4), outline=hull, ow=3)
+    # casing + nose cone
+    neon_poly(f, [(cx - 13, 78), (cx - 13, 40), (cx, 14), (cx + 13, 40),
+                  (cx + 13, 78)],
+              scale_col(hull, 0.55), outline=trim, ow=3)
+    dot(f, (cx, 46), 7, (255, 255, 255), 235)          # porthole
+    dot(f, (cx, 82), 6, BOOST_HOT, 230)                # lit nozzle
+    return add_halo(shrink(f), hull, spread=0.16, strength=150)
+
+
+SWEEP_N = 16          # frames; must equal DASH_SWEEP_FRAMES in dash_system.hpp
+SWEEP_FRAME = 64      # output frame edge
+
+
+def sweep_frames(n=SWEEP_N):
+    """The dash cooldown as a clock wipe over the WHOLE button.
+
+    Frame i is progress i/n: the not-yet-recharged wedge stays greyed out and a
+    lit hand sweeps clockwise from 12 o'clock until the box is clear. The pie
+    radius is larger than the frame's half-diagonal, so the corners grey out too
+    and the frame edge does the clipping — the box IS the dial, which is the
+    whole point of the note (a horizontal bar was the version that got rejected).
+    """
+    out = []
+    w = SWEEP_FRAME * SS
+    c = w / 2.0
+    r = w                                   # > half-diagonal; clipped to the square
+    box = [c - r, c - r, c + r, c + r]
+    for i in range(n):
+        img = Image.new("RGBA", (w, w), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)             # already at working size: no ScaledDraw
+        a0 = -90.0 + 360.0 * i / n          # hand angle, clockwise from 12 o'clock
+        d.pieslice(box, a0, 270.0, fill=(6, 10, 22, 210))
+        ang = math.radians(a0)
+        d.line([(c, c), (c + r * math.cos(ang), c + r * math.sin(ang))],
+               fill=CORE.primary + (215,), width=2 * SS)
+        out.append(shrink(img, SWEEP_FRAME))
+    return out
+
+
 def main():
     print("make_sprites:")
     # Player
-    write_sprite("player_drone", player_frames(6), 3,
-                 {"march": {"start_frame": 0, "frame_count": 6,
-                            "frame_duration": 0.09, "looping": True}})
+    march_clip = {"march": {"start_frame": 0, "frame_count": 6,
+                            "frame_duration": 0.09, "looping": True}}
+    write_sprite("player_drone", player_frames(6), 3, march_clip)
+    # #2: the Purple Gatling's own atlas. Its catalogue colour is violet but it
+    # wore the cyan chassis, so the ship the menu calls purple flew in blue.
+    write_sprite("player_drone_violet",
+                 player_frames(6, hull=(180, 110, 255), accent=(232, 210, 255),
+                               trim=(90, 235, 255)), 3, march_clip)
     # Enemies: march (loop) + death (oneshot) concatenated.
     # v2 Phase 5a: drawn against MONO, i.e. pure luminance. These used to bake an
     # arena's own primary (runner=BIOLAB green, hulk=FOUNDRY orange), which made
@@ -932,6 +1101,9 @@ def main():
     write_sprite("projectile_bolt", bolt_frames(4), 4,
                  {"pulse": {"start_frame": 0, "frame_count": 4,
                             "frame_duration": 0.06, "looping": True}})
+    # The active item's missile. Single frame worn as Images by actives::
+    # launch_missiles, so no sidecar — see save_png block below.
+    save_png("projectile_rocket", rocket_sprite())
     # Effects
     write_sprite("effect_explosion", explosion_frames(8), 4,
                  {"expand": {"start_frame": 0, "frame_count": 8,
@@ -946,6 +1118,7 @@ def main():
     save_png("pickup_coin", coin_sprite())
     save_png("hazard_mine", mine_sprite())
     save_png("hazard_poison", poison_cloud())
+    save_png("hazard_blast", blast_cloud())
     # D105: the boss's carrier. Single frame, worn as Images by BossSystem.
     save_png("enemy_boss_carrier", carrier_sprite())
     # D133: the upgrade kit. Single-frame overlays worn as Images by the kit
@@ -962,6 +1135,11 @@ def main():
                  {"hum": {"start_frame": SHIELD_HUM_START,
                           "frame_count": SHIELD_HUM_COUNT,
                           "frame_duration": 0.08, "looping": True}})
+    # Playtest #11: the dash button's face. Same "strip + picker, no Animation"
+    # arrangement as the shield field — dash_sweep_frame() indexes it by the
+    # recharge FRACTION, which is not a clip.
+    save_png("hud_boost", boost_icon())
+    write_sprite("hud_dash_sweep", sweep_frames(), 4, {})
 
 
 if __name__ == "__main__":

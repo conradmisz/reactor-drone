@@ -44,6 +44,23 @@
 /// and it decays before the cooldown is up, so dashes cannot stack their cost.
 constexpr float DASH_EMISSION_RATE = 240.0f;
 
+/// Frames in the dash button's cooldown dial (#11). Must equal SWEEP_N in
+/// make_sprites.py — the atlas is authored at even progress steps and this is
+/// the only thing that says how many of them there are.
+constexpr int DASH_SWEEP_FRAMES = 16;
+
+/**
+ * The dial frame for a recharge fraction (0 = just dashed, 1 = ready).
+ *
+ * Total and clamped: any input returns a valid frame. 1.0 lands on the last
+ * frame rather than one past the end — the caller parks the sprite at that
+ * point, so the near-empty frame is never actually drawn.
+ */
+inline int dash_sweep_frame(float frac) {
+    const int i = static_cast<int>(std::clamp(frac, 0.0f, 1.0f) * DASH_SWEEP_FRAMES);
+    return std::min(i, DASH_SWEEP_FRAMES - 1);
+}
+
 struct DashState {
     float dir_x = 1.0f, dir_y = 0.0f;   // heading captured when the burst began
     std::vector<Entity> hit;            // enemies already damaged by THIS dash
@@ -79,10 +96,25 @@ inline void tick_dash(ComponentStorage& storage,
 
         auto emitter = storage.get_component<ParticleEmitter>(player);
 
-        ship.dash_cd = std::max(0.0f, ship.dash_cd - dt);
+        // --- Charges (#10, D192) ---
+        // One cooldown clock refilling a stack of charges, rather than N clocks:
+        // the timer only runs while the stack is short, and each expiry hands
+        // back exactly one burst. dash_max grows by one per boss killed.
+        if (ship.dash_max < 1) { ship.dash_max = 1; ship.dash_charges = 1; }
+        ship.dash_charges = std::min(ship.dash_charges, ship.dash_max);
+        if (ship.dash_charges < ship.dash_max) {
+            ship.dash_cd = std::max(0.0f, ship.dash_cd - dt);
+            if (ship.dash_cd <= 0.0f) {
+                ++ship.dash_charges;
+                if (ship.dash_charges < ship.dash_max) ship.dash_cd = cfg.cooldown;
+            }
+        } else {
+            ship.dash_cd = 0.0f;
+        }
 
         // --- Trigger ---
-        if (ship.dash_timer <= 0.0f && key_down && ship.dash_cd <= 0.0f) {
+        const bool stack_was_full = ship.dash_charges >= ship.dash_max;
+        if (ship.dash_timer <= 0.0f && key_down && ship.dash_charges > 0) {
             float dx = vel.dx, dy = vel.dy;
             const float len = std::sqrt(dx * dx + dy * dy);
             if (len > 0.0001f) {
@@ -101,7 +133,10 @@ inline void tick_dash(ComponentStorage& storage,
             state.hit.clear();
             state.player_contact = false;
             ship.dash_timer = cfg.duration;
-            ship.dash_cd = cfg.cooldown;
+            --ship.dash_charges;
+            // Only start the refill clock if the stack was full; spending a
+            // second charge must not rewind the one already regenerating.
+            if (stack_was_full) ship.dash_cd = cfg.cooldown;
             if (emitter.has_value() && !state.boosted) {
                 state.base_emission = emitter->get().emission_rate;
                 emitter->get().emission_rate = DASH_EMISSION_RATE;

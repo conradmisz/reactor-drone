@@ -74,10 +74,13 @@ private:
     /// Spawn this kill's loot at (cx, cy). `drop_chance` is P(this kill drops
     /// anything at all) — the dead enemy type's EnemyType::drop_chance, carried in
     /// on its ContactDamage. Always consumes exactly 3 + 2*max_drops RNG draws
-    /// regardless of outcome — see the determinism note above.
+    /// regardless of outcome — see the determinism note above. `big` (D193) makes
+    /// this kill's units BIG ones: fixed high value, larger chit, same sprite,
+    /// same draws.
     void drop_loot(ComponentStorage& component_storage,
                    EntityManager& entity_manager,
-                   float cx, float cy, int currency_value, float drop_chance);
+                   float cx, float cy, int currency_value, float drop_chance,
+                   bool big = false);
 
     // Explosion sprite, loaded once on first death.
     std::optional<sidecar_loader::LoadedSprite> effect_;

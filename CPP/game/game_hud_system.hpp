@@ -77,10 +77,19 @@ private:
     /// engine change; a zero-size rect is how this codebase already hides a widget.
     void set_widgets_visible(ComponentStorage& cs, bool visible);
 
-    static constexpr int GAUGE_WIDGETS = 6;
-    Entity gauge_[GAUGE_WIDGETS] = {0, 0, 0, 0, 0, 0};
+    // D192: +2 for the battery gauge (#9) and +3 for the boss bar (#8). The boss
+    // widgets ride this array so the phase gate collapses them for free; the
+    // "no boss" case then collapses them a second time, which is idempotent.
+    // +2 for the dash button of the ability row, for the same free phase gate:
+    // its frame and the SPACE prompt. The button's booster glyph and circular
+    // cooldown dial are sprites, not widgets (UIElement has no texture path), so
+    // main.cpp parks those two itself.
+    static constexpr int GAUGE_WIDGETS = 13;
+    Entity gauge_[GAUGE_WIDGETS] = {0};
     UIRect gauge_rect_[GAUGE_WIDGETS] = {};   // authored geometry, cached once
-    Entity hp_chip_ = 0, hp_fill_ = 0, sh_fill_ = 0;
+    Entity hp_chip_ = 0, hp_fill_ = 0, sh_fill_ = 0, bat_fill_ = 0;
+    Entity boss_bg_ = 0, boss_fill_ = 0, boss_label_ = 0;
+    UIRect boss_bg_rect_{}, boss_label_rect_{};
     bool   bars_resolved_ = false;
 
     // The chip bar trails the real hull value, so a hit reads as a red block

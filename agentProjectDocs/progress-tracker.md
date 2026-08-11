@@ -5,21 +5,45 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
 
 ## Current Phase
 
-- **`feature/gameplay-polish` (2026-08-10): the 12-item playtest batch is
-  implemented and committed** as D181-D191 (one decisions.md entry) — bug 002
-  fix, boss-wave spawn gate, coin expiry blink, projectile colour identity,
-  enemy facing + spark nose, poison-cloud sprite, pause pips, shop
-  hold-to-buy / kit preview / two-column table. Two scope-only specs added:
-  `specs/mechanics-page.md`, `specs/tutorial-stage.md` (both Status: Scoped).
-- Verified per commit: clean build (only the Lua tmpnam warning), 8/8 ctest,
-  replay canary byte-identical. **No windowed playtest yet** — the visual
-  items (facing, poison, blink, shop table, hold bar) need real eyes.
+- **`feature/gameplay-polish` (2026-08-11): the THIRD playtest batch is
+  implemented** as D193 (one decisions.md entry, numbered by feedback item) —
+  loot lifetime back to 14 s, +2 on every unit, a wave-15 credit vacuum and
+  wave-15 BIG UNITs, the 48×48 ability row with an always-visible `ITEM` slot and
+  a SPACE-captioned dash button under a 16-frame circular cooldown dial, SPACE no
+  longer firing, a longer dash, the shop hold-bar made visible and its stat
+  previews moved into the right-hand pane, bigger two-salvo missiles with a real
+  rocket sprite, the square-cropped bubble shield fixed in the sprite generator,
+  and a `--dev` god mode.
+- Verified: clean build (only Lua's `tmpnam`), `ctest` 8/8 after repinning the
+  drop value in `test_arena_properties.cpp` (3 → 5, the flat +2 landing), the
+  replay canary byte-identical twice on `--seed 42` with the dev path present,
+  and `--dev --level 12` starting with 999999 units.
+- **Unplayed in a window.** Specifically unverified: whether the booster icon and
+  the circular dial read at 48 px, whether the 16 px `DRONE STATS` rows shrink
+  their values too far, and everything the earlier batches still owe.
+
+- **`feature/gameplay-polish` (2026-08-10): the SECOND playtest batch is
+  implemented** as D192 (one decisions.md entry) — shop hold-bar redesign,
+  violet ship atlas, boss renamed to "drone", bombs damaging enemies, mushroom
+  blast sprite, the boss's missed poison-image site, gas-not-flower poison,
+  boss health bar, the primary-fire battery, a dash charge per boss, the
+  currency renamed to UNITS with a digital chit sprite, and loot lasting 26 s.
+- Verified: clean build (only Lua's `tmpnam`), `ctest` 8/8 (4 new cases —
+  blast-hits-enemies, dash-charge refill, battery lockout, the new HUD widget
+  contract), replay canary byte-identical twice on `--seed 42`, and headless
+  captures read back: the three-bar HUD stack with no text overlap, and the
+  boss bar + green poison clouds under a TEMPORARY wave-1 `boss: true` +
+  Core→`bio_spitter` patch (**reverted**; `grep -c '"boss": true'` = 3).
+- The earlier batch (D181-D191) and its two scope-only specs
+  (`specs/mechanics-page.md`, `specs/tutorial-stage.md`) are still unplayed.
 
 ## Current Goal
 
-- Playtest the polish batch in a window (dash to check bug 002, idle a coin
-  12 s, reach wave 10, buy in the shop with the mouse), then decide whether
-  to implement `specs/mechanics-page.md` and `specs/tutorial-stage.md`.
+- **Playtest both batches in a window.** Specifically unverified in a real
+  window: the shop hold-to-buy wash (a scripted `--clicks` is instantaneous —
+  down and up in one frame — so a sustained hold cannot be driven headlessly),
+  the mine blast landing on enemies, the violet ship, and whether 12 s of fire
+  / 3 s of recharge is the right battery tuning.
 
 ## Completed
 
@@ -275,3 +299,19 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   verification headless (--clicks E2E + screenshots read back). Open edge:
   ESC-from-game-over shares the pause-MENU handler but was not click-driven;
   worth one real death-screen check next playtest.
+
+- **Ability row, third pass (D193 revision, items 2/11).** Both HUD boxes
+  64×64 → 48×48 (dash moved x 88 → 72); the empty boss slot says `ITEM` on one
+  line instead of `EMPTY` / `BOSS`; and the dash button's face is now two
+  generated sprites instead of a `▲` glyph and a horizontal bar — `hud_boost.png`
+  (a real booster) plus `hud_dash_sweep.png`, a 16-frame clock wipe that greys
+  out the whole box and sweeps clockwise back to clear. They are screen-space
+  sprite entities, not widgets: placed in `main.cpp` right after `camera.update`
+  (which owns `ScreenPosition`) from `hud_dash_frame`'s live rect, so they
+  inherit the authored geometry and the HUD phase gate. New `hud_slot_frame`
+  style = rim, no fill, so the UI does not veil them. Removed: three widgets,
+  `DASH_CD_FULL_W`, and the `dash.cooldown` Blackboard key.
+  Verified: `-fsyntax-only -Wall -Wextra -Wpedantic` clean on every touched TU
+  and the generator re-run; `dash_sweep_frame` pinned in `test_pause_screen.cpp`
+  (range + monotone). **NOT built, NOT tested, NOT playtested** — the full
+  ctest/canary/window pass is still owed.

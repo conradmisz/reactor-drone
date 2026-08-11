@@ -20,6 +20,8 @@
 #include "game/collision_layers.hpp"
 #include "game/enemy_components.hpp"
 #include "game/player_components.hpp"
+#include "game/dash_system.hpp"
+#include "game/player_fire_system.hpp"
 #include "game/specialty_system.hpp"
 #include "game/tower_components.hpp"
 #include "game/upgrade_visuals.hpp"
@@ -168,4 +170,132 @@ TEST_CASE("the upgrade look leaves the emission rate alone mid-dash",
     CHECK_THAT(em_c->get().emission_rate,
                WithinAbs(upgrade_visuals::look_for(upgrade_visuals::MAX_TIER).emission_rate,
                          1e-4f));
+}
+
+// ---------------------------------------------------------------------------
+// D192 — the playtest batch. Three branches that fail silently otherwise: a
+// blast that only hurts the drone (#4), a dash stack that never refills or that
+// refills for free (#10), and a battery that never locks out (#9).
+// ---------------------------------------------------------------------------
+
+TEST_CASE("a mine blast damages enemies standing in it (#4)",
+          "[Game][d192][specialty]") {
+    EntityManager em; ComponentStorage cs; Blackboard bb;
+    bb.set<double>("delta_time", 1.0);
+    SpecialtySystem sys;
+    GameConfig cfg; sys.set_config(&cfg);
+
+    Entity mine = deploy_mine(em, cs, 500.0f, 500.0f);
+    shot(em, cs, 500.0f + specialty::MINE_SIZE * 0.5f, 500.0f);
+
+    // Inside the blast radius, and one well outside it.
+    auto enemy = [&](float x, float y) {
+        Entity e = em.create_entity();
+        cs.add_component<Position>(e, Position{x, y});
+        cs.add_component<Size>(e, Size{20.0f, 20.0f});
+        cs.add_component<EnemyTag>(e, EnemyTag{});
+        return e;
+    };
+    const Entity near = enemy(510.0f, 505.0f);
+    const Entity far = enemy(1500.0f, 1500.0f);
+
+    sys.update(cs, em, bb);   // arming
+    sys.update(cs, em, bb);   // detonation
+    CHECK(cs.has_component<DestroyRequest>(mine));
+
+    int hit_near = 0, hit_far = 0;
+    for (Entity e : cs.entities_with_component<DamageEvent>()) {
+        auto d = cs.get_component<DamageEvent>(e);
+        if (!d.has_value()) continue;
+        if (d->get().target_entity == near) ++hit_near;
+        if (d->get().target_entity == far) ++hit_far;
+    }
+    CHECK(hit_near == 1);
+    CHECK(hit_far == 0);
+}
+
+TEST_CASE("dash charges spend and refill one at a time (#10)",
+          "[Game][d192][dash]") {
+    EntityManager em; ComponentStorage cs; Blackboard bb;
+    DashConfig cfg;               // duration 0.15, cooldown 2.5 by default
+    DashState state;
+
+    Entity p = em.create_entity();
+    cs.add_component<PlayerTag>(p, PlayerTag{});
+    cs.add_component<Position>(p, Position{0.0f, 0.0f});
+    cs.add_component<Size>(p, Size{40.0f, 40.0f});
+    cs.add_component<Velocity>(p, Velocity{100.0f, 0.0f});
+    ShipState st{};
+    st.dash_max = 2;              // one boss already killed
+    st.dash_charges = 2;
+    cs.add_component<ShipState>(p, st);
+    auto ship = [&]() -> ShipState& { return cs.get_component<ShipState>(p)->get(); };
+
+    // Two bursts back to back: both must fire, because the stack holds two.
+    tick_dash(cs, em, bb, cfg, state, true, 0.016f);
+    CHECK(ship().dash_charges == 1);
+    while (ship().dash_timer > 0.0f)
+        tick_dash(cs, em, bb, cfg, state, false, 0.016f);
+    tick_dash(cs, em, bb, cfg, state, true, 0.016f);
+    CHECK(ship().dash_charges == 0);
+
+    // A third is refused, and the stack comes back one charge per cooldown —
+    // never past dash_max.
+    tick_dash(cs, em, bb, cfg, state, true, 0.016f);
+    CHECK(ship().dash_charges == 0);
+    for (int i = 0; i < 160; ++i) tick_dash(cs, em, bb, cfg, state, false, 0.016f);  // one cooldown (2.5s)
+    CHECK(ship().dash_charges == 1);
+    for (int i = 0; i < 160; ++i) tick_dash(cs, em, bb, cfg, state, false, 0.016f);  // one cooldown (2.5s)
+    CHECK(ship().dash_charges == 2);
+    for (int i = 0; i < 160; ++i) tick_dash(cs, em, bb, cfg, state, false, 0.016f);  // one cooldown (2.5s)
+    CHECK(ship().dash_charges == 2);
+}
+
+TEST_CASE("the battery empties, locks the trigger, and only unlocks at full (#9)",
+          "[Game][d192][battery]") {
+    EntityManager em; ComponentStorage cs; Blackboard bb;
+    bb.set<double>("delta_time", 0.1);
+    bb.set<bool>("mouse.held", true);
+    bb.set<float>("battery.drain_per_s", 1.0f / 12.0f);
+    bb.set<float>("battery.charge_per_s", 1.0f / 3.0f);
+
+    Entity p = em.create_entity();
+    cs.add_component<PlayerTag>(p, PlayerTag{});
+    cs.add_component<Position>(p, Position{0.0f, 0.0f});
+    cs.add_component<Size>(p, Size{40.0f, 40.0f});
+    cs.add_component<Rotation>(p, Rotation{0.0f, 0.0f, false});
+    cs.add_component<WeaponStats>(p, WeaponStats{});
+    cs.add_component<ShipState>(p, ShipState{});
+    auto ship = [&]() -> ShipState& { return cs.get_component<ShipState>(p)->get(); };
+
+    PlayerFireSystem fire(7u);
+    auto shots = [&]() {
+        size_t n = 0;
+        for (Entity e : cs.entities_with_component<ProjectileTag>()) { (void)e; ++n; }
+        return n;
+    };
+
+    // ~12 s of holding empties it (float accumulation can cost a tick either
+    // way, so this counts ticks rather than asserting an exact frame).
+    int ticks = 0;
+    while (!ship().battery_locked && ticks < 300) { fire.update(cs, em, bb); ++ticks; }
+    CHECK(ship().battery_locked);
+    CHECK(ticks >= 118);
+    CHECK(ticks <= 122);
+    CHECK_THAT(ship().battery, WithinAbs(0.0f, 1e-3f));
+
+    // Locked out: the trigger is still held and nothing comes out.
+    const size_t fired = shots();
+    for (int i = 0; i < 20; ++i) fire.update(cs, em, bb);
+    CHECK(shots() == fired);
+
+    // It recharges under the held trigger and fires again only once full —
+    // 3 s from empty, so ~10 more ticks after the 20 above.
+    int back = 20;
+    while (ship().battery_locked && back < 100) { fire.update(cs, em, bb); ++back; }
+    CHECK_FALSE(ship().battery_locked);
+    CHECK(back >= 28);
+    CHECK(back <= 32);
+    fire.update(cs, em, bb);
+    CHECK(shots() > fired);
 }

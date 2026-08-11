@@ -189,6 +189,45 @@ TEST_CASE("a dropped coin never lands on an obstacle, hazard, mine or coin",
     }
 }
 
+TEST_CASE("a pile-up after wave 15 pays in BIG units", "[loot][economy]") {
+    // D193 #12/#13. Three enemies dying in the same frame within BIG_RADIUS is a
+    // pile-up: every unit they drop is a big one (15). Below the wave gate, or
+    // alone, the same kill pays the small unit — its type value plus the flat
+    // CREDIT_BASE_BONUS of 2.
+    auto values = [](int wave, bool cluster) {
+        EntityManager em;
+        ComponentStorage cs;
+        Blackboard bb;
+        bb.set("wave", wave);
+        EnemyDeathSystem deaths;
+        deaths.set_economy(test_economy(), 1234u);
+
+        dead_enemy(em, cs, 1000.0f, 1000.0f);
+        if (cluster) {
+            dead_enemy(em, cs, 1060.0f, 1000.0f);
+            dead_enemy(em, cs, 1000.0f, 1060.0f);
+        }
+        deaths.update(cs, em, bb);
+
+        std::vector<int> out;
+        for (Entity e : cs.entities_with_component<Pickup>())
+            out.push_back(cs.get_component<Pickup>(e)->get().value);
+        return out;
+    };
+
+    const auto piled = values(15, true);
+    REQUIRE(piled.size() == 9);                       // 3 kills x 3 coins
+    for (int v : piled) CHECK(v == 15);
+
+    const auto lone = values(15, false);              // right wave, no pile-up
+    REQUIRE(lone.size() == 3);
+    for (int v : lone) CHECK(v == 3);                 // ContactDamage 1 + bonus 2
+
+    const auto early = values(14, true);              // pile-up, wrong wave
+    REQUIRE(early.size() == 9);
+    for (int v : early) CHECK(v == 3);
+}
+
 TEST_CASE("the placement search draws no RNG, however many spots it rejects",
           "[loot][placement][determinism]") {
     // Two identically-seeded death systems. World A drops into empty space; world

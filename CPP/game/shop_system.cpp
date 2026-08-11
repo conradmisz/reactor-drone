@@ -98,7 +98,7 @@ void ShopSystem::refresh_rows(ComponentStorage& storage, const ShipState& ship) 
     };
 
     set_text(0, page_ == 0 ? "REACTOR SHOP - UPGRADES" : "REACTOR SHOP - GEAR");
-    set_text(1, "Credits: " + std::to_string(ship.currency) +
+    set_text(1, "Units: " + std::to_string(ship.currency) +
                  "    Keys: " + std::to_string(ship.keys));
     auto slot_name = [&](const std::vector<ShopUpgradeDef>& rows, int id, bool is_item) {
         if (id < 0) return std::string("-");
@@ -301,15 +301,25 @@ constexpr float GEAR_AMOUNT_STEP = 0.25f;
 
 // The drone preview, authored in the same 800x600 design canvas as the widgets
 // (see ui-context.md). The glow disc is the aura; the hull sits inside it.
-constexpr UIRect PREVIEW_SHIP{552.0f, 272.0f, 116.0f, 116.0f};
-constexpr UIRect PREVIEW_GLOW{510.0f, 230.0f, 200.0f, 200.0f};
+// Playtest #5 moved it up and shrank it: the right column is now shared with the
+// stat sheet (shop_stat_panel, y 192..388), which is the thing the player reads.
+constexpr UIRect PREVIEW_SHIP{567.0f, 413.0f, 82.0f, 82.0f};
+constexpr UIRect PREVIEW_GLOW{546.0f, 392.0f, 124.0f, 124.0f};
+
+// The stat sheet's two columns, inside shop_stat_panel and under its authored
+// "DRONE STATS" heading (y 364). Fixed x IS the alignment — there are no tab
+// stops (D85) — so the name and value columns are separate labels per row.
+constexpr float STAT_NAME_X = 464.0f, STAT_NAME_W = 120.0f;
+constexpr float STAT_VAL_X  = 588.0f, STAT_VAL_W  = 188.0f;
+constexpr float STAT_TOP_Y = 340.0f;   // bottom edge of the first row
+constexpr float STAT_STEP = 18.0f, STAT_H = 16.0f;
 
 // Detail-pane geometry (D89): ONE fixed slot in the right column, under the
 // drone preview. It used to track the hovered card's y, which meant the pane
 // jumped on every hover and, over the 44..486 range, slid straight through the
 // preview art it shares the column with. A pane the eye can find without
 // re-locating it is worth more than proximity to the row.
-constexpr float TIP_X = 448.0f, TIP_Y = 116.0f, TIP_W = 328.0f, TIP_H = 108.0f;
+constexpr float TIP_X = 448.0f, TIP_Y = 116.0f, TIP_W = 328.0f, TIP_H = 72.0f;
 
 // D189: seconds a card must be held to complete a purchase.
 constexpr float HOLD_TO_BUY_S = 1.0f;
@@ -322,6 +332,39 @@ std::string pips(int owned, int max) {
     std::string out;
     for (int i = 0; i < 5; ++i) out += (i < filled) ? "●" : "○";
     return out;
+}
+
+/// The live value of the stat one shop upgrade moves, plus what one more stack
+/// of it would read (playtest #5). Keyed off the catalogue `effect` string and
+/// mirroring apply() exactly — same rule as everywhere else in this file (D26):
+/// a row index never reaches a stat. False for an effect with no readout, which
+/// blanks the row rather than printing a wrong number.
+bool stat_readout(const ShopUpgradeDef& d, ComponentStorage& storage,
+                  const Blackboard& bb, Entity player, const ShipState& ship,
+                  std::string& label, std::string& now, std::string& next) {
+    auto w = storage.get_component<WeaponStats>(player);
+    auto h = storage.get_component<Health>(player);
+    const float spd  = w.has_value() ? w->get().projectile_speed : 0.0f;
+    const float life = w.has_value() ? w->get().projectile_lifetime : 0.0f;
+    const float a = d.amount;
+
+    auto set = [&](const char* l, float value, float step, const char* unit) {
+        label = l;
+        now  = num(value) + unit;
+        next = num(value + step) + unit;
+    };
+    if (d.effect == "hull")            set("HULL", h.has_value() ? h->get().max_hp : 0.0f, a, "");
+    else if (d.effect == "shield")     set("SHIELD", ship.shield_max, a, "");
+    else if (d.effect == "speed")      set("SPEED", ship.speed_mult * 100.0f, a * 100.0f, "%");
+    else if (d.effect == "fire_rate")  set("FIRE RATE", w.has_value() ? w->get().fire_rate : 0.0f, a, "/s");
+    else if (d.effect == "damage")     set("DAMAGE", w.has_value() ? w->get().damage : 0.0f, a, "");
+    // Range is speed x lifetime and only lifetime is bought (D97), so a stack is
+    // worth `speed * amount` pixels — the number the player actually feels.
+    else if (d.effect == "range")      set("RANGE", spd * life, spd * a, "px");
+    else if (d.effect == "extra_shot") set("SHOTS", 1.0f + static_cast<float>(bb.get_or<int>("ship.extra_shots", 0)), a, "");
+    else if (d.effect == "bounce")     set("BOUNCE", static_cast<float>(bb.get_or<int>("ship.bounces", 0)), a, "");
+    else return false;
+    return true;
 }
 
 /// Aura colour per equipped item. Mirrors the live item aura in main.cpp so the
@@ -506,16 +549,20 @@ bool ShopSystem::menu_tick(ComponentStorage& storage, EntityManager& entity_mana
             hold_card_ = card;
             hold_t_ = held ? dt : 0.0f;
         }
+        // The progress IS the row: the card box itself is the loading bar, a
+        // light-blue fill sweeping left-to-right at the card's own height
+        // (playtest #4). The first version was a 6px strip along the bottom edge,
+        // which read as decoration rather than as the purchase filling up.
         UIRect bar{0.0f, 0.0f, 0.0f, 0.0f};
         if (held && card >= 0) {
             bar = card_rect_[card];
             bar.w *= std::min(1.0f, hold_t_ / HOLD_TO_BUY_S);
-            bar.h = 6.0f;   // a strip under the text, not a curtain over it
         }
         set_rect(storage, hold_bar_, bar);
     }
 
-    refresh_cards(storage, ship, card);
+    refresh_cards(storage, ship);
+    refresh_stats(storage, blackboard, player, ship, card);
     refresh_tooltip(storage, ship, card);
     refresh_preview(storage, blackboard, ship, card);
     return false;
@@ -608,8 +655,10 @@ bool ShopSystem::menu_build(ComponentStorage& storage, EntityManager& entity_man
         UIElement el;
         el.element_type = "panel";
         el.rect = UIRect{0.0f, 0.0f, 0.0f, 0.0f};
-        el.style_id = "hud_hp_ok";
-        el.z_order = 45;
+        // Translucent and UNDER the two text columns (z 41), so a card being held
+        // stays readable while it fills.
+        el.style_id = "hud_hold";
+        el.z_order = 40;
         storage.add_component<UIElement>(hold_bar_, el);
         storage.add_component<UIState>(hold_bar_, UIState{false, false, true, 0.0f, false});
         storage.add_component<ScreenMembership>(hold_bar_,
@@ -642,6 +691,28 @@ bool ShopSystem::menu_build(ComponentStorage& storage, EntityManager& entity_man
         col_pips_[c] = make_col(c, true);
     }
 
+    // Playtest #5: the stat sheet, same pooled-label recipe, over the authored
+    // shop_stat_panel in the right column. Two labels per row so the value column
+    // can be recoloured on hover without dragging the stat name green with it.
+    auto make_stat = [&](int i, bool value_col) {
+        Entity e = entity_manager.create_entity();
+        UIElement el;
+        el.element_type = "label";
+        const float y = STAT_TOP_Y - static_cast<float>(i) * STAT_STEP;
+        el.rect = value_col ? UIRect{STAT_VAL_X,  y, STAT_VAL_W,  STAT_H}
+                            : UIRect{STAT_NAME_X, y, STAT_NAME_W, STAT_H};
+        el.style_id = "caption";
+        el.z_order = 10;
+        storage.add_component<UIElement>(e, el);
+        storage.add_component<UIState>(e, UIState{false, false, true, 0.0f, false});
+        storage.add_component<ScreenMembership>(e, ScreenMembership{std::string(SCREEN_NAME)});
+        return e;
+    };
+    for (int i = 0; i < STAT_ROWS; ++i) {
+        stat_name_[i] = make_stat(i, false);
+        stat_val_[i]  = make_stat(i, true);
+    }
+
     page_ = 0;
     menu_built_ = true;
     return true;
@@ -662,6 +733,12 @@ void ShopSystem::menu_teardown(ComponentStorage& storage, Blackboard& blackboard
     }
     for (int c = 0; c < MENU_CARDS; ++c) {
         for (Entity* e : {&col_name_[c], &col_pips_[c]}) {
+            if (*e != 0) storage.add_component<DestroyRequest>(*e, DestroyRequest{});
+            *e = 0;
+        }
+    }
+    for (int i = 0; i < STAT_ROWS; ++i) {
+        for (Entity* e : {&stat_name_[i], &stat_val_[i]}) {
             if (*e != 0) storage.add_component<DestroyRequest>(*e, DestroyRequest{});
             *e = 0;
         }
@@ -690,8 +767,7 @@ void ShopSystem::rebuild_visible(const ShipState& ship) {
     }
 }
 
-void ShopSystem::refresh_cards(ComponentStorage& storage, const ShipState& ship,
-                               int hovered) {
+void ShopSystem::refresh_cards(ComponentStorage& storage, const ShipState& ship) {
     rebuild_visible(ship);
 
     const int page = (page_ < 0 || page_ > 2) ? 0 : page_;
@@ -706,7 +782,7 @@ void ShopSystem::refresh_cards(ComponentStorage& storage, const ShipState& ship,
         "Level the fitted item: +25% effect per level."
     };
     page_hint_ = kPageHint[page];
-    set_label(storage, credits_, "Credits: " + std::to_string(ship.currency) +
+    set_label(storage, credits_, "Units: " + std::to_string(ship.currency) +
                                  "    Keys: " + std::to_string(ship.keys));
     for (int i = 0; i < 3; ++i) set_disabled(storage, tab_[i], i == page_);
 
@@ -733,24 +809,17 @@ void ShopSystem::refresh_cards(ComponentStorage& storage, const ShipState& ship,
         const int idx = visible_[static_cast<size_t>(c)];
         std::string name;
         std::string meter;
-        const char* meter_style = "caption";
         if (page_ == 0) {
             const ShopUpgradeDef& d = cfg_->upgrades[static_cast<size_t>(idx)];
             const int owned = ship.upg_counts[idx];
             const bool maxed = d.max_stacks > 0 && owned >= d.max_stacks;
+            // Playtest #5: no pip meter on the row any more. What a purchase does
+            // to the drone is answered ONCE, in the stat sheet on the right, so
+            // the catalogue column is just name / what it adds / what it costs —
+            // the same shape the GEAR and LEVELS pages already use.
             name = d.name + "  +" + num(d.amount);
             if (owned > 0) name += " x" + std::to_string(owned);
-            name += maxed ? "   MAX"
-                          : "   " + std::to_string(price_for(idx, owned)) + " cr";
-            // The meter shows the owned level; hovering previews the level the
-            // purchase buys, in green. (pip_loss exists for anything that ever
-            // previews a downgrade — upgrades can only gain.)
-            if (c == hovered && !maxed) {
-                meter = pips(owned + 1, d.max_stacks);
-                meter_style = "pip_gain";
-            } else {
-                meter = pips(owned, d.max_stacks);
-            }
+            meter = maxed ? "MAX" : std::to_string(price_for(idx, owned)) + " cr";
         } else if (page_ == 1) {
             const bool is_item = idx < n_items;
             const ShopUpgradeDef& d = is_item
@@ -774,7 +843,6 @@ void ShopSystem::refresh_cards(ComponentStorage& storage, const ShipState& ship,
         }
         set_label(storage, col_name_[c], name);
         set_label(storage, col_pips_[c], meter);
-        set_style(storage, col_pips_[c], meter_style);
     }
 
     // The LEVELS page with nothing fitted is a dead-end unless it says why.
@@ -782,6 +850,40 @@ void ShopSystem::refresh_cards(ComponentStorage& storage, const ShipState& ship,
         set_rect(storage, card_[0], card_rect_[0]);
         set_label(storage, col_name_[0], "Nothing fitted - buy an item on GEAR first");
         set_disabled(storage, card_[0], true);
+    }
+}
+
+void ShopSystem::refresh_stats(ComponentStorage& storage, const Blackboard& blackboard,
+                               Entity player, const ShipState& ship, int card) {
+    // Only the UPGRADES page previews: GEAR and LEVELS rows change an item's
+    // effect, not one of these eight stats, so there is nothing honest to show.
+    const int hover_row = (page_ == 0 && card >= 0 && card < static_cast<int>(visible_.size()))
+                              ? visible_[static_cast<size_t>(card)] : -1;
+
+    for (int i = 0; i < STAT_ROWS; ++i) {
+        std::string label, now, next;
+        const bool have = cfg_ != nullptr && i < static_cast<int>(cfg_->upgrades.size()) &&
+                          stat_readout(cfg_->upgrades[static_cast<size_t>(i)], storage,
+                                       blackboard, player, ship, label, now, next);
+        if (!have) {
+            set_label(storage, stat_name_[i], std::string());
+            set_label(storage, stat_val_[i], std::string());
+            continue;
+        }
+        const ShopUpgradeDef& d = cfg_->upgrades[static_cast<size_t>(i)];
+        const int owned = ship.upg_counts[i];
+        const bool maxed = d.max_stacks > 0 && owned >= d.max_stacks;
+        const bool hot = (i == hover_row) && !maxed;
+
+        set_label(storage, stat_name_[i], label);
+        // Idle: the value plus its stack meter (the pip idiom of D188/D191, which
+        // is what this pane inherited from the rows). Hovered: the value the
+        // purchase buys, in the gain colour. (pip_loss stays for a future
+        // downgrade preview — a shop upgrade can only add.)
+        set_label(storage, stat_val_[i],
+                  hot ? now + "  >  " + next
+                      : now + "   " + pips(owned, d.max_stacks));
+        set_style(storage, stat_val_[i], hot ? "pip_gain" : "caption");
     }
 }
 
@@ -854,10 +956,8 @@ void ShopSystem::refresh_tooltip(ComponentStorage& storage, const ShipState& shi
         set_label(storage, tip_desc_, page_hint_);
     }
     set_rect(storage, tip_panel_, UIRect{TIP_X, TIP_Y, TIP_W, TIP_H});
-    set_rect(storage, tip_name_,  UIRect{TIP_X + 16.0f, TIP_Y + 64.0f, TIP_W - 32.0f, 30.0f});
-    // The description box is two lines tall on purpose: a long effect string now
-    // shrinks a little inside a generous box instead of a lot inside a thin one.
-    set_rect(storage, tip_desc_,  UIRect{TIP_X + 16.0f, TIP_Y + 14.0f, TIP_W - 32.0f, 44.0f});
+    set_rect(storage, tip_name_,  UIRect{TIP_X + 16.0f, TIP_Y + 40.0f, TIP_W - 32.0f, 24.0f});
+    set_rect(storage, tip_desc_,  UIRect{TIP_X + 16.0f, TIP_Y + 10.0f, TIP_W - 32.0f, 26.0f});
 }
 
 void ShopSystem::refresh_preview(ComponentStorage& storage, const Blackboard& blackboard,

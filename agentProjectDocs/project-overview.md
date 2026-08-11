@@ -56,9 +56,19 @@ the graded course submission.
   many waves earlier enemy types unlock) and is enemy-side only (D50).
 - A wave advances only when its quota/timer is done **and** the arena is clear;
   a 30 s stall watchdog force-kills stragglers through the normal death path.
-- Currency economy: 1-3 pickups per kill plus a 0.5% shop-key roll, magnet-able,
-  expiring on a `Lifetime`.
-- Thruster dash on **SPACE**, 10 s cooldown, damages what it passes through (D120).
+- **Units** economy: 1-3 pickups per kill (each worth its type's value plus a flat
+  2) plus a 0.5% shop-key roll, magnet-able, expiring on a 14 s `Lifetime` (D193).
+- From wave 15 the drone passively vacuums units inside 140 px, and 3+ enemies
+  dying in one frame within 180 px pay out 15-value BIG UNITs (D193).
+- Thruster dash on **SPACE** — and SPACE alone, it no longer fires (D193) — 10 s
+  cooldown shown on its own HUD button, damages what it passes through (D120);
+  the stack gains one more charge for every boss killed (D192).
+- Heat-seeking missiles fly nose-first as rockets and launch in two salvos 0.45 s
+  apart, each detonating in a 200 px blast (D193).
+- Primary fire runs off a **battery**: 12 s of continuous fire, and emptying it
+  locks the trigger for the full 3 s recharge (D192).
+- Bosses carry a named health bar, and a mine's blast hurts enemies as well as
+  the drone (D192).
 - Foundry mines are destroyable: a shot pops one from outside its 100px blast (D121/D122).
 - Shop upgrades show on the drone — the engine plume heats up as they stack (D123).
 - Shop: Hull Plating, Shield Capacitor, Aux Thruster, Overclock, Heavy Rounds,
@@ -109,6 +119,8 @@ the graded course submission.
 - Deterministic headless driving: `--seed --keys --clicks --hover --screenshot
   --stopframe`; the shutdown line prints Frames / Score / Credits / Wave / Phase.
 - `python run.py` menu; Catch2 unit + property suites, 8 ctest targets.
+- `--dev` / `--god` playtest mode: unlimited units, **B** opens the shop on
+  demand, **F5** skips a wave, `--level N` picks the starting wave (D193).
 
 ## Scope
 

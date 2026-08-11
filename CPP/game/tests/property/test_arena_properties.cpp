@@ -130,7 +130,9 @@ TEST_CASE("Property: a kill drops min..max pickups, and the same seed drops the 
     for (const auto& [kind, value, x, y] : a) {
         (void)x; (void)y;
         if (kind == static_cast<int>(PickupKind::Key)) keys += 1;
-        else { currency += 1; CHECK(value == 3); }  // carries the type's currency
+        // the type's currency (3, from ContactDamage above) plus the flat
+        // CREDIT_BASE_BONUS of 2
+        else { currency += 1; CHECK(value == 3 + 2); }
     }
     CHECK(currency >= ec.min_drops);
     CHECK(currency <= ec.max_drops);

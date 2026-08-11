@@ -57,6 +57,7 @@ void BossSystem::reset() {
     reward_open_ = false;
     shift_requested_ = false;
     final_boss_ = false;
+    boss_name_.clear();
     offer_.clear();
 }
 
@@ -94,7 +95,7 @@ void BossSystem::spawn_boss(ComponentStorage& storage, EntityManager& entity_man
     storage.add_component<CircleCollider>(b, CircleCollider{half, 0.0f, 0.0f});
     storage.add_component<ContactDamage>(b,
         ContactDamage{bc.contact_damage, 500 * (boss_index + 1), 40 * (boss_index + 1), 1.0f});
-    // Slow: a capital ship, not a runner. The fight is about its adds and its
+    // Slow: a capital drone, not a runner. The fight is about its adds and its
     // signature attack, and a boss that can chase is a boss that ends the run.
     storage.add_component<PathFollower>(b, PathFollower{1, 0.0f, 34.0f, 0.0f, 0.0f, 0.0f, 0.0f});
     // Themed to the live arena: it wears that arena's enemy tint and borrows that
@@ -140,8 +141,10 @@ void BossSystem::spawn_boss(ComponentStorage& storage, EntityManager& entity_man
     boss_ = b;
     boss_alive_ = true;
     final_boss_ = final_boss;
-    blackboard.set<std::string>("hud_message",
-        (arena != nullptr ? arena->name : std::string("Reactor")) + " capital ship inbound");
+    // #3: it is a drone, not a ship. Same word everywhere the player reads it —
+    // the HUD banner here and the boss bar's label below.
+    boss_name_ = (arena != nullptr ? arena->name : std::string("Reactor")) + " capital drone";
+    blackboard.set<std::string>("hud_message", boss_name_ + " inbound");
     blackboard.set<float>("hud_message_timer", 4.0f);
 }
 
@@ -217,6 +220,11 @@ bool BossSystem::handle_reward_click(ComponentStorage& storage, Blackboard& blac
 
 void BossSystem::update(ComponentStorage& storage, EntityManager& entity_manager,
                         Blackboard& blackboard, WaveSpawnerSystem& spawner) {
+    // #8: cleared FIRST so every early-out below leaves the bar collapsed. Only
+    // the live-boss branch at the bottom of this function ever raises it.
+    blackboard.set<float>("boss.hp_frac", -1.0f);
+    blackboard.set<std::string>("boss.name", std::string());
+
     if (cfg_ == nullptr || cfg_->waves.empty()) return;
     const int wave = spawner.current_wave_index() + 1;
     // A restarted run rewinds the wave counter; nothing else does.
@@ -241,6 +249,15 @@ void BossSystem::update(ComponentStorage& storage, EntityManager& entity_manager
                           storage.has_component<DestroyRequest>(boss_);
         if (dead) {
             boss_alive_ = false;
+            // #10: every boss killed permanently widens the dash stack by one,
+            // and hands the new charge over ready to use.
+            for (Entity p : storage.entities_with_component<PlayerTag>()) {
+                if (auto s = storage.get_component<ShipState>(p); s.has_value()) {
+                    ++s->get().dash_max;
+                    ++s->get().dash_charges;
+                }
+                break;
+            }
             open_reward(storage, blackboard);
             if (!reward_open_) spawner.set_clear_hold(false);   // no actives authored
         } else {
@@ -333,6 +350,10 @@ void BossSystem::update(ComponentStorage& storage, EntityManager& entity_manager
                             p.size = specialty::PATCH_SIZE * 1.4f;
                             p.lifetime = specialty::PATCH_LIFETIME * 1.5f;
                             p.damage = cfg_->boss.contact_damage * 0.4f;
+                            // #6: the boss's borrowed spit was the ONE patch site
+                            // D187 missed, so the fight still threw flat green
+                            // squares while the spitters themselves had clouds.
+                            p.image = "v2/hazard_poison.png";
                             for (int i = 0; i < 3; ++i) {
                                 const float a = TAU * static_cast<float>(i) / 3.0f;
                                 hazard::spawn_patch(storage, entity_manager,
@@ -346,6 +367,7 @@ void BossSystem::update(ComponentStorage& storage, EntityManager& entity_manager
                             p.damage = cfg_->boss.contact_damage * 0.5f;
                             p.r = 255; p.g = 150; p.b = 50;
                             p.emission_rate = 20.0f;
+                            p.image = "v2/hazard_blast.png";   // #5, same as the mine
                             for (int i = 0; i < 4; ++i) {
                                 const float a = TAU * static_cast<float>(i) / 4.0f + 0.4f;
                                 hazard::spawn_patch(storage, entity_manager,
@@ -367,6 +389,17 @@ void BossSystem::update(ComponentStorage& storage, EntityManager& entity_manager
                     }
                 }
             }
+        }
+    }
+
+    // #8: the boss health bar. This system owns the number, GameHUDSystem owns
+    // the widgets. Only raised while a boss is actually on the board.
+    if (boss_alive_) {
+        if (auto hp = storage.get_component<Health>(boss_);
+            hp.has_value() && hp->get().max_hp > 0.0f) {
+            blackboard.set<float>("boss.hp_frac",
+                std::max(0.0f, std::min(1.0f, hp->get().current / hp->get().max_hp)));
+            blackboard.set<std::string>("boss.name", boss_name_);
         }
     }
 

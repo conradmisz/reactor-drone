@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace {
 // Iteration 3 (D68): the Prism splitter's children. Two units at 60% size and
@@ -16,6 +18,23 @@ namespace {
 constexpr float SPLIT_SIZE_FRAC  = 0.6f;
 constexpr float SPLIT_HP_FRAC    = 0.4f;
 constexpr float SPLIT_SPEED_MULT = 1.35f;
+
+// D193 (playtest #13): every unit is worth this much more than its enemy type
+// says. A flat add, not a multiplier — the per-type currency values are small
+// ints and the point was to lift the floor, not to widen the spread.
+constexpr int CREDIT_BASE_BONUS = 2;
+
+// D193 (playtest #12): the BIG UNIT. From wave BIG_FIRST_WAVE, a kill that lands
+// in the middle of a pile-up — BIG_MIN_DEATHS enemies dying in the same frame
+// within BIG_RADIUS of each other — pays out in big units instead of small ones.
+// // ponytail: "same frame" IS the time window. EnemyDeathSystem already sees
+// // every death of the frame in one pass, so the cluster test is a distance
+// // count over that list; a rolling multi-frame window would need state.
+constexpr int   BIG_FIRST_WAVE = 15;
+constexpr int   BIG_MIN_DEATHS = 3;
+constexpr float BIG_RADIUS     = 180.0f;
+constexpr int   BIG_VALUE      = 15;
+constexpr float BIG_SCALE      = 1.6f;   // same chit sprite, just larger
 
 /// Do two axis-aligned boxes overlap? Both are given as centre + half-extents.
 bool boxes_overlap(float ax, float ay, float ahw, float ahh,
@@ -112,7 +131,7 @@ const sidecar_loader::LoadedSprite* EnemyDeathSystem::effect_sprite() {
 void EnemyDeathSystem::drop_loot(ComponentStorage& component_storage,
                                  EntityManager& entity_manager,
                                  float cx, float cy, int currency_value,
-                                 float drop_chance) {
+                                 float drop_chance, bool big) {
     const EconomyConfig& ec = economy_;
     const int lo = std::max(0, ec.min_drops);
     const int hi = std::max(lo, ec.max_drops);
@@ -130,7 +149,10 @@ void EnemyDeathSystem::drop_loot(ComponentStorage& component_storage,
     const int count = count_dist(rng_);
     const float key_roll = unit(rng_);
 
-    const float half = ec.pickup_size * 0.5f;
+    // A big unit is the same chit, worth more and drawn larger. Nothing else
+    // about it differs — no second sprite, no new PickupKind.
+    const float unit_size  = ec.pickup_size * (big ? BIG_SCALE : 1.0f);
+    const int   unit_value = big ? BIG_VALUE : currency_value + CREDIT_BASE_BONUS;
     // Lane K (D101): how far a coin may be nudged to get off a hazard. Three
     // scatter radii (~78px at the shipped tuning) clears a 90px arena vent from
     // dead centre, and still keeps the loot visibly "that enemy's". A coin that
@@ -138,13 +160,15 @@ void EnemyDeathSystem::drop_loot(ComponentStorage& component_storage,
     const float nudge_reach = ec.pickup_scatter * 3.0f;
     auto make_pickup = [&](float x, float y, PickupKind kind, int value,
                            uint8_t r, uint8_t g, uint8_t b,
-                           const char* image = nullptr) {
+                           const char* image = nullptr, float size = 0.0f) {
+        const float w = size > 0.0f ? size : ec.pickup_size;
+        const float h2 = w * 0.5f;
         // Pure, RNG-free placement fix-up. It must stay that way: a draw in here
         // would make the stream depend on how many candidates were rejected.
-        loot_place::nudge_free(component_storage, x, y, half, nudge_reach);
+        loot_place::nudge_free(component_storage, x, y, h2, nudge_reach);
         Entity e = entity_manager.create_entity();
-        component_storage.add_component<Position>(e, Position{x - half, y - half});
-        component_storage.add_component<Size>(e, Size{ec.pickup_size, ec.pickup_size});
+        component_storage.add_component<Position>(e, Position{x - h2, y - h2});
+        component_storage.add_component<Size>(e, Size{w, w});
         component_storage.add_component<Color>(e, Color{r, g, b, 255});
         // D95: currency is a struck circular coin, not a gold square. Images wins
         // over Color in the render chain; Color remains the load fallback.
@@ -171,8 +195,8 @@ void EnemyDeathSystem::drop_loot(ComponentStorage& component_storage,
         // stream as a paying one.
         if (!drops || i >= count) continue;
         make_pickup(cx + std::cos(a) * d, cy + std::sin(a) * d,
-                    PickupKind::Currency, currency_value, 255, 210, 90,
-                    "v2/pickup_coin.png");
+                    PickupKind::Currency, unit_value, 255, 210, 90,
+                    "v2/pickup_coin.png", unit_size);
     }
 
     if (drops && key_roll < ec.key_drop_chance) {
@@ -184,6 +208,22 @@ void EnemyDeathSystem::update(ComponentStorage& component_storage,
                               EntityManager& entity_manager,
                               Blackboard& blackboard) {
     int score = blackboard.get_or<int>("score", 0);
+
+    // D193 #12: pre-pass over this frame's dead, so the loot loop below can ask
+    // "how many of them died next to this one?". Reads only Position/Size and
+    // draws no RNG, so it cannot move the drop stream (R2).
+    const bool big_wave = blackboard.get_or<int>("wave", 0) >= BIG_FIRST_WAVE;
+    std::vector<std::pair<float, float>> dead_centres;
+    if (big_wave) {
+        for (Entity e : component_storage.entities_with_component<EnemyTag>()) {
+            auto hp = component_storage.get_component<Health>(e);
+            if (!hp.has_value() || hp->get().current > 0.0f) continue;
+            if (component_storage.has_component<DestroyRequest>(e)) continue;
+            float cx, cy, hw, hh;
+            if (entity_box(component_storage, e, cx, cy, hw, hh))
+                dead_centres.emplace_back(cx, cy);
+        }
+    }
 
     for (Entity enemy : component_storage.entities_with_component<EnemyTag>()) {
         auto health_opt = component_storage.get_component<Health>(enemy);
@@ -212,7 +252,14 @@ void EnemyDeathSystem::update(ComponentStorage& component_storage,
                 lx = pos->get().x + (sz.has_value() ? sz->get().width * 0.5f : 0.0f);
                 ly = pos->get().y + (sz.has_value() ? sz->get().height * 0.5f : 0.0f);
             }
-            drop_loot(component_storage, entity_manager, lx, ly, currency_value, drop_chance);
+            // ponytail: O(deaths^2) over one frame's corpses. A wipe is tens of
+            // entities; index it only if a profile says so.
+            int nearby = 0;
+            for (const auto& c : dead_centres)
+                if (std::hypot(c.first - lx, c.second - ly) <= BIG_RADIUS) ++nearby;
+            const bool big = big_wave && nearby >= BIG_MIN_DEATHS;
+            drop_loot(component_storage, entity_manager, lx, ly, currency_value,
+                      drop_chance, big);
         }
 
         // Spawn the one-shot explosion at the enemy's position.

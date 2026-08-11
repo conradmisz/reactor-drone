@@ -54,6 +54,15 @@ struct ShipState {
     // themselves are already baked into the config at run start; this records the
     // choice for anything that needs to ask (HUD, tests, future per-ship rules).
     int   ship_id = 0;
+
+    // #9 (D192): the primary-fire battery. `battery` is a 0..1 charge fraction so
+    // the HUD bar needs no config lookup; `battery_locked` is the empty-to-full
+    // trigger lockout. #10: dash charges, one more per boss killed. All four are
+    // plain fields on the struct that is already registered — no new component.
+    float battery = 1.0f;
+    bool  battery_locked = false;
+    int   dash_charges = 1;       // bursts ready right now
+    int   dash_max = 1;           // bursts this run can hold
 };
 
 /**

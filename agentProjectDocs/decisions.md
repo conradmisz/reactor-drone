@@ -1713,3 +1713,177 @@ game should *show* its state, not make you infer it.
   is the alignment; no tab stops, D85 stands), pip meter right, restyled
   `pip_gain`/`pip_loss` on hover preview. **Rejected:** space-padding
   against the proportional font (drifts, the pause sheet's old hack).
+- **D192 — the second playtest batch (12 items, one entry).**
+  1. *Hold-to-buy is the whole card.* D189's 6 px full-brightness strip read
+     as decoration; the progress is now a dim wash (`hud_hold`, alpha 60)
+     sweeping the card's full rect at z 40, under the D191 text columns.
+  2. *A violet ship gets a violet atlas.* `ShipDef.color` was catalogue-only
+     and every ship wore the cyan chassis, so "Purple Gatling" flew in blue.
+     `player_frames()` now takes hull/accent/trim and emits a second atlas,
+     `player_drone_violet`. **Rejected:** a runtime `Tint` — the art bakes
+     cyan and cyan × violet is blue, which is the bug, not the fix. The
+     defaulted call is byte-identical, so `player_drone.png` did not change.
+  3. *The boss is a drone, not a ship* — HUD banner, boss-bar label, comments
+     and `docs/features.html`.
+  4. *A bomb hurts the swarm too.* The mine blast fans one-shot `DamageEvent`s
+     over a circle at detonation. **Rejected:** widening `HAZARD_MASK` — the
+     patch would then also hit the enemy that dropped it every frame it lived,
+     and the mask is what keeps the arena vents player-only.
+  5. *The blast is a mushroom cloud with a red rim* (`hazard_blast.png`),
+     worn by the mine and by the boss's borrowed miner signature; the flat
+     orange rect stays only as the load fallback.
+  6. *The boss's spit wears the D187 cloud* — the one patch site that release
+     missed, so the fight still threw green squares.
+  7. *Poison reads as gas.* Twelve uneven lobes, Gaussian-blurred, over a 2 px
+     alpha-105 red haze instead of a 5 px opaque rim on six equal lobes (which
+     outlined every lobe and read as a flower). Bubbles deleted.
+  8. *The boss has a health bar.* `BossSystem` publishes `boss.hp_frac` /
+     `boss.name`, cleared at the top of every `update()` so each early-out
+     collapses it; `GameHUDSystem` owns the three bottom-centre widgets.
+     Bottom-centre because the top strip already carries HULL, the wave
+     counter and the minimap, and the label needs a row of its own.
+  9. *Primary fire runs off a battery* (`battery` block: 12 s of continuous
+     fire, 3 s empty→full at a constant rate). Emptying it LATCHES a lockout
+     that clears only at full — that lockout is the entire cost of holding the
+     trigger. Two floats on `ShipState`, two rates on the Blackboard, so
+     `PlayerFireSystem` stays config-blind (the `ship.extra_shots` pattern).
+     Third bar in the HUD gauge stack; the text rows moved down 20 px.
+  10. *A dash charge per boss.* `dash.charges` seeds `ShipState.dash_max`;
+     `BossSystem` grows it on every kill. One cooldown clock refills the stack
+     one charge at a time, and spending a second charge does not rewind the
+     one already regenerating. Persisted in `RunSave` so a resumed run does
+     not re-earn them.
+  11. *The currency is a UNIT.* `pickup_coin.png` is now a hex data-chit with
+     circuit traces, not a struck coin; every user-facing "Credits" is
+     "Units" (HUD, shop, how-to-play, intermission, headless summary). The
+     gold hue is unchanged, so nothing downstream had to move.
+  12. *Loot lingers*: `pickup_lifetime` 12 → 26 s. 12 s expired mid-fight.
+- **D193 — the third playtest batch.** Numbering follows the playtest feedback
+  items, not the lanes that implemented them.
+  1. *Loot lingers, again*: `pickup_lifetime` 26 → 14 s. D192 #12 over-corrected
+     — 26 s left the arena carpeted in uncollected units and killed the
+     risk/reward of the fade (D52). 14 s is the pre-D192 12 s plus the 2 s the
+     mid-fight complaint actually needed. Pinned in `test_wave_arc.cpp`.
+  13. *Units are worth more*: a flat `CREDIT_BASE_BONUS = 2` added to every
+     currency drop in `drop_loot`. **Rejected:** a multiplier (the per-type
+     values are 1-3, so ×N widens the spread instead of lifting the floor) and
+     re-tuning every `enemy_types.currency` field by hand.
+  10. *Passive credit vacuum from wave 15*: currency pickups inside 140 px drift
+     to the drone at their own `magnet_speed`. It reuses the Magnet Core's
+     steering branch with a shorter radius, so the item still owns the long
+     (220 px) reach and the all-kinds pull. Two constants on `PickupSystem`,
+     no JSON block, wave read from the Blackboard's existing `"wave"`.
+  12. *BIG UNITs from wave 15*: 3+ enemies dying in the SAME frame within 180 px
+     of each other upgrade that kill's drops to a 15-value unit drawn at 1.6×.
+     Same `pickup_coin.png`, no new `PickupKind`, no new sprite. "Same frame" is
+     the whole time window — `EnemyDeathSystem` already sees every death of the
+     frame in one pass, so the cluster test is a distance count over a pre-pass
+     list. **Rejected:** a rolling multi-frame window (needs per-system state
+     for a heuristic) and a tinted variant (gold × anything reads as dirty gold,
+     the D192 #2 lesson). The pre-pass draws no RNG, so the drop stream and the
+     replay canary are untouched.
+  2. *The ability row*: the boss-item slot and a new dash button are both 64×64
+     on one baseline (was a single 100×100 box), the slot now reads `EMPTY` /
+     `BOSS` on the phase gate instead of collapsing to zero when nothing is
+     held, and `SPACE` is captioned under the dash. The booster is the glyph
+     `▲`, not art — `UIElement` has no texture path, so a real icon would mean a
+     new renderer route for one widget. **Open:** whether `▲` reads as a
+     booster at 64 px. **Answered by the next playtest: no** — see the revision
+     below.
+  11. *Dash cooldown indicator*: a horizontal wipe under the glyph, reusing
+     `set_bar` — the same fill-over-bg vocabulary as the hull/shield/battery
+     gauges. **Rejected:** radial, which needs a new renderer path for one
+     widget. `main.cpp` publishes `dash.cooldown` to the Blackboard so the HUD
+     stays config-blind. **Superseded — see the revision below.**
+
+  **Revision (next playtest, items 2/11 again).** Three findings, one change:
+
+  - *Smaller still*: both boxes 64×64 → **48×48**, dash moved x 88 → 72, and the
+    empty slot says **`ITEM`** on one line instead of `EMPTY` / `BOSS` on two —
+    a box that is visibly empty does not also need the word "empty".
+  - *The `▲` did not read as a booster, and the horizontal wipe did not read as
+    a cooldown.* Both were "no new renderer path" compromises, and the escape
+    from that constraint is that a HUD icon does not have to be a **widget**.
+    `UIElement` still has no texture path (and is not getting one), but a normal
+    sprite entity drawn in *screen* space needs no engine change at all — it is
+    the arrangement the shield field already uses: a `SpriteSheet` with no
+    `Animation`, whose `current_frame` is written per frame from a pure picker
+    (`dash_sweep_frame`, beside `field_frame`). So the button's face is now two
+    generated sprites: `hud_boost.png` (an actual rocket, authored nose-**up**;
+    `rocket_sprite` faces right only because the runtime spins it) and
+    `hud_dash_sweep.png`, a 16-frame clock wipe that greys out the **whole** box
+    and sweeps clockwise back to clear. Ready = the dial is parked entirely,
+    rather than drawn full — "can I dash?" is answered by the button's own state
+    with no second strip of furniture inside it.
+  - **The trap:** `CameraSystem` writes `ScreenPosition` for *everything* with a
+    `Position`, and `RenderSystem` only reaches entities that *have* a
+    `Position` — so a screen-space sprite cannot simply be created and left
+    alone (this is the D58 minimap note, from the other side). The placement is
+    therefore written in `main.cpp` immediately **after** `camera.update` and
+    before the draw, overwriting `ScreenPosition` last. The rect it maps is
+    `hud_dash_frame`'s **live** `UIElement.rect` through `ui_canvas_transform`,
+    so the sprites inherit the authored geometry *and* `GameHUDSystem`'s phase
+    gate (which collapses that rect to zero width) for free — no second copy of
+    the layout and no second visibility rule.
+  - Both frames moved to a new `hud_slot_frame` style: `minimap_frame`'s rim
+    with no smoke behind it. The UI composites *after* the world, so the
+    translucent fill was a 43 % veil over the sprites underneath it. Greying the
+    box out is the dial's job now, so the frame has no reason to be dark.
+  - Removed by this: `hud_dash_icon` / `hud_dash_cd_bg` / `hud_dash_cd_fill`
+    widgets, `DASH_CD_FULL_W`, and the `dash.cooldown` Blackboard key —
+    `main.cpp` reads `config.dash.cooldown` at the one site that now needs it.
+  8. *SPACE no longer fires*: the engine's `input_system.cpp` writes
+     `input.fire` from `SDL_SCANCODE_SPACE` and `PlayerFireSystem` OR'd it into
+     `firing`. Cut in the game system, not the engine — `Input.fire` is
+     engine-general and still reaches Lua via `engine.get_input`; "SPACE is dash
+     only" is a Reactor Drone rule.
+  9. *Dash reaches further*: `dash.speed` 900 → 1060 (distance 135 → 159).
+     Speed, not duration — `test_lane_n.cpp` pins `duration == 0.15` and the
+     burst window governs the i-frame and once-per-enemy damage rules.
+  4. *Hold-to-buy fills the row*: this was a colour bug, not geometry. The D192
+     bar already spanned the card rect, but `card.pressed` flipped the whole row
+     to solid cyan and swallowed it. `hud_hold` is now light blue at alpha 120
+     and `pressed` is a dark tint, so the sweep is the only thing that moves.
+  5. *Stats live in the preview pane*: D190/D191 put pip previews on every store
+     row, which was the wrong read of the request. A `DRONE STATS` panel now
+     sits in the right-hand pane; idle rows read `value ●●○○○` and hovering an
+     upgrade shows `now > after`. Keyed off the catalogue `effect` string
+     mirroring `apply()` (D26) — no row index reaches a stat. The drone preview
+     shrank to make room.
+  3. *Missiles*: `MISSILE_AOE` 130 → 200 with the VFX reach bound to the damage
+     radius instead of a fixed 120 px, a proper `projectile_rocket.png` flown
+     nose-first off `Rotation`, and a second 16-rocket salvo 0.45 s later offset
+     half a step so the waves interleave. `MISSILE_FUSE` 34 → 56 came with it:
+     a rocket that physically touches its target is taken by the single-target
+     path and never detonates, and the bigger rocket made contact sooner.
+  6. *The bubble shield was cropped square*: `_shield_scale()` **stretched** the
+     128-unit authoring space to fill the 192 px frame instead of treating the
+     bigger frame as a wider window onto it, so the visible window stayed 128
+     units wide, the r=70 ring overran all four edges and Pillow cropped it
+     flat. One authoring unit now maps to one frame pixel (26 px of margin), and
+     `FIELD_SIZE_MULT` 1.5 → 2.25 keeps the on-screen diameter unchanged.
+     Verified per frame: bbox (26,26,167,167), zero lit border pixels, was
+     (0,0,192,192) with 90 lit pixels an edge.
+  *Second round of the same playtest (the row was still too big and there was no
+  way to reach late waves quickly):*
+  - *Ability row shrunk again*: 48×48, and the boss slot just reads `ITEM`.
+  - *Dash cooldown is a circular dial*, not a bar: a 16-frame clock wipe that
+     greys the whole box, plus a real `hud_boost.png` booster icon replacing the
+     `▲` glyph. `UIElement` still has no texture path, so both ride sprite
+     entities — the same frame-index-written-per-frame idiom as the shield
+     field. **Trap found:** `ScreenPosition` is NOT camera-free —
+     `CameraSystem::update` writes it for every entity with `Position`+`Size`,
+     and `RenderSystem` only iterates entities that HAVE a `Position`. So the
+     sprites carry a dummy `Position` to get iterated and their `ScreenPosition`
+     is overwritten after `camera.update`, immediately before the draw.
+     **Rejected:** inverse-transforming the camera (more code, lags under
+     shake).
+  - *Dev/god mode* behind `--dev` / `--god`: units pinned to 999999 each frame,
+     **B** opens the shop any time (waiving the key cost on the existing
+     `key_entry` → intermission → shop transition, not a second entry path),
+     **F5** skips a wave via the save-resume `resume_at_wave` seek, and
+     `--level N` picks the starting wave — it was parsed but entirely unused
+     before this. **Rejected:** short-circuiting the shop spend path, which has
+     three separate `currency < cost` sites; pinning the balance keeps all three
+     real and touched no shop code. Everything is inside `if (opts.dev)`, so the
+     default path draws no RNG and adds no per-frame state — canary verified.

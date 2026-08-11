@@ -85,6 +85,7 @@ struct CommandLineOptions {
     std::string script_file;               // --script FILE (exclusive with other flags)
     bool debug_keys   = true;              // --debug-keys (default) / --no-debug-keys
     int  level        = 1;                 // --level N (1-based; selects level from levels.json)
+    bool dev          = false;             // --dev / --god (developer playtest mode; off by default)
     bool parse_error  = false;             // set on any parse failure
     bool help_requested = false;           // --help
 };

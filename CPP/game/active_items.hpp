@@ -14,7 +14,7 @@
  * `E` fires the two aimed ones; the repulsion device is not a key at all — it
  * auto-triggers below 20 % hull, which is the whole point of it.
  *
- *   missiles       8 radial homing projectiles, AoE on detonation
+ *   missiles       two salvos of 8 radial homing rockets, AoE on detonation
  *   laser          4 cardinal beams, hold ~0.9 s, then a fast 360 deg sweep
  *   repulsor_field heal to full, shove enemies out, hold a 5 s no-entry sphere
  *

@@ -221,7 +221,12 @@ TEST_CASE("coins still despawn — D52 reverses the plan's never-despawn item",
     // The iteration-3 plan says pickup_lifetime should be 0 (drops live forever).
     // The user reversed that: the fade is the risk/reward. This test exists so a
     // future agent reading the stale plan flips it back and immediately fails.
+    // D192 #12 raised the window 12 -> 26 s after a playtest; D193 settled it at
+    // 14 s — 26 s over-corrected and the arena stayed carpeted in units, while
+    // the original 12 s expired mid-fight. The point of this test is the
+    // NON-ZERO, not the number; the exact value is pinned only so a silent drift
+    // shows up here.
     const GameConfig cfg = shipped();
     CHECK(cfg.economy.pickup_lifetime > 0.0f);
-    CHECK_THAT(cfg.economy.pickup_lifetime, WithinAbs(12.0f, 1e-5f));
+    CHECK_THAT(cfg.economy.pickup_lifetime, WithinAbs(14.0f, 1e-5f));
 }

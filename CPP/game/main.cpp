@@ -3,8 +3,8 @@
  *
  * Forked from Class-090 (tower defense). You pilot a maintenance drone in a
  * circular reactor core; enemies spawn from the ring and seek you in escalating
- * waves. Move with the arrow keys, aim with the mouse, hold the mouse button or
- * space to fire. Kills give score and drop currency pickups you walk over, which
+ * waves. Move with the arrow keys, aim with the mouse, hold the mouse button to
+ * fire and SPACE to dash. Kills give score and drop currency pickups you walk over, which
  * fund the shop. Title -> play -> game-over/victory, click to (re)start.
  *
  * World space is bottom-left origin (0,0 = bottom-left, +X right, +Y up); the
@@ -81,6 +81,7 @@
 #include "engine/lua_manager.hpp"
 #include "engine/ecs/systems/screen_stack_system.hpp"
 #include "engine/ecs/systems/ui_render_system.hpp"
+#include "engine/ecs/systems/ui_render_math.hpp"   // ui_canvas_transform (#11 dash face)
 #include "engine/ecs/systems/ui_system.hpp"
 #include "shield_system.hpp"
 #include "item_system.hpp"
@@ -335,6 +336,11 @@ int main(int argc, char* argv[]) {
     Entity kit_parts[upgrade_visuals::KIT_COUNT] = {0};
     Entity shield_field = 0;
     float field_phase = 0.0f;      // free-running 0..1 loop for the hum/bloom
+    // Playtest #11/#12: the dash button's FACE — a booster glyph and a circular
+    // cooldown dial, parked over the authored "hud_dash_frame" rect. Sprites and
+    // not widgets because UIElement has no texture path and adding one is an
+    // engine change; same "pool it once, park it when idle" shape as the kit.
+    Entity dash_icon = 0, dash_dial = 0;
     int active_arena = -1;
     // Hazards, tracked separately from arena_props so the glow tick has a list to
     // walk without a HazardTag component (which would mean a storage map, two
@@ -661,6 +667,12 @@ int main(int argc, char* argv[]) {
         blackboard.set<float>("ship.buff_mult", 1.0f);
         blackboard.set<std::string>("ship.item_name", std::string());
         blackboard.set<std::string>("ship.consumable_name", std::string());
+        // D192 #9: the battery's two rates, published once per world so
+        // PlayerFireSystem stays config-blind (the ship.extra_shots pattern).
+        blackboard.set<float>("battery.drain_per_s",
+            config.battery.fire_time > 0.0f ? 1.0f / config.battery.fire_time : 0.0f);
+        blackboard.set<float>("battery.charge_per_s",
+            config.battery.recharge_time > 0.0f ? 1.0f / config.battery.recharge_time : 0.0f);
         wave_spawner.reset();
 
         // Player entity.
@@ -688,6 +700,11 @@ int main(int argc, char* argv[]) {
         // just records which hull this run is flying.
         ShipState ship_state{};
         ship_state.ship_id = selected_ship;
+        // D192 #10: the dash stack starts at the configured size and grows by one
+        // per boss killed (BossSystem). A resumed run restores dash_max from the
+        // save, so bosses already beaten are not re-paid for.
+        ship_state.dash_max = std::max(1, config.dash.charges);
+        ship_state.dash_charges = ship_state.dash_max;
         component_storage.add_component<ShipState>(player, ship_state);
         component_storage.add_component<Collider>(player,
             Collider{psz, psz, layers::PLAYER, layers::PLAYER_MASK});
@@ -764,6 +781,30 @@ int main(int argc, char* argv[]) {
             component_storage.add_component<RenderLayer>(shield_field, RenderLayer{5});
         }
         field_phase = 0.0f;
+
+        // #11: the dash button's face. Position is a placeholder — the screen
+        // placement is written after camera.update in the render block, because
+        // CameraSystem rewrites ScreenPosition for everything that has a Position
+        // (and RenderSystem only ever reaches entities that have one).
+        {
+            dash_icon = entity_manager.create_entity();
+            component_storage.add_component<Position>(dash_icon, Position{0.0f, 0.0f});
+            component_storage.add_component<Size>(dash_icon, Size{0.0f, 0.0f});  // parked
+            component_storage.add_component<Images>(dash_icon,
+                Images{{std::string("v2/hud_boost.png")}, 0});
+            component_storage.add_component<RenderLayer>(dash_icon, RenderLayer{60});
+
+            dash_dial = entity_manager.create_entity();
+            component_storage.add_component<Position>(dash_dial, Position{0.0f, 0.0f});
+            component_storage.add_component<Size>(dash_dial, Size{0.0f, 0.0f});   // parked
+            SpriteSheet ds{};
+            ds.atlas_filename = "v2/hud_dash_sweep.png";
+            ds.frame_width = 64; ds.frame_height = 64;
+            ds.columns = 4; ds.total_frames = DASH_SWEEP_FRAMES;
+            ds.current_frame = 0;
+            component_storage.add_component<SpriteSheet>(dash_dial, ds);
+            component_storage.add_component<RenderLayer>(dash_dial, RenderLayer{61});
+        }
 
         game_hud.init(component_storage, entity_manager, blackboard);
 
@@ -883,6 +924,12 @@ int main(int argc, char* argv[]) {
             run_save_apply(*resume, component_storage, blackboard);
             std::cout << "Run resumed: wave " << (resume->wave + 1)
                       << "  score " << resume->score << "\n";
+        }
+        // --dev --level N: start on wave N. Reuses the resume path's wave seek
+        // rather than adding a second one; --level was parsed but unused before.
+        if (opts.dev && opts.level > 1 && resume == nullptr) {
+            wave_spawner.resume_at_wave(opts.level - 1);
+            std::cout << "[dev] start wave " << opts.level << "\n";
         }
         phase = PHASE_PLAYING;
     };
@@ -1061,6 +1108,7 @@ int main(int argc, char* argv[]) {
 
     bool debug_paused = false, step_requested = false;
     bool f1_prev = false, f2_prev = false, space_prev = false, b_prev = false;
+    bool f5_prev = false;   // --dev only: skip-to-next-wave edge
     bool tab_prev = false, q_prev = false;
     bool digit_prev[8] = {false};
     if (opts.paused) debug_paused = true;
@@ -1117,6 +1165,29 @@ int main(int argc, char* argv[]) {
         if (f1 && !f1_prev) debug_paused = !debug_paused;
         if (f2 && !f2_prev && debug_paused) step_requested = true;
         f1_prev = f1; f2_prev = f2;
+        // === dev mode (--dev / --god) ===
+        // Everything here is behind `opts.dev`, which is false on every normal
+        // run: no key is read, no currency is written, no RNG is drawn, so the
+        // replay canary is untouched.
+        if (opts.dev) {
+            // UNITS pinned, so the shop's own affordability checks always pass.
+            for (Entity p : component_storage.entities_with_component<PlayerTag>())
+                if (auto s = component_storage.get_component<ShipState>(p); s.has_value())
+                    dev_top_up(true, s->get().currency);
+            // F5: drop the wave on the floor and jump to the next one.
+            // ponytail: enemies are destroyed outright (no loot, no score) — a
+            // skip is not a clear. Skipping a boss wave reads to BossSystem as a
+            // boss kill (it already treats a dead entity id as one), so the
+            // reward offer still opens; pick one and carry on.
+            const bool f5 = keys[SDL_SCANCODE_F5];
+            if (f5 && !f5_prev && phase == PHASE_PLAYING) {
+                for (Entity e : component_storage.entities_with_component<EnemyTag>())
+                    component_storage.add_component<DestroyRequest>(e, DestroyRequest{});
+                wave_spawner.resume_at_wave(wave_spawner.current_wave_index() + 1);
+                std::cout << "[dev] wave -> " << (wave_spawner.current_wave_index() + 1) << "\n";
+            }
+            f5_prev = f5;
+        }
         bool space = keys[SDL_SCANCODE_SPACE];
         bool space_edge = (space && !space_prev) || scripted_advance;
         space_prev = space;
@@ -1761,6 +1832,9 @@ int main(int argc, char* argv[]) {
                     break;
                 }
             }
+            // --dev: B raises the same prompt with no key spent. Same transition,
+            // not a second way in.
+            if (opts.dev && b_edge && player_alive) key_entry = true;
 
             if (!player_alive) {
                 phase = PHASE_GAMEOVER;
@@ -2097,6 +2171,58 @@ int main(int argc, char* argv[]) {
         // === Render ===
         camera.update(component_storage, blackboard);
 
+        // #11: the dash button's face, parked over the authored "hud_dash_frame"
+        // rect. HERE, after camera.update, because that is what owns
+        // ScreenPosition — anything written earlier in the frame is overwritten
+        // by the world-to-screen transform (the trap the minimap note calls out).
+        // Overwriting ScreenPosition afterwards is enough: RenderSystem prefers
+        // it over Position, so the Position these two carry only exists to get
+        // them iterated at all.
+        //
+        // The dial is a whole-box clock wipe, not a bar: it greys the button out
+        // on use and sweeps back to clear, so "can I dash?" is answered by the
+        // button's own state instead of by a second strip of furniture inside it.
+        {
+            const double dial_id =
+                blackboard.get_or<double>("ui.widget_id.hud_dash_frame", -1.0);
+            const Entity frame_w = dial_id < 0.0 ? 0 : static_cast<Entity>(dial_id);
+            // The widget's LIVE rect: GameHUDSystem collapses it to zero width in
+            // every phase that hides the HUD, so the phase gate is already done.
+            UIRect design{};
+            if (frame_w != 0) {
+                if (auto fel = component_storage.get_component<UIElement>(frame_w);
+                    fel.has_value())
+                    design = fel->get().rect;
+            }
+            const UIRect box = ui_apply_transform(
+                ui_canvas_transform(static_cast<float>(win_w), static_cast<float>(win_h)),
+                design);
+
+            float dash_frac = 1.0f;
+            for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+                if (auto s = component_storage.get_component<ShipState>(p); s.has_value()) {
+                    if (s->get().dash_charges <= 0 && config.dash.cooldown > 0.0f)
+                        dash_frac = 1.0f - s->get().dash_cd / config.dash.cooldown;
+                }
+                break;
+            }
+            const bool row_on = box.w > 0.0f && box.h > 0.0f;
+            auto park = [&](Entity e, bool on) {
+                if (auto sz = component_storage.get_component<Size>(e); sz.has_value()) {
+                    sz->get().width  = on ? box.w : 0.0f;
+                    sz->get().height = on ? box.h : 0.0f;
+                }
+                if (on) component_storage.add_component<ScreenPosition>(
+                            e, ScreenPosition{box.x, box.y});
+            };
+            park(dash_icon, row_on);
+            // A charge in hand means READY: no dial at all, rather than a full one.
+            park(dash_dial, row_on && dash_frac < 1.0f);
+            if (auto ss = component_storage.get_component<SpriteSheet>(dash_dial);
+                ss.has_value())
+                ss->get().current_frame = dash_sweep_frame(dash_frac);
+        }
+
         // v2 Phase 5: parallax backdrops. Camera displacement is camera.lookat
         // minus the arena centre — since Upgrade Phase 2 that is mostly the
         // follow camera tracking the drone, plus the seeded screen shake;
@@ -2171,7 +2297,7 @@ int main(int argc, char* argv[]) {
     // "score stopped rising" is ambiguous between shopping, dying and stalling.
     std::cout << "Shutting down. Frames: " << timer.get_frame_count()
               << "  Final score: " << blackboard.get_or<int>("score", 0)
-              << "  Credits: " << final_credits
+              << "  Units: " << final_credits
               << "  Wave: " << blackboard.get_or<int>("wave", 0)
               << "  Phase: " << phase << std::endl;
 
