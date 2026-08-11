@@ -40,6 +40,23 @@ read all of them for every task.
   `tmpnam` is allowed.
 - Regenerate assets (offline, needs Pillow): `python assets/generator/v2/make_sprites.py`
 
+## Bugs
+
+- **Before investigating any bug or unexplained behavior, read
+  `agentProjectDocs/bugs/` first.** A report may already exist, and its Ruled Out
+  section will stop you re-running a test that was already done.
+- Bug investigations live in `bugs/`, **not** in `progress-tracker.md`.
+- New bug: copy `bugs/bug-template.md` to `bugs/NNN-slug.md`, next free number.
+  Status lives in the frontmatter — there is no index file. To list every bug:
+
+      rg -N '^(id|title|status|severity):' agentProjectDocs/bugs/[0-9]*.md
+
+- **Log every test into Ruled Out as you run it, including negative and
+  inconclusive results.** A test whose result was never written down will be run
+  again.
+- **Never close a bug on a passing build alone.** Fill in Resolution with the
+  root cause and how it was verified, then set `resolved:`.
+
 ## Keeping Context in Sync
 
 - Update `progress-tracker.md` after every meaningful change.

@@ -1309,6 +1309,168 @@ int main(int argc, char* argv[]) {
         }
         // === END HOOK: prestige ===
 
+        // v2 Phase 5c: equipment visuals (thruster cone, upgrade kit,
+        // shield field, item aura). They ride the aim angle player_aim
+        // writes and the player's POSITION — so the call sites sit after
+        // movement + clamp + push_out_of_solids, or every follower renders
+        // one frame behind the hull (bug 002). Pure functions of ShipState
+        // plus a cosmetic phase — no RNG, the canary cannot move.
+        auto update_equipment_visuals = [&]() {
+                // D134: the field's hum is a free-running loop, advanced once per
+                // playing frame (not per player) so it cannot double-step.
+                {
+                    constexpr float FIELD_HUM_PERIOD = 0.64f;   // 8 frames at ~0.08s
+                    field_phase += static_cast<float>(
+                        blackboard.get_or<double>("delta_time", 0.0)) / FIELD_HUM_PERIOD;
+                    field_phase -= std::floor(field_phase);
+                }
+
+                for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+                    auto rot = component_storage.get_component<Rotation>(p);
+                    auto pos = component_storage.get_component<Position>(p);
+                    auto sz  = component_storage.get_component<Size>(p);
+                    if (!rot.has_value() || !pos.has_value() || !sz.has_value()) break;
+                    const float pcx = pos->get().x + sz->get().width * 0.5f;
+                    const float pcy = pos->get().y + sz->get().height * 0.5f;
+
+                    // Thruster: a cone opposite the aim, instead of the 180° aura it
+                    // shipped as. ponytail: offset stays at the hull centre — emitter
+                    // offsets are host-*local* and unrotated, so a rear offset would
+                    // detach from the ship as it turns; the cone alone reads as exhaust.
+                    if (auto em = component_storage.get_component<ParticleEmitter>(p); em.has_value()) {
+                        em->get().direction = rot->get().angle + 180.0f;
+                        em->get().cone_half_angle = 26.0f;
+                    }
+
+                    // D133/D134: the upgrade kit and the shield field. Both ride the
+                    // aim angle written above, so they belong here rather than with
+                    // the render step. Pure functions of ShipState — no RNG, nothing
+                    // accumulated but a cosmetic phase — so the canary cannot move.
+                    if (auto st = component_storage.get_component<ShipState>(p); st.has_value()) {
+                        const ShipState& ship = st->get();
+                        const float ang = rot->get().angle;
+                        const float pw = sz->get().width, ph = sz->get().height;
+
+                        for (int i = 0; i < upgrade_visuals::KIT_COUNT; ++i) {
+                            const bool worn = upgrade_visuals::part_worn(ship, i);
+                            auto ksz = component_storage.get_component<Size>(kit_parts[i]);
+                            auto kps = component_storage.get_component<Position>(kit_parts[i]);
+                            auto krt = component_storage.get_component<Rotation>(kit_parts[i]);
+                            if (!ksz.has_value() || !kps.has_value() || !krt.has_value()) continue;
+                            // Parked = zero size (D58's idiom): the entity stays
+                            // pooled, and a zero-extent sprite draws nothing.
+                            ksz->get().width  = worn ? pw : 0.0f;
+                            ksz->get().height = worn ? ph : 0.0f;
+                            kps->get().x = pcx - pw * 0.5f;
+                            kps->get().y = pcy - ph * 0.5f;
+                            krt->get().angle = ang;
+                        }
+
+                        // The field. Its sprite is 192px against the chassis's 128,
+                        // which is what holds the ring clear of the hull.
+                        const float delay_total =
+                            blackboard.get_or<float>("ship.shield_regen_delay", 0.0f);
+                        const auto fstate = upgrade_visuals::field_state(ship, delay_total);
+                        const float fw = pw * upgrade_visuals::FIELD_SIZE_MULT;
+                        const float fh = ph * upgrade_visuals::FIELD_SIZE_MULT;
+                        const bool shown = (fstate != upgrade_visuals::FieldState::Hidden);
+                        if (auto fs = component_storage.get_component<Size>(shield_field);
+                            fs.has_value()) {
+                            fs->get().width  = shown ? fw : 0.0f;
+                            fs->get().height = shown ? fh : 0.0f;
+                        }
+                        if (auto fp = component_storage.get_component<Position>(shield_field);
+                            fp.has_value()) {
+                            fp->get().x = pcx - fw * 0.5f;
+                            fp->get().y = pcy - fh * 0.5f;
+                        }
+                        if (auto fr = component_storage.get_component<Rotation>(shield_field);
+                            fr.has_value()) {
+                            // The bloom is baked pointing right, so the ring turns to
+                            // put it where the hit came from. Everything else on the
+                            // ring is radially symmetric, so this is invisible except
+                            // during a bloom.
+                            fr->get().angle =
+                                (fstate == upgrade_visuals::FieldState::Hit)
+                                    ? blackboard.get_or<float>("player.hit_bearing", 0.0f)
+                                    : 0.0f;
+                        }
+                        if (auto fss = component_storage.get_component<SpriteSheet>(shield_field);
+                            fss.has_value()) {
+                            const float frac = ship.shield_max > 0.0f
+                                                   ? ship.shield / ship.shield_max : 0.0f;
+                            // The bloom decays, so it reads its progress through the
+                            // hit window rather than the free-running hum phase —
+                            // otherwise which bloom frame you got would depend on
+                            // when in the loop the hit happened.
+                            float phase = field_phase;
+                            if (fstate == upgrade_visuals::FieldState::Hit &&
+                                upgrade_visuals::FIELD_HIT_TIME > 0.0f) {
+                                phase = std::clamp(
+                                    (delay_total - ship.shield_delay) /
+                                        upgrade_visuals::FIELD_HIT_TIME,
+                                    0.0f, 0.999f);
+                            }
+                            fss->get().current_frame =
+                                upgrade_visuals::field_frame(fstate, frac, phase);
+                        }
+                    }
+
+                    // Item aura: one emitter, reconfigured from the equipped item.
+                    if (auto aura = component_storage.get_component<ParticleEmitter>(item_aura);
+                        aura.has_value()) {
+                        ParticleEmitter& a = aura->get();
+                        if (auto ap = component_storage.get_component<Position>(item_aura);
+                            ap.has_value()) { ap->get().x = pcx; ap->get().y = pcy; }
+
+                        int item = -1;
+                        if (auto s = component_storage.get_component<ShipState>(p); s.has_value())
+                            item = s->get().item_id;
+
+                        a.active = (item >= 0);
+                        a.shape = EmitterShape::Circle;
+                        a.cone_half_angle = 180.0f;
+                        a.particle_lifetime = 0.6f;
+                        a.min_speed = 0.0f; a.max_speed = 22.0f;
+                        a.start_size = 6.0f; a.end_size = 0.0f;
+                        a.end_a = 0;
+                        // Emission scales with the radius being described: at the
+                        // Magnet Core's 220-unit reach, 26/s is a dozen specks lost in
+                        // the backdrop. These rates were raised until the field
+                        // actually reads on screen. Worst case ~90 live particles of
+                        // the 2000 budget — see ENGINE.md §5 before raising further.
+                        switch (item) {
+                            case item_ids::MAGNET_CORE:      // amber, the loot colour, at pull range
+                                a.radius = config.economy.pickup_magnet_radius;
+                                a.emission_rate = 150.0f;
+                                a.start_r = 255; a.start_g = 210; a.start_b = 90;  a.start_a = 200;
+                                a.end_r   = 180; a.end_g   = 120; a.end_b   = 30;
+                                break;
+                            case item_ids::REPULSOR_FIELD:   // cold shove field, at push range
+                                a.radius = config.shop.repulsor_radius;
+                                a.emission_rate = 120.0f;
+                                a.start_r = 120; a.start_g = 220; a.start_b = 255; a.start_a = 200;
+                                a.end_r   = 30;  a.end_g   = 90;  a.end_b   = 180;
+                                break;
+                            case item_ids::REACTIVE_PLATING: // hot shell hugging the hull
+                                a.radius = sz->get().width * 0.8f;
+                                a.emission_rate = 50.0f;
+                                a.start_r = 255; a.start_g = 130; a.start_b = 60;  a.start_a = 220;
+                                a.end_r   = 160; a.end_g   = 40;  a.end_b   = 20;
+                                break;
+                            case item_ids::SALVAGER:         // sparse gold flecks
+                                a.radius = sz->get().width * 1.2f;
+                                a.emission_rate = 26.0f;
+                                a.start_r = 255; a.start_g = 235; a.start_b = 150; a.start_a = 220;
+                                a.end_r   = 200; a.end_g   = 160; a.end_b   = 60;
+                                break;
+                            default: break;                  // nothing equipped: inactive
+                        }
+                    }
+                    break;
+                }
+        };
+
         // === State machine + gameplay ===
         if (phase == PHASE_PLAYING && sim) {
             apply_move_speed();
@@ -1358,161 +1520,6 @@ int main(int argc, char* argv[]) {
 
             player_aim.update(component_storage, blackboard);
 
-            // D134: the field's hum is a free-running loop, advanced once per
-            // playing frame (not per player) so it cannot double-step.
-            {
-                constexpr float FIELD_HUM_PERIOD = 0.64f;   // 8 frames at ~0.08s
-                field_phase += static_cast<float>(
-                    blackboard.get_or<double>("delta_time", 0.0)) / FIELD_HUM_PERIOD;
-                field_phase -= std::floor(field_phase);
-            }
-
-            // v2 Phase 5c: equipment visuals. Both ride the aim angle the line
-            // above just wrote, so they run here rather than with the render step.
-            for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
-                auto rot = component_storage.get_component<Rotation>(p);
-                auto pos = component_storage.get_component<Position>(p);
-                auto sz  = component_storage.get_component<Size>(p);
-                if (!rot.has_value() || !pos.has_value() || !sz.has_value()) break;
-                const float pcx = pos->get().x + sz->get().width * 0.5f;
-                const float pcy = pos->get().y + sz->get().height * 0.5f;
-
-                // Thruster: a cone opposite the aim, instead of the 180° aura it
-                // shipped as. ponytail: offset stays at the hull centre — emitter
-                // offsets are host-*local* and unrotated, so a rear offset would
-                // detach from the ship as it turns; the cone alone reads as exhaust.
-                if (auto em = component_storage.get_component<ParticleEmitter>(p); em.has_value()) {
-                    em->get().direction = rot->get().angle + 180.0f;
-                    em->get().cone_half_angle = 26.0f;
-                }
-
-                // D133/D134: the upgrade kit and the shield field. Both ride the
-                // aim angle written above, so they belong here rather than with
-                // the render step. Pure functions of ShipState — no RNG, nothing
-                // accumulated but a cosmetic phase — so the canary cannot move.
-                if (auto st = component_storage.get_component<ShipState>(p); st.has_value()) {
-                    const ShipState& ship = st->get();
-                    const float ang = rot->get().angle;
-                    const float pw = sz->get().width, ph = sz->get().height;
-
-                    for (int i = 0; i < upgrade_visuals::KIT_COUNT; ++i) {
-                        const bool worn = upgrade_visuals::part_worn(ship, i);
-                        auto ksz = component_storage.get_component<Size>(kit_parts[i]);
-                        auto kps = component_storage.get_component<Position>(kit_parts[i]);
-                        auto krt = component_storage.get_component<Rotation>(kit_parts[i]);
-                        if (!ksz.has_value() || !kps.has_value() || !krt.has_value()) continue;
-                        // Parked = zero size (D58's idiom): the entity stays
-                        // pooled, and a zero-extent sprite draws nothing.
-                        ksz->get().width  = worn ? pw : 0.0f;
-                        ksz->get().height = worn ? ph : 0.0f;
-                        kps->get().x = pcx - pw * 0.5f;
-                        kps->get().y = pcy - ph * 0.5f;
-                        krt->get().angle = ang;
-                    }
-
-                    // The field. Its sprite is 192px against the chassis's 128,
-                    // which is what holds the ring clear of the hull.
-                    const float delay_total =
-                        blackboard.get_or<float>("ship.shield_regen_delay", 0.0f);
-                    const auto fstate = upgrade_visuals::field_state(ship, delay_total);
-                    const float fw = pw * upgrade_visuals::FIELD_SIZE_MULT;
-                    const float fh = ph * upgrade_visuals::FIELD_SIZE_MULT;
-                    const bool shown = (fstate != upgrade_visuals::FieldState::Hidden);
-                    if (auto fs = component_storage.get_component<Size>(shield_field);
-                        fs.has_value()) {
-                        fs->get().width  = shown ? fw : 0.0f;
-                        fs->get().height = shown ? fh : 0.0f;
-                    }
-                    if (auto fp = component_storage.get_component<Position>(shield_field);
-                        fp.has_value()) {
-                        fp->get().x = pcx - fw * 0.5f;
-                        fp->get().y = pcy - fh * 0.5f;
-                    }
-                    if (auto fr = component_storage.get_component<Rotation>(shield_field);
-                        fr.has_value()) {
-                        // The bloom is baked pointing right, so the ring turns to
-                        // put it where the hit came from. Everything else on the
-                        // ring is radially symmetric, so this is invisible except
-                        // during a bloom.
-                        fr->get().angle =
-                            (fstate == upgrade_visuals::FieldState::Hit)
-                                ? blackboard.get_or<float>("player.hit_bearing", 0.0f)
-                                : 0.0f;
-                    }
-                    if (auto fss = component_storage.get_component<SpriteSheet>(shield_field);
-                        fss.has_value()) {
-                        const float frac = ship.shield_max > 0.0f
-                                               ? ship.shield / ship.shield_max : 0.0f;
-                        // The bloom decays, so it reads its progress through the
-                        // hit window rather than the free-running hum phase —
-                        // otherwise which bloom frame you got would depend on
-                        // when in the loop the hit happened.
-                        float phase = field_phase;
-                        if (fstate == upgrade_visuals::FieldState::Hit &&
-                            upgrade_visuals::FIELD_HIT_TIME > 0.0f) {
-                            phase = std::clamp(
-                                (delay_total - ship.shield_delay) /
-                                    upgrade_visuals::FIELD_HIT_TIME,
-                                0.0f, 0.999f);
-                        }
-                        fss->get().current_frame =
-                            upgrade_visuals::field_frame(fstate, frac, phase);
-                    }
-                }
-
-                // Item aura: one emitter, reconfigured from the equipped item.
-                if (auto aura = component_storage.get_component<ParticleEmitter>(item_aura);
-                    aura.has_value()) {
-                    ParticleEmitter& a = aura->get();
-                    if (auto ap = component_storage.get_component<Position>(item_aura);
-                        ap.has_value()) { ap->get().x = pcx; ap->get().y = pcy; }
-
-                    int item = -1;
-                    if (auto s = component_storage.get_component<ShipState>(p); s.has_value())
-                        item = s->get().item_id;
-
-                    a.active = (item >= 0);
-                    a.shape = EmitterShape::Circle;
-                    a.cone_half_angle = 180.0f;
-                    a.particle_lifetime = 0.6f;
-                    a.min_speed = 0.0f; a.max_speed = 22.0f;
-                    a.start_size = 6.0f; a.end_size = 0.0f;
-                    a.end_a = 0;
-                    // Emission scales with the radius being described: at the
-                    // Magnet Core's 220-unit reach, 26/s is a dozen specks lost in
-                    // the backdrop. These rates were raised until the field
-                    // actually reads on screen. Worst case ~90 live particles of
-                    // the 2000 budget — see ENGINE.md §5 before raising further.
-                    switch (item) {
-                        case item_ids::MAGNET_CORE:      // amber, the loot colour, at pull range
-                            a.radius = config.economy.pickup_magnet_radius;
-                            a.emission_rate = 150.0f;
-                            a.start_r = 255; a.start_g = 210; a.start_b = 90;  a.start_a = 200;
-                            a.end_r   = 180; a.end_g   = 120; a.end_b   = 30;
-                            break;
-                        case item_ids::REPULSOR_FIELD:   // cold shove field, at push range
-                            a.radius = config.shop.repulsor_radius;
-                            a.emission_rate = 120.0f;
-                            a.start_r = 120; a.start_g = 220; a.start_b = 255; a.start_a = 200;
-                            a.end_r   = 30;  a.end_g   = 90;  a.end_b   = 180;
-                            break;
-                        case item_ids::REACTIVE_PLATING: // hot shell hugging the hull
-                            a.radius = sz->get().width * 0.8f;
-                            a.emission_rate = 50.0f;
-                            a.start_r = 255; a.start_g = 130; a.start_b = 60;  a.start_a = 220;
-                            a.end_r   = 160; a.end_g   = 40;  a.end_b   = 20;
-                            break;
-                        case item_ids::SALVAGER:         // sparse gold flecks
-                            a.radius = sz->get().width * 1.2f;
-                            a.emission_rate = 26.0f;
-                            a.start_r = 255; a.start_g = 235; a.start_b = 150; a.start_a = 220;
-                            a.end_r   = 200; a.end_g   = 160; a.end_b   = 60;
-                            break;
-                        default: break;                  // nothing equipped: inactive
-                    }
-                }
-                break;
-            }
             wave_spawner.update(blackboard, entity_manager, component_storage);
 
             // === HOOK: boss === (Iteration 3, D51 — Lane D / #4)
@@ -1657,6 +1664,7 @@ int main(int argc, char* argv[]) {
             for (Entity e : component_storage.entities_with_component<EnemyTag>()) clamp_to_arena(e);
             for (Entity p : component_storage.entities_with_component<PlayerTag>()) push_out_of_solids(p);
             for (Entity e : component_storage.entities_with_component<EnemyTag>()) push_out_of_solids(e);
+            update_equipment_visuals();
 
             // Gameplay Phase 4: the Repulsor Field runs after the arena clamp and
             // the obstacle push-out, so "solid wall" still gets the last word on
@@ -1783,6 +1791,7 @@ int main(int argc, char* argv[]) {
                 clamp_to_arena(p);
                 push_out_of_solids(p);
             }
+            update_equipment_visuals();
             pickups.update(component_storage, entity_manager, blackboard);
             // Lifetimes tick here too, so loot still expires on its normal 12s
             // timer rather than waiting politely forever, and so the one-shot

@@ -161,7 +161,6 @@ if PHASE_PLAYING && sim:
   player_control.update
   [HOOK: dash]                              — iteration 3 (D51); see §6
   player_aim.update                         — writes Rotation.angle
-  [Phase 5c] thruster cone + item aura      — must follow player_aim; reads that angle
   wave_spawner.update
   [HOOK: boss]                              — iteration 3 (D51); see §6
   wave_just_cleared()  ── READ HERE ──      — a plain getter, reset at the top of the NEXT
@@ -175,6 +174,13 @@ if PHASE_PLAYING && sim:
   movement.update
   arena circle clamp  (player + enemies)
   obstacle push-out   (player + enemies)    — solid walls get the last word on position
+  update_equipment_visuals()                — [Phase 5c] thruster cone, kit parts, shield
+                                              field, item aura. AFTER movement + clamp +
+                                              push-out (they copy the player's settled
+                                              Position — bug 002 was them reading the
+                                              pre-movement one) and after player_aim
+                                              (they read that angle). Also called in the
+                                              intermission branch after its clamp
   items::repulse_enemies                    — runs after the push-out, so a shoved enemy is
                                               re-clamped next frame rather than through a wall
   items::use_consumable (on Q)
