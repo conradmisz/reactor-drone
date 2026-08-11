@@ -171,6 +171,155 @@ git commit -m "feat: Windows package staging script"
 
 ---
 
+### Task 2b: Machine-independent paths on Windows
+
+Inserted after Task 2 discovered the blocker: `CPP/CMakeLists.txt:26` bakes
+`CLASS_ROOT_DIR="${CMAKE_SOURCE_DIR}/.."` — the BUILD machine's absolute
+source path — into the binary. On any other PC that path does not exist, so
+the staged game cannot find `GameData.json`, sidecars, scripts, images or
+fonts, and crashes before the title screen. Saves are equally affected, and
+`{app}` under Program Files is not user-writable anyway.
+
+**Files:**
+- Modify: `CPP/engine/project_paths.hpp` (the whole fix surface — every
+  affected call site routes through its two functions)
+- Modify: `CPP/game/meta_save.cpp:12`, `CPP/game/run_save.cpp:55,59`,
+  `CPP/game/settings_save.hpp:33` (switch from `class_root()` to the new
+  writable-data accessor)
+- Modify: `ENGINE.md` (house rule: engine changes update it in the SAME commit)
+- Test: `CPP/engine/tests/unit/test_project_paths.cpp` (new; pure, no SDL init)
+
+**Interfaces:**
+- Produces, in `namespace project_paths`:
+  - `std::string assets_dir();` — READ-ONLY game data. Linux/dev: unchanged,
+    `CLASS_ROOT_DIR "/assets"`. Windows: `<exe dir>/assets` via
+    `SDL_GetBasePath()`, matching Task 2's flat stage layout
+    (exe + DLLs + `assets/` as siblings).
+  - `std::string user_data_dir();` — NEW. WRITABLE per-user data (saves,
+    settings). Linux/dev: `class_root()` (unchanged on-disk behavior —
+    `<root>/saves/...`). Windows: `SDL_GetPrefPath("conradm", "ReactorDrone")`.
+    Returns a path WITHOUT a trailing separator on both platforms so existing
+    `+ "/saves/meta.json"` style concatenation at call sites keeps working —
+    `SDL_GetPrefPath` returns a trailing slash, so strip it.
+  - `class_root()` stays as-is for anything genuinely about the source tree.
+
+- [ ] **Step 1: Read the house docs first**
+
+`ENGINE.md` (this is an engine change — it must be updated in the same
+commit), `agentProjectDocs/code-standards.md`, and
+`agentProjectDocs/architecture.md` Invariants.
+
+- [ ] **Step 2: Write the failing test**
+
+`CPP/engine/tests/unit/test_project_paths.cpp` — register it in the engine
+tests CMake exactly like its siblings:
+```cpp
+#include <catch2/catch_test_macros.hpp>
+#include <filesystem>
+#include "../../project_paths.hpp"
+
+TEST_CASE("assets_dir points at an existing assets directory", "[paths]") {
+    REQUIRE(std::filesystem::exists(project_paths::assets_dir()));
+}
+TEST_CASE("user_data_dir is absolute and has no trailing separator", "[paths]") {
+    std::string d = project_paths::user_data_dir();
+    REQUIRE_FALSE(d.empty());
+    REQUIRE(std::filesystem::path(d).is_absolute());
+    REQUIRE(d.back() != '/');
+    REQUIRE(d.back() != '\\');
+}
+TEST_CASE("save paths still land under user_data_dir", "[paths]") {
+    // meta_save_path() must be composed from user_data_dir(), not class_root()
+    REQUIRE(meta_save_path().rfind(project_paths::user_data_dir(), 0) == 0);
+}
+```
+(The third case needs `#include "../../../game/meta_save.hpp"` — if the
+engine test target cannot see game headers, put that one case in the GAME
+unit tests instead, next to the existing `test_meta_save.cpp`.)
+
+- [ ] **Step 3: Run to verify it fails** — `python runTestsAll.py`: compile
+error, `user_data_dir` undeclared.
+
+- [ ] **Step 4: Implement**
+
+In `project_paths.hpp`, keep the Linux/dev branch byte-identical in behavior
+and add the `_WIN32` branch:
+```cpp
+inline std::string assets_dir() {
+#ifdef _WIN32
+    // Installed layout is flat: assets/ sits beside the exe (installer/package-win.sh).
+    char* base = SDL_GetBasePath();           // may be null if SDL is not initialized
+    std::string dir = base ? std::string(base) : std::string("./");
+    if (base) SDL_free(base);
+    while (!dir.empty() && (dir.back() == '/' || dir.back() == '\\')) dir.pop_back();
+    return dir + "/assets";
+#else
+    return std::string(CLASS_ROOT_DIR) + "/assets";
+#endif
+}
+
+/// Writable per-user data (saves, settings). Never inside {app} on Windows —
+/// Program Files is not user-writable.
+inline std::string user_data_dir() {
+#ifdef _WIN32
+    char* pref = SDL_GetPrefPath("conradm", "ReactorDrone");
+    std::string dir = pref ? std::string(pref) : std::string("./");
+    if (pref) SDL_free(pref);
+    while (!dir.empty() && (dir.back() == '/' || dir.back() == '\\')) dir.pop_back();
+    return dir;
+#else
+    return class_root();
+#endif
+}
+```
+Include `<SDL3/SDL_filesystem.h>` under the `_WIN32` guard only, so the
+header stays dependency-free for non-Windows consumers. Then switch the four
+save call sites (`meta_save.cpp:12`, `run_save.cpp:55,59`,
+`settings_save.hpp:33`) from `class_root()` to `user_data_dir()`.
+
+- [ ] **Step 5: Do NOT touch the test harness's macro use**
+
+`CPP/engine/tests/unit/test_resource_manager.cpp`, `test_sidecar_loader.cpp`,
+`test_script_system.cpp`, `test_lua_manager.cpp` and two property-test files
+use the raw `CLASS_ROOT_DIR` macro directly to find
+`CPP/engine/tests/test_assets`. Leave them alone — they only ever build
+natively.
+
+- [ ] **Step 6: House gates (determinism matters here)**
+
+`python runTestsAll.py` green; warning-free build; replay canary twice,
+byte-identical. Traps: the resolved path must never be printed to stdout
+(it would enter the canary summary), and must not derive from anything that
+varies per run. Also verify the Linux "run from any CWD" convenience still
+holds: `cd /tmp && ~/…/CPP/build/game/game --seed 42 --stopframe 60`.
+
+- [ ] **Step 7: Prove portability on Windows — the point of the task**
+
+```bash
+cmake --build CPP/build-win -j && installer/package-win.sh
+# Hide the baked source path so a false green is impossible:
+mv assets /tmp/assets-hidden && mv saves /tmp/saves-hidden 2>/dev/null || true
+cd installer/stage && SDL_VIDEODRIVER=dummy wine ReactorDrone.exe --seed 42 --keys 5:SPACE --stopframe 600
+```
+Expected: runs to completion from the stage dir alone. Then a windowed
+`wine ReactorDrone.exe --seed 42 --stopframe 400 --screenshot 200` and view
+the BMP — the title menu and fonts must render (fonts come through the same
+`assets_dir()` path). Verify a save file appears under Wine's prefpath
+(`~/.wine/drive_c/users/$USER/AppData/Roaming/conradm/ReactorDrone/`) after a
+run banks. Restore: `mv /tmp/assets-hidden assets && mv /tmp/saves-hidden saves`.
+
+- [ ] **Step 8: Commit** (engine change → `ENGINE.md` in the same commit; add
+a `decisions.md` entry at the next free id for the read-only-vs-writable path
+split)
+
+```bash
+git add CPP/engine/project_paths.hpp CPP/game/meta_save.cpp CPP/game/run_save.cpp \
+        CPP/game/settings_save.hpp CPP/engine/tests ENGINE.md agentProjectDocs/decisions.md
+git commit -m "fix: resolve assets beside the exe and saves in prefpath on Windows"
+```
+
+---
+
 ### Task 3: Inno Setup installer script
 
 **Files:**
