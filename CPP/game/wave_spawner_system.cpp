@@ -180,6 +180,14 @@ void WaveSpawnerSystem::update(Blackboard& blackboard,
         ? (elapsed_time_ - wave.delay) >= wave.duration
         : enemies_spawned_ >= wave.count;
 
+    // D182: a boss wave belongs to the boss. Normal spawning is suppressed —
+    // the only company is the boss's own summons (BossSystem, summon_interval).
+    // The quota reads the boss_engaged_ latch, not `true`: on the one frame a
+    // fresh spawner sits on a boss wave before BossSystem has spawned it (run
+    // resume lands here), an unconditional quota would fall through the
+    // empty-arena check below and skip the boss outright.
+    if (wave.boss) quota_done = boss_engaged_;
+
     if (elapsed_time_ >= wave.delay && !quota_done) {
         spawn_timer_ += dt;
         if (spawn_timer_ >= wave.spawn_interval) {
@@ -216,6 +224,7 @@ void WaveSpawnerSystem::update(Blackboard& blackboard,
     elapsed_time_ = 0.0f;
     spawn_timer_ = 0.0f;
     stall_timer_ = 0.0f;
+    boss_engaged_ = false;
     wave_just_cleared_ = true;
     if (current_wave_ >= total) {
         all_waves_complete_ = true;

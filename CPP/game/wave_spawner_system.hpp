@@ -93,10 +93,15 @@ public:
      * Iteration 3 (D70): hold the wave open. BossSystem raises this the frame it
      * spawns a boss and drops it once the reward has been taken, which is how
      * "the wave clears when the boss dies" is expressed without the spawner
-     * knowing anything about bosses. Spawning is unaffected — only the clear (and
-     * therefore the stall force-kill, which would otherwise execute the boss).
+     * knowing anything about bosses. It gates the clear (and therefore the
+     * stall force-kill, which would otherwise execute the boss). Since D182 a
+     * boss wave also spawns nothing of its own — see update().
      */
-    void set_clear_hold(bool held) { clear_hold_ = held; }
+    // D182: raising the hold also latches boss_engaged_ — the spawner's only
+    // evidence that the wave's boss actually exists. A boss wave's quota reads
+    // this latch, so a fresh spawner (run start, resume_at_wave) cannot fall
+    // through its empty-arena check and skip the boss before it spawns.
+    void set_clear_hold(bool held) { clear_hold_ = held; if (held) boss_engaged_ = true; }
     bool clear_hold() const { return clear_hold_; }
 
     void update(Blackboard& blackboard,
@@ -105,6 +110,7 @@ public:
 
     void reset() {
         clear_hold_ = false;
+        boss_engaged_ = false;
         current_wave_ = 0;
         enemies_spawned_ = 0;
         elapsed_time_ = 0.0f;
@@ -152,6 +158,7 @@ private:
     bool all_waves_complete_ = false;
     bool wave_just_cleared_ = false;
     bool clear_hold_ = false;       // BossSystem holds a boss wave open (D70)
+    bool boss_engaged_ = false;     // D182: this wave's boss has spawned
 };
 
 #endif // WAVE_SPAWNER_SYSTEM_HPP
