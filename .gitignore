@@ -5,6 +5,7 @@ CPP/win-deps/
 logs/
 saves/
 scripts/local/
+installer/stage/
 *.bmp
 __pycache__/
 .claude/worktrees/
