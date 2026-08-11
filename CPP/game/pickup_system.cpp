@@ -45,6 +45,24 @@ void PickupSystem::update(ComponentStorage& component_storage,
         auto sz = component_storage.get_component<Size>(e);
         if (!pos.has_value() || !sz.has_value()) continue;
 
+        // D183: a pickup on a clock warns before it vanishes — the last 3 s it
+        // blinks, faster as the timer runs out (~0.6 s period down to ~0.12 s).
+        // Driven purely by the remaining lifetime and written as a hard on/off
+        // Tint alpha: render-only, no RNG, and the collection maths below never
+        // notices, so the canary cannot move. (A gradual alpha fade was already
+        // tried and rejected — see feedback.hpp.)
+        if (auto lt = component_storage.get_component<Lifetime>(e); lt.has_value()) {
+            if (auto tint = component_storage.get_component<Tint>(e); tint.has_value()) {
+                const float t = lt->get().remaining;
+                constexpr float BLINK_WINDOW = 3.0f;
+                if (t < BLINK_WINDOW) {
+                    const float period = 0.12f + t * 0.16f;
+                    const bool visible = std::fmod(t, period) > period * 0.4f;
+                    tint->get().a = visible ? 255 : 0;
+                }
+            }
+        }
+
         const float half = sz->get().width * 0.5f;
         float cx = pos->get().x + half;
         float cy = pos->get().y + half;

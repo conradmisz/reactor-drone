@@ -153,6 +153,10 @@ void EnemyDeathSystem::drop_loot(ComponentStorage& component_storage,
         component_storage.add_component<Pickup>(e,
             Pickup{static_cast<int>(kind), value, ec.pickup_magnet_speed});
         component_storage.add_component<Lifetime>(e, Lifetime{ec.pickup_lifetime});
+        // D183: identity tint; PickupSystem blinks its alpha over the last 3 s
+        // before the lifetime expires. Covers both render paths (texture
+        // alpha-mod and modulate_color on the fallback rect).
+        component_storage.add_component<Tint>(e, Tint{});
         // Above enemies(2) and the player(3) so loot is never hidden under a corpse.
         component_storage.add_component<RenderLayer>(e, RenderLayer{4});
     };
