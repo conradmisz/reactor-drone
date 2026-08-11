@@ -58,6 +58,9 @@ void SpecialtySystem::update(ComponentStorage& storage, EntityManager& entity_ma
             const EnemyType* t = enemy_fire::type_for(cfg_, behavior_kinds::SPITTER, beh.tier);
             spec.damage = t != nullptr ? t->shot_damage : 9.0f;
             if (beh.tier >= 2) { spec.lifetime *= 1.6f; spec.size *= 1.2f; }
+            // D187: the patch wears the blotchy red-rimmed cloud instead of the
+            // flat Color rect (which stays underneath as the load fallback).
+            spec.image = "v2/hazard_poison.png";
             hazard::spawn_patch(storage, entity_manager, cx, cy, spec);
             break;
         }

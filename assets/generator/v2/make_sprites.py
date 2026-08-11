@@ -473,10 +473,12 @@ def spark_shape(f, pal, col, b, t):
     pods = [(cx+21, cy-21), (cx+21, cy+21), (cx-21, cy-21), (cx-21, cy+21)]
     quad_pods(f, pal, col, b, t, pods, 12, (cx, cy), 5)
     r = 15
-    neon_poly(f, [(cx+r, cy), (cx, cy-r), (cx-r, cy), (cx, cy+r)],
+    # D186: the hub is a dart, not a diamond — a stretched +X nose so the scout
+    # has a front face now that every enemy rotates to its heading.
+    neon_poly(f, [(cx+r+10, cy), (cx, cy-r), (cx-r, cy), (cx, cy+r)],
               scale_col(col, 0.65), outline=scale_col(pal.accent, b), ow=3)
     dot(f, (cx, cy), 6, scale_col(pal.accent, b))
-    dot(f, (cx+4, cy), 3, (255, 255, 255))
+    dot(f, (cx+12, cy), 3, (255, 255, 255))
 
 
 def runner_shape(f, pal, col, b, t):
@@ -761,6 +763,30 @@ def coin_sprite():
     return add_halo(f, (255, 210, 90), spread=0.14, strength=150)
 
 
+def poison_cloud():
+    """Bio-lab poison patch (D187): a blotchy vapour cloud instead of a flat
+    green square. Sickly green blobs over a RED rim — the rim is the danger
+    signal, painted as slightly larger red blobs underneath so it hugs the
+    cloud's own lumpy silhouette. Fixed blob layout, no randomness."""
+    f = _pickup_frame()
+    d = draw(f, 1)
+    c = P/2
+    # (dx, dy, r) lobes of the cloud, biggest in the middle
+    lobes = [(0, 0, 30), (-20, -8, 20), (19, -10, 18), (-12, 16, 17),
+             (15, 14, 16), (0, -20, 15)]
+    for dx, dy, r in lobes:            # red warning rim
+        d.ellipse([c+dx-r-5, c+dy-r-5, c+dx+r+5, c+dy+r+5], fill=(230, 40, 30, 235))
+    for dx, dy, r in lobes:            # poison body
+        d.ellipse([c+dx-r, c+dy-r, c+dx+r, c+dy+r], fill=(70, 150, 45, 235))
+    for dx, dy, r in lobes:            # brighter inner vapour
+        d.ellipse([c+dx-r*0.55, c+dy-r*0.55, c+dx+r*0.55, c+dy+r*0.55],
+                  fill=(120, 235, 90, 210))
+    # bubbles: the classic toxic read
+    for bx, by, br in [(-10, -6, 5), (8, 4, 4), (-2, 14, 3), (14, -12, 3)]:
+        d.ellipse([c+bx-br, c+by-br, c+bx+br, c+by+br], fill=(190, 255, 150, 230))
+    return add_halo(f, (120, 235, 90), spread=0.18, strength=140)
+
+
 def mine_sprite():
     """Foundry mine: the bomb-emoji read — round dark body, cap, curved fuse, lit
     spark. The body is dark so the hot orange rim and the spark carry it against
@@ -919,6 +945,7 @@ def main():
     save_png("pickup_shield", shield_pickup())
     save_png("pickup_coin", coin_sprite())
     save_png("hazard_mine", mine_sprite())
+    save_png("hazard_poison", poison_cloud())
     # D105: the boss's carrier. Single frame, worn as Images by BossSystem.
     save_png("enemy_boss_carrier", carrier_sprite())
     # D133: the upgrade kit. Single-frame overlays worn as Images by the kit

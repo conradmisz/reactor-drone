@@ -32,6 +32,22 @@ void steer_toward(Velocity& vel, float ex, float ey, float tx, float ty, float s
         vel.dy = dy / dist * speed;
     }
 }
+
+// D186: every enemy faces its travel direction, the way the moon faces its aim
+// (D109). All v2 enemy art carries a +X front (dart nose, clamp jaws, barrel);
+// without a Rotation it rendered pointing right forever. Pure rotation
+// (flip_when_left = false), render-only, written from the velocity just
+// steered — a stationary enemy keeps its last heading rather than snapping to 0.
+// Shooters overwrite this later in the frame with their aim (enemy_fire,
+// specialty), which is the better face for a thing that is firing at you.
+void face_velocity(ComponentStorage& storage, Entity e, const Velocity& vel) {
+    if (vel.dx == 0.0f && vel.dy == 0.0f) return;
+    const float ang = std::atan2(vel.dy, vel.dx);
+    if (auto rot = storage.get_component<Rotation>(e); rot.has_value())
+        rot->get().angle = ang;
+    else
+        storage.add_component<Rotation>(e, Rotation{ang, 0.0f, false});
+}
 } // namespace
 
 void EnemySeekSystem::update(ComponentStorage& storage, Blackboard& blackboard) {
@@ -70,6 +86,7 @@ void EnemySeekSystem::update(ComponentStorage& storage, Blackboard& blackboard) 
         if (!have_grid ||
             enemy_path::line_of_sight_clear(ex, ey, px, py, *obstacles_, radius)) {
             steer_toward(vel, ex, ey, px, py, speed);
+            face_velocity(storage, enemy, vel);
             pf.repath_timer = 0.0f;
             continue;
         }
@@ -94,5 +111,6 @@ void EnemySeekSystem::update(ComponentStorage& storage, Blackboard& blackboard) 
         }
 
         steer_toward(vel, ex, ey, pf.target_x, pf.target_y, speed);
+        face_velocity(storage, enemy, vel);
     }
 }
