@@ -1930,3 +1930,29 @@ game should *show* its state, not make you infer it.
   glow already blooms). HUD widgets keep no siblings on purpose — menus stay
   crisp. Trap for new art: any sprite that should glow must be born through the
   generators; hand-dropped PNGs bloom only if additive-tinted.
+- **D196 — Tier 3: impact feel is dt-shaping, not new systems.** Audit first:
+  projectile trails (player_fire_system) and enemy-shot trails
+  (enemy_fire_system) already existed, as did kill trauma + seeded shake — so
+  Tier 3 shipped only the two genuine gaps.
+  - *Hit-stop*: a `hitstop_left` frame counter in main; kills saturate it to
+    `feedback.hitstop_frames_kill` (2), a boss death to `hitstop_frames_boss`
+    (6) via a `boss.just_died` Blackboard edge. Applied after
+    `timer.update_blackboard`: the published `delta_time` is overridden to 0,
+    so every system still RUNS (draw/RNG counts unchanged — the determinism
+    invariant is untouched) but integrates zero motion; `end_frame` still
+    advances, so `--stopframe` cannot hang. Saturating, not additive: a
+    multi-kill frame is one beat, not a slideshow. **Rejected:** freezing the
+    frame counter (breaks scripted `--keys` indexing, the pause trap) and a
+    wall-clock freeze (non-deterministic).
+  - *Zoom punch*: the camera block writes `camera.zoom = 1 + zoom_punch *
+    trauma²` each simulated frame (same curve as shake, same
+    `settings.screen_shake` gate). Legal because CameraControlSystem is not
+    instantiated in this game — nothing else writes the key, so no restore
+    step. NOTE: the standard canary cannot fire hit-stop at all (a
+    mouseless dummy-driver run lands no kills), so it stayed byte-identical to
+    the pre-Tier-3 baseline too; a kill-bearing scripted run WOULD legitimately
+    shift sim timing vs older builds — that is the feature.
+  - *Squash on hit*: **skipped.** `Size` is collision-coupled, so a geometric
+    squash needs either a new component (invariant-6 expensive) or draw-path
+    plumbing — for feedback the Flash + hit-stop + punch stack already covers.
+    Revisit only if a windowed playtest asks for it.

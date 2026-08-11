@@ -309,6 +309,9 @@ GameConfig load_arena_config(const std::string& file_path) {
         fb.trauma_player_hit   = f.value("trauma_player_hit", fb.trauma_player_hit);
         fb.trauma_enemy_death  = f.value("trauma_enemy_death", fb.trauma_enemy_death);
         fb.flash_duration      = f.value("flash_duration", fb.flash_duration);
+        fb.hitstop_frames_kill = f.value("hitstop_frames_kill", fb.hitstop_frames_kill);
+        fb.hitstop_frames_boss = f.value("hitstop_frames_boss", fb.hitstop_frames_boss);
+        fb.zoom_punch          = f.value("zoom_punch", fb.zoom_punch);
         if (f.contains("player_flash")) {
             const auto& c = f["player_flash"];
             fb.player_flash_r = u8(c, "r", fb.player_flash_r);

@@ -202,6 +202,14 @@ int main(int argc, char* argv[]) {
     };
     int run_difficulty = 0;   // which difficulty the live run was started at
 
+    // v3 Tier 3 (D196): pending hit-stop frames. Set by the kill/boss sites,
+    // consumed after timer.update_blackboard each frame: while positive, the
+    // published delta_time is overridden to 0 so every system integrates zero
+    // motion — draw/RNG counts are unchanged (systems still run), frames still
+    // advance (end_frame is untouched), so --stopframe and the canary cannot
+    // hang. Declared this early because the enemy-death lambda captures it.
+    int hitstop_left = 0;
+
     const int win_w = blackboard.get_or<int>("window_width", 980);
     const int win_h = blackboard.get_or<int>("window_height", 660);
 
@@ -570,6 +578,9 @@ int main(int argc, char* argv[]) {
         blackboard.set<float>("feedback.trauma",
             feedback::add_trauma(blackboard.get_or<float>("feedback.trauma", 0.0f),
                                  config.feedback.trauma_enemy_death));
+        // v3 Tier 3 (D196): a kill freezes sim time for a beat. Saturating,
+        // not additive — a multi-kill frame reads as one hit, not a slideshow.
+        hitstop_left = std::max(hitstop_left, config.feedback.hitstop_frames_kill);
         return true;
     };
 
@@ -1629,6 +1640,12 @@ int main(int argc, char* argv[]) {
                 // frame, then plays the destruction/entry animation across the
                 // 5s crossfade. Lane E verified it is callable mid-wave with
                 // enemies alive; it has no dependency on wave_cleared.
+                // v3 Tier 3 (D196): boss deaths hit harder than kills.
+                if (blackboard.get_or<bool>("boss.just_died", false)) {
+                    blackboard.set<bool>("boss.just_died", false);
+                    hitstop_left = std::max(hitstop_left,
+                                            config.feedback.hitstop_frames_boss);
+                }
                 if (boss_system.wants_arena_shift()) {
                     boss_system.clear_arena_shift_request();
                     // By name, not a magic index: the void is the 9th entry today
@@ -2150,6 +2167,20 @@ int main(int argc, char* argv[]) {
                 config.feedback.trauma_decay_per_sec);
             blackboard.set<float>("feedback.trauma", trauma);
 
+            // v3 Tier 3 (D196): trauma also punches the camera in. Same
+            // trauma^2 curve as the shake; nothing else writes camera.zoom
+            // (CameraControlSystem is not instantiated in this game), so a
+            // plain per-frame recompute needs no restore step. Presentation
+            // only: zoom feeds ScreenPosition/draw scale, never the sim.
+            // Gated with the shake setting — it is the same "camera moves on
+            // impact" preference.
+            if (blackboard.get_or<bool>("settings.screen_shake", true)) {
+                blackboard.set<float>("camera.zoom",
+                    1.0f + config.feedback.zoom_punch * trauma * trauma);
+            } else {
+                blackboard.set<float>("camera.zoom", 1.0f);
+            }
+
             float amp = feedback::shake_amplitude(trauma, config.feedback.max_shake_px);
             float ox = 0.0f, oy = 0.0f;
             if (amp > 0.0f) {
@@ -2300,6 +2331,13 @@ int main(int argc, char* argv[]) {
 
         if (sim) timer.end_frame(); else timer.end_frame_no_advance();
         timer.update_blackboard(blackboard);
+        // v3 Tier 3 (D196): apply pending hit-stop to the NEXT frame's dt.
+        // After update_blackboard so the override is the last writer; only
+        // while simulating, so pause cannot eat the budget invisibly.
+        if (hitstop_left > 0 && sim) {
+            blackboard.set("delta_time", 0.0);
+            --hitstop_left;
+        }
 
         if (opts.stop_frame.has_value() && timer.get_frame_count() >= opts.stop_frame.value()) {
             running = false;

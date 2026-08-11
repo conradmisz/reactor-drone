@@ -249,6 +249,10 @@ void BossSystem::update(ComponentStorage& storage, EntityManager& entity_manager
                           storage.has_component<DestroyRequest>(boss_);
         if (dead) {
             boss_alive_ = false;
+            // v3 Tier 3 (D196): main.cpp reads-and-clears this to apply the
+            // bigger boss hit-stop. A Blackboard edge, not a getter, so the
+            // hook block needs no new BossSystem surface.
+            blackboard.set<bool>("boss.just_died", true);
             // #10: every boss killed permanently widens the dash stack by one,
             // and hands the new charge over ready to use.
             for (Entity p : storage.entities_with_component<PlayerTag>()) {

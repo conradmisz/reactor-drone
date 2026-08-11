@@ -180,6 +180,12 @@ struct FeedbackConfig {
     float trauma_player_hit = 0.6f;     // trauma added when the player is hit
     float trauma_enemy_death = 0.25f;   // trauma added when an enemy dies
     float flash_duration = 0.12f;       // hit-flash lifetime (seconds)
+    // v3 Tier 3 (D196): impact feel. Hit-stop freezes SIMULATION TIME (dt=0)
+    // for N frames while frames keep advancing; the zoom punch scales the
+    // camera by 1 + zoom_punch * trauma^2 (same curve as shake).
+    int   hitstop_frames_kill = 2;      // per ordinary enemy death
+    int   hitstop_frames_boss = 6;      // when a boss dies
+    float zoom_punch = 0.045f;          // camera zoom gain at full trauma
     uint8_t player_flash_r = 255, player_flash_g = 70,  player_flash_b = 70;   // red
     uint8_t enemy_flash_r  = 255, enemy_flash_g  = 255, enemy_flash_b  = 255;  // white
 };

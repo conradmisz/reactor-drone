@@ -223,6 +223,12 @@ else if PHASE_SHOP && sim:  shop.update, [HOOK: shop-menu], animation.update,
                             destroy_marked_entities
 else if sim:                animation.update, destroy_marked_entities, title/restart input
 
+(v3 Tier 3, D196: after end_frame + update_blackboard, a pending hit-stop
+overrides the published delta_time to 0 for its remaining frames — systems
+still run and draw/RNG counts are unchanged, but they integrate zero motion.
+The camera block also writes camera.zoom = 1 + zoom_punch·trauma² each
+simulated frame; legal because CameraControlSystem is not instantiated here.)
+
 every phase, if sim:
   particles.update(emit = PLAYING || INTERMISSION) + destroy_marked_entities
                                             — ages everywhere so trails finish animating on

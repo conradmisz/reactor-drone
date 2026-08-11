@@ -1736,6 +1736,9 @@
     "trauma_player_hit": 0.6,
     "trauma_enemy_death": 0.25,
     "flash_duration": 0.12,
+    "hitstop_frames_kill": 2,
+    "hitstop_frames_boss": 6,
+    "zoom_punch": 0.045,
     "player_flash": {
       "r": 255,
       "g": 70,
