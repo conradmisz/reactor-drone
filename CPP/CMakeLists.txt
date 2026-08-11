@@ -5,6 +5,10 @@ cmake_minimum_required(VERSION 3.20...4.0)
 
 project(Class110ReactorDroneV2 VERSION 2.0 LANGUAGES CXX C)
 
+# ON by default (Linux behavior unchanged). Cross-build passes -DBUILD_TESTING=OFF
+# since Catch2/CTest aren't wired for MinGW-hosted execution here.
+option(BUILD_TESTING "Build Catch2 unit/property tests" ON)
+
 # Expose M_PI and friends from <cmath> on MSVC (not defined by default).
 add_compile_definitions(_USE_MATH_DEFINES)
 
@@ -28,12 +32,14 @@ find_package(SDL3_ttf REQUIRED CONFIG)
 
 # Fetch Catch2 for unit and property tests
 include(FetchContent)
-FetchContent_Declare(
-    Catch2
-    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-    GIT_TAG v3.5.2
-)
-FetchContent_MakeAvailable(Catch2)
+if(BUILD_TESTING)
+    FetchContent_Declare(
+        Catch2
+        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+        GIT_TAG v3.5.2
+    )
+    FetchContent_MakeAvailable(Catch2)
+endif()
 
 FetchContent_Declare(
     nlohmann_json
@@ -70,5 +76,7 @@ enable_testing()
 # Engine and Game
 # ============================================================================
 
-add_subdirectory(engine/tests)
+if(BUILD_TESTING)
+    add_subdirectory(engine/tests)
+endif()
 add_subdirectory(game)

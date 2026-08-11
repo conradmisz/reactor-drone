@@ -66,7 +66,10 @@ if(WIN32)
         $<TARGET_FILE_DIR:game>
         COMMENT "Copying SDL3 DLL to output directory"
     )
+    set_target_properties(game PROPERTIES OUTPUT_NAME ReactorDrone WIN32_EXECUTABLE TRUE)
 endif()
 
 # Add tests subdirectory
-add_subdirectory(tests)
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

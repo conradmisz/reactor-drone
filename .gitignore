@@ -1,5 +1,7 @@
 # Build output and generated run artifacts — never committed.
 CPP/build/
+CPP/build-win/
+CPP/win-deps/
 logs/
 saves/
 scripts/local/
