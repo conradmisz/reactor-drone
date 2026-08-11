@@ -187,7 +187,7 @@ TEST_CASE("The detail pane fills on hover and idles on the page hint",
     REQUIRE_FALSE(w.label("shop_tip_desc").empty());
 }
 
-TEST_CASE("A card click buys the row it shows and consumes the click key",
+TEST_CASE("A card buys on a held press, not a click, and the click key is consumed",
           "[Game][ui][shop]") {
     ShopConfig cfg = make_catalogue();
     ShopWorld w;
@@ -200,13 +200,33 @@ TEST_CASE("A card click buys the row it shows and consumes the click key",
 
     // Card 0 on the UPGRADES page is Hull Plating at 50 cr.
     REQUIRE(w.label("shop_card_0").find("Hull Plating") != std::string::npos);
+
+    // D189: a bare click SELECTS but never buys — purchasing is press-and-hold.
     w.bb.set<std::string>(UISystem::UI_CLICK_KEY, std::string("on_shop_card_0"));
     shop.menu_tick(w.cs, w.em, w.bb);
-
-    REQUIRE(w.ship().currency == 450);
-    REQUIRE(w.ship().upg_counts[0] == 1);
+    REQUIRE(w.ship().currency == 500);
+    REQUIRE(w.ship().upg_counts[0] == 0);
     // UISystem never clears the key; an unconsumed click would re-fire forever.
     REQUIRE(w.bb.get_or<std::string>(UISystem::UI_CLICK_KEY, std::string()).empty());
+
+    // Hold the card (hovered + pressed) for a full second of frames -> it buys.
+    w.hover("shop_card_0", true);
+    w.cs.get_component<UIState>(w.widget("shop_card_0"))->get().pressed = true;
+    w.bb.set<double>("delta_time", 1.0 / 60.0);
+    for (int i = 0; i < 70 && w.ship().upg_counts[0] == 0; ++i)
+        shop.menu_tick(w.cs, w.em, w.bb);
+    REQUIRE(w.ship().currency == 450);
+    REQUIRE(w.ship().upg_counts[0] == 1);
+
+    // Releasing resets the hold — half a second of held frames buys nothing.
+    w.cs.get_component<UIState>(w.widget("shop_card_0"))->get().pressed = false;
+    shop.menu_tick(w.cs, w.em, w.bb);
+    w.cs.get_component<UIState>(w.widget("shop_card_0"))->get().pressed = true;
+    for (int i = 0; i < 30; ++i) shop.menu_tick(w.cs, w.em, w.bb);
+    REQUIRE(w.ship().upg_counts[0] == 1);
+    w.cs.get_component<UIState>(w.widget("shop_card_0"))->get().pressed = false;
+    w.hover("shop_card_0", false);
+    shop.menu_tick(w.cs, w.em, w.bb);
 
     // A tab click switches page, and the cards follow.
     w.bb.set<std::string>(UISystem::UI_CLICK_KEY, std::string("on_shop_page_1"));

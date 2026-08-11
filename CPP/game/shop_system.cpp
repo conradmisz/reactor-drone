@@ -311,6 +311,9 @@ constexpr UIRect PREVIEW_GLOW{510.0f, 230.0f, 200.0f, 200.0f};
 // re-locating it is worth more than proximity to the row.
 constexpr float TIP_X = 448.0f, TIP_Y = 116.0f, TIP_W = 328.0f, TIP_H = 108.0f;
 
+// D189: seconds a card must be held to complete a purchase.
+constexpr float HOLD_TO_BUY_S = 1.0f;
+
 /// Aura colour per equipped item. Mirrors the live item aura in main.cpp so the
 /// preview and the flying drone agree; -1 (nothing fitted) draws no aura.
 bool aura_color(int item_id, Tint& out) {
@@ -449,7 +452,10 @@ bool ShopSystem::menu_tick(ComponentStorage& storage, EntityManager& entity_mana
             const int p = click.back() - '0';
             if (p >= 0 && p <= 2) page_ = p;
         } else if (click.rfind("on_shop_card_", 0) == 0) {
-            buy_visible_row(click.back() - '0', player, storage, blackboard, ship);
+            // D189: a click no longer buys — purchasing is press-and-HOLD
+            // (below), so a stray click can't spend 200 credits. The click is
+            // still consumed so it cannot re-fire. The 1-8 digit path keeps
+            // instant purchase for headless scripts and tests.
         }
     }
 
@@ -460,8 +466,40 @@ bool ShopSystem::menu_tick(ComponentStorage& storage, EntityManager& entity_mana
         return true;
     }
 
-    refresh_cards(storage, ship);
     const int card = hovered_card(storage);
+
+    // D189: press-and-hold to buy. UIState.pressed is already sticky for the
+    // whole press (UISystem sets it on down-inside, clears on release), so the
+    // hold needs no engine change: accumulate delta_time while the same card
+    // stays hovered and pressed, buy at the full second, and show progress as
+    // a fill strip along the card's bottom edge.
+    {
+        const float dt = static_cast<float>(blackboard.get_or<double>("delta_time", 0.0));
+        bool held = false;
+        if (card >= 0 && card < static_cast<int>(visible_.size())) {
+            if (auto st = storage.get_component<UIState>(card_[card]); st.has_value())
+                held = st->get().pressed;
+        }
+        if (held && card == hold_card_) {
+            hold_t_ += dt;
+            if (hold_t_ >= HOLD_TO_BUY_S) {
+                buy_visible_row(card, player, storage, blackboard, ship);
+                hold_t_ = 0.0f;   // a kept hold buys again after another full hold
+            }
+        } else {
+            hold_card_ = card;
+            hold_t_ = held ? dt : 0.0f;
+        }
+        UIRect bar{0.0f, 0.0f, 0.0f, 0.0f};
+        if (held && card >= 0) {
+            bar = card_rect_[card];
+            bar.w *= std::min(1.0f, hold_t_ / HOLD_TO_BUY_S);
+            bar.h = 6.0f;   // a strip under the text, not a curtain over it
+        }
+        set_rect(storage, hold_bar_, bar);
+    }
+
+    refresh_cards(storage, ship);
     refresh_tooltip(storage, ship, card);
     refresh_preview(storage, blackboard, ship, card);
     return false;
@@ -534,6 +572,24 @@ bool ShopSystem::menu_build(ComponentStorage& storage, EntityManager& entity_man
         break;
     }
 
+    // D189: the hold-to-buy fill bar. A code-made pooled widget (the
+    // pause_stats recipe), parked at zero size until a card is held. Disabled
+    // so it can never swallow the hover/press it is reporting on.
+    hold_bar_ = entity_manager.create_entity();
+    {
+        UIElement el;
+        el.element_type = "panel";
+        el.rect = UIRect{0.0f, 0.0f, 0.0f, 0.0f};
+        el.style_id = "hud_hp_ok";
+        el.z_order = 45;
+        storage.add_component<UIElement>(hold_bar_, el);
+        storage.add_component<UIState>(hold_bar_, UIState{false, false, true, 0.0f, false});
+        storage.add_component<ScreenMembership>(hold_bar_,
+                                                ScreenMembership{std::string(SCREEN_NAME)});
+    }
+    hold_t_ = 0.0f;
+    hold_card_ = -1;
+
     page_ = 0;
     menu_built_ = true;
     return true;
@@ -544,10 +600,12 @@ void ShopSystem::menu_teardown(ComponentStorage& storage, Blackboard& blackboard
         blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
         menu_pushed_ = false;
     }
-    for (Entity* e : {&preview_glow_, &preview_ship_}) {
+    for (Entity* e : {&preview_glow_, &preview_ship_, &hold_bar_}) {
         if (*e != 0) storage.add_component<DestroyRequest>(*e, DestroyRequest{});
         *e = 0;
     }
+    hold_t_ = 0.0f;
+    hold_card_ = -1;
     menu_built_ = false;
     visible_.clear();
     tip_name_text_.clear();
@@ -687,6 +745,9 @@ void ShopSystem::refresh_tooltip(ComponentStorage& storage, const ShipState& shi
                                "% " + d.effect;
         }
     }
+
+    // D189: the pane doubles as the hold-to-buy prompt while a row is hovered.
+    if (!tip_detail_text_.empty()) tip_detail_text_ += "  -  HOLD to buy";
 
     set_label(storage, tip_name_, tip_name_text_);
     set_label(storage, tip_desc_, tip_detail_text_);

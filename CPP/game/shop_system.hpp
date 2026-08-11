@@ -136,6 +136,11 @@ private:
     UIRect card_rect_[MENU_CARDS] = {};  // authored rects, restored when a card is used
     Entity title_ = 0, credits_ = 0, tab_[3] = {}, leave_ = 0;
     Entity tip_panel_ = 0, tip_name_ = 0, tip_desc_ = 0;
+    // D189: press-and-hold purchase. `hold_bar_` is a pooled fill panel
+    // stretched along the held card's bottom edge (HUD gauge idiom).
+    float  hold_t_ = 0.0f;
+    int    hold_card_ = -1;
+    Entity hold_bar_ = 0;
     Entity preview_glow_ = 0, preview_ship_ = 0;
     std::vector<int> visible_;           // card slot -> catalogue index
     std::string tip_name_text_, tip_detail_text_;
