@@ -140,6 +140,11 @@ int main(int argc, char* argv[]) {
     if (!window) { std::cerr << "Window: " << SDL_GetError() << std::endl; SDL_Quit(); return 1; }
     SDL_RendererPtr renderer(SDL_CreateRenderer(window.get(), nullptr));
     if (!renderer) { std::cerr << "Renderer: " << SDL_GetError() << std::endl; SDL_Quit(); return 1; }
+    // v3 Tier 0: vsync for tear-free presentation. The Timer's busy-wait stays as a
+    // pacing floor; measured delta_time drives windowed play, and --seed runs force
+    // set_deterministic(true), so replay determinism is untouched. Best-effort: the
+    // dummy/offscreen drivers reject vsync and that is fine.
+    SDL_SetRenderVSync(renderer.get(), 1);
 
     // === ECS + config ===
     EntityManager entity_manager;
