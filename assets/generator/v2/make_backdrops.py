@@ -504,9 +504,9 @@ def main():
             save_png(f"bg_{pal.name}_far", far(pal, rng))
             save_png(f"bg_{pal.name}_mid", mid(pal, rng))
             save_png(f"bg_{pal.name}_near", near(pal, rng))
-        save_png(f"wall_{pal.name}", WALL_FNS[pal.name](pal))
-        save_png(f"pillar_{pal.name}", PILLAR_FNS[pal.name](pal))
-        save_png(f"vent_{pal.name}", VENT_FNS[pal.name](pal))
+        save_png(f"wall_{pal.name}", WALL_FNS[pal.name](pal), glow=True)
+        save_png(f"pillar_{pal.name}", PILLAR_FNS[pal.name](pal), glow=True)
+        save_png(f"vent_{pal.name}", VENT_FNS[pal.name](pal), glow=True)
 
 
 if __name__ == "__main__":

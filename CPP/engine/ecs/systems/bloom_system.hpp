@@ -50,6 +50,14 @@ public:
     void begin();
 
     /**
+     * v3 Tier 2: switch to the emissive target (cleared to transparent black).
+     * RenderSystem::render_emissive() then draws the glow-only content; the
+     * blur chain in resolve() reads THIS target, not the scene, so dark hulls
+     * and the backdrop no longer bleed. No-op when disabled.
+     */
+    void begin_emissive();
+
+    /**
      * Restore the backbuffer target, draw the scene 1:1, then composite the
      * blur chain additively over it. No-op when disabled. Call after the last
      * world/UI draw and before screenshot/present.
@@ -63,6 +71,7 @@ private:
     SDL_Renderer* renderer_;
     BloomConfig config_;
     SDL_Texture* scene_ = nullptr;               // full-size scene target
+    SDL_Texture* emissive_ = nullptr;            // full-size glow-only target (Tier 2)
     std::vector<SDL_Texture*> chain_;            // halving blur targets
     int w_ = 0, h_ = 0;
     bool active_ = false;

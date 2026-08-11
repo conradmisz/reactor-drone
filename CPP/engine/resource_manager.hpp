@@ -6,6 +6,7 @@
 #include <SDL3_ttf/SDL_ttf.h>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <cstddef>
 
 class ResourceManager {
@@ -25,6 +26,14 @@ public:
     // Returns cached texture on hit, loads from disk on miss.
     // Returns missing_texture_ if file cannot be loaded.
     SDL_Texture* load_texture(const std::string& name);
+
+    /**
+     * Probe for an optional texture (v3 Tier 2: the `_glow` emissive siblings).
+     * Returns nullptr — NOT the magenta missing-texture — when the file does
+     * not exist, and caches the miss so the probe never hits the disk (or the
+     * log) twice for the same name.
+     */
+    SDL_Texture* try_load_texture(const std::string& name);
 
     // --- Font Loading ---
     // Resolves path: assets_dir/fonts/<name>
@@ -52,6 +61,7 @@ private:
     std::string assets_directory_;
 
     std::unordered_map<std::string, SDL_Texture*> texture_cache_;
+    std::unordered_set<std::string> missing_names_;   // cached try_load_texture misses
     std::unordered_map<std::string, TTF_Font*> font_cache_;
     std::unordered_map<std::string, SDL_Texture*> font_text_cache_;
 

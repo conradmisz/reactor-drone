@@ -104,6 +104,21 @@ public:
     void render(const ComponentStorage& storage, const Blackboard& blackboard);
 
     /**
+     * v3 Tier 2: the emissive pass. Walks the same entities in the same order
+     * as render(), but draws ONLY what should feed the bloom chain, into the
+     * currently bound render target (the BloomSystem's emissive target):
+     *  - a sprite whose atlas/image has a `_glow` sibling texture (probed via
+     *    ResourceManager::try_load_texture, misses cached) draws that sibling
+     *    with identical geometry/rotation/tint;
+     *  - otherwise an entity with an additive Tint draws its normal visual —
+     *    its sharp copy is already in the scene, so this contributes halo only;
+     *  - everything else is skipped.
+     * Call between BloomSystem::begin_emissive() and resolve(); never call it
+     * when bloom is inactive (the draws would land on the backbuffer).
+     */
+    void render_emissive(const ComponentStorage& storage, const Blackboard& blackboard);
+
+    /**
      * Present the rendered frame to the screen
      */
     void present();
@@ -151,6 +166,10 @@ private:
                      const SDL_FRect* src_rect = nullptr,
                      const Tint* tint = nullptr,
                      bool flip_when_left = true);
+
+    /** Shared body of render()/render_emissive() — one walk, two draw policies. */
+    void render_walk(const ComponentStorage& storage, const Blackboard& blackboard,
+                     bool emissive);
 
     SDL_Renderer* renderer_;
     ResourceManager& resource_manager_;

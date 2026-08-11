@@ -105,6 +105,25 @@ void RenderSystem::render_layers(const std::vector<TiledLayer>& layers) {
 }
 
 void RenderSystem::render(const ComponentStorage& storage, const Blackboard& blackboard) {
+    render_walk(storage, blackboard, false);
+}
+
+void RenderSystem::render_emissive(const ComponentStorage& storage,
+                                   const Blackboard& blackboard) {
+    render_walk(storage, blackboard, true);
+}
+
+namespace {
+/// "v2/enemy_spark.png" -> "v2/enemy_spark_glow.png"; no extension -> append.
+std::string glow_name(const std::string& name) {
+    auto dot = name.rfind('.');
+    if (dot == std::string::npos) return name + "_glow";
+    return name.substr(0, dot) + "_glow" + name.substr(dot);
+}
+}  // namespace
+
+void RenderSystem::render_walk(const ComponentStorage& storage,
+                               const Blackboard& blackboard, bool emissive) {
     float zoom = blackboard.get_or<float>("camera.zoom", 1.0f);
 
     auto all = storage.entities_with_component<Position>();
@@ -180,7 +199,16 @@ void RenderSystem::render(const ComponentStorage& storage, const Blackboard& bla
             auto ss_opt = storage.get_component<SpriteSheet>(entity);
             if (ss_opt.has_value()) {
                 const auto& ss = ss_opt->get();
-                SDL_Texture* texture = resource_manager_.load_texture(ss.atlas_filename);
+                SDL_Texture* texture;
+                if (emissive) {
+                    texture = resource_manager_.try_load_texture(glow_name(ss.atlas_filename));
+                    if (!texture) {
+                        if (!(tint && tint->additive)) continue;
+                        texture = resource_manager_.load_texture(ss.atlas_filename);
+                    }
+                } else {
+                    texture = resource_manager_.load_texture(ss.atlas_filename);
+                }
                 SDL_FRect src_rect = compute_source_rect(
                     ss.current_frame, ss.columns, ss.frame_width, ss.frame_height);
                 draw_entity(x, y, render_width, render_height,
@@ -190,14 +218,26 @@ void RenderSystem::render(const ComponentStorage& storage, const Blackboard& bla
         } else if (storage.has_component<Images>(entity)) {
             auto img_opt = storage.get_component<Images>(entity);
             if (img_opt.has_value()) {
-                SDL_Texture* texture = resource_manager_.load_texture(
-                    img_opt->get().active_filename());
+                SDL_Texture* texture;
+                if (emissive) {
+                    texture = resource_manager_.try_load_texture(
+                        glow_name(img_opt->get().active_filename()));
+                    if (!texture) {
+                        if (!(tint && tint->additive)) continue;
+                        texture = resource_manager_.load_texture(
+                            img_opt->get().active_filename());
+                    }
+                } else {
+                    texture = resource_manager_.load_texture(
+                        img_opt->get().active_filename());
+                }
                 draw_entity(x, y, render_width, render_height, Color{0, 0, 0, 255},
                             texture, rotation_angle, nullptr, tint, flip_when_left);
             }
         } else if (storage.has_component<Color>(entity)) {
             auto color_opt = storage.get_component<Color>(entity);
             if (color_opt.has_value()) {
+                if (emissive && !(tint && tint->additive)) continue;
                 draw_entity(x, y, render_width, render_height, color_opt->get(),
                             nullptr, 0.0f, nullptr, tint, flip_when_left);
             }

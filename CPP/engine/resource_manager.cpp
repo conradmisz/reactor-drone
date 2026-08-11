@@ -75,6 +75,23 @@ SDL_Texture* ResourceManager::load_texture(const std::string& name) {
     return texture;
 }
 
+SDL_Texture* ResourceManager::try_load_texture(const std::string& name) {
+    std::string full_path = assets_directory_ + "/images/" + name;
+    auto it = texture_cache_.find(full_path);
+    if (it != texture_cache_.end()) return it->second;
+    if (missing_names_.count(full_path)) return nullptr;
+
+    SDL_Texture* texture = IMG_LoadTexture(renderer_, full_path.c_str());
+    if (!texture) {
+        // A miss is an expected answer here, not an error: cache it silently.
+        missing_names_.insert(full_path);
+        return nullptr;
+    }
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+    texture_cache_[full_path] = texture;
+    return texture;
+}
+
 // --- Font Loading ---
 
 TTF_Font* ResourceManager::load_font(const std::string& name, float size) {

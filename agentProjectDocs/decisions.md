@@ -1910,3 +1910,23 @@ game should *show* its state, not make you infer it.
     runs and the screenshot path render the exact pre-bloom pipeline.
     **Rejected:** SDL_GPU shaders now (Tier 4's job, needs a toolchain) and
     per-sprite baked halos as the only glow (they cannot bleed or saturate).
+
+- **D195 — Tier 2: emissive separation is a naming convention, not a component.**
+  Every generated atlas/prop now ships a `_glow` sibling PNG whose alpha is the
+  source's alpha × per-pixel luminance^1.2 (`emissive_of` in `common.py`) — the
+  emissive layer is *derived*, never re-authored, so it can never drift from the
+  art and the same sidecar frame rects apply. At render time a second walk
+  (`RenderSystem::render_emissive`) draws each entity's sibling — probed via the
+  new `ResourceManager::try_load_texture`, which returns nullptr on a miss and
+  caches it silently (the magenta missing-texture and per-frame disk probes are
+  both wrong here) — plus any additive-Tint visual (particles: their sharp copy
+  is already in the scene, so this contributes halo only) into the bloom
+  emissive target; the blur chain reads that target alone. Result: the Tier 1
+  full-scene wash is gone — the floor is near-black again while emissives bloom.
+  **Rejected:** a `GlowSprite` component (invariant 6 makes a new component the
+  expensive edit, and the convention needs zero data changes); a luminance
+  bright-pass at composite time (Tier 4's shader job, meaningless on a chain
+  seeded full-scene); kit-part siblings (they composite over a chassis whose
+  glow already blooms). HUD widgets keep no siblings on purpose — menus stay
+  crisp. Trap for new art: any sprite that should glow must be born through the
+  generators; hand-dropped PNGs bloom only if additive-tinted.

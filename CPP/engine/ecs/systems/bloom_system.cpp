@@ -25,6 +25,8 @@ BloomSystem::BloomSystem(SDL_Renderer* renderer, int logical_w, int logical_h,
 
     scene_ = make_target(renderer_, w_, h_);
     if (!scene_) return;
+    emissive_ = make_target(renderer_, w_, h_);
+    if (!emissive_) { destroy_targets(); return; }
 
     for (const auto& s : sizes) {
         SDL_Texture* t = make_target(renderer_, s.w, s.h);
@@ -42,6 +44,7 @@ void BloomSystem::destroy_targets() {
     for (SDL_Texture* t : chain_) SDL_DestroyTexture(t);
     chain_.clear();
     if (scene_) { SDL_DestroyTexture(scene_); scene_ = nullptr; }
+    if (emissive_) { SDL_DestroyTexture(emissive_); emissive_ = nullptr; }
     active_ = false;
 }
 
@@ -55,14 +58,23 @@ void BloomSystem::begin() {
     SDL_RenderClear(renderer_);
 }
 
+void BloomSystem::begin_emissive() {
+    if (!active_) return;
+    SDL_SetRenderTarget(renderer_, emissive_);
+    // Transparent black: the emissive target holds only what should halo.
+    SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 0);
+    SDL_RenderClear(renderer_);
+}
+
 void BloomSystem::resolve() {
     if (!active_) return;
 
-    // Walk the scene down the chain. Each RenderTexture into a half-size
+    // Walk the EMISSIVE target down the chain (Tier 2) — dark hulls, backdrop
+    // and HUD text stay out of the halo. Each RenderTexture into a half-size
     // target is one linearly-filtered box blur; by the last level the halo is
     // wide and soft.
-    SDL_SetTextureBlendMode(scene_, SDL_BLENDMODE_NONE);
-    SDL_Texture* src = scene_;
+    SDL_SetTextureBlendMode(emissive_, SDL_BLENDMODE_NONE);
+    SDL_Texture* src = emissive_;
     for (SDL_Texture* dst : chain_) {
         SDL_SetRenderTarget(renderer_, dst);
         SDL_RenderTexture(renderer_, src, nullptr, nullptr);
@@ -71,6 +83,7 @@ void BloomSystem::resolve() {
 
     // Back to the backbuffer: scene 1:1, then the chain additively on top.
     SDL_SetRenderTarget(renderer_, nullptr);
+    SDL_SetTextureBlendMode(scene_, SDL_BLENDMODE_NONE);
     SDL_RenderTexture(renderer_, scene_, nullptr, nullptr);
     for (std::size_t i = 0; i < chain_.size(); ++i) {
         SDL_Texture* t = chain_[i];

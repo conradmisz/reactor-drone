@@ -88,7 +88,7 @@ Current measured state: **150 identical · 31 modified · 27 new** (208 source f
 | `ecs/systems/particle_system.{hpp,cpp}` | The whole particle simulation: emitters, per-particle lerp, `DEFAULT_MAX_PARTICLES` budget, and the `emit` flag that separates ageing from spawning (see §5) |
 | `tests/unit/test_particle_system.cpp`, `tests/property/test_particle_properties.cpp` | Its tests |
 | `tests/unit/test_tint.cpp` | `modulate_color` / Tint semantics |
-| `ecs/systems/bloom_math.hpp`, `ecs/systems/bloom_system.{hpp,cpp}` | v3 Tier 1 render-target bloom: scene target + halving linear-filtered downsample chain composited back additively. Self-disables without render-target support (headless = old pipeline). `BloomConfig` lives here; parsed from GameData's optional `"bloom"` block (D194) |
+| `ecs/systems/bloom_math.hpp`, `ecs/systems/bloom_system.{hpp,cpp}` | v3 Tier 1+2 render-target bloom: scene target + **emissive target** + halving linear-filtered downsample chain composited back additively. The chain reads the emissive target only (D195), so hulls/backdrop/HUD never bleed. Self-disables without render-target support (headless = old pipeline). `BloomConfig` lives here; parsed from GameData's optional `"bloom"` block (D194) |
 | `tests/unit/test_bloom_math.cpp` | Chain geometry + intensity clamp |
 | `ui_style.{hpp,cpp}` | `StyleTable`, `WidgetState`, `parse_ui_styles` — widget colours as pure data (Option-040 port) |
 | `ui_focus_math.hpp`, `ui_fade_math.hpp` | Tab-order and fade-curve helpers (Option-040 port) |
@@ -111,7 +111,7 @@ Current measured state: **150 identical · 31 modified · 27 new** (208 source f
 | `gamedata_loader.cpp` | Parses the optional top-level `ui_styles` and `screens` blocks. Both are gated on the key being present, so a data file without them creates zero UI entities and raises no error |
 | `lua_bindings.cpp` | The `ui.*` global table (`push_screen`, `pop_screen`, `set_label`, `get_value`, `set_disabled`, `widget_id`). Unused by this game — see §5 |
 | `ecs/systems/player_control_system.{hpp,cpp}` | `set_speed()` (so a shop purchase applies mid-run) and diagonal normalisation |
-| `ecs/systems/render_system.{hpp,cpp}` | Colour-mod / alpha-mod from `Tint`, additive blend mode, `RenderLayer` bucketing, rotation with `flip_when_left`, and `render_layers()` + `TiledLayer` (tiled parallax backdrops, with `alpha` for the v2 Phase 5b arena crossfade) |
+| `ecs/systems/render_system.{hpp,cpp}` | Colour-mod / alpha-mod from `Tint`, additive blend mode, `RenderLayer` bucketing, rotation with `flip_when_left`, `render_layers()` + `TiledLayer` (tiled parallax backdrops, with `alpha` for the v2 Phase 5b arena crossfade), and the v3 Tier 2 `render_emissive()` — the same walk drawing only `_glow` siblings + additive-tinted visuals into the bloom emissive target (D195) |
 
 ### Engine — byte-identical class originals (~150 files)
 
@@ -247,9 +247,14 @@ render:
   render_system.render
   hud_system.render
   ui_render_system.render                   — menus composite last, over world AND HUD
+  if bloom.active():
+    bloom.begin_emissive()                  — v3 Tier 2: switch to the emissive target
+    render_system.render_emissive           — `_glow` siblings + additive Tints only
   bloom.resolve()                           — back to the backbuffer: scene 1:1 + blur
-                                              chain additive. UI is INSIDE the pass (menus
-                                              glow); screenshot captures the bloomed frame
+                                              chain additive. The chain reads the
+                                              EMISSIVE target, not the scene, so only
+                                              authored glow bleeds; screenshot captures
+                                              the bloomed frame
   screenshot_system.update
   render_system.present
 ```

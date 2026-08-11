@@ -12,7 +12,7 @@ import math
 import os
 from typing import Callable
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 IMAGES_DIR = os.path.normpath(
     os.path.join(os.path.dirname(__file__), "..", "..", "images", "v2")
@@ -68,6 +68,21 @@ def glow_line(draw: ImageDraw.ImageDraw, p0, p1, color, width):
     draw.line([p0, p1], fill=(color[0], color[1], color[2], 255), width=width)
 
 
+def emissive_of(img: Image.Image, gamma: float = 1.2) -> Image.Image:
+    """v3 Tier 2: the sprite's emissive layer, derived not re-authored.
+
+    Alpha is scaled by per-pixel luminance**gamma, so dark hull pixels vanish
+    and the neon lines/halos survive. The result is what the engine's emissive
+    render pass feeds the bloom chain — geometry identical to the source, so
+    the same sidecar frame rects apply."""
+    a = img.split()[3]
+    lum = img.convert("L")
+    lut = [int(round(255 * ((v / 255.0) ** gamma))) for v in range(256)]
+    out = img.copy()
+    out.putalpha(ImageChops.multiply(a, lum.point(lut)))
+    return out
+
+
 def build_atlas(frames, columns: int) -> Image.Image:
     """Lay square frames into a grid atlas (row-major). Frames must be equal size."""
     fw, fh = frames[0].size
@@ -87,6 +102,8 @@ def write_sprite(name: str, frames, columns: int, animations: dict) -> None:
     atlas = build_atlas(frames, columns)
     png = os.path.join(IMAGES_DIR, f"{name}.png")
     atlas.save(png)
+    # v3 Tier 2: the `_glow` sibling the emissive render pass probes for.
+    emissive_of(atlas).save(os.path.join(IMAGES_DIR, f"{name}_glow.png"))
     sidecar = {
         # Relative to assets/images/ — ResourceManager::load_texture prepends that
         # dir, so an "images/" prefix here resolves to assets/images/images/...
@@ -102,8 +119,12 @@ def write_sprite(name: str, frames, columns: int, animations: dict) -> None:
     print(f"  wrote {name}: {len(frames)} frames {fw}x{fh} cols={columns} -> {png}")
 
 
-def save_png(name: str, img: Image.Image) -> None:
+def save_png(name: str, img: Image.Image, glow: bool = False) -> None:
+    """glow=True also writes the `_glow` emissive sibling (v3 Tier 2) — used by
+    props/pickups drawn via Images; backdrops and pure-glow discs skip it."""
     ensure_dirs()
     path = os.path.join(IMAGES_DIR, f"{name}.png")
     img.save(path)
+    if glow:
+        emissive_of(img).save(os.path.join(IMAGES_DIR, f"{name}_glow.png"))
     print(f"  wrote {name}.png {img.size}")

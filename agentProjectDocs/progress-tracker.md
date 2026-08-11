@@ -7,9 +7,11 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
 
 - **`visual-overhaul` (2026-08-11): v3 neon-polish branch started** — plan in
   `plans/v3-neon-polish-plan.md` (5 tiers). Tier 0 (vsync + backdrop restraint)
-  and Tier 1 (render-target bloom, D194) are committed. Verified per tier:
-  clean build, ctest 8/8, canary byte-identical twice, headless screenshots
-  read back. **Unplayed in a window.** Next: Tier 2 emissive separation.
+  Tier 1 (render-target bloom, D194) and Tier 2 (emissive separation, D195,
+  38 generated `_glow` siblings) are committed. Verified per tier: clean build,
+  ctest 8/8, canary byte-identical twice, headless screenshots read back
+  (Tier 2's confirms the Tier 1 full-scene wash is gone). **Unplayed in a
+  window.** Next: Tier 3 motion (trails, hit-stop, camera punch).
 
 - **`feature/gameplay-polish` (2026-08-11): the THIRD playtest batch is
   implemented** as D193 (one decisions.md entry, numbered by feedback item) —

@@ -2281,6 +2281,15 @@ int main(int argc, char* argv[]) {
         hud_system.render(component_storage, blackboard);
         // Menus composite last, on top of the world and the gameplay HUD.
         ui_render_system.render(component_storage, blackboard);
+        // v3 Tier 2: the glow-only pass. Draws each entity's `_glow` sibling
+        // (plus additive-tinted visuals) into the emissive target; the bloom
+        // chain reads that target, so hulls/backdrop/HUD no longer bleed.
+        // Guarded: when bloom is inactive these draws would land on the
+        // backbuffer and double every glow sprite.
+        if (bloom_system.active()) {
+            bloom_system.begin_emissive();
+            render_system.render_emissive(component_storage, blackboard);
+        }
         bloom_system.resolve();
 
         if (!opts.screenshot_frames.empty()) {

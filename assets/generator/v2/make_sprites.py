@@ -1103,7 +1103,7 @@ def main():
                             "frame_duration": 0.06, "looping": True}})
     # The active item's missile. Single frame worn as Images by actives::
     # launch_missiles, so no sidecar — see save_png block below.
-    save_png("projectile_rocket", rocket_sprite())
+    save_png("projectile_rocket", rocket_sprite(), glow=True)
     # Effects
     write_sprite("effect_explosion", explosion_frames(8), 4,
                  {"expand": {"start_frame": 0, "frame_count": 8,
@@ -1113,14 +1113,14 @@ def main():
                              "frame_duration": 0.05, "looping": False}})
     # Single-frame pickups/hazards (D94-D96). No sidecar: these are worn by an
     # `Images` component, which takes a bare PNG path relative to assets/images/.
-    save_png("pickup_health", health_pickup())
-    save_png("pickup_shield", shield_pickup())
-    save_png("pickup_coin", coin_sprite())
-    save_png("hazard_mine", mine_sprite())
-    save_png("hazard_poison", poison_cloud())
-    save_png("hazard_blast", blast_cloud())
+    save_png("pickup_health", health_pickup(), glow=True)
+    save_png("pickup_shield", shield_pickup(), glow=True)
+    save_png("pickup_coin", coin_sprite(), glow=True)
+    save_png("hazard_mine", mine_sprite(), glow=True)
+    save_png("hazard_poison", poison_cloud(), glow=True)
+    save_png("hazard_blast", blast_cloud(), glow=True)
     # D105: the boss's carrier. Single frame, worn as Images by BossSystem.
-    save_png("enemy_boss_carrier", carrier_sprite())
+    save_png("enemy_boss_carrier", carrier_sprite(), glow=True)
     # D133: the upgrade kit. Single-frame overlays worn as Images by the kit
     # followers, authored in the chassis's own 128-space so they composite 1:1.
     # No halo on a kit part: it is composited ON TOP of a chassis that already
