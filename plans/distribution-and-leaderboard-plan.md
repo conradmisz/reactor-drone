@@ -374,9 +374,7 @@ Filename: "{app}\ReactorDrone.exe"; Description: "Launch Reactor Drone"; \
 Filename: "{app}\ReactorDrone.exe"; WorkingDir: "{app}"; Flags: nowait; Check: WizardSilent
 ```
 
-- [ ] **Step 3: Saves-location fix (only if Task 2 flagged it)**
-
-Apply the `#ifdef _WIN32` `SDL_GetPrefPath("conradm", "ReactorDrone")` branch in `meta_save_path()`; keep the Linux path untouched (canary!). Re-run house gates.
+- [ ] **Step 3: (superseded)** The saves/assets location fix moved to Task 2b, which runs before this task. Nothing to do here.
 
 - [ ] **Step 4: Commit**
 
