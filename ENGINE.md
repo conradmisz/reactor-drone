@@ -54,7 +54,7 @@ by re-running the sweep in §2, never from memory.
   │  ENGINE CORE (CPP/engine/)                                           │
   │  EntityManager [=]   ComponentStorage [~]   Blackboard [=]          │
   │  destruction [~]  Timer [=]  ResourceManager [=]  sidecar_loader [=]│
-  │  gamedata_loader [=]  project_paths [=]  pathfinding [=] tile_map [=]│
+  │  gamedata_loader [=]  project_paths [~]  pathfinding [=] tile_map [=]│
   └──────────────────────────────────────────────────────────────────────┘
                                      │
   ┌──────────────────────────────────────────────────────────────────────┐
@@ -110,6 +110,7 @@ Current measured state: **150 identical · 31 modified · 27 new** (208 source f
 | `lua_bindings.cpp` | The `ui.*` global table (`push_screen`, `pop_screen`, `set_label`, `get_value`, `set_disabled`, `widget_id`). Unused by this game — see §5 |
 | `ecs/systems/player_control_system.{hpp,cpp}` | `set_speed()` (so a shop purchase applies mid-run) and diagonal normalisation |
 | `ecs/systems/render_system.{hpp,cpp}` | Colour-mod / alpha-mod from `Tint`, additive blend mode, `RenderLayer` bucketing, rotation with `flip_when_left`, and `render_layers()` + `TiledLayer` (tiled parallax backdrops, with `alpha` for the v2 Phase 5b arena crossfade) |
+| `project_paths.hpp` | Task 2b: `assets_dir()` gained a `_WIN32` branch resolving relative to `SDL_GetBasePath()` instead of the baked `CLASS_ROOT_DIR`, and a new `user_data_dir()` — `class_root()` on Linux (unchanged on-disk saves), `SDL_GetPrefPath("conradm", "ReactorDrone")` on Windows. Linux/dev behaviour is byte-identical; only reachable via `#ifdef _WIN32`. See §5 |
 
 ### Engine — byte-identical class originals (~150 files)
 
@@ -286,6 +287,20 @@ render:
 
 ## 5. Known discrepancies and traps
 
+- **`assets_dir()`/`user_data_dir()` (Task 2b) are Windows-only branches; Linux is untouched
+  on purpose.** `CLASS_ROOT_DIR` is an absolute build-machine path baked in at compile time —
+  fine for the class dev workflow (run from any CWD), fatal for a Windows binary handed to
+  someone else's PC. On `_WIN32`, `assets_dir()` resolves `<exe dir>/assets` via
+  `SDL_GetBasePath()` (the flat install layout `installer/package-win.sh` stages — exe, DLLs
+  and `assets/` as siblings) and `user_data_dir()` resolves the per-user prefpath via
+  `SDL_GetPrefPath("conradm", "ReactorDrone")`, never under `{app}` (Program Files is not
+  user-writable). Neither path is ever printed — the replay canary compares stdout, and a
+  resolved filesystem path is exactly the kind of per-run-varying string that would break it.
+  The four save call sites (`meta_save.cpp`, `run_save.cpp` x2, `settings_save.hpp`) moved
+  from `class_root()` to `user_data_dir()`; `class_root()` itself is untouched and the engine
+  test harness (`test_resource_manager.cpp`, `test_sidecar_loader.cpp`, `test_script_system.cpp`,
+  `test_lua_manager.cpp` and two property-test files) keeps using the raw `CLASS_ROOT_DIR`
+  macro directly to find `CPP/engine/tests/test_assets` — untouched, native-only.
 - **`--dump` and `--trace` are parsed but never consumed.** `CliOptions::dump_frames` /
   `trace_frames` are populated by `cli_parser.cpp` and `main.cpp` never reads them. There is
   no state dump. `--screenshot` *does* work.

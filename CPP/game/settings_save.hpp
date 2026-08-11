@@ -30,7 +30,7 @@ struct SettingsSave {
 };
 
 inline std::string settings_save_path() {
-    return project_paths::class_root() + "/saves/settings.json";
+    return project_paths::user_data_dir() + "/saves/settings.json";
 }
 
 inline SettingsSave settings_load(const std::string& path) {

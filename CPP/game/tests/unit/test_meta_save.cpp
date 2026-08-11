@@ -51,6 +51,12 @@ std::vector<ShipDef> two_ships() {
 
 }  // namespace
 
+TEST_CASE("save paths land under user_data_dir, not class_root (Task 2b)", "[meta_save][paths]") {
+    // meta_save_path() must be composed from project_paths::user_data_dir() so
+    // Windows saves land in the per-user prefpath, never under {app}.
+    REQUIRE(meta_save_path().rfind(project_paths::user_data_dir(), 0) == 0);
+}
+
 TEST_CASE("meta save round-trips the lifetime score", "[meta_save]") {
     const std::string path = tmp_file("roundtrip.json");
     std::filesystem::remove(path);

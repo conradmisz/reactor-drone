@@ -1887,3 +1887,28 @@ game should *show* its state, not make you infer it.
      three separate `currency < cost` sites; pinning the balance keeps all three
      real and touched no shop code. Everything is inside `if (opts.dev)`, so the
      default path draws no RNG and adds no per-frame state — canary verified.
+- **D194 — read-only assets vs. writable user data split (Task 2b).**
+  `CLASS_ROOT_DIR` is the build machine's absolute source path, baked into the
+  binary at compile time. Fine for the class Linux workflow (deliberately lets
+  the game run from any CWD, D-unnumbered but documented in `ENGINE.md` §5), but
+  it made the cross-compiled Windows exe unable to find `GameData.json`,
+  sidecars, scripts, images, fonts or saves on any PC but the one that built it
+  — the exe crashed before the title screen on a clean machine. Split
+  `project_paths` into `assets_dir()` (read-only, ships beside the exe) and a
+  new `user_data_dir()` (writable, saves/settings) so each can resolve
+  differently on Windows: `assets_dir()` via `SDL_GetBasePath()` against the
+  flat install layout (exe + DLLs + `assets/` siblings, `installer/package-win.sh`'s
+  contract), `user_data_dir()` via `SDL_GetPrefPath("conradm", "ReactorDrone")`
+  since Program Files is not user-writable. Both are `_WIN32`-only branches;
+  Linux/dev behaviour is byte-identical (`class_root()` either way), and neither
+  path is ever printed to stdout — the replay canary compares the summary line,
+  and a resolved filesystem path is exactly the kind of per-run-varying string
+  that would break it. **Rejected:** an env var or CLI override for the assets
+  path (speculative — nothing in this project needs to relocate assets
+  independent of the exe) and moving saves under `{app}`\\saves (not
+  user-writable once installed to Program Files). Verified by staging the real
+  Windows cross-build, hiding the repo's own `assets/` and `saves/` directories
+  so the baked source path cannot be used as a fallback, and running the staged
+  exe under Wine to completion, headless and windowed with a rendered
+  screenshot; the save landed at
+  `~/.wine/drive_c/users/$USER/AppData/Roaming/conradm/ReactorDrone/saves/meta.json`.

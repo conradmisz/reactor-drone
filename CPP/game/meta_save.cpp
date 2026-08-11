@@ -9,7 +9,7 @@
 #include "prestige.hpp"
 
 std::string meta_save_path() {
-    return project_paths::class_root() + "/saves/meta.json";
+    return project_paths::user_data_dir() + "/saves/meta.json";
 }
 
 MetaSave meta_load(const std::string& path) {

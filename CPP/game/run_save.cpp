@@ -52,11 +52,11 @@ bool find_player(ComponentStorage& storage, Entity& out) {
 }  // namespace
 
 std::string run_save_path() {
-    return project_paths::class_root() + "/saves/run.json";
+    return project_paths::user_data_dir() + "/saves/run.json";
 }
 
 std::string run_save_path(int slot) {
-    return project_paths::class_root() + "/saves/run" + std::to_string(slot) + ".json";
+    return project_paths::user_data_dir() + "/saves/run" + std::to_string(slot) + ".json";
 }
 
 void run_save_migrate_legacy() {

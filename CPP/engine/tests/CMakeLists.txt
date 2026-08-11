@@ -52,6 +52,7 @@ add_executable(engine_unit_tests
     unit/test_sidecar_loader.cpp
     unit/test_tint.cpp
     unit/test_particle_system.cpp
+    unit/test_project_paths.cpp
 
     # UI & menu layer (Option-040 port)
     unit/test_ui_components_storage.cpp
