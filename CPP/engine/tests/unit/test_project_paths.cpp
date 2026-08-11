@@ -22,3 +22,17 @@ TEST_CASE("user_data_dir is absolute and has no trailing separator", "[paths]") 
     REQUIRE(d.back() != '/');
     REQUIRE(d.back() != '\\');
 }
+
+// strip_trailing_seps is the part of assets_dir()/user_data_dir() that only
+// runs in the _WIN32 branch (SDL_GetBasePath()/SDL_GetPrefPath() both trail a
+// separator) but is plain string logic, so it is exercised here directly with
+// Windows-shaped input instead of needing a Windows build to catch a
+// regression (Task 2b review: on Linux both path functions just return
+// class_root(), which can't tell a correct trim from a broken one).
+TEST_CASE("strip_trailing_seps trims trailing separators", "[paths]") {
+    CHECK(project_paths::strip_trailing_seps(
+              "C:\\Users\\x\\AppData\\Roaming\\conradm\\ReactorDrone\\") ==
+          "C:\\Users\\x\\AppData\\Roaming\\conradm\\ReactorDrone");
+    CHECK(project_paths::strip_trailing_seps("/home/x/root/") == "/home/x/root");
+    CHECK(project_paths::strip_trailing_seps("/home/x/root") == "/home/x/root");
+}

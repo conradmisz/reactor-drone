@@ -31,13 +31,23 @@ inline std::string class_root() {
     return CLASS_ROOT_DIR;
 }
 
+/// Strips trailing '/' and '\' from a directory path. Pure string logic, no
+/// filesystem or SDL call — split out so the Windows-shaped path handling in
+/// assets_dir()/user_data_dir() below (SDL_GetBasePath()/SDL_GetPrefPath()
+/// results, which trail a separator) is unit-testable on Linux, where the
+/// two functions themselves both just return class_root() and can't
+/// distinguish a correct implementation from a broken one (Task 2b review).
+inline std::string strip_trailing_seps(std::string dir) {
+    while (!dir.empty() && (dir.back() == '/' || dir.back() == '\\')) dir.pop_back();
+    return dir;
+}
+
 /// Absolute path to the read-only shared assets directory.
 inline std::string assets_dir() {
 #ifdef _WIN32
     // Installed layout is flat: assets/ sits beside the exe (installer/package-win.sh).
     const char* base = SDL_GetBasePath();  // may be null if SDL is not initialized
-    std::string dir = base ? std::string(base) : std::string("./");
-    while (!dir.empty() && (dir.back() == '/' || dir.back() == '\\')) dir.pop_back();
+    std::string dir = base ? strip_trailing_seps(base) : std::string(".");
     return dir + "/assets";
 #else
     return std::string(CLASS_ROOT_DIR) + "/assets";
@@ -51,9 +61,8 @@ inline std::string assets_dir() {
 inline std::string user_data_dir() {
 #ifdef _WIN32
     char* pref = SDL_GetPrefPath("conradm", "ReactorDrone");
-    std::string dir = pref ? std::string(pref) : std::string("./");
+    std::string dir = pref ? strip_trailing_seps(pref) : std::string(".");
     if (pref) SDL_free(pref);
-    while (!dir.empty() && (dir.back() == '/' || dir.back() == '\\')) dir.pop_back();
     return dir;
 #else
     return class_root();

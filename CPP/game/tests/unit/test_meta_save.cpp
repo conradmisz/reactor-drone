@@ -51,11 +51,17 @@ std::vector<ShipDef> two_ships() {
 
 }  // namespace
 
-TEST_CASE("save paths land under user_data_dir, not class_root (Task 2b)", "[meta_save][paths]") {
-    // meta_save_path() must be composed from project_paths::user_data_dir() so
-    // Windows saves land in the per-user prefpath, never under {app}.
-    REQUIRE(meta_save_path().rfind(project_paths::user_data_dir(), 0) == 0);
-}
+// (Task 2b review) A "meta_save_path() starts with user_data_dir()" check was
+// here and was removed: on Linux user_data_dir() == class_root(), so the
+// assertion passes whether meta_save_path() is built from either one — it
+// cannot fail on a regression that reintroduces class_root() at the call
+// site. The call site itself is a one-line, self-evidently-correct read
+// (`project_paths::user_data_dir() + "/saves/meta.json"` in meta_save.cpp);
+// what's actually worth testing — the Windows-shaped path-trimming logic — is
+// covered by strip_trailing_seps' own tests in test_project_paths.cpp. The
+// platform-divergent behavior itself (Windows saves landing in the prefpath,
+// not under class_root()) is covered by the Wine portability run in the Task
+// 2b report, not by CI.
 
 TEST_CASE("meta save round-trips the lifetime score", "[meta_save]") {
     const std::string path = tmp_file("roundtrip.json");
