@@ -2325,6 +2325,7 @@
       "name": "Standard",
       "sidecar": "images/v2/player_drone.json",
       "idle_clip": "march",
+      "color": [90, 220, 255],
       "unlock_score": 0,
       "weapon": {
         "fire_rate": 4.0,
@@ -2338,6 +2339,7 @@
       "name": "Purple Gatling",
       "sidecar": "images/v2/player_drone.json",
       "idle_clip": "march",
+      "color": [180, 110, 255],
       "unlock_score": 4000,
       "weapon": {
         "fire_rate": 12.0,

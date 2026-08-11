@@ -111,6 +111,11 @@ struct ShipDef {
     std::string idle_clip = "idle";
     WeaponConfig weapon;
     int unlock_score = 0;
+    // D184: the hull's identity hue, matching the baked sprite art. Shots are
+    // fired in its complement (255-c per channel) so ordnance can never read
+    // as ship — the rule D108's hardcoded red approximated for the one ship
+    // that existed then. Default is the Standard drone's cyan.
+    uint8_t color_r = 90, color_g = 220, color_b = 255;
 };
 
 struct EnemyType {

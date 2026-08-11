@@ -62,14 +62,18 @@ struct ShotSpec {
     float radius = 7.0f;
     float turn_rate = 0.0f;   // radians/sec of tracking; 0 = fire-and-forget
     bool  pierce = false;
-    uint8_t r = 255, g = 120, b = 200;
+    uint8_t r = 255, g = 90, b = 80;
 };
 
+// D185: every enemy shot is RED — one hue that always means "this hurts you",
+// replacing the pink/amber/violet per-tier palette. Tiers stay readable by
+// behaviour and shape (speed, size, tracking, pierce) and by brightness:
+// tier 2's tracker runs deep red, tier 3's piercing laser hot pale red.
 inline ShotSpec shot_spec(int tier) {
     switch (tier) {
-        case 2:  return ShotSpec{1.6f, 2.6f, 7.0f, 2.2f, false, 255, 170, 90};
-        case 3:  return ShotSpec{3.2f, 1.6f, 5.0f, 0.0f, true,  180, 120, 255};
-        default: return ShotSpec{1.0f, 2.4f, 8.0f, 0.0f, false, 255, 100, 190};
+        case 2:  return ShotSpec{1.6f, 2.6f, 7.0f, 2.2f, false, 255, 60, 50};
+        case 3:  return ShotSpec{3.2f, 1.6f, 5.0f, 0.0f, true,  255, 140, 130};
+        default: return ShotSpec{1.0f, 2.4f, 8.0f, 0.0f, false, 255, 90, 80};
     }
 }
 

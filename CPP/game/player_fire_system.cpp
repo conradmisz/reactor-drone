@@ -55,6 +55,15 @@ void PlayerFireSystem::update(ComponentStorage& storage,
         }
         constexpr float PR = 6.0f;   // projectile half-size / radius
 
+        // D184 (supersedes D108's hardcoded red): shots are the COMPLEMENT of
+        // the ship's hull hue, published by start_run from ShipDef.color. Same
+        // catalogue-blind Blackboard pattern as the barrel count. The defaults
+        // are the Standard drone's complement — D108's red-orange, so a path
+        // that never wrote the keys looks exactly as it did.
+        const uint8_t sr = static_cast<uint8_t>(blackboard.get_or<int>("ship.shot_r", 165));
+        const uint8_t sg = static_cast<uint8_t>(blackboard.get_or<int>("ship.shot_g", 35));
+        const uint8_t sb = static_cast<uint8_t>(blackboard.get_or<int>("ship.shot_b", 0));
+
         // Gameplay Phase 3 (Twin Barrel): fire `barrels` shots in a fan centred on
         // the aim angle. The count comes from the blackboard, written by the shop,
         // so this system needs no catalogue knowledge. One spread jitter per
@@ -73,11 +82,10 @@ void PlayerFireSystem::update(ComponentStorage& storage,
             storage.add_component<Position>(shot, Position{cx - PR, cy - PR});
             storage.add_component<Velocity>(shot, vel);
             storage.add_component<Size>(shot, Size{PR * 2.0f, PR * 2.0f});
-            // #1 (D108): the drone's shots are RED. They used to be the same
-            // cyan as the hull and the HUD, so a shot in flight read as part of
-            // the ship rather than as ordnance; red is the one hue no arena
-            // palette or enemy tint uses for the player's own fire.
-            storage.add_component<Color>(shot, Color{255, 70, 60, 255});
+            storage.add_component<Color>(shot,
+                Color{static_cast<uint8_t>(std::min(255, sr + 90)),
+                      static_cast<uint8_t>(std::min(255, sg + 35)),
+                      static_cast<uint8_t>(std::min(255, sb + 60)), 255});
             storage.add_component<Collider>(shot,
                 Collider{PR * 2.0f, PR * 2.0f, layers::PROJECTILE, layers::PROJECTILE_MASK});
             storage.add_component<CircleCollider>(shot, CircleCollider{PR, 0.0f, 0.0f});
@@ -98,8 +106,15 @@ void PlayerFireSystem::update(ComponentStorage& storage,
             trail.min_speed = 0.0f;
             trail.max_speed = 24.0f;
             trail.cone_half_angle = 180.0f;
-            trail.start_r = 255; trail.start_g = 90;  trail.start_b = 70;  trail.start_a = 220;
-            trail.end_r = 120;   trail.end_g = 20;    trail.end_b = 30;    trail.end_a = 0;
+            // Trail brackets the shot colour: brighter at spawn, dimmed at death.
+            trail.start_r = static_cast<uint8_t>(std::min(255, sr + 90));
+            trail.start_g = static_cast<uint8_t>(std::min(255, sg + 55));
+            trail.start_b = static_cast<uint8_t>(std::min(255, sb + 70));
+            trail.start_a = 220;
+            trail.end_r = static_cast<uint8_t>(sr / 2);
+            trail.end_g = static_cast<uint8_t>(sg / 2);
+            trail.end_b = static_cast<uint8_t>(sb / 2);
+            trail.end_a = 0;
             trail.start_size = 7.0f; trail.end_size = 0.0f;
             trail.offset_x = PR;  trail.offset_y = PR;
             storage.add_component<ParticleEmitter>(shot, trail);

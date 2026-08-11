@@ -829,8 +829,15 @@ int main(int argc, char* argv[]) {
         // base_config is re-copied — apply_ship is no more idempotent than
         // apply_difficulty, so there must never be a second application site.
         if (selected_ship >= 0 && selected_ship < static_cast<int>(config.ships.size())) {
-            apply_ship(config.player, config.ships[static_cast<size_t>(selected_ship)]);
+            const ShipDef& sd = config.ships[static_cast<size_t>(selected_ship)];
+            apply_ship(config.player, sd);
             load_player_sprite();
+            // D184: shots fire in the complement of the hull's hue, published
+            // here so PlayerFireSystem stays catalogue-blind like the barrel
+            // count. get_or defaults in the reader keep old saves harmless.
+            blackboard.set<int>("ship.shot_r", 255 - sd.color_r);
+            blackboard.set<int>("ship.shot_g", 255 - sd.color_g);
+            blackboard.set<int>("ship.shot_b", 255 - sd.color_b);
         }
         // === HOOK: prestige === (Iteration 5, D126 — Lane O / #14)
         // The base-stat buff rides the SAME site as the ship overlay and

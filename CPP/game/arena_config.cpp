@@ -122,6 +122,11 @@ GameConfig load_arena_config(const std::string& file_path) {
             ship.sidecar      = s.value("sidecar", std::string());
             ship.idle_clip    = s.value("idle_clip", std::string());
             ship.unlock_score = s.value("unlock_score", ship.unlock_score);
+            if (s.contains("color") && s["color"].is_array() && s["color"].size() >= 3) {
+                ship.color_r = static_cast<uint8_t>(s["color"][0].get<int>());
+                ship.color_g = static_cast<uint8_t>(s["color"][1].get<int>());
+                ship.color_b = static_cast<uint8_t>(s["color"][2].get<int>());
+            }
             ship.weapon       = cfg.player.weapon;
             if (s.contains("weapon")) {
                 const auto& w = s["weapon"];
