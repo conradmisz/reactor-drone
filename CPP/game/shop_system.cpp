@@ -561,6 +561,18 @@ bool ShopSystem::menu_build(ComponentStorage& storage, EntityManager& entity_man
         Images{{"v2/glow_disc_128.png"}, 0});
     storage.add_component<Tint>(preview_glow_, Tint{255, 255, 255, 0, true});
 
+    // D190: the kit overlays, one follower per part exactly like the flying
+    // drone's (D133) — same art, same 1:1 composite, so the preview and the
+    // arena can never disagree about what a purchase looks like. Layer 8: the
+    // parts seat OVER the chassis, as in main.cpp.
+    static_assert(sizeof(preview_kit_) / sizeof(preview_kit_[0]) ==
+                  upgrade_visuals::KIT_COUNT, "preview_kit_ mirrors KIT[]");
+    for (int i = 0; i < upgrade_visuals::KIT_COUNT; ++i) {
+        preview_kit_[i] = make_preview(8);
+        storage.add_component<Images>(preview_kit_[i],
+            Images{{std::string(upgrade_visuals::KIT[i].image)}, 0});
+    }
+
     preview_ship_ = make_preview(7);
     // Borrow whatever art the live drone is wearing, so the preview follows the
     // selected ship (Lane F) without this system knowing anything about ships.
@@ -603,6 +615,10 @@ void ShopSystem::menu_teardown(ComponentStorage& storage, Blackboard& blackboard
     for (Entity* e : {&preview_glow_, &preview_ship_, &hold_bar_}) {
         if (*e != 0) storage.add_component<DestroyRequest>(*e, DestroyRequest{});
         *e = 0;
+    }
+    for (Entity& e : preview_kit_) {
+        if (e != 0) storage.add_component<DestroyRequest>(e, DestroyRequest{});
+        e = 0;
     }
     hold_t_ = 0.0f;
     hold_card_ = -1;
@@ -780,6 +796,24 @@ void ShopSystem::refresh_preview(ComponentStorage& storage, const Blackboard& bl
 
     place_on_screen(storage, blackboard, preview_ship_, PREVIEW_SHIP);
     place_on_screen(storage, blackboard, preview_glow_, PREVIEW_GLOW);
+
+    // D190: worn kit parts always show on the preview; hovering an UPGRADES row
+    // also lights the part that row would buy, in real time. Hidden parts are
+    // parked at zero size (D58) — the shield ring is deliberately not previewed
+    // (it is live-state animation, no static "worn" frame).
+    int hover_row = -1;
+    if (page_ == 0 && card >= 0 && card < static_cast<int>(visible_.size()))
+        hover_row = visible_[static_cast<size_t>(card)];
+    for (int i = 0; i < upgrade_visuals::KIT_COUNT; ++i) {
+        const bool shown = upgrade_visuals::part_worn(ship, i) ||
+                           upgrade_visuals::KIT[i].row == hover_row;
+        if (shown) {
+            place_on_screen(storage, blackboard, preview_kit_[i], PREVIEW_SHIP);
+        } else if (auto s = storage.get_component<Size>(preview_kit_[i]); s.has_value()) {
+            s->get().width = 0.0f;
+            s->get().height = 0.0f;
+        }
+    }
 
     // Lane N (D123): the glow also carries the upgrade tier, so the preview
     // changes in the frame the credits are spent — same ramp the flying drone's

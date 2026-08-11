@@ -142,6 +142,9 @@ private:
     int    hold_card_ = -1;
     Entity hold_bar_ = 0;
     Entity preview_glow_ = 0, preview_ship_ = 0;
+    // D190: the 7 kit overlays on the preview drone — worn parts always show,
+    // and hovering an upgrade row lights up the part that row would buy.
+    Entity preview_kit_[7] = {};
     std::vector<int> visible_;           // card slot -> catalogue index
     std::string tip_name_text_, tip_detail_text_;
     std::string page_hint_;   // idle text for the detail pane
