@@ -92,6 +92,10 @@ public:
     const std::string& tooltip_name() const { return tip_name_text_; }
     const std::string& tooltip_detail() const { return tip_detail_text_; }
 
+    /// D191: card `c`'s visible table text (name column + pip column), for
+    /// tests — the card button itself is a caption-less hit target now.
+    std::string card_line(const ComponentStorage& storage, int c) const;
+
 private:
     void apply(const ShopUpgradeDef& def, Entity player,
                ComponentStorage& storage, Blackboard& blackboard);
@@ -114,7 +118,10 @@ private:
     void menu_teardown(ComponentStorage& storage, Blackboard& blackboard);
     /// Card slot -> catalogue index for the current page.
     void rebuild_visible(const ShipState& ship);
-    void refresh_cards(ComponentStorage& storage, const ShipState& ship);
+    /// D191: `hovered` is the card under the pointer (-1 none) — its pip meter
+    /// previews the purchase in green/red instead of showing the current level.
+    void refresh_cards(ComponentStorage& storage, const ShipState& ship,
+                       int hovered = -1);
     /// Card slot under the pointer, or -1. Reads UIState.hovered (UISystem owns it).
     int  hovered_card(const ComponentStorage& storage) const;
     void refresh_tooltip(ComponentStorage& storage, const ShipState& ship, int card);
@@ -141,6 +148,11 @@ private:
     float  hold_t_ = 0.0f;
     int    hold_card_ = -1;
     Entity hold_bar_ = 0;
+    // D191: the two-column card table — pooled labels layered over the (now
+    // caption-less) card buttons. [0] name+price at a fixed left edge, so first
+    // letters align; [1] the pip meter, restyled green/red on hover preview.
+    Entity col_name_[MENU_CARDS] = {};
+    Entity col_pips_[MENU_CARDS] = {};
     Entity preview_glow_ = 0, preview_ship_ = 0;
     // D190: the 7 kit overlays on the preview drone — worn parts always show,
     // and hovering an upgrade row lights up the part that row would buy.

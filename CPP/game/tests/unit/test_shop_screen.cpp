@@ -166,6 +166,13 @@ TEST_CASE("Every shop widget resolves a real style", "[Game][ui][shop]") {
         REQUIRE_FALSE(el->get().style_id.empty());
         REQUIRE(table->contains(el->get().style_id));
     }
+
+    // D191: ShopSystem restyles its code-made pip labels by these names; they
+    // are invisible to the widget loop above, so pin them here.
+    REQUIRE(table->contains("pip_gain"));
+    REQUIRE(table->contains("pip_loss"));
+    // D189: the hold-to-buy fill strip borrows the HUD gauge style.
+    REQUIRE(table->contains("hud_hp_ok"));
 }
 
 TEST_CASE("Shop cards are on-canvas, clickable and disjoint", "[Game][ui][shop]") {

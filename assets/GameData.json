@@ -2589,6 +2589,20 @@
   ],
   "//ui": "UI & menu layer (Option-040 port). Rects are authored in the 800x600 design canvas; ui_canvas_transform letterboxes them onto the live window.",
   "ui_styles": {
+    "pip_gain": {
+      "//": "D191: shop pip meter previewing a stat GAIN on hover. Labels never paint bg, so bg stays transparent.",
+      "normal":   { "bg": [0, 0, 0, 0], "text": [110, 235, 130, 235] },
+      "hovered":  { "bg": [0, 0, 0, 0], "text": [110, 235, 130, 235] },
+      "pressed":  { "bg": [0, 0, 0, 0], "text": [110, 235, 130, 235] },
+      "disabled": { "bg": [0, 0, 0, 0], "text": [110, 235, 130, 235] }
+    },
+    "pip_loss": {
+      "//": "D191: shop pip meter previewing a stat LOSS on hover.",
+      "normal":   { "bg": [0, 0, 0, 0], "text": [255, 95, 85, 235] },
+      "hovered":  { "bg": [0, 0, 0, 0], "text": [255, 95, 85, 235] },
+      "pressed":  { "bg": [0, 0, 0, 0], "text": [255, 95, 85, 235] },
+      "disabled": { "bg": [0, 0, 0, 0], "text": [255, 95, 85, 235] }
+    },
     "ghost": {
       "//": "Main-menu-suite Phase A: the 'hidden widget' style. Buttons always fill their bg rect (UIRenderSystem draws with blend NONE, so a 0-alpha bg paints opaque black) - ghost's bg IS the panel colour, so a blanked button vanishes against the panel it sits on. Text is fully transparent for good measure.",
       "normal":   { "bg": [8, 12, 26, 242], "text": [0, 0, 0, 0] },

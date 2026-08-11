@@ -199,7 +199,7 @@ TEST_CASE("A card buys on a held press, not a click, and the click key is consum
     shop.menu_tick(w.cs, w.em, w.bb);
 
     // Card 0 on the UPGRADES page is Hull Plating at 50 cr.
-    REQUIRE(w.label("shop_card_0").find("Hull Plating") != std::string::npos);
+    REQUIRE(shop.card_line(w.cs, 0).find("Hull Plating") != std::string::npos);
 
     // D189: a bare click SELECTS but never buys — purchasing is press-and-hold.
     w.bb.set<std::string>(UISystem::UI_CLICK_KEY, std::string("on_shop_card_0"));
@@ -231,12 +231,12 @@ TEST_CASE("A card buys on a held press, not a click, and the click key is consum
     // A tab click switches page, and the cards follow.
     w.bb.set<std::string>(UISystem::UI_CLICK_KEY, std::string("on_shop_page_1"));
     shop.menu_tick(w.cs, w.em, w.bb);
-    REQUIRE(w.label("shop_card_0").find("Magnet Core") != std::string::npos);
+    REQUIRE(shop.card_line(w.cs, 0).find("Magnet Core") != std::string::npos);
 
     // The LEVELS page with nothing fitted explains itself instead of going blank.
     w.bb.set<std::string>(UISystem::UI_CLICK_KEY, std::string("on_shop_page_2"));
     shop.menu_tick(w.cs, w.em, w.bb);
-    REQUIRE(w.label("shop_card_0").find("Nothing fitted") != std::string::npos);
+    REQUIRE(shop.card_line(w.cs, 0).find("Nothing fitted") != std::string::npos);
 
     // LAUNCH ends the shop frame.
     w.bb.set<std::string>(UISystem::UI_CLICK_KEY, std::string("on_shop_leave"));

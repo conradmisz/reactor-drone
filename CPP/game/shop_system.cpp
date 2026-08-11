@@ -314,6 +314,16 @@ constexpr float TIP_X = 448.0f, TIP_Y = 116.0f, TIP_W = 328.0f, TIP_H = 108.0f;
 // D189: seconds a card must be held to complete a purchase.
 constexpr float HOLD_TO_BUY_S = 1.0f;
 
+// D191: the pip meter — 5 circles, filled = round(5 * owned / max). Same
+// 3-line helper as pause_stats.cpp (two call sites; not worth a header).
+std::string pips(int owned, int max) {
+    const int filled = max <= 0 ? 0
+        : std::clamp(static_cast<int>(std::lround(5.0 * owned / max)), 0, 5);
+    std::string out;
+    for (int i = 0; i < 5; ++i) out += (i < filled) ? "●" : "○";
+    return out;
+}
+
 /// Aura colour per equipped item. Mirrors the live item aura in main.cpp so the
 /// preview and the flying drone agree; -1 (nothing fitted) draws no aura.
 bool aura_color(int item_id, Tint& out) {
@@ -330,6 +340,12 @@ void set_label(ComponentStorage& storage, Entity e, const std::string& s) {
     if (e == 0) return;
     if (auto el = storage.get_component<UIElement>(e); el.has_value())
         el->get().label_text = s;
+}
+
+void set_style(ComponentStorage& storage, Entity e, const char* style) {
+    if (e == 0) return;
+    if (auto el = storage.get_component<UIElement>(e); el.has_value())
+        el->get().style_id = style;
 }
 
 void set_rect(ComponentStorage& storage, Entity e, const UIRect& r) {
@@ -499,7 +515,7 @@ bool ShopSystem::menu_tick(ComponentStorage& storage, EntityManager& entity_mana
         set_rect(storage, hold_bar_, bar);
     }
 
-    refresh_cards(storage, ship);
+    refresh_cards(storage, ship, card);
     refresh_tooltip(storage, ship, card);
     refresh_preview(storage, blackboard, ship, card);
     return false;
@@ -602,6 +618,30 @@ bool ShopSystem::menu_build(ComponentStorage& storage, EntityManager& entity_man
     hold_t_ = 0.0f;
     hold_card_ = -1;
 
+    // D191: the two-column table. Two pooled labels per card, layered above the
+    // button (which becomes a caption-less hit target): a name/price column at
+    // a fixed left edge — fixed x IS the alignment; there are no tab stops —
+    // and a pip-meter column whose style flips green/red on hover preview.
+    auto make_col = [&](int c, bool pips_col) {
+        Entity e = entity_manager.create_entity();
+        UIElement el;
+        el.element_type = "label";
+        const UIRect& r = card_rect_[c];
+        el.rect = pips_col
+            ? UIRect{r.x + 232.0f, r.y + 12.0f, r.w - 240.0f, 20.0f}
+            : UIRect{r.x + 8.0f,   r.y + 12.0f, 216.0f,       20.0f};
+        el.style_id = "caption";
+        el.z_order = 41;
+        storage.add_component<UIElement>(e, el);
+        storage.add_component<UIState>(e, UIState{false, false, true, 0.0f, false});
+        storage.add_component<ScreenMembership>(e, ScreenMembership{std::string(SCREEN_NAME)});
+        return e;
+    };
+    for (int c = 0; c < MENU_CARDS; ++c) {
+        col_name_[c] = make_col(c, false);
+        col_pips_[c] = make_col(c, true);
+    }
+
     page_ = 0;
     menu_built_ = true;
     return true;
@@ -619,6 +659,12 @@ void ShopSystem::menu_teardown(ComponentStorage& storage, Blackboard& blackboard
     for (Entity& e : preview_kit_) {
         if (e != 0) storage.add_component<DestroyRequest>(e, DestroyRequest{});
         e = 0;
+    }
+    for (int c = 0; c < MENU_CARDS; ++c) {
+        for (Entity* e : {&col_name_[c], &col_pips_[c]}) {
+            if (*e != 0) storage.add_component<DestroyRequest>(*e, DestroyRequest{});
+            *e = 0;
+        }
     }
     hold_t_ = 0.0f;
     hold_card_ = -1;
@@ -644,7 +690,8 @@ void ShopSystem::rebuild_visible(const ShipState& ship) {
     }
 }
 
-void ShopSystem::refresh_cards(ComponentStorage& storage, const ShipState& ship) {
+void ShopSystem::refresh_cards(ComponentStorage& storage, const ShipState& ship,
+                               int hovered) {
     rebuild_visible(ship);
 
     const int page = (page_ < 0 || page_ > 2) ? 0 : page_;
@@ -672,21 +719,38 @@ void ShopSystem::refresh_cards(ComponentStorage& storage, const ShipState& ship)
             set_rect(storage, card_[c], UIRect{card_rect_[c].x, card_rect_[c].y, 0.0f, 0.0f});
             set_label(storage, card_[c], std::string());
             set_disabled(storage, card_[c], true);
+            set_label(storage, col_name_[c], std::string());
+            set_label(storage, col_pips_[c], std::string());
             continue;
         }
         set_rect(storage, card_[c], card_rect_[c]);
         set_disabled(storage, card_[c], false);
+        // D191: the button is a caption-less hit target; the text lives in the
+        // two column labels above it. Button captions centre, labels left-align
+        // at a fixed x — which is what lines the first letters up.
+        set_label(storage, card_[c], std::string());
 
         const int idx = visible_[static_cast<size_t>(c)];
-        std::string line;
+        std::string name;
+        std::string meter;
+        const char* meter_style = "caption";
         if (page_ == 0) {
             const ShopUpgradeDef& d = cfg_->upgrades[static_cast<size_t>(idx)];
             const int owned = ship.upg_counts[idx];
             const bool maxed = d.max_stacks > 0 && owned >= d.max_stacks;
-            line = d.name + "  +" + num(d.amount);
-            if (owned > 0) line += " x" + std::to_string(owned);
-            line += maxed ? "   MAX"
+            name = d.name + "  +" + num(d.amount);
+            if (owned > 0) name += " x" + std::to_string(owned);
+            name += maxed ? "   MAX"
                           : "   " + std::to_string(price_for(idx, owned)) + " cr";
+            // The meter shows the owned level; hovering previews the level the
+            // purchase buys, in green. (pip_loss exists for anything that ever
+            // previews a downgrade — upgrades can only gain.)
+            if (c == hovered && !maxed) {
+                meter = pips(owned + 1, d.max_stacks);
+                meter_style = "pip_gain";
+            } else {
+                meter = pips(owned, d.max_stacks);
+            }
         } else if (page_ == 1) {
             const bool is_item = idx < n_items;
             const ShopUpgradeDef& d = is_item
@@ -695,28 +759,43 @@ void ShopSystem::refresh_cards(ComponentStorage& storage, const ShipState& ship)
             const int gid = is_item ? items::item_id_for(d.effect)
                                     : items::consumable_id_for(d.effect);
             const bool held = is_item ? (ship.item_id == gid) : (ship.consumable_id == gid);
-            line = (is_item ? "ITEM " : "USE  ") + d.name +
-                   (held ? "   EQUIPPED" : "   " + std::to_string(d.price) + " cr");
+            name = (is_item ? "ITEM " : "USE  ") + d.name;
+            meter = held ? "EQUIPPED" : std::to_string(d.price) + " cr";
         } else {
             // LEVELS reads as a transition, not a state: what you have, what the
             // click gives you, what it costs — in that order, left to right.
             const ShopUpgradeDef& d = cfg_->items[static_cast<size_t>(idx)];
             const int level = ship.gear_levels[idx];
-            line = d.name + "  LV" + std::to_string(level);
-            line += (d.amount <= 0.0f)
-                ? "  -  no scaling"
-                : " > LV" + std::to_string(level + 1) + "   " +
+            name = d.name + "  LV" + std::to_string(level);
+            meter = (d.amount <= 0.0f)
+                ? "no scaling"
+                : "> LV" + std::to_string(level + 1) + "   " +
                   std::to_string(gear_price(idx, level)) + " cr";
         }
-        set_label(storage, card_[c], line);
+        set_label(storage, col_name_[c], name);
+        set_label(storage, col_pips_[c], meter);
+        set_style(storage, col_pips_[c], meter_style);
     }
 
     // The LEVELS page with nothing fitted is a dead-end unless it says why.
     if (page_ == 2 && visible_.empty()) {
         set_rect(storage, card_[0], card_rect_[0]);
-        set_label(storage, card_[0], "Nothing fitted - buy an item on GEAR first");
+        set_label(storage, col_name_[0], "Nothing fitted - buy an item on GEAR first");
         set_disabled(storage, card_[0], true);
     }
+}
+
+std::string ShopSystem::card_line(const ComponentStorage& storage, int c) const {
+    if (c < 0 || c >= MENU_CARDS) return std::string();
+    std::string out;
+    for (Entity e : {col_name_[c], col_pips_[c]}) {
+        if (e == 0) continue;
+        if (auto el = storage.get_component<UIElement>(e); el.has_value()) {
+            if (!out.empty() && !el->get().label_text.empty()) out += "  ";
+            out += el->get().label_text;
+        }
+    }
+    return out;
 }
 
 int ShopSystem::hovered_card(const ComponentStorage& storage) const {
