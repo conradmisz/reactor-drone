@@ -22,6 +22,7 @@ Response run(const std::string& url, const std::string* body, const std::string&
     curl_easy_setopt(c, CURLOPT_WRITEDATA, &r.body);
     curl_easy_setopt(c, CURLOPT_TIMEOUT, 8L);
     curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1L);  // each request runs off-thread (std::async)
     if (body) {
         hdrs = curl_slist_append(hdrs, "Content-Type: application/json");
         if (!key.empty()) hdrs = curl_slist_append(hdrs, ("X-Game-Key: " + key).c_str());
