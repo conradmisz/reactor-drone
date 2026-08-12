@@ -12,8 +12,11 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   ctest 8/8, canary byte-identical twice, headless screenshots read back
   (Tier 2's confirms the Tier 1 full-scene wash is gone). Tier 3 (hit-stop + camera zoom punch, D196 — trails already existed) is
   committed; its canary byte-identical (mouseless canary lands no kills, so hit-stop
-  never fires in it; kill-bearing runs shift by design). **Unplayed in a window.** Next: Tier 4 GPU
-  renderer + SPIR-V shader effects.
+  never fires in it; kill-bearing runs shift by design). Tier 4 (SPIR-V postfx via SDL_CreateGPURenderState, D197) is committed —
+  OPT-IN via --gpu-renderer because the installed SDL prerelease wedges under
+  it (bugs/003: mid-run segfault with bloom, readback segfault, teardown hang;
+  all verified gone under SDL origin/main built in a scratch worktree).
+  **Unplayed in a window.** Next: Tier 5 neon line renderer.
 
 - **`feature/gameplay-polish` (2026-08-11): the THIRD playtest batch is
   implemented** as D193 (one decisions.md entry, numbered by feedback item) —

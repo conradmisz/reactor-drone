@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include "engine/ecs/systems/bloom_system.hpp"  // BloomConfig (v3 Tier 1)
+#include "engine/ecs/systems/postfx_system.hpp" // PostFxConfig (v3 Tier 4)
 
 /**
  * Typed, data-driven configuration for the "Reactor Drone" arena, parsed from
@@ -404,6 +405,7 @@ struct GameConfig {
     SpecialtyConfig specialty;     // #3/#9 spawn-stream injections
     std::vector<ActiveItemDef> actives;  // boss-reward active items
     BloomConfig bloom;             // v3 Tier 1: render-target bloom
+    PostFxConfig postfx;           // v3 Tier 4: SPIR-V post-process (GPU renderer only)
     unsigned int seed = 1234u;     // RNG seed for spread/spawn/drops
 };
 

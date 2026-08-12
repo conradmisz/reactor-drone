@@ -50,6 +50,10 @@ void BloomSystem::destroy_targets() {
 
 void BloomSystem::begin() {
     if (!active_) return;
+    // v3 Tier 4 (D197): remember where the composite should land. Normally the
+    // backbuffer (nullptr); when PostFxSystem is live, main.cpp has already set
+    // its frame target, and resolve() must restore THAT, not hard-code null.
+    dest_ = SDL_GetRenderTarget(renderer_);
     SDL_SetRenderTarget(renderer_, scene_);
     // The frame's first draw is a full clear (render_layers), but clear anyway
     // so a config with no backdrop layers still starts from black, not stale
@@ -81,8 +85,9 @@ void BloomSystem::resolve() {
         src = dst;
     }
 
-    // Back to the backbuffer: scene 1:1, then the chain additively on top.
-    SDL_SetRenderTarget(renderer_, nullptr);
+    // Back to the destination captured at begin(): scene 1:1, then the chain
+    // additively on top.
+    SDL_SetRenderTarget(renderer_, dest_);
     SDL_SetTextureBlendMode(scene_, SDL_BLENDMODE_NONE);
     SDL_RenderTexture(renderer_, scene_, nullptr, nullptr);
     for (std::size_t i = 0; i < chain_.size(); ++i) {

@@ -86,6 +86,8 @@ struct CommandLineOptions {
     bool debug_keys   = true;              // --debug-keys (default) / --no-debug-keys
     int  level        = 1;                 // --level N (1-based; selects level from levels.json)
     bool dev          = false;             // --dev / --god (developer playtest mode; off by default)
+    bool classic_renderer = false;         // --classic-renderer (v3 Tier 4: force the classic renderer; now the default, kept for compat)
+    bool gpu_renderer = false;             // --gpu-renderer (v3 Tier 4: opt IN to the SDL GPU renderer + postfx shaders)
     bool parse_error  = false;             // set on any parse failure
     bool help_requested = false;           // --help
 };

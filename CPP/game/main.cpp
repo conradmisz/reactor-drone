@@ -82,6 +82,7 @@
 #include "engine/ecs/systems/screen_stack_system.hpp"
 #include "engine/ecs/systems/ui_render_system.hpp"
 #include "engine/ecs/systems/bloom_system.hpp"
+#include "engine/ecs/systems/postfx_system.hpp"
 #include "engine/ecs/systems/ui_render_math.hpp"   // ui_canvas_transform (#11 dash face)
 #include "engine/ecs/systems/ui_system.hpp"
 #include "shield_system.hpp"
@@ -139,8 +140,35 @@ int main(int argc, char* argv[]) {
 
     SDL_WindowPtr window(SDL_CreateWindow("Reactor Drone v2", 980, 660, SDL_WINDOW_RESIZABLE));
     if (!window) { std::cerr << "Window: " << SDL_GetError() << std::endl; SDL_Quit(); return 1; }
-    SDL_RendererPtr renderer(SDL_CreateRenderer(window.get(), nullptr));
+    // v3 Tier 4 (D197): prefer the SDL GPU renderer so PostFxSystem can attach
+    // SPIR-V fragment shaders to ordinary draws. Created via properties with
+    // the SPIRV capability declared. Anything can refuse it — --classic-renderer,
+    // a headless driver, no Vulkan — and the classic renderer is byte-for-byte
+    // the pre-Tier-4 pipeline (PostFx self-disables off a non-GPU renderer).
+    SDL_RendererPtr renderer;
+    // D197: the GPU renderer is OPT-IN (--gpu-renderer) until the system SDL
+    // is updated. On the installed 3.5.0-prerelease, long bloomed gameplay
+    // sessions segfault and pixel readback during a bloomed gameplay frame
+    // segfaults (both bisected; both gone under an up-to-date SDL build). The
+    // classic renderer carries the full Tier 0-3 look; the GPU path adds only
+    // the Tier 4 postfx shader. --screenshot always takes classic — it is the
+    // deterministic verification baseline.
+    if (opts.gpu_renderer && !opts.classic_renderer &&
+        opts.screenshot_frames.empty()) {
+        SDL_PropertiesID rp = SDL_CreateProperties();
+        SDL_SetStringProperty(rp, SDL_PROP_RENDERER_CREATE_NAME_STRING, "gpu");
+        SDL_SetPointerProperty(rp, SDL_PROP_RENDERER_CREATE_WINDOW_POINTER, window.get());
+        SDL_SetBooleanProperty(rp, SDL_PROP_RENDERER_CREATE_GPU_SHADERS_SPIRV_BOOLEAN, true);
+        renderer.reset(SDL_CreateRendererWithProperties(rp));
+        SDL_DestroyProperties(rp);
+    }
+    if (!renderer) {
+        renderer.reset(SDL_CreateRenderer(window.get(), nullptr));
+    }
     if (!renderer) { std::cerr << "Renderer: " << SDL_GetError() << std::endl; SDL_Quit(); return 1; }
+    if (opts.verbose) {
+        std::cout << "Renderer: " << SDL_GetRendererName(renderer.get()) << std::endl;
+    }
     // v3 Tier 0: vsync for tear-free presentation. The Timer's busy-wait stays as a
     // pacing floor; measured delta_time drives windowed play, and --seed runs force
     // set_deterministic(true), so replay determinism is untouched. Best-effort: the
@@ -294,6 +322,11 @@ int main(int argc, char* argv[]) {
     // logical surface size; self-disables (begin/resolve become no-ops) when
     // the driver has no render-target support or GameData turns it off.
     BloomSystem bloom_system(renderer.get(), win_w, win_h, config.bloom);
+    // v3 Tier 4 (D197): SPIR-V post-process, GPU renderer only. Self-disables
+    // everywhere else (classic renderer, headless, missing .spv).
+    PostFxSystem postfx(renderer.get(),
+                        project_paths::assets_dir() + "/shaders/postfx.frag.spv",
+                        config.postfx);
 
     // === UI & menu layer (Option-040 port) ===
     // ScreenStackSystem is the single writer of the stack and of every
@@ -543,6 +576,8 @@ int main(int argc, char* argv[]) {
         // #13: the player named it. "arena shift" was engine vocabulary.
         blackboard.set<std::string>("hud_message", def.name + " — REACTOR SHIFT");
         blackboard.set<float>("hud_message_timer", SHIFT_SECONDS + 1.4f);
+        // v3 Tier 4 (D197): the shift also ripples the whole frame.
+        postfx.trigger_shock(0.5f, 0.5f);
 
         // Shockwave: a one-shot emitter host, the same pattern
         // EnemyDeathSystem and PickupSystem already use. Sited on
@@ -1641,10 +1676,12 @@ int main(int argc, char* argv[]) {
                 // 5s crossfade. Lane E verified it is callable mid-wave with
                 // enemies alive; it has no dependency on wave_cleared.
                 // v3 Tier 3 (D196): boss deaths hit harder than kills.
+                // Tier 4 (D197): and fire a screen-space shockwave from centre.
                 if (blackboard.get_or<bool>("boss.just_died", false)) {
                     blackboard.set<bool>("boss.just_died", false);
                     hitstop_left = std::max(hitstop_left,
                                             config.feedback.hitstop_frames_boss);
+                    postfx.trigger_shock(0.5f, 0.5f);
                 }
                 if (boss_system.wants_arena_shift()) {
                     boss_system.clear_arena_shift_request();
@@ -2162,6 +2199,8 @@ int main(int argc, char* argv[]) {
         // every simulated phase so a lingering shake keeps decaying into the
         // game-over/victory transition.
         if (sim) {
+            postfx.update(static_cast<float>(
+                blackboard.get_or<double>("delta_time", 0.0)));
             float trauma = feedback::decay_trauma(
                 blackboard.get_or<float>("feedback.trauma", 0.0f), dt,
                 config.feedback.trauma_decay_per_sec);
@@ -2306,6 +2345,10 @@ int main(int argc, char* argv[]) {
         // backbuffer. UI is inside the pass on purpose — menus glow too. When
         // bloom is disabled (config or target-less driver) both are no-ops and
         // this block is byte-for-byte the old pipeline.
+        // v3 Tier 4: when post-fx is live the whole composite lands in its
+        // frame target (bloom captures it at begin and resolves back to it),
+        // then apply() draws that through the SPIR-V shader to the backbuffer.
+        SDL_SetRenderTarget(renderer.get(), postfx.frame_target());
         bloom_system.begin();
         render_system.render_layers(bg_layers);
         render_system.render(component_storage, blackboard);
@@ -2322,6 +2365,7 @@ int main(int argc, char* argv[]) {
             render_system.render_emissive(component_storage, blackboard);
         }
         bloom_system.resolve();
+        postfx.apply();
 
         if (!opts.screenshot_frames.empty()) {
             for (uint64_t sf : opts.screenshot_frames) if (sf == frame) blackboard.set("screenshot_frame", frame);

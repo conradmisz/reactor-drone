@@ -217,6 +217,16 @@ GameConfig load_arena_config(const std::string& file_path) {
         if (b.contains("intensities"))
             cfg.bloom.intensities = b["intensities"].get<std::vector<float>>();
     }
+    if (data.contains("postfx")) {
+        const auto& px = data["postfx"];
+        cfg.postfx.enabled        = px.value("enabled", cfg.postfx.enabled);
+        cfg.postfx.aberration     = px.value("aberration", cfg.postfx.aberration);
+        cfg.postfx.vignette       = px.value("vignette", cfg.postfx.vignette);
+        cfg.postfx.saturation     = px.value("saturation", cfg.postfx.saturation);
+        cfg.postfx.gain           = px.value("gain", cfg.postfx.gain);
+        cfg.postfx.shock_duration = px.value("shock_duration", cfg.postfx.shock_duration);
+        cfg.postfx.shock_amp      = px.value("shock_amp", cfg.postfx.shock_amp);
+    }
     if (data.contains("minimap")) {
         const auto& m = data["minimap"];
         cfg.minimap.enabled   = m.value("enabled", cfg.minimap.enabled);

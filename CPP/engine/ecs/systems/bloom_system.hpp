@@ -74,6 +74,7 @@ private:
     SDL_Texture* emissive_ = nullptr;            // full-size glow-only target (Tier 2)
     std::vector<SDL_Texture*> chain_;            // halving blur targets
     int w_ = 0, h_ = 0;
+    SDL_Texture* dest_ = nullptr;                // where resolve() composites (Tier 4)
     bool active_ = false;
 
     void destroy_targets();

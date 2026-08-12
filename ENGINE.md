@@ -90,6 +90,7 @@ Current measured state: **150 identical · 31 modified · 27 new** (208 source f
 | `tests/unit/test_tint.cpp` | `modulate_color` / Tint semantics |
 | `ecs/systems/bloom_math.hpp`, `ecs/systems/bloom_system.{hpp,cpp}` | v3 Tier 1+2 render-target bloom: scene target + **emissive target** + halving linear-filtered downsample chain composited back additively. The chain reads the emissive target only (D195), so hulls/backdrop/HUD never bleed. Self-disables without render-target support (headless = old pipeline). `BloomConfig` lives here; parsed from GameData's optional `"bloom"` block (D194) |
 | `tests/unit/test_bloom_math.cpp` | Chain geometry + intensity clamp |
+| `ecs/systems/postfx_system.{hpp,cpp}` | v3 Tier 4 (D197): one SPIR-V fragment shader (offline-compiled `assets/shaders/postfx.frag.spv`) on a full-screen draw via `SDL_CreateGPURenderState` — aberration, vignette, grade, shockwave. GPU renderer only, which is OPT-IN (`--gpu-renderer`, see bugs/003); self-disables everywhere else. Destructor deliberately leaks the GPU state/shader (bugs/003 teardown wedge) |
 | `ui_style.{hpp,cpp}` | `StyleTable`, `WidgetState`, `parse_ui_styles` — widget colours as pure data (Option-040 port) |
 | `ui_focus_math.hpp`, `ui_fade_math.hpp` | Tab-order and fade-curve helpers (Option-040 port) |
 | `ecs/systems/ui_render_math.hpp` | Widget-state precedence, the design→window canvas transform, inclusive hit-test, z-order sort — **plus the v2-only `pulse_alpha_scale` / `apply_alpha_scale` and `fit_text_in_rect` (D85)** |
@@ -253,6 +254,11 @@ render:
   render_system.render
   hud_system.render
   ui_render_system.render                   — menus composite last, over world AND HUD
+  (v3 Tier 4: when postfx is live, the whole composite above landed in its
+  frame target — main sets it before bloom.begin(), and bloom's resolve
+  restores the target captured at begin(). postfx.apply() then draws that
+  target through the shader to the backbuffer. --screenshot forces the
+  classic renderer, so captures never traverse this path.)
   if bloom.active():
     bloom.begin_emissive()                  — v3 Tier 2: switch to the emissive target
     render_system.render_emissive           — `_glow` siblings + additive Tints only

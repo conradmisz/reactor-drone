@@ -1956,3 +1956,26 @@ game should *show* its state, not make you infer it.
     squash needs either a new component (invariant-6 expensive) or draw-path
     plumbing — for feedback the Flash + hit-stop + punch stack already covers.
     Revisit only if a windowed playtest asks for it.
+- **D197 — Tier 4: SPIR-V post-processing rides SDL_Renderer, behind an opt-in.**
+  `PostFxSystem` attaches one precompiled fragment shader
+  (`assets/shaders/postfx.frag.spv`, built OFFLINE by `assets/shaders/make.sh`
+  with glslc or standalone glslang — a build never compiles shaders, same
+  discipline as the PNG generators) to a full-screen draw via
+  `SDL_CreateGPURenderState`. One pass: chromatic aberration, vignette,
+  saturation/gain grade, and a radial shockwave triggered by boss deaths and
+  arena shifts (`trigger_shock`). The whole composite routes into the postfx
+  frame target (bloom's `resolve()` restores to the target captured at
+  `begin()` instead of hard-coding the backbuffer — the one bloom change this
+  tier needed), then `apply()` draws it back through the shader.
+  - **Opt-in, not default** (`--gpu-renderer`): the installed SDL prerelease
+    wedges — see `bugs/003`. The classic renderer carries the full Tier 0-3
+    look; Tier 4 adds grade/aberration/shockwave only. Flip the default after
+    a system SDL update passes the bug-003 re-test.
+  - **Uniforms are 8 tightly-packed floats** matching the GLSL block; the
+    binding model is SDL's render-state contract (texture set 2/0, uniforms
+    set 3/0, vertex color loc 0 + uv loc 1).
+  - **Rejected:** SDL_shadercross (HLSL source — GLSL + glslang is one less
+    toolchain); per-arena LUT textures (a second sampler binding + a LUT
+    generator for what saturation/gain uniforms deliver today — revisit if an
+    arena needs a real look, not a grade); rewriting rendering on raw SDL_GPU
+    (the render-state API exists precisely so SDL_Renderer code keeps working).
