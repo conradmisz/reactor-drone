@@ -1,0 +1,56 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+jobs:
+  build-win:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y g++-mingw-w64-x86-64-posix
+      - uses: actions/cache@v4
+        with:
+          path: CPP/win-deps
+          key: win-deps-${{ hashFiles('CPP/fetch-win-deps.sh') }}
+      - run: CPP/fetch-win-deps.sh
+      - run: |
+          cmake -S CPP -B CPP/build-win -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-x86_64.cmake \
+            -DCMAKE_PREFIX_PATH=$PWD/CPP/win-deps -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
+          cmake --build CPP/build-win -j
+      - run: installer/package-win.sh
+      - uses: actions/upload-artifact@v4
+        with: { name: stage, path: installer/stage }
+  release:
+    needs: build-win
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: stage, path: installer/stage }
+      - name: Version from tag
+        shell: bash
+        run: echo "VER=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - name: Tag matches version.hpp (rc suffix allowed)
+        shell: bash
+        run: grep -q "\"${VER%%-*}\"" CPP/game/version.hpp
+      - run: choco install innosetup -y
+      - name: Build installer
+        shell: bash
+        run: '"/c/Program Files (x86)/Inno Setup 6/ISCC.exe" -DMyAppVersion=$VER installer/reactor-drone.iss'
+      - name: Zip portable build
+        shell: bash
+        run: cd installer/stage && 7z a ../../ReactorDrone-win64.zip .
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            installer/Output/ReactorDrone-Setup-*.exe
+            ReactorDrone-win64.zip
+      - name: Push to itch.io
+        shell: bash
+        env: { BUTLER_API_KEY: '${{ secrets.BUTLER_API_KEY }}' }
+        run: |
+          curl -fL https://broth.itch.zone/butler/windows-amd64/LATEST/archive/default -o butler.zip
+          7z x butler.zip
+          ./butler.exe push installer/stage brainstormlabs/reactor-drone:windows --userversion "$VER"
