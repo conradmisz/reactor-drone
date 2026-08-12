@@ -2345,6 +2345,58 @@ int main(int argc, char* argv[]) {
         // backbuffer. UI is inside the pass on purpose — menus glow too. When
         // bloom is disabled (config or target-less driver) both are no-ops and
         // this block is byte-for-byte the old pipeline.
+        // v3 Tier 5 (D198): the frame's neon lines, world-space, immediate
+        // mode — rebuilt every frame from live state, so there is nothing to
+        // invalidate on an arena shift. Drawn into the scene after the world
+        // (below) and again into the emissive target so they bloom.
+        std::vector<RenderSystem::GlowLine> glow_lines;
+        if (phase == PHASE_PLAYING || phase == PHASE_INTERMISSION ||
+            phase == PHASE_SHOP) {
+            // Arena boundary ring — the rink line. Soft blue-white, like the
+            // Laser Hockey rink; the clamp circle finally has a visible edge.
+            RenderSystem::GlowLine ring;
+            ring.points = line_mesh::circle_points(
+                config.arena.center_x, config.arena.center_y,
+                config.arena.radius, 96);
+            ring.width = 7.0f;
+            ring.color = Color{150, 210, 255, 190};
+            glow_lines.push_back(std::move(ring));
+            // Obstacle outlines in the live arena's enemy tint, dimmed.
+            if (active_arena >= 0 &&
+                active_arena < static_cast<int>(config.arenas.size())) {
+                const ArenaDef& adef =
+                    config.arenas[static_cast<size_t>(active_arena)];
+                for (const auto& ob : adef.obstacles) {
+                    RenderSystem::GlowLine box;
+                    box.points = {{ob.x, ob.y}, {ob.x + ob.w, ob.y},
+                                  {ob.x + ob.w, ob.y + ob.h}, {ob.x, ob.y + ob.h},
+                                  {ob.x, ob.y}};
+                    box.width = 4.0f;
+                    box.color = Color{adef.enemy_r, adef.enemy_g, adef.enemy_b, 90};
+                    box.core = false;   // outline only; the prop art is the body
+                    glow_lines.push_back(std::move(box));
+                }
+            }
+            // Laser beams: a hot ribbon over each recycled beam quad.
+            for (Entity b : component_storage.entities_with_component<BeamTag>()) {
+                auto bp = component_storage.get_component<Position>(b);
+                auto bs = component_storage.get_component<Size>(b);
+                auto br = component_storage.get_component<Rotation>(b);
+                if (!bp.has_value() || !bs.has_value() || !br.has_value()) continue;
+                const float cx = bp->get().x + bs->get().width * 0.5f;
+                const float cy = bp->get().y + bs->get().height * 0.5f;
+                const float half = bs->get().width * 0.5f;
+                const float ca = std::cos(br->get().angle);
+                const float sa = std::sin(br->get().angle);
+                RenderSystem::GlowLine beam;
+                beam.points = {{cx - ca * half, cy - sa * half},
+                               {cx + ca * half, cy + sa * half}};
+                beam.width = 10.0f;
+                beam.color = Color{160, 230, 255, 230};
+                glow_lines.push_back(std::move(beam));
+            }
+        }
+
         // v3 Tier 4: when post-fx is live the whole composite lands in its
         // frame target (bloom captures it at begin and resolves back to it),
         // then apply() draws that through the SPIR-V shader to the backbuffer.
@@ -2352,6 +2404,7 @@ int main(int argc, char* argv[]) {
         bloom_system.begin();
         render_system.render_layers(bg_layers);
         render_system.render(component_storage, blackboard);
+        render_system.render_glow_lines(glow_lines, blackboard);   // v3 Tier 5
         hud_system.render(component_storage, blackboard);
         // Menus composite last, on top of the world and the gameplay HUD.
         ui_render_system.render(component_storage, blackboard);
@@ -2363,6 +2416,7 @@ int main(int argc, char* argv[]) {
         if (bloom_system.active()) {
             bloom_system.begin_emissive();
             render_system.render_emissive(component_storage, blackboard);
+            render_system.render_glow_lines(glow_lines, blackboard);   // lines bloom too
         }
         bloom_system.resolve();
         postfx.apply();

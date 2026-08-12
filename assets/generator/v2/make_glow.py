@@ -40,10 +40,25 @@ def muzzle_star(size=128, points=4, spike=0.46, core=0.12) -> Image.Image:
     return Image.alpha_composite(img, core_small)
 
 
+def line_falloff(w=8, h=64) -> Image.Image:
+    """v3 Tier 5 (D198): the 1D cross-section gradient the neon line renderer
+    samples (v = 0 edge, 0.5 spine, 1 edge). White, alpha-only falloff, so the
+    per-vertex color does the tinting under additive blending."""
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    px = img.load()
+    for y in range(h):
+        t = abs((y + 0.5) / h - 0.5) * 2.0          # 0 at spine, 1 at edge
+        a = int(round(255 * (1.0 - t) ** 2.4))
+        for x in range(w):
+            px[x, y] = (255, 255, 255, a)
+    return img
+
+
 def main():
     print("make_glow:")
     # Soft glow discs at two sizes — the additive halo workhorses.
     save_png("glow_disc_64", radial_glow(64, (255, 255, 255), power=2.2))
+    save_png("line_falloff", line_falloff())
     save_png("glow_disc_128", radial_glow(128, (255, 255, 255), power=2.4))
     # A tighter, hotter core for projectile heads.
     save_png("glow_core_32", radial_glow(32, (255, 255, 255), power=3.2))

@@ -1979,3 +1979,23 @@ game should *show* its state, not make you infer it.
     generator for what saturation/gain uniforms deliver today — revisit if an
     arena needs a real look, not a grade); rewriting rendering on raw SDL_GPU
     (the render-state API exists precisely so SDL_Renderer code keeps working).
+- **D198 — Tier 5: neon lines are immediate-mode geometry, not entities.**
+  `line_mesh_math.hpp` (pure, tested: miter joins with width preservation +
+  hairpin clamp, strip triangulation, arc-length UVs, circle sampling) feeds
+  `RenderSystem::render_glow_lines`: world-space polylines → miter-joined
+  triangle-strip ribbons via `SDL_RenderGeometry`, cross-section sampling the
+  new 1D `line_falloff.png` additively, with an optional 0.35x-width
+  white-lifted core strip — resolution-independent at any zoom, no sprite
+  minification ever. The camera transform + world Y-flip are applied inside
+  `render_system.cpp`, keeping the one-flip-per-space invariant literally
+  one-file true. main.cpp rebuilds the line list every frame from live state
+  (nothing to invalidate on an arena shift) and draws it twice: into the scene
+  and into the bloom emissive target, so every line halos.
+  Consumers: the arena boundary ring (the clamp circle finally has a visible
+  rink line), obstacle outlines in the live arena's enemy tint, and a hot
+  ribbon over each recycled laser-beam quad.
+  **Rejected:** a `LineGlow` component (invariant 6 — and an immediate-mode
+  list has no destruction/recycling story to get wrong); replacing the beam
+  quads (the ribbon rides on top; removing the quad would touch the damage
+  path for a visual); enemy-shot tracers (their particle trails already read
+  well — add if a playtest disagrees).

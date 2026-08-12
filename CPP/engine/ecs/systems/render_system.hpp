@@ -29,6 +29,7 @@
 #include <vector>
 #include "engine/ecs/component_storage.hpp"
 #include "engine/ecs/blackboard.hpp"
+#include "engine/ecs/systems/line_mesh_math.hpp"
 
 // Forward declaration — no #include needed in the header
 class ResourceManager;
@@ -102,6 +103,30 @@ public:
      * @param blackboard Blackboard to read camera.zoom from
      */
     void render(const ComponentStorage& storage, const Blackboard& blackboard);
+
+    /**
+     * v3 Tier 5 (D198): one glowing polyline, immediate-mode. World-space
+     * points; the camera transform and the world Y-flip are applied HERE (the
+     * flip stays in this file, per the invariant). Game code pushes a list
+     * each frame and calls render_glow_lines once into the scene and once
+     * into the emissive target.
+     */
+    struct GlowLine {
+        std::vector<line_mesh::P2> points;   // world space, >= 2
+        float width = 6.0f;                  // world units (zoom-scaled)
+        Color color{255, 255, 255, 255};
+        bool core = true;                    // also draw a narrow white core
+    };
+
+    /**
+     * Draw glowing ribbons with SDL_RenderGeometry: each line becomes a
+     * miter-joined triangle strip whose cross-section samples the 1D falloff
+     * texture (v2/line_falloff.png), drawn additively. When `core` is set a
+     * second strip at 0.35x width and white-lifted color rides on top — the
+     * hot center every neon line needs. Lines with < 2 points are skipped.
+     */
+    void render_glow_lines(const std::vector<GlowLine>& lines,
+                           const Blackboard& blackboard);
 
     /**
      * v3 Tier 2: the emissive pass. Walks the same entities in the same order

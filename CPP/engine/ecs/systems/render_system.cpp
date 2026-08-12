@@ -246,6 +246,68 @@ void RenderSystem::render_walk(const ComponentStorage& storage,
     }
 }
 
+void RenderSystem::render_glow_lines(const std::vector<GlowLine>& lines,
+                                     const Blackboard& blackboard) {
+    if (lines.empty()) return;
+
+    // Same affine transform CameraSystem applies to entities (world -> screen),
+    // then the world Y-flip — which lives in this file and nowhere else.
+    float lookat_x = blackboard.get_or<float>("camera.lookat.x", 0.0f);
+    float lookat_y = blackboard.get_or<float>("camera.lookat.y", 0.0f);
+    float zoom = std::max(blackboard.get_or<float>("camera.zoom", 1.0f), 0.01f);
+    int win_w, win_h;
+    draw_surface_size(renderer_, &win_w, &win_h);
+    const float cam_left = lookat_x - static_cast<float>(win_w) / zoom / 2.0f;
+    const float cam_bottom = lookat_y - static_cast<float>(win_h) / zoom / 2.0f;
+
+    SDL_Texture* falloff = resource_manager_.try_load_texture("v2/line_falloff.png");
+    if (falloff) SDL_SetTextureBlendMode(falloff, SDL_BLENDMODE_ADD);
+
+    auto draw_ribbon = [&](const std::vector<line_mesh::P2>& pts, float width,
+                           Uint8 r, Uint8 g, Uint8 b, Uint8 a) {
+        const auto ribbon = line_mesh::build_ribbon(pts, width);
+        if (ribbon.size() < 4) return;
+        const auto idx = line_mesh::strip_indices(ribbon.size());
+        std::vector<SDL_Vertex> verts;
+        verts.reserve(ribbon.size());
+        const SDL_FColor col{static_cast<float>(r) / 255.0f,
+                             static_cast<float>(g) / 255.0f,
+                             static_cast<float>(b) / 255.0f,
+                             static_cast<float>(a) / 255.0f};
+        for (const auto& v : ribbon) {
+            SDL_Vertex sv;
+            sv.position.x = (v.x - cam_left) * zoom;
+            sv.position.y = static_cast<float>(win_h) - (v.y - cam_bottom) * zoom;
+            sv.color = col;
+            // Cross-section drives the falloff texture's vertical gradient.
+            sv.tex_coord.x = 0.5f;
+            sv.tex_coord.y = v.v;
+            verts.push_back(sv);
+        }
+        if (!falloff) SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_ADD);
+        SDL_RenderGeometry(renderer_, falloff, verts.data(),
+                           static_cast<int>(verts.size()), idx.data(),
+                           static_cast<int>(idx.size()));
+        if (!falloff) SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+    };
+
+    for (const auto& line : lines) {
+        if (line.points.size() < 2) continue;
+        const float w = line.width * zoom;
+        draw_ribbon(line.points, w, line.color.r, line.color.g, line.color.b,
+                    line.color.a);
+        if (line.core) {
+            // The hot center: narrower, lifted toward white.
+            auto lift = [](Uint8 c) {
+                int v = static_cast<int>(c) + 140;
+                return static_cast<Uint8>(v > 255 ? 255 : v);
+            };
+            draw_ribbon(line.points, w * 0.35f, lift(line.color.r),
+                        lift(line.color.g), lift(line.color.b), line.color.a);
+        }
+    }
+}
+
 void RenderSystem::present() {
     SDL_RenderPresent(renderer_);
 }

@@ -16,7 +16,10 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   OPT-IN via --gpu-renderer because the installed SDL prerelease wedges under
   it (bugs/003: mid-run segfault with bloom, readback segfault, teardown hang;
   all verified gone under SDL origin/main built in a scratch worktree).
-  **Unplayed in a window.** Next: Tier 5 neon line renderer.
+  Tier 5 (immediate-mode neon line ribbons via SDL_RenderGeometry, D198:
+  arena rink ring, obstacle outlines, laser-beam ribbons) is committed. ALL
+  FIVE TIERS DONE. **Unplayed in a window** — a windowed playtest of the whole
+  branch is the next real gate; then the pre-merge branch (user's plan).
 
 - **`feature/gameplay-polish` (2026-08-11): the THIRD playtest batch is
   implemented** as D193 (one decisions.md entry, numbered by feedback item) —
