@@ -1912,3 +1912,46 @@ game should *show* its state, not make you infer it.
   exe under Wine to completion, headless and windowed with a rendered
   screenshot; the save landed at
   `~/.wine/drive_c/users/$USER/AppData/Roaming/conradm/ReactorDrone/saves/meta.json`.
+
+### D195 — Identity rides `MetaSave`; registration is server-unique; ESC always defers, never silently registers  *(2026-08-11)*
+- **Decision:** player identity (`player_id`, `player_name`, `registered`) is
+  three new fields on the existing `MetaSave`, not a second profile file.
+  `player_id` is a `generate_uuid()`-produced id, written immediately at first
+  startup (before any name is ever chosen) so it survives a player who skips
+  registration and relaunches. Name uniqueness is enforced server-side only
+  (case-insensitive, `POST /register`'s 409) — the client never pre-checks or
+  caches a name list. `PHASE_NAME_ENTRY` (6) is entered once, before the title,
+  only when `!meta.registered && net::enabled()`; ESC at any point in that
+  phase returns to the title leaving `registered` false and touching neither
+  `player_name` nor `meta_write` — a skip always retries next launch and can
+  never half-register. Renaming (`N` at the title) reuses the exact same
+  phase/submit path, pre-filled with the current name, because the backend
+  upserts by `player_id` — there is no separate rename endpoint or code path
+  to drift from registration.
+- **Why:** `MetaSave` already has the one property this needed — a
+  garbage-tolerant load path (missing file, malformed JSON, wrong types all
+  fall back to defaults) — so duplicating that tolerance in a second file would
+  only be a second place for it to rot out of sync (the same reasoning D80 used
+  to keep `MetaSave` to "the only state that outlives a run"). Server-side
+  uniqueness (not a client-side reservation/check step) keeps the client dumb
+  and avoids a second source of truth for "is this name taken" that could
+  disagree with the database under a race between two players. The ESC/skip
+  rule exists because a half-registered state (id present, name written,
+  `registered` false, or vice versa) would be strictly worse than "ask again
+  next launch" — nothing downstream (Task 8's score submission) can assume a
+  meaningful `player_name` unless `registered` is true, so the two fields are
+  written in the same breath as the 200 response, never separately.
+- **Rejected:** a client-side name blocklist/cache (still races the server,
+  and the server is the source of truth regardless); writing `registered=true`
+  optimistically before the server confirms (would let an offline player
+  "register" a name nobody else can ever take); a separate `on_rename_click`
+  code path (would double the surface Task 9's leaderboard has to trust).
+- **Verified:** `[meta]`-tagged unit tests (round-trip, old-save defaults,
+  UUID shape) green; `runTestsAll.py` all-green; warning-free build; the
+  replay canary run twice byte-identical (`net::enabled()` is false whenever
+  `--stopframe` is set, so headless never touches `PHASE_NAME_ENTRY` or the
+  network); manual walkthrough against the live backend — first launch, typing,
+  200 registration, relaunch-skips, a real 409 (hand-edited `player_id` +
+  `registered:false` retrying the same name), ESC-skip, and `N`-rename with
+  ESC-cancel — all observed directly, screenshotted, and logged in
+  `task-7-report.md`.

@@ -17,7 +17,9 @@
 #include <iostream>
 #include <cmath>
 #include <algorithm>
+#include <chrono>
 #include <ctime>
+#include <future>
 #include <random>
 #include <vector>
 
@@ -44,7 +46,10 @@
 #include "engine/ecs/systems/hud_system.hpp"
 #include "engine/ecs/systems/screenshot_system.hpp"
 
+#include <nlohmann/json.hpp>
+
 #include "net/http_client.hpp"
+#include "net/net_config.hpp"
 #include "cli_parser.hpp"
 #include "script_loader.hpp"
 #include "debug_state.hpp"
@@ -104,7 +109,7 @@ using SDL_RendererPtr = std::unique_ptr<SDL_Renderer, SDL_RendererDeleter>;
 
 // Game phases (Blackboard "phase").
 enum Phase { PHASE_TITLE = 0, PHASE_PLAYING = 1, PHASE_GAMEOVER = 2, PHASE_VICTORY = 3,
-             PHASE_SHOP = 4, PHASE_INTERMISSION = 5 };
+             PHASE_SHOP = 4, PHASE_INTERMISSION = 5, PHASE_NAME_ENTRY = 6 };
 
 // Screen name of the between-waves prompt, authored in GameData.json's "screens".
 constexpr const char* SCREEN_INTERMISSION = "wave_intermission";
@@ -116,6 +121,7 @@ constexpr const char* SCREEN_SETTINGS     = "settings";     // main-menu-suite P
 constexpr const char* SCREEN_RECORDS      = "records";
 constexpr const char* SCREEN_HOW          = "how_to_play";
 constexpr const char* SCREEN_PRESTIGE     = "prestige_offer";   // Lane O (D128)
+constexpr const char* SCREEN_NAME_ENTRY   = "name_entry";       // Task 7 (D195)
 
 int main(int argc, char* argv[]) {
     auto opts = parse_command_line(argc, argv);
@@ -166,6 +172,13 @@ int main(int argc, char* argv[]) {
     // replay of a given seed and ship is identical with or without a save file.
     // The ship *choice* is deliberately not persisted, for the same reason.
     MetaSave meta = meta_load(meta_save_path());
+    // Task 7: the player id is generated once, at first startup, and persisted
+    // immediately — before a name is ever registered — so it survives a player
+    // who skips name entry and relaunches. Never regenerated once present.
+    if (meta.player_id.empty()) {
+        meta.player_id = generate_uuid();
+        meta_write(meta_save_path(), meta);
+    }
     int selected_ship = 0;
     // Main-menu-suite Phase A: the difficulty picked on the run_setup screen,
     // consumed by LAUNCH. SPACE quick-start ignores it on purpose (always Normal).
@@ -827,8 +840,20 @@ int main(int argc, char* argv[]) {
     };
 
     spawn_world();
-    int phase = PHASE_TITLE;
+    // Task 7: unregistered + online -> the name-entry screen comes before the
+    // title. Headless/scripted runs never enter it — net::enabled() is already
+    // false whenever --stopframe is set, which is the whole determinism
+    // guarantee this rides on (see net::set_enabled() above).
+    int phase = (!meta.registered && net::enabled()) ? PHASE_NAME_ENTRY : PHASE_TITLE;
     blackboard.set("phase", phase);
+    // Task 7: name-entry screen state. `name_buf` is the live typed buffer;
+    // `pending_register` outlives a single frame (declared here, not inside
+    // the loop) so the future can be polled across frames without its
+    // destructor blocking — see net/http_client.hpp's doc comment.
+    std::string name_buf;
+    std::string name_entry_error;
+    std::future<net::Response> pending_register;
+    if (phase == PHASE_NAME_ENTRY) SDL_StartTextInput(window.get());
 
     // Phase B (D50): start a run at a chosen difficulty. Re-copying base_config
     // makes the choice re-selectable across runs — scaling `config` in place
@@ -989,6 +1014,10 @@ int main(int argc, char* argv[]) {
     bool save_w_resolved = false, continue_w_resolved = false;
     auto save_widget = [&]() { return widget_by_name("pause_save", save_w, save_w_resolved); };
 
+    // Task 7: name_entry's two dynamic labels, resolved the same by-name way.
+    Entity name_buf_w = 0, name_msg_w = 0;
+    bool name_buf_w_resolved = false, name_msg_w_resolved = false;
+
     // CONTINUE is one widget that is either an offer or nothing at all: UIElement
     // has no visibility flag (D82 hit the same wall), so with no save it renders
     // as an empty flat label and its click is ignored below.
@@ -1103,8 +1132,11 @@ int main(int argc, char* argv[]) {
     };
 
     // The title *is* the main menu, so it is pushed before the first frame; the
-    // stack consumes the command at the top of the loop.
-    blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH, std::string(SCREEN_MAIN_MENU));
+    // stack consumes the command at the top of the loop. Task 7: an unregistered
+    // online player starts on name_entry instead (phase was already set above).
+    blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH,
+                                std::string(phase == PHASE_NAME_ENTRY ? SCREEN_NAME_ENTRY
+                                                                      : SCREEN_MAIN_MENU));
     sync_settings_widgets();   // Phase C: checkboxes reflect the loaded file
 
     Timer timer(opts.fps > 0 ? static_cast<double>(opts.fps) : 60.0);
@@ -1116,6 +1148,7 @@ int main(int argc, char* argv[]) {
     bool f5_prev = false;   // --dev only: skip-to-next-wave edge
     bool tab_prev = false, q_prev = false;
     bool digit_prev[8] = {false};
+    bool n_prev = false;   // Task 7: N renames the pilot from the title screen
     if (opts.paused) debug_paused = true;
 
     std::cout << "Reactor Drone v2 initialized. Arrows move, mouse aims, hold fire. ESC quits.\n";
@@ -1209,6 +1242,10 @@ int main(int argc, char* argv[]) {
         bool q_now = keys[SDL_SCANCODE_Q];
         bool q_edge = (q_now && !q_prev) || scripted_use;
         q_prev = q_now;
+        // Task 7: N at the title re-enters name_entry, pre-filled, to rename.
+        bool n_now = keys[SDL_SCANCODE_N];
+        bool n_edge = (n_now && !n_prev);
+        n_prev = n_now;
         int digit = scripted_digit;
         for (int d = 0; d < 8; ++d) {
             bool down = keys[SDL_SCANCODE_1 + d];
@@ -1949,7 +1986,17 @@ int main(int argc, char* argv[]) {
                 bool launch = false;      // fresh start via LAUNCH or SPACE
                 size_t launch_difficulty = 0;
                 bool resumed = false;
-                if (menu_click == "on_play_click") {
+                // Task 7: N re-enters name_entry pre-filled with the current name
+                // (blank if never registered) — the server upserts by player_id,
+                // so a rename rides the exact same submit path as first-launch.
+                if (n_edge) {
+                    name_buf = meta.player_name;
+                    name_entry_error.clear();
+                    phase = PHASE_NAME_ENTRY;
+                    SDL_StartTextInput(window.get());
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                std::string(SCREEN_NAME_ENTRY));
+                } else if (menu_click == "on_play_click") {
                     blackboard.remove(UISystem::UI_CLICK_KEY);
                     blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
                                                 std::string(SCREEN_RUN_SETUP));
@@ -2061,6 +2108,78 @@ int main(int argc, char* argv[]) {
                     blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
                                                 std::string());
                     start_run(launch_difficulty);
+                }
+            } else if (phase == PHASE_NAME_ENTRY) {
+                // Task 7: first-launch / rename pilot-name registration. Typed
+                // text and BACKSPACE come off the Blackboard, published this
+                // frame by InputSystem between SDL_StartTextInput/StopTextInput.
+                const std::string typed =
+                    blackboard.get_or<std::string>("ui.text_input", std::string());
+                for (char c : typed) {
+                    if (name_buf.size() >= 24) break;
+                    // Printable ASCII only (space..~) — filters control bytes and
+                    // any non-ASCII UTF-8 lead/continuation bytes from an IME.
+                    if (c >= 0x20 && c < 0x7F) name_buf.push_back(c);
+                }
+                if (blackboard.get_or<bool>("ui.backspace_pressed", false) && !name_buf.empty())
+                    name_buf.pop_back();
+
+                // Poll last frame's submit before reading escape/enter this frame,
+                // so a response that lands the same frame as ENTER never races it.
+                if (pending_register.valid() &&
+                    pending_register.wait_for(std::chrono::seconds(0)) ==
+                        std::future_status::ready) {
+                    const net::Response resp = pending_register.get();
+                    if (resp.status == 200) {
+                        meta.player_name = name_buf;
+                        meta.registered = true;
+                        meta_write(meta_save_path(), meta);
+                        SDL_StopTextInput(window.get());
+                        phase = PHASE_TITLE;
+                        blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                    std::string(SCREEN_MAIN_MENU));
+                    } else if (resp.status == 409) {
+                        name_entry_error = "Name taken - try another";
+                    } else {
+                        name_entry_error = "Offline - ESC to skip";
+                    }
+                }
+                if (phase == PHASE_NAME_ENTRY &&
+                    blackboard.get_or<bool>("ui.escape_pressed", false)) {
+                    // Skip: registered stays false, so this retries next launch.
+                    SDL_StopTextInput(window.get());
+                    phase = PHASE_TITLE;
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                std::string(SCREEN_MAIN_MENU));
+                } else if (phase == PHASE_NAME_ENTRY &&
+                           blackboard.get_or<bool>("ui.enter_pressed", false) &&
+                           !pending_register.valid() && !name_buf.empty()) {
+                    name_entry_error.clear();
+                    pending_register = net::post_json(
+                        std::string(net::NET_BASE) + "/register",
+                        nlohmann::json{{"player_id", meta.player_id},
+                                      {"name", name_buf}}.dump());
+                }
+
+                if (phase == PHASE_NAME_ENTRY) {
+                    if (Entity w = widget_by_name("name_entry_buffer", name_buf_w,
+                                                  name_buf_w_resolved);
+                        w != 0) {
+                        if (auto el = component_storage.get_component<UIElement>(w);
+                            el.has_value())
+                            el->get().label_text = name_buf + "_";
+                    }
+                    if (Entity w = widget_by_name("name_entry_msg", name_msg_w,
+                                                  name_msg_w_resolved);
+                        w != 0) {
+                        if (auto el = component_storage.get_component<UIElement>(w);
+                            el.has_value())
+                            el->get().label_text =
+                                !name_entry_error.empty() ? name_entry_error
+                                : pending_register.valid()
+                                    ? "Submitting..."
+                                    : "Type a name, then press ENTER  (ESC to skip)";
+                    }
                 }
             } else if (advance && (phase == PHASE_GAMEOVER || phase == PHASE_VICTORY)) {
                 // Restart keeps the difficulty the run was started at — `config`

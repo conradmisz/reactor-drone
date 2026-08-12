@@ -105,7 +105,7 @@ Current measured state: **150 identical · 31 modified · 27 new** (208 source f
 | `ecs/components.hpp` | `Tint` (rgba + `additive`), `Particle`, `ParticleEmitter` + `EmitterShape`, `RenderLayer`, `Rotation::flip_when_left`, and the UI layer's `UIRect` / `UIElement` / `UIState` / `UIScreen` / `ScreenMembership` (`UIElement::pulse_hz` is v2-only) |
 | `ecs/component_storage.{hpp,cpp}` | Storage maps + `get_storage<>` specialisations for `Tint`, `Particle`, `ParticleEmitter`, the four UI components, and the v2 game components (`ShipState`, `Pickup`, `Flash`); `Experience` removed |
 | `ecs/destruction.cpp` | Sweeps the same new component types on entity destruction, UI components included — without that, a destroyed widget's `UIElement` survives onto a recycled entity id |
-| `ecs/systems/input_system.{hpp,cpp}` | Takes an `SDL_Renderer*` and runs `SDL_RenderCoordinatesFromWindow` so mouse coords are logical-space, not window-space; WASD aliases the arrow keys; publishes the per-frame UI edges (`mouse.down`/`mouse.up`, `ui.escape_pressed`/`tab`/`enter`) and the logical-space `mouse.screen_x/y`. **Escape is now an edge, not an immediate quit** — `main.cpp` decides what it means |
+| `ecs/systems/input_system.{hpp,cpp}` | Takes an `SDL_Renderer*` and runs `SDL_RenderCoordinatesFromWindow` so mouse coords are logical-space, not window-space; WASD aliases the arrow keys; publishes the per-frame UI edges (`mouse.down`/`mouse.up`, `ui.escape_pressed`/`tab`/`enter`) and the logical-space `mouse.screen_x/y`. **Escape is now an edge, not an immediate quit** — `main.cpp` decides what it means. Task 7: also publishes `ui.backspace_pressed` (an edge, same as Escape/Tab/Enter) and `ui.text_input` (a per-frame string, reset to `""` at the top of `process_events` and appended to from `SDL_EVENT_TEXT_INPUT`). Both are always reset/published — they cost nothing in a phase that never calls `SDL_StartTextInput`, since that's the only thing that makes SDL emit `SDL_EVENT_TEXT_INPUT` at all. `main.cpp`'s `PHASE_NAME_ENTRY` is the one reader |
 | `gamedata_loader.cpp` | Parses the optional top-level `ui_styles` and `screens` blocks. Both are gated on the key being present, so a data file without them creates zero UI entities and raises no error |
 | `lua_bindings.cpp` | The `ui.*` global table (`push_screen`, `pop_screen`, `set_label`, `get_value`, `set_disabled`, `widget_id`). Unused by this game — see §5 |
 | `ecs/systems/player_control_system.{hpp,cpp}` | `set_speed()` (so a shop purchase applies mid-run) and diagonal normalisation |
@@ -221,6 +221,12 @@ else if PHASE_INTERMISSION && sim:          — the between-waves prompt. The dr
 else if PHASE_SHOP && sim:  shop.update, [HOOK: shop-menu], animation.update,
                             destroy_marked_entities
 else if sim:                animation.update, destroy_marked_entities, title/restart input
+                            — Task 7: PHASE_NAME_ENTRY (6) is handled in this same
+                              `else if (sim)` bucket, as a sibling of the PHASE_TITLE
+                              branch: reads ui.text_input/backspace/enter/escape,
+                              polls a stored net::post_json future (never a discarded
+                              temporary — see §5), rewrites the name_entry screen's
+                              two dynamic labels by name (the menu_continue pattern)
 
 every phase, if sim:
   particles.update(emit = PLAYING || INTERMISSION) + destroy_marked_entities

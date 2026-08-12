@@ -9,6 +9,7 @@
 
 #include "engine/ecs/systems/input_system.hpp"
 #include <iostream>
+#include <string>
 
 void InputSystem::process_events(ComponentStorage& storage, bool& running, Blackboard& blackboard,
                                  SDL_Renderer* renderer) {
@@ -21,6 +22,12 @@ void InputSystem::process_events(ComponentStorage& storage, bool& running, Black
     blackboard.set("ui.escape_pressed", false);
     blackboard.set("ui.tab_pressed", false);
     blackboard.set("ui.enter_pressed", false);
+    blackboard.set("ui.backspace_pressed", false);
+    // Text-input accumulator (Task 7, name entry): reset every frame, appended
+    // to below from SDL_EVENT_TEXT_INPUT. Only produces events between a
+    // caller's SDL_StartTextInput/SDL_StopTextInput, so this is inert in every
+    // phase that never enters text-entry mode.
+    blackboard.set<std::string>("ui.text_input", std::string());
 
     // 1. Process SDL events — for quit/close detection and mouse clicks
     SDL_Event event;
@@ -40,8 +47,18 @@ void InputSystem::process_events(ComponentStorage& storage, bool& running, Black
                 } else if (event.key.key == SDLK_RETURN ||
                            event.key.key == SDLK_KP_ENTER) {
                     blackboard.set("ui.enter_pressed", true);
+                } else if (event.key.key == SDLK_BACKSPACE) {
+                    blackboard.set("ui.backspace_pressed", true);
                 }
                 break;
+            case SDL_EVENT_TEXT_INPUT: {
+                // Only fires between SDL_StartTextInput/SDL_StopTextInput, so
+                // this is a no-op outside the one phase that calls those.
+                const std::string prior = blackboard.get_or<std::string>("ui.text_input",
+                                                                          std::string());
+                blackboard.set<std::string>("ui.text_input", prior + event.text.text);
+                break;
+            }
             case SDL_EVENT_MOUSE_BUTTON_DOWN:
                 if (event.button.button == SDL_BUTTON_LEFT) {
                     blackboard.set("mouse.clicked", true);
