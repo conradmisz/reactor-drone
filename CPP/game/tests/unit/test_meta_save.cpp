@@ -183,3 +183,28 @@ TEST_CASE("GameData ships parse: Standard free, purple gated at 4000", "[ships][
     CHECK_THAT(cfg.ships[0].weapon.fire_rate, WithinAbs(cfg.player.weapon.fire_rate, 1e-6));
     CHECK_THAT(cfg.ships[0].weapon.damage, WithinAbs(cfg.player.weapon.damage, 1e-6));
 }
+
+TEST_CASE("identity fields round-trip through meta save", "[meta]") {
+    MetaSave m;
+    m.player_id = "abc-123"; m.player_name = "Conrad"; m.registered = true;
+    std::string path = "/tmp/rd_meta_test.json";
+    REQUIRE(meta_write(path, m));
+    MetaSave q = meta_load(path);
+    REQUIRE(q.player_id == "abc-123");
+    REQUIRE(q.player_name == "Conrad");
+    REQUIRE(q.registered);
+}
+TEST_CASE("old save without identity fields loads with defaults", "[meta]") {
+    std::string path = "/tmp/rd_meta_old.json";
+    std::ofstream(path) << "{\"lifetime_score\": 500}";
+    MetaSave q = meta_load(path);
+    REQUIRE(q.lifetime_score == 500);
+    REQUIRE(q.player_id.empty());
+    REQUIRE_FALSE(q.registered);
+}
+TEST_CASE("uuid shape", "[meta]") {
+    std::string u = generate_uuid();
+    REQUIRE(u.size() == 36);
+    REQUIRE(u[8] == '-'); REQUIRE(u[13] == '-'); REQUIRE(u[18] == '-'); REQUIRE(u[23] == '-');
+    REQUIRE(u != generate_uuid());
+}

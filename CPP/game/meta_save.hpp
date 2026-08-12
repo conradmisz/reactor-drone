@@ -37,6 +37,16 @@ struct MetaSave {
     /// where scores bank, read only to write labels — never reaches the sim.
     int best_wave = 0;      ///< 1-based highest wave reached across all runs
     long long runs_played = 0;
+
+    /// Distribution/leaderboard (Task 7): identity rides this same file rather
+    /// than a separate profile — one garbage-tolerant load path, not two.
+    /// `player_id` is generated once at first startup and persisted immediately
+    /// (even before a name is ever registered) so it is stable across relaunches.
+    /// None of the three reach the simulation — same DETERMINISM rule as the
+    /// rest of this struct.
+    std::string player_id;
+    std::string player_name;
+    bool registered = false;
 };
 
 /// Absolute path of the meta-save (`<project root>/saves/meta.json`).
@@ -50,6 +60,11 @@ MetaSave meta_load(const std::string& path);
 /// Write, creating the `saves/` directory if needed. False on any failure;
 /// callers ignore it, because failing to record progress must not stop the game.
 bool meta_write(const std::string& path, const MetaSave& m);
+
+/// A fresh player id: 16 std::random_device bytes, formatted as hex 8-4-4-4-12
+/// (36 chars incl. dashes). Not claimed to be a spec-compliant v4 UUID — just
+/// unique enough to key a player row, generated once and persisted forever.
+std::string generate_uuid();
 
 /// A ship is unlocked once lifetime score reaches its threshold (>=, so exactly
 /// 4000 unlocks the 4000-point ship).

@@ -1,12 +1,26 @@
 #include "meta_save.hpp"
 
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <random>
 
 #include <nlohmann/json.hpp>
 
 #include "engine/project_paths.hpp"
 #include "prestige.hpp"
+
+std::string generate_uuid() {
+    std::random_device rd;
+    unsigned char bytes[16];
+    for (unsigned char& b : bytes) b = static_cast<unsigned char>(rd() & 0xFF);
+    char buf[37];
+    std::snprintf(buf, sizeof(buf),
+                  "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+                  bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+                  bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]);
+    return std::string(buf);
+}
 
 std::string meta_save_path() {
     return project_paths::user_data_dir() + "/saves/meta.json";
@@ -25,6 +39,9 @@ MetaSave meta_load(const std::string& path) {
             m.prestige       = j.value("prestige", 0);
             m.best_wave      = std::max(0, j.value("best_wave", 0));
             m.runs_played    = std::max(0LL, j.value("runs_played", 0LL));
+            m.player_id      = j.value("player_id", std::string());
+            m.player_name    = j.value("player_name", std::string());
+            m.registered     = j.value("registered", false);
         }
     } catch (...) {
         return MetaSave{};
@@ -45,7 +62,10 @@ bool meta_write(const std::string& path, const MetaSave& m) {
         out << nlohmann::json{{"lifetime_score", m.lifetime_score},
                               {"prestige", m.prestige},
                               {"best_wave", m.best_wave},
-                              {"runs_played", m.runs_played}}.dump(2) << "\n";
+                              {"runs_played", m.runs_played},
+                              {"player_id", m.player_id},
+                              {"player_name", m.player_name},
+                              {"registered", m.registered}}.dump(2) << "\n";
         return out.good();
     } catch (...) {
         return false;  // ponytail: a lost save is a lost unlock, never a crashed game
