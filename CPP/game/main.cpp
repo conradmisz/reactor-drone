@@ -102,6 +102,8 @@
 #include "prestige.hpp"
 #include "run_save.hpp"
 #include "settings_save.hpp"
+#include "telemetry.hpp"
+#include "version.hpp"   // GAME_VERSION, stamped into every run report
 
 struct SDL_WindowDeleter { void operator()(SDL_Window* w) const { if (w) SDL_DestroyWindow(w); } };
 struct SDL_RendererDeleter { void operator()(SDL_Renderer* r) const { if (r) SDL_DestroyRenderer(r); } };
@@ -870,6 +872,30 @@ int main(int argc, char* argv[]) {
     std::string name_buf;
     std::string name_entry_error;
     std::future<net::Response> pending_register;
+    // === HOOK: telemetry state === (specs/telemetry.md)
+    // The per-run report lives in main's scope, never the ECS (Invariant 6), and
+    // is write-only with respect to the sim (Invariant 4). Declared here because
+    // bank_run_score below captures it by reference.
+    telemetry::RunReport tm;
+    const std::string session_id = generate_uuid();       // one per launch
+    std::vector<std::future<net::Response>> tm_inflight;  // reaped per frame, drained at exit
+    // Consumable-slot watcher for the per-frame sampler: a slot going from held
+    // to empty during play is one use. Hoisted here rather than a function-local
+    // static so it cannot survive across runs.
+    int prev_consumable = -1;
+    // items::use_consumable clears ship.consumable_name in the SAME call that
+    // sets consumable_id = -1, so reading the name once the slot is already
+    // empty yields "". Latch it while the consumable is still held.
+    std::string prev_consumable_name;
+    // === END HOOK: telemetry state ===
+
+    // Main-menu-suite Phase C: settings — loaded once, published to the two
+    // Blackboard flags the apply sites read, checkbox widgets synced at boot.
+    // Loaded HERE rather than at the screen-widget block below because
+    // bank_run_score's telemetry guard reads settings.analytics.
+    SettingsSave settings = settings_load(settings_save_path());
+    blackboard.set<bool>("settings.screen_shake", settings.screen_shake);
+    blackboard.set<bool>("settings.minimap", settings.minimap);
     // Task 7 review round 1, Critical 1: the name actually POSTed for the
     // in-flight `pending_register`, captured at submit time. `name_buf` is
     // live and can change while the request is in flight (typing is not
@@ -920,7 +946,7 @@ int main(int argc, char* argv[]) {
     // at run end — death, victory, or quitting out of the pause menu. `banked`
     // guards the double call (game over, then quit from the same screen).
     bool run_banked = true;   // no run in progress at the title
-    auto bank_run_score = [&](const Blackboard& bb) {
+    auto bank_run_score = [&](const Blackboard& bb, const char* outcome) {
         if (run_banked) return;
         run_banked = true;
         const int run_score = bb.get_or<int>("score", 0);
@@ -950,6 +976,35 @@ int main(int argc, char* argv[]) {
                 nlohmann::json{{"player_id", meta.player_id},
                               {"score", run_score}}.dump(),
                 net::NET_GAME_KEY);
+        }
+
+        // Telemetry: finalize and POST the per-run summary from this same
+        // exactly-once edge (specs/telemetry.md). Consent is checked here and
+        // nowhere else; net::enabled() is false under --stopframe, so headless
+        // and scripted runs collect but never send.
+        //
+        // NOTE: /score is deliberately NOT re-sent here. The plan's Task 5
+        // snippet adds one, but it was written before /score was wired (commit
+        // 4fb7e3a) — sending it again would double-count every run. /score also
+        // stays gated on meta.registered rather than settings.analytics: the
+        // leaderboard is a separate opt-in (registering a pilot name), so
+        // switching analytics off must not silently stop banking scores.
+        tm.outcome = outcome;
+        tm.wave = wave_spawner.current_wave_index() + 1;
+        tm.score = run_score;
+        tm.shots  = static_cast<long long>(bb.get_or<double>("tm.shots", 0.0));
+        tm.hits   = static_cast<long long>(bb.get_or<double>("tm.hits", 0.0));
+        tm.dashes = static_cast<long long>(bb.get_or<double>("tm.dashes", 0.0));
+        tm.bombs  = static_cast<long long>(bb.get_or<double>("tm.bombs", 0.0));
+        tm.item_equipped = bb.get_or<std::string>("ship.item_name", std::string());
+        for (Entity p : component_storage.entities_with_component<PlayerTag>())
+            if (auto s = component_storage.get_component<ShipState>(p); s.has_value())
+                for (int i = 0; i < 8; ++i) tm.upg_counts[i] = s->get().upg_counts[i];
+        tm.ui["minimap_on"] = settings.minimap ? 1 : 0;
+        tm.ui["shake_on"] = settings.screen_shake ? 1 : 0;
+        if (net::enabled() && settings.analytics) {
+            tm_inflight.push_back(net::post_json(std::string(net::NET_BASE) + "/telemetry",
+                                                 telemetry::serialize(tm), net::NET_GAME_KEY));
         }
     };
 
@@ -1003,6 +1058,20 @@ int main(int argc, char* argv[]) {
         std::cout << "Prestige: " << meta.prestige << "\n";
         // === END HOOK: prestige ===
         run_banked = false;
+        // Telemetry: a fresh report per run. The combat counters are published
+        // by the systems onto the Blackboard, so they reset here too.
+        tm = telemetry::RunReport{};
+        tm.game_version = GAME_VERSION;
+        tm.player_id = meta.player_id;
+        tm.session_id = session_id;
+        tm.seed = config.seed;
+        tm.ship = selected_ship;
+        tm.prestige = meta.prestige;
+        tm.resumed = (resume != nullptr && resume->present);
+        prev_consumable = -1;
+        for (const char* k : {"tm.shots", "tm.hits", "tm.dashes", "tm.bombs"})
+            blackboard.set<double>(k, 0.0);
+        blackboard.set<std::string>("tm.last_hit_by", "");
         // Task 8: a new run starts with no submit status on screen, and any
         // still-in-flight submit from the run just left is abandoned rather
         // than awaited — see the doc comment on `pending_score`'s declaration.
@@ -1016,6 +1085,7 @@ int main(int argc, char* argv[]) {
             apply_difficulty(config, d);
         }
         blackboard.set<std::string>("difficulty", label);
+        tm.difficulty = label;
         // The one visible proof of the choice in a headless run — the menu itself
         // is the only place it shows on screen.
         // Lane F adds the ship: it is the only headless proof of which hull flew,
@@ -1140,11 +1210,8 @@ int main(int argc, char* argv[]) {
         }
     };
 
-    // Main-menu-suite Phase C: settings — loaded once, published to the two
-    // Blackboard flags the apply sites read, checkbox widgets synced at boot.
-    SettingsSave settings = settings_load(settings_save_path());
-    blackboard.set<bool>("settings.screen_shake", settings.screen_shake);
-    blackboard.set<bool>("settings.minimap", settings.minimap);
+    // (settings itself is loaded earlier, beside the telemetry state, because
+    // bank_run_score's POST guard reads settings.analytics.)
     Entity shake_w = 0, mini_w = 0, analytics_w = 0, rec_w[4] = {};
     bool shake_w_resolved = false, mini_w_resolved = false, analytics_w_resolved = false,
          rec_w_resolved[4] = {};
@@ -1267,6 +1334,18 @@ int main(int argc, char* argv[]) {
         // Task 8: poll the score submission every frame, regardless of phase —
         // it can still be in flight after the player has already backed out to
         // the title. wait_for(0s) never blocks (net/http_client.hpp).
+        // Reap finished telemetry POSTs. Nothing reads the responses — this only
+        // stops the vector growing across a long session, and keeps each future's
+        // destructor off the frame path.
+        tm_inflight.erase(
+            std::remove_if(tm_inflight.begin(), tm_inflight.end(),
+                           [](std::future<net::Response>& f) {
+                               return !f.valid() ||
+                                      f.wait_for(std::chrono::seconds(0)) ==
+                                          std::future_status::ready;
+                           }),
+            tm_inflight.end());
+
         if (pending_score.valid() &&
             pending_score.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
             const net::Response resp = pending_score.get();
@@ -1541,7 +1620,7 @@ int main(int argc, char* argv[]) {
                 }
             } else if (pause_click == "on_quit_click") {
                 blackboard.remove(UISystem::UI_CLICK_KEY);
-                bank_run_score(blackboard);   // Lane F: quitting still ends the run
+                bank_run_score(blackboard, "quit");   // Lane F: quitting still ends the run
                 running = false;
             } else if (pause_click == "on_to_menu_click") {
                 // Main-menu-suite Phase C: back to the hub without exiting. Banks
@@ -1551,7 +1630,7 @@ int main(int argc, char* argv[]) {
                 // so the arena simply freezes behind the menu until the next
                 // start_run's spawn_world rebuilds it.
                 blackboard.remove(UISystem::UI_CLICK_KEY);
-                bank_run_score(blackboard);
+                bank_run_score(blackboard, "quit");
                 phase = PHASE_TITLE;
                 blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
                                             std::string(SCREEN_MAIN_MENU));
@@ -1825,6 +1904,44 @@ int main(int argc, char* argv[]) {
             }
             // === END HOOK: dash ===
 
+            // === HOOK: telemetry === (specs/telemetry.md)
+            // Pure observation: reads player state, writes only the report. Zero
+            // RNG draws and nothing the sim reads, so the replay canary cannot
+            // move (Invariant 4).
+            {
+                float hull = 0.0f, shield = 0.0f, px = 0.0f, py = 0.0f;
+                long long currency = 0;
+                for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+                    if (auto h = component_storage.get_component<Health>(p); h.has_value())
+                        hull = h->get().current;
+                    if (auto s = component_storage.get_component<ShipState>(p); s.has_value()) {
+                        shield = s->get().shield;
+                        currency = s->get().currency;
+                        const int cur = s->get().consumable_id;
+                        if (prev_consumable >= 0 && cur < 0 && !prev_consumable_name.empty())
+                            tm.consumables_used[prev_consumable_name]++;
+                        if (cur >= 0)
+                            prev_consumable_name =
+                                blackboard.get_or<std::string>("ship.consumable_name",
+                                                               std::string());
+                        prev_consumable = cur;
+                    }
+                    if (auto pos = component_storage.get_component<Position>(p); pos.has_value()) {
+                        px = pos->get().x; py = pos->get().y;
+                        if (auto sz = component_storage.get_component<Size>(p); sz.has_value()) {
+                            px += sz->get().width * 0.5f; py += sz->get().height * 0.5f;
+                        }
+                    }
+                }
+                const int cur_wave = blackboard.get_or<int>("wave", 0);
+                telemetry::frame_sample(
+                    tm, blackboard.get_or<double>("delta_time", 0.0), cur_wave, hull, shield,
+                    currency, px, py,
+                    active_arena_index(config.arenas, std::max(cur_wave, 1)),
+                    config.arena.center_x, config.arena.center_y, config.arena.radius);
+            }
+            // === END HOOK: telemetry ===
+
             player_aim.update(component_storage, blackboard);
 
             wave_spawner.update(blackboard, entity_manager, component_storage);
@@ -2067,12 +2184,33 @@ int main(int argc, char* argv[]) {
 
             if (!player_alive) {
                 phase = PHASE_GAMEOVER;
-                bank_run_score(blackboard);   // Lane F: the run ended, so it counts
+                // Telemetry: where and to what the drone died, captured before the
+                // bank so the entity is still around to read a position off.
+                tm.died = true;
+                tm.death_wave = blackboard.get_or<int>("wave", 0);
+                tm.killed_by = blackboard.get_or<std::string>("tm.last_hit_by", std::string());
+                for (Entity p : component_storage.entities_with_component<PlayerTag>())
+                    if (auto pos = component_storage.get_component<Position>(p); pos.has_value()) {
+                        tm.death_x = pos->get().x; tm.death_y = pos->get().y;
+                        // Same centre-of-sprite convention the heat sampler uses.
+                        // Position is the top-left corner, so without this the
+                        // death bin lands a cell or two off the occupancy grid it
+                        // is meant to be read against.
+                        if (auto sz = component_storage.get_component<Size>(p); sz.has_value()) {
+                            tm.death_x += sz->get().width * 0.5f;
+                            tm.death_y += sz->get().height * 0.5f;
+                        }
+                    }
+                tm.death_bin = telemetry::heat_bin(tm.death_x, tm.death_y,
+                                                   config.arena.center_x,
+                                                   config.arena.center_y,
+                                                   config.arena.radius);
+                bank_run_score(blackboard, "death");   // Lane F: the run ended, so it counts
                 end_saved_run();              // Lane K: and a dead run is not resumable
             } else if (wave_spawner.all_complete() &&
                        component_storage.entities_with_component<EnemyTag>().empty()) {
                 phase = PHASE_VICTORY;
-                bank_run_score(blackboard);
+                bank_run_score(blackboard, "victory");
                 end_saved_run();
             } else if (shop_due || key_entry) {
                 // The shop no longer opens itself. The same trigger now raises the
@@ -2515,6 +2653,21 @@ int main(int argc, char* argv[]) {
                 // Restart keeps the difficulty the run was started at — `config`
                 // is already scaled, so only the world is rebuilt.
                 run_banked = false;   // Lane F: a new run to bank at its end
+                // Telemetry: same fresh-report reset as start_run's copy. The
+                // difficulty is not re-chosen here, so it is read back rather
+                // than recomputed from the picker.
+                tm = telemetry::RunReport{};
+                tm.game_version = GAME_VERSION;
+                tm.player_id = meta.player_id;
+                tm.session_id = session_id;
+                tm.seed = config.seed;
+                tm.ship = selected_ship;
+                tm.prestige = meta.prestige;
+                tm.difficulty = blackboard.get_or<std::string>("difficulty", "Normal");
+                prev_consumable = -1;
+                for (const char* k : {"tm.shots", "tm.hits", "tm.dashes", "tm.bombs"})
+                    blackboard.set<double>(k, 0.0);
+                blackboard.set<std::string>("tm.last_hit_by", "");
                 // Task 8: same reasoning as start_run's copy of this pair — clear
                 // the on-screen status and abandon (never await) a submit still
                 // in flight from the run that just ended.
@@ -2741,10 +2894,17 @@ int main(int argc, char* argv[]) {
 
     // Lane F: closing the window mid-run is also a run end. bank_run_score is
     // idempotent, so a run that already died or won is not counted twice.
-    bank_run_score(blackboard);
+    bank_run_score(blackboard, "close");
 
     // Credits are on the ship, not the blackboard — but a headless run needs them
     // in the summary line to be a usable balance/determinism canary (R2, R6).
+    // Drain in-flight telemetry POSTs so the vector's destructor cannot stall
+    // shutdown invisibly. ponytail: bounded 2 s grace each, after which the
+    // future destructors can still block up to CURLOPT_TIMEOUT (8 s) worst case;
+    // a detach-capable client is the upgrade path if exit latency ever matters.
+    for (auto& f : tm_inflight)
+        if (f.valid()) f.wait_for(std::chrono::seconds(2));
+
     int final_credits = 0;
     for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
         if (auto s = component_storage.get_component<ShipState>(p); s.has_value()) {
