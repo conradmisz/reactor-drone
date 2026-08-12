@@ -15,6 +15,7 @@ set(ENGINE_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/brute_force_strategy.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/camera_control_system.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/camera_system.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/chip_synth_system.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/collision_math.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/collision_system.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/debug_hud_system.cpp"

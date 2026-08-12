@@ -173,7 +173,10 @@ TEST_CASE("the engine-suite config blocks parse and default inert",
     CHECK_FALSE(cfg.flight_report.enabled);  // Lane S
     CHECK_FALSE(cfg.scars.enabled);       // Lane V
     CHECK_FALSE(cfg.palettes.enabled);    // Lane W
-    CHECK(cfg.patterns.empty());          // Lane Y
+    // Lane Y landed (D148): the patterns are AUTHORED now, so the inertness that
+    // matters is that no enemy type references one — an unreferenced pattern
+    // spawns nothing. --suite is what points the boss at "reactor_bloom".
+    CHECK_FALSE(cfg.patterns.empty());
     CHECK_FALSE(cfg.audio.enabled);       // Lane Z
     for (const ArenaDef& a : cfg.arenas) CHECK(a.surges.empty());   // Lane X
     for (const ArenaDef& a : cfg.arenas)

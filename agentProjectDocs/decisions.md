@@ -1939,3 +1939,186 @@ Verified: clean build (only Lua's `tmpnam`), `ctest` 8/8, replay canary
 byte-identical twice **and identical to the pre-Phase-0 baseline** on
 `--seed 42 --keys 5:SPACE --stopframe 3000`. Not played in a window — Phase 0
 ships no behaviour to play.
+
+
+## D139-D150 — the engine feature suite, built on `engine-suite-build`
+
+Eleven features from `specs/engine-feature-suite.md`, one entry per lane because
+they were built in the spec's paired order and each one is independently
+revertable. **Every lane is data-disabled by default**; `--suite` (D141) turns the
+whole set on for a playtest. That is what lets the replay canary stay
+byte-identical to pre-suite `master` while eleven features sit in the tree.
+
+**D139 — #1 Temporal Overload (Lane P), `game/timescale_system.hpp`.** A free
+function in a header (the `tick_shields` idiom) that rewrites the frame's
+`delta_time` from a scale that is a pure function of sim state: a 3-kill chain
+inside 1.2 s dilates for a beat, and critical hull dilates for as long as it
+lasts. Fed the REAL dt, never its own output — feeding it back would make the
+ease rate itself dilate and the effect would never recover.
+*The frame-vs-seconds audit the spec asked for:* frames still advance one per loop
+iteration, so everything frame-indexed is unaffected **by construction** —
+scripted `--keys`, `--stopframe`, the F1 pause's `end_frame_no_advance`, and the
+particle system's per-phase emit gate. Everything counting seconds (wave delays,
+spawn intervals, cooldowns, lifetimes, i-frames) slows together, which is the
+feature. Only `PHASE_PLAYING` dilates, so no menu animation is ever slowed by a
+fight that is not running. `min_scale` floors it at 0.35 — a scale of 0 would stop
+every seconds-based timer in the sim permanently.
+**Rejected:** scaling inside `Timer`. `Timer` also owns the frame counter and the
+sleep budget, and dilating a *wall-clock* pacer would slow the real frame rate
+rather than the simulated one.
+
+**D140 — RG Resonance Grid (Lane R), `engine/ecs/systems/resonance_grid_system.*`.**
+A 40x28 damped spring lattice under the entities, kicked by the `fx.grid_impulses`
+published at deaths, dashes and pillar collapses. Nodes are independent
+oscillators rather than a coupled mesh: the impulse falloff (3.5 cells) is then
+the exact reach, which bounds the per-impulse cost, and a coupled mesh's wave
+propagation is not visible at 40 px pitch anyway. Semi-implicit integration with
+damping as a multiplicative decay, so a stiff spring cannot blow up at any dt, and
+`dt` is clamped internally — a 2-second stall frame must not launch the lattice.
+Drawn as one `SDL_RenderLines` strip per row and column (68 calls, not 2200), with
+per-strip alpha from that strip's peak displacement, which is what makes it read
+as a *display* of the combat rather than as decoration.
+**Stepped by the REAL dt, not the dilated one**, so bullet time does not turn the
+lattice to treacle.
+
+**D141 — `--suite`.** One CLI flag that flips every suite feature on, plus the two
+that are inert by *data* rather than by a flag (it authors obstacle HP for the
+destructible arena and a surge table + a boss bullet pattern). It exists because
+the branch's whole purpose is a merge decision, and a reviewer should not have to
+hand-edit `GameData.json` to see what they are deciding about. Everything is
+inside `if (opts.suite)` and applied before `base_config` is taken, so a restart
+mid-session keeps the suite on and the default path is untouched.
+**Trap paid for here:** the new parse branch silently stole `--dev`'s `++i`, so
+`--dev` span the argv cursor forever — a hang, not a failure, and it presented as
+an unrelated unit-test timeout. `test_cli_parser.cpp` now pins that every flag
+combination parses at all.
+
+**D142 — #8 Adaptive Director (Lane Q), `game/director_system.hpp`.** Three EMAs
+(damage taken, kills landed, hull remaining) into a stress scalar in [0,1], mapped
+onto ONE multiplier over `WaveSpawnerSystem`'s spawn *spacing*. It cannot change
+counts, rosters or wave order — the authored table stays the single authority on
+what a run contains — which is what keeps it invisible instead of a difficulty
+setting nobody asked for. `spacing_mult` is read into a local before the compare
+and the subtract, so a mid-wave change can never leave the timer above the
+threshold and fire twice. A frozen phase HOLDS the stress rather than decaying it:
+the stress that opened the shop is the pacing the next wave should start from.
+Publishes `director.stress`, which the chip synth consumes as music intensity.
+
+**D143 — #10 Flight Report (Lane S), `game/flight_report.*`.** Fixed ring buffers
+of the flight path (every Nth frame), the hits taken and the kill positions,
+composed onto the game-over/victory screens through `minimap_math`'s mapping and
+the pooled-widget idiom. Two decisions worth keeping: the report **decimates**
+rather than truncates, so a long run shows the shape of the whole flight instead
+of its first thirty seconds; and hits are detected from the hull *dropping* rather
+than from a publisher at the damage site, which catches every damage source
+including ones not written yet (surges, crumbling pillars). Kill positions come off
+the shared `fx.scar_stamps` list — one sim event, two render-only consumers.
+
+**D144 — #3 Force-Field Layer (Lane T), `game/force_field_system.*`.**
+Fixed-capacity sources, one accumulation pass writing velocity deltas, run before
+`movement.update` so a field acts on the frame it exists — and the arena clamp and
+obstacle push-out still run after movement, so no field can pull a body through a
+wall however strong it is. Inert by SHAPE, not by a flag: no sources means the
+pass iterates nothing, so there is no `enabled` bool to check. Per-frame delta is
+clamped, because a delta big enough to teleport a body is a delta the push-out
+cannot resolve.
+**Rejected: folding `items::repulse_enemies` into it**, which the spec asked for.
+That helper pushes *positions* after the clamp; the force layer writes
+*velocities* before movement. Converting it would retune a shipped item's feel
+without a playtest, and this branch exists to answer "should the suite merge?" —
+blurring it with a change to an existing item makes that question harder to
+answer, not easier. The fold is a one-lane follow-up once the suite is judged.
+
+**D145 — #6 Battle-Scar Layer (Lane V), `engine/ecs/systems/scar_system.*`.** One
+`SDL_TEXTUREACCESS_TARGET` accumulation texture at arena scale, never cleared
+between frames, stamped from `fx.scar_stamps` and wiped on an arena shift so each
+arena keeps its own history. The scorch sprite is generated procedurally at
+runtime instead of coming from the offline generator: that keeps the whole feature
+inside one file pair with no committed binary and no sidecar. Stamps per frame are
+bounded twice — at the publisher (`fx_events::MAX_PER_FRAME`) and here
+(`max_stamps_per_frame`) — so the 30-second stall force-kill wiping a wave in one
+frame costs a known number of blits. Texture creation failing degrades to drawing
+nothing; a cosmetic layer must never take a run down.
+
+**D146 — #9 Destructible Arena (Lane U), `game/crumble_system.*`.** `ObstacleDef`
+gained `hp` (0 = indestructible, every shipped row); a positive value gives the
+pillar a `Health`, and `ProjectileHitSystem` routes a shot into anything solid
+carrying one through the **existing** `DamageEvent` -> `DamageApplySystem` path, so
+there is no second damage path to keep in sync. The A* grid is rebuilt from
+`CrumbleSystem`'s live obstacle list rather than from the config rows, and
+`set_arena` re-seeds that list on every arena apply — each arena arrives whole, so
+a run cannot permanently strip the map. The rebuild call lives in `main.cpp` beside
+the existing one, so exactly one place knows how the grid is built.
+**Deferred:** cracked sprite variants from the offline generator. Damage stages
+are a darkening multiply for now, which reads at the size obstacles draw and costs
+no new assets; the `ponytail:` comment names the upgrade.
+
+**D147 — #5 Palette Engine (Lane W), `engine/ecs/systems/palette_system.*`.**
+*The feasibility gate the spec left open, resolved:* SDL3's 2D renderer has no
+shader hook, so a true indexed LUT would need either a CPU pass over ~650k pixels
+a frame or an `SDL_RenderGeometry` trick that still cannot express an arbitrary
+index remap. What ships is a **duotone resolve**: the frame is captured to a
+target texture and drawn twice — once modulated toward the palette's shadow
+colour, once added back in its highlight colour — which recolours every pixel from
+one table in two draw calls and no per-pixel CPU work. Honest limitation: that is
+a *tone map*, not an index remap, so two colours with equal luminance resolve
+alike where a real LUT could send them anywhere. On indexed-framebuffer hardware
+the true LUT is free and the palette table is already the data it would need.
+Hull-critical pushes the mix, so the WORLD browns out instead of a red vignette —
+the point of owning the frame's colour. Needs two hook blocks (arm before the
+first draw, resolve after the last), the same necessity the prestige hook has.
+
+**D148 — #2 Bullet-Pattern Language (Lane Y), `game/bullet_pattern.*`.** A pattern
+is a `GameData.json` row: an op list of ring/fan/spiral/aimed/wait with counts,
+speeds, spreads and angular velocities. `op_angles` is pure and engine-free, so
+the whole choreography unit-tests without a world. **No RNG anywhere in the
+interpreter** — variation is authored — so it cannot perturb the sim stream under
+any conditional. Shots spawn through the existing `enemy_fire::spawn_shot`, so a
+pattern shot IS an enemy shot (layer, ContactDamage, trail) and needs no damage
+system. `MAX_SHOTS_PER_OP` (64) bounds a mistyped `count` in code as well as in
+data; the real constraint is the particle budget, since each shot carries a ~10
+live-particle trail. `EnemyBehavior` gained `pattern`/`cursor`/`phase` — three
+fields on an existing struct, which is the cheap option Invariant 6 asks for
+before a new component type. A non-looping pattern retires its emitter
+(`pattern = -1`) rather than parking an out-of-range cursor, which the range guard
+would otherwise wrap back to op 0 forever.
+
+**D149 — #7 Reactor Surge Events (Lane X), `game/surge_system.*`.** Coolant floods
+(velocity drag applied per frame, so it self-cancels the moment a body leaves and
+there is no state to restore), a sweeping plasma arc (a moving `ContactDamage`
+carrier riding the arc, so the existing collision path handles it), eruptions, and
+a gravity storm that registers straight into Lane T's source API and owns no
+physics of its own. Two live events maximum, and the damaging effects carry
+`ContactDamage` like the Phase-6 hazards, so no new damage system exists.
+*Determinism:* the scheduler owns a **private** `mt19937` seeded per run, so
+authoring surge content cannot shift a spawn or a loot roll; within its own stream
+it takes exactly three draws on every wave tick, before any conditional, so
+retuning a `chance` cannot desync a later wave either (R2 / D18/D19). A surge that
+fires does move the entity-id cursor, which is a real sim change — and exactly why
+the feature stays inert until an arena authors a table.
+**Trap paid for here:** `carrier == 0` as a "no carrier" sentinel is wrong —
+`EntityManager` hands out 0 as a valid id, so the first entity of a run would have
+been invisible to the teardown and left a hazard box on the floor forever. It is a
+separate `has_carrier` flag.
+
+**D150 — #4 Chip-Synth Audio (Lane Z), `engine/ecs/systems/chip_synth_system.*`.**
+No samples: an 8-voice pool (pulse/saw/triangle/noise) with per-note pitch sweep
+and a decay envelope, an SFX table, and a 16-step bass sequencer whose tempo and
+voicing follow `director.stress` — the Adaptive Director doubling as a music
+director. One file pair; the entire diff outside it is one include, one hook block
+and `SDL_INIT_AUDIO` inside `start()`, so a single revert removes the feature
+(project law for this lane). **Every trigger site is inside the system**, reading
+keys the game already publishes for its own reasons, so no game file has an audio
+line in it. Lock-free: the audio thread only ever reads atomics the game thread
+writes, and the callback neither allocates nor blocks (a lock in the audio path is
+a click, and a click is worse than a dropped note). Its noise voice runs a private
+LCG, never the sim's stream.
+**Trap paid for here, and it cost a core dump:** `main.cpp` calls `SDL_Quit()` as a
+statement, but a function-local static system is destroyed at *process exit* — so
+the destructor was tearing down an audio stream after SDL had already gone. It is
+guarded on `SDL_WasInit(SDL_INIT_AUDIO)`. Any future engine system holding an SDL
+resource in a static has the same exposure.
+**Not authored in data:** the SFX note table is code, because these are 1-3 note
+blips and a JSON table for them would be more surface area than the sounds; the
+`ponytail:` comment names where it moves if sound design wants live tuning. The
+eight committed WAVs under `assets/Audio/` remain unused by anything.

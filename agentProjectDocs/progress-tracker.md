@@ -11,10 +11,20 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   is this worth merging? — so every lane is data-disabled by default and the
   replay canary is re-checked against the pre-suite baseline at every step
   (`bash gate.sh .canary-baseline.txt` runs the whole gate).
-- Phase 0 (D138) is done: eleven inert hooks in `main.cpp`, the shared
-  `fx_events.hpp` vocabulary, ten config blocks parsed-but-disabled, hooks pinned
-  by `test_scaffolding.cpp`. Gate green, canary identical to baseline.
-- Spec: `specs/engine-feature-suite.md`. Lane order: P/R, Q/S, T/V, U/W, X/Y, Z.
+- **All eleven lanes are implemented** (D138 Phase 0, D139-D150 the lanes; see
+  `decisions.md` for one entry each and `ENGINE.md` §6b/§6c for the hook table).
+  Nothing is on by default: every lane is behind a `GameData.json` flag whose
+  shipped value is off, and `--suite` turns the whole set on for a playtest.
+- Verified: clean build (only Lua's `tmpnam`), `ctest` 8/8, replay canary
+  byte-identical twice **and identical to the pre-suite `master` baseline**, and
+  `--suite` runs are themselves deterministic across two runs.
+  `bash gate.sh .canary-baseline.txt` re-runs the whole gate.
+- **NOT PLAYED IN A WINDOW. Nothing here has been seen or heard by a human.**
+  That is the entire remaining question — see "Current Goal".
+- Known unrelated flake: `bugs/003-path-property-test-flake.md` — a pre-existing
+  `master` property-test flake (~5% of runs) that can make this branch's gate
+  report 7/8. It is not a suite regression; measured at the same rate on `master`.
+- Spec: `specs/engine-feature-suite.md`. Lane order was P/R, Q/S, T/V, U/W, X/Y, Z.
 
 
 - **`feature/gameplay-polish` (2026-08-11): the THIRD playtest batch is
@@ -50,6 +60,29 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   (`specs/mechanics-page.md`, `specs/tutorial-stage.md`) are still unplayed.
 
 ## Current Goal
+
+- **Play `--suite` in a window and decide whether it merges.** Run
+  `python run.py -- --suite` (add `--dev --level 8` to reach a wave with surges,
+  a boss pattern and destructible cover quickly). The eleven features are
+  individually flag-gated, so the decision does not have to be all-or-nothing:
+  each one can merge, wait, or be dropped on its own.
+- Specifically unverified, i.e. what to actually look at:
+  1. **Bullet time** — does the kill-chain beat feel like impact or like lag?
+  2. **Resonance grid** — is it readable under the parallax backdrops, or noise?
+  3. **Director** — is the pacing change perceptible at all (it is meant not to be)?
+  4. **Flight report** — is the game-over report legible, and does it land inside
+     its panel at 300 design units?
+  5. **Scars** — by wave 10, does the floor read as history or as mud?
+  6. **Palette** — does the duotone resolve keep the enemy/hazard colour language
+     intact? Hazards being always-red is a rule the player learns once (D136).
+  7. **Destructible cover** — is 240 HP (~12 shots) right, and does losing cover
+     feel like a consequence or an annoyance?
+  8. **Surges** — is 1.5-1.8 s of telegraph enough warning?
+  9. **Bullet patterns** — is `reactor_bloom` dodgeable at the boss's size?
+  10. **Audio** — the sound has never been heard by anyone. Check the mix level
+      first; the master is 0.8 with 8 voices and no limiter beyond a hard clamp.
+
+## Earlier Goal (still owed)
 
 - **Playtest both batches in a window.** Specifically unverified in a real
   window: the shop hold-to-buy wash (a scripted `--clicks` is instantaneous —

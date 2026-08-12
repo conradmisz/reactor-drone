@@ -79,7 +79,10 @@ while read -r f; do
 done | sort
 ```
 
-Current measured state: **150 identical · 31 modified · 27 new** (208 source files).
+Current measured state before the engine suite: **150 identical · 31 modified · 27
+new** (208 source files). The suite adds four engine file pairs (resonance grid,
+scars, palette, chip synth) and modifies none of the class baseline — re-run the
+sweep above after a merge rather than trusting this line.
 
 ### Engine — new in v2
 
@@ -493,6 +496,61 @@ data block is therefore `"resonance"`. The engine loader claims `window`, `camer
 `world`, `debug`, `grid`, `atlas`, `scoring`, `physics`, `levels`,
 `animation_definitions`, `tilemap`, `game`, `entities`, `hud_entities`,
 `ui_styles` and `screens` — check that list before naming a new block.
+
+### 6c. What the engine-suite lanes landed (D139-D150)
+
+All eleven hooks are filled. Each lane's data flag defaults to OFF; `--suite`
+flips the whole set (and authors obstacle HP, a surge table and a boss pattern for
+the two lanes that are inert by data rather than by a flag).
+
+| Hook | System | Stance |
+|---|---|---|
+| `timescale` | `game/timescale_system.hpp` (free fn) | sim-side, pure fn of sim state |
+| `director` | `game/director_system.hpp` (free fn) | sim-side, no RNG |
+| `forces` | `game/force_field_system.*` | sim-side, no RNG, inert by shape |
+| `surge` | `game/surge_system.*` | sim-side, **private** RNG stream |
+| `crumble` | `game/crumble_system.*` | sim-side, no RNG |
+| `pattern` | `game/bullet_pattern.*` | sim-side, **no RNG at all** |
+| `telemetry` | `game/flight_report.*` | passive |
+| `audio` | `engine/ecs/systems/chip_synth_system.*` | isolated |
+| `grid-render` | `engine/ecs/systems/resonance_grid_system.*` | render-only |
+| `scars-render` | `engine/ecs/systems/scar_system.*` | render-only |
+| `palette` | `engine/ecs/systems/palette_system.*` | render-only, **two blocks** |
+
+Five new engine `.cpp` files (resonance grid, scars, palette, chip synth) went
+into the three explicit CMake lists (Invariant 7). No new component type was
+needed (Invariant 6): `EnemyBehavior` gained `pattern`/`cursor`/`phase`,
+`ObstacleDef` gained `hp`, `ArenaDef` gained `surges`, `EnemyType` gained
+`pattern`.
+
+**Frame-order changes.** `delta_time` is now rewritten at the top of the frame
+when Temporal Overload is live, so **every consumer of `delta_time` downstream
+sees the dilated value** — that is the intent, and the audit is in D139. The
+render block gained three sites: the grid and scars draw between `render_layers`
+and `render`, and the palette arms a render target before `camera.update` and
+resolves it after `screenshot_system.update`. `forces.update` sits between the
+`specialty` hook and `movement.update`; the clamp and push-out after movement are
+unchanged and still get the last word on position.
+
+**New traps, each of which cost real debugging time:**
+
+- **An SDL resource in a function-local static is destroyed AFTER `SDL_Quit()`.**
+  `main.cpp` calls `SDL_Quit()` as a statement; statics die at process exit. The
+  chip synth's destructor was tearing down an audio stream against a dead SDL and
+  core-dumped a run that had otherwise completed. Guard on `SDL_WasInit(...)`.
+  Every `static XSystem` in a hook block that owns an SDL handle has this
+  exposure — the grid, scars and palette systems own textures and are guarded by
+  holding nothing that needs an SDL call to release, or by the same check.
+- **`Entity` 0 is a valid id, so it cannot be a sentinel.** `EntityManager` hands
+  out 0 first. A `carrier == 0` "none" check made the first entity of a run
+  invisible to the surge teardown.
+- **A new `else if` branch in `cli_parser` must carry its own `++i`.** Inserting
+  one above `--dev`'s took that branch's increment with it, and the parser span
+  forever on `--dev`. A hang, not an error, and it surfaced as an unrelated
+  unit-test timeout.
+- **The Blackboard stores `std::any` BY VALUE, so an append is O(n).** The
+  per-frame FX lists are capped at 64 (`fx_events::MAX_PER_FRAME`) for that reason
+  as much as for the MCU budget.
 
 Iteration 5 kept the same convention. `prestige` is **two** blocks by necessity:
 the frame-order one above, and one inside `start_run` — the single site where

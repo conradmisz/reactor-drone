@@ -73,6 +73,7 @@ add_executable(engine_unit_tests
     # Engine implementation files needed by tests
     ../ecs/entity_manager.cpp
     ../ecs/component_storage.cpp
+    ../ecs/systems/chip_synth_system.cpp
     ../ecs/systems/palette_system.cpp
     ../ecs/systems/particle_system.cpp
     ../ecs/systems/resonance_grid_system.cpp
@@ -198,6 +199,7 @@ add_executable(engine_property_tests
     # Engine implementation files needed by tests
     ../ecs/entity_manager.cpp
     ../ecs/component_storage.cpp
+    ../ecs/systems/chip_synth_system.cpp
     ../ecs/systems/palette_system.cpp
     ../ecs/systems/particle_system.cpp
     ../ecs/systems/resonance_grid_system.cpp

@@ -47,6 +47,7 @@
 #include "engine/ecs/systems/resonance_grid_system.hpp"   // Lane R (D140)
 #include "engine/ecs/systems/scar_system.hpp"             // Lane V (D145)
 #include "engine/ecs/systems/palette_system.hpp"          // Lane W (D147)
+#include "engine/ecs/systems/chip_synth_system.hpp"       // Lane Z (D150)
 
 #include "cli_parser.hpp"
 #include "script_loader.hpp"
@@ -77,6 +78,9 @@
 #include "force_field_system.hpp"
 // Engine suite: Lane U (#9 Destructible Arena, D146).
 #include "crumble_system.hpp"
+// Engine suite: Lane X (#7 Reactor Surges, D149) and Lane Y (#2 patterns, D148).
+#include "surge_system.hpp"
+#include "bullet_pattern.hpp"
 // Lane N (iteration 5, D123): the shop-upgrade look on the drone's plume.
 #include "upgrade_visuals.hpp"
 #include "minimap_system.hpp"
@@ -194,6 +198,25 @@ int main(int argc, char* argv[]) {
         for (ArenaDef& a : config.arenas)
             for (ObstacleDef& o : a.obstacles)
                 if (o.hp <= 0.0f) o.hp = 240.0f;   // ~12 standard shots
+        // Surges are per-arena data too. One table for every arena rather than a
+        // themed one each: this switch exists to make the suite VISIBLE in a
+        // playtest, not to author the real content, which is a design pass.
+        for (ArenaDef& a : config.arenas) {
+            if (!a.surges.empty()) continue;
+            SurgeDef flood;  flood.effect = "slow_field";
+            flood.first_wave = 2;  flood.chance = 0.45f;  flood.duration = 7.0f;
+            flood.radius = 220.0f; flood.telegraph = 1.5f;
+            SurgeDef arc;    arc.effect = "sweep_line";
+            arc.first_wave = 4;    arc.chance = 0.35f;    arc.duration = 9.0f;
+            arc.radius = 260.0f;   arc.telegraph = 1.8f;
+            SurgeDef storm;  storm.effect = "gravity_storm";
+            storm.first_wave = 6;  storm.chance = 0.30f;  storm.duration = 6.0f;
+            storm.radius = 240.0f; storm.telegraph = 1.2f;
+            a.surges = {flood, arc, storm};
+        }
+        // The boss fires authored choreography instead of its stock volley.
+        for (EnemyType& t : config.enemy_types)
+            if (t.behavior == "boss" && t.pattern.empty()) t.pattern = "reactor_bloom";
         std::cout << "Engine suite: ON (--suite)\n";
     }
 
@@ -397,6 +420,11 @@ int main(int argc, char* argv[]) {
     // Engine suite (D146): the destructible-arena bookkeeping. Declared out here
     // because the arena-apply path seeds it and the `crumble` hook consumes it.
     CrumbleSystem crumble;
+
+    // Engine suite (D149): arena weather. Out here because an arena shift has to
+    // be able to clear it — a coolant flood must not outlive the arena it flooded.
+    SurgeSystem surges;
+    surges.set_config(&config);
 
     int active_arena = -1;
     // Hazards, tracked separately from arena_props so the glow tick has a list to
@@ -722,6 +750,8 @@ int main(int argc, char* argv[]) {
         blackboard.set<int>("sim.kills", 0);   // engine suite D139: kill-chain source
         blackboard.set<bool>("flight_report.reset", true);  // D143: drop last run's path
         forces.clear();                        // D144: no field outlives its run
+        surges.clear(component_storage, entity_manager);   // D149: nor any weather
+        surges.set_seed(config.seed);          // its own stream, seeded per run
         blackboard.set("wave", 0);
         blackboard.set<float>("player.iframes", 0.0f);
         blackboard.set<float>("hud_message_timer", 0.0f);
@@ -1835,11 +1865,21 @@ int main(int argc, char* argv[]) {
                 // === END HOOK: arena-vfx ===
             }
 
-            // === HOOK: surge === (Engine suite, D138 — Lane X / #7)
+            // === HOOK: surge === (Engine suite, D149 — Lane X / #7)
             // Owner: Reactor Surge Events. After the arena-shift tick so a surge
-            // schedules against the settled arena. Sim-side: scheduling draws
-            // from the sim RNG stream under R2 (draws taken on every wave,
-            // whether or not an event fires).
+            // schedules against the settled arena. Sim-side: the scheduler takes
+            // three RNG draws on EVERY wave change, before any conditional, so an
+            // arena with no surge table draws exactly as many values as one with
+            // a full table (R2 / Invariant 4).
+            {
+                static int surge_prev_wave = -1;
+                const int surge_wave = blackboard.get_or<int>("wave", 0);
+                const bool surge_wave_changed = surge_wave != surge_prev_wave;
+                surge_prev_wave = surge_wave;
+                surges.update(component_storage, entity_manager, blackboard, forces,
+                              active_arena, surge_wave, surge_wave_changed,
+                              static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)));
+            }
             // === END HOOK: surge ===
 
             enemy_seek.update(component_storage, blackboard);
@@ -1858,11 +1898,13 @@ int main(int argc, char* argv[]) {
             }
             // === END HOOK: enemy-fire ===
 
-            // === HOOK: pattern === (Engine suite, D138 — Lane Y / #2)
+            // === HOOK: pattern === (Engine suite, D148 — Lane Y / #2)
             // Owner: the bullet-pattern interpreter. Beside enemy-fire because it
             // is the same moment — "what does this enemy shoot" — dispatched when
             // an EnemyType names a pattern. Spawns through the existing EnemyShot
             // path; no RNG in the interpreter, variation is authored.
+            bullet_pattern::tick(component_storage, entity_manager, blackboard, config,
+                                 static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)));
             // === END HOOK: pattern ===
 
             // === HOOK: specialty === (Iteration 3, D51 — Lane D / #9)
@@ -2291,10 +2333,26 @@ int main(int argc, char* argv[]) {
         }
         // === END HOOK: telemetry ===
 
-        // === HOOK: audio === (Engine suite, D138 — Lane Z / #4)
-        // Owner: chip-synth audio. Every phase — menus click and the music keeps
-        // breathing on the title screen. Isolated: reads sim events, writes
-        // sound, is never read by anything.
+        // === HOOK: audio === (Engine suite, D150 — Lane Z / #4)
+        // Owner: chip-synth audio. Every phase — the music keeps breathing while
+        // the shop is open. Isolated: it reads sim events, writes sound, and is
+        // never read by anything, so the canary cannot see it.
+        //
+        // This block, the include above and SDL_INIT_AUDIO inside start() are the
+        // ENTIRE diff outside the file pair (project law for this lane): deleting
+        // the pair and these lines removes the feature with nothing left behind.
+        {
+            static ChipSynthSystem chip;
+            static bool chip_started = false;
+            if (config.audio.enabled && !chip_started) {
+                chip_started = true;   // one attempt: a machine with no sound card
+                                       // plays silently rather than retrying forever
+                if (!chip.start(config.audio.sample_rate, config.audio.voices,
+                                config.audio.master_volume))
+                    std::cout << "Audio: device unavailable, running silent\n";
+            }
+            if (chip.running()) chip.update(blackboard);
+        }
         // === END HOOK: audio ===
 
         // === HOOK: minimap === (Iteration 3, D51 — Lane B / #7)

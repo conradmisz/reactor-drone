@@ -6,7 +6,3 @@ scripts/local/
 *.bmp
 __pycache__/
 .claude/worktrees/
-
-# engine-suite build artefacts (not for merge)
-gate.sh
-.canary-baseline.txt
