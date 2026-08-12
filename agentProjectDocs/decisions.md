@@ -1999,3 +1999,13 @@ game should *show* its state, not make you infer it.
   quads (the ribbon rides on top; removing the quad would touch the damage
   path for a visual); enemy-shot tracers (their particle trails already read
   well — add if a playtest disagrees).
+
+- **D197 addendum (post-SDL-update re-test, same day).** With the system SDL
+  rebuilt from origin/main: the mid-run and readback crashes are gone, so
+  `--gpu-renderer --screenshot` is now allowed (default runs still capture on
+  classic — it stays the verification baseline). Teardown localized one call
+  further: `SDL_DestroyGPURenderState` + texture destroy are clean;
+  `SDL_ReleaseGPUShader` still wedges under a live renderer, so exactly one
+  shader object (~4KB) is leaked to process exit. GPU stays opt-in pending a
+  windowed playtest — a product call now, not a stability one. bugs/003
+  updated with the full re-test matrix.

@@ -32,20 +32,21 @@ the system SDL (3.5.0-prerelease built ~2026-05-10, /usr/local):
 
 ## Resolution
 
-Upstream SDL bugs in the installed prerelease. Verified by building SDL
-`origin/main` (2026-08-11) in a scratch worktree and running with
-`LD_LIBRARY_PATH`: the 2000-frame GPU+bloom run survives (slow under an
-occluded window, but no crash).
+Upstream SDL bugs in the installed prerelease. First verified against SDL
+`origin/main` in a scratch worktree; then the system SDL was updated
+(2026-08-11, `sudo cmake --install`) and re-tested:
 
-Shipped mitigations (D197):
+- Symptom 1 (mid-run segfault): **gone** — 2000-frame GPU+bloom soak clean.
+- Symptom 2 (readback segfault): **gone** — `--gpu-renderer --screenshot`
+  during bloomed gameplay captures correctly; the guard forcing classic now
+  applies only to DEFAULT runs (explicit `--gpu-renderer` may capture).
+- Symptom 3 (teardown wedge): **partially fixed.** The render state and frame
+  target destroy cleanly, but `SDL_ReleaseGPUShader` (and `SDL_WaitForGPUIdle`
+  before it) still hang while the renderer — destroyed after us — holds
+  pipelines built from the shader. The destructor now destroys everything
+  except the one shader object, which is deliberately leaked to process exit
+  (~4KB; comment in `postfx_system.cpp`). Revisit only if PostFx ever gains
+  shader hot-swapping.
 
-- GPU renderer is **opt-in** (`--gpu-renderer`); default is the classic
-  renderer, which carries the complete Tier 0-3 look.
-- `--screenshot` always forces classic (it is the verification baseline).
-- `PostFxSystem`'s destructor deliberately leaks the render state + shader
-  (documented in-code); the process is exiting anyway.
-
-To use the GPU path day-to-day: update the system SDL
-(`cd ~/SDL && git pull && cmake -B build && cmake --build build -j && sudo
-cmake --install build`), then re-test symptoms 1-3 and consider flipping the
-default in `main.cpp`.
+GPU renderer remains opt-in until a windowed playtest signs off on the path
+(that is now a product call, not a stability one).

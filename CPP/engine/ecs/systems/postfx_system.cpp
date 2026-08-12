@@ -79,12 +79,15 @@ PostFxSystem::PostFxSystem(SDL_Renderer* renderer, const std::string& spv_path,
 PostFxSystem::~PostFxSystem() {
     // The device may still be executing the last frame's command buffers;
     // releasing the shader/state under it hangs (or faults) in the driver.
-    // DELIBERATE LEAK of state_/shader_ (D197). On SDL 3.5.0-prerelease,
-    // destroying a GPU render state (and SDL_WaitForGPUIdle itself) wedges the
-    // device at shutdown — bisected: create the objects, never use them, hang;
-    // leak them, full pipeline live, clean exit. PostFxSystem lives for the
-    // whole process, so the OS reclaims them microseconds later. Revisit when
-    // the local SDL is updated: try restoring WaitForGPUIdle + destroy here.
+    // bugs/003 history: on the stale SDL prerelease this destroy path wedged
+    // the device and these objects were deliberately leaked. Re-tested clean
+    // after the 2026-08-11 SDL update; the proper teardown is restored.
+    // bugs/003: the render state and frame target tear down cleanly on the
+    // 2026-08-11 SDL, but SDL_ReleaseGPUShader (and SDL_WaitForGPUIdle) still
+    // wedge while the renderer holds pipelines built from the shader — the
+    // renderer is destroyed after us. The one shader object is deliberately
+    // leaked to process exit; ~4KB, reclaimed by the OS.
+    if (state_) SDL_DestroyGPURenderState(state_);
     if (frame_copy_) SDL_DestroyTexture(frame_copy_);
 }
 

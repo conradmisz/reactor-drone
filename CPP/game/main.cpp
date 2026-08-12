@@ -146,15 +146,12 @@ int main(int argc, char* argv[]) {
     // a headless driver, no Vulkan — and the classic renderer is byte-for-byte
     // the pre-Tier-4 pipeline (PostFx self-disables off a non-GPU renderer).
     SDL_RendererPtr renderer;
-    // D197: the GPU renderer is OPT-IN (--gpu-renderer) until the system SDL
-    // is updated. On the installed 3.5.0-prerelease, long bloomed gameplay
-    // sessions segfault and pixel readback during a bloomed gameplay frame
-    // segfaults (both bisected; both gone under an up-to-date SDL build). The
-    // classic renderer carries the full Tier 0-3 look; the GPU path adds only
-    // the Tier 4 postfx shader. --screenshot always takes classic — it is the
-    // deterministic verification baseline.
-    if (opts.gpu_renderer && !opts.classic_renderer &&
-        opts.screenshot_frames.empty()) {
+    // D197: the GPU renderer is OPT-IN (--gpu-renderer). The bugs/003 crashes
+    // are gone since the 2026-08-11 system SDL update, but the classic
+    // renderer stays the default because it is the deterministic verification
+    // baseline every canary and screenshot was built on; flip after a windowed
+    // playtest signs off on the GPU path.
+    if (opts.gpu_renderer && !opts.classic_renderer) {
         SDL_PropertiesID rp = SDL_CreateProperties();
         SDL_SetStringProperty(rp, SDL_PROP_RENDERER_CREATE_NAME_STRING, "gpu");
         SDL_SetPointerProperty(rp, SDL_PROP_RENDERER_CREATE_WINDOW_POINTER, window.get());
