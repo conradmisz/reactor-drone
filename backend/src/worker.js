@@ -1,3 +1,5 @@
+import { DASHBOARD_HTML } from './dashboard.js';
+
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
 
@@ -12,6 +14,22 @@ async function readJson(req) {
   const text = await req.text();
   if (text.length > MAX_BODY_BYTES) throw new Error('body_too_large');
   return JSON.parse(text);
+}
+
+const DAYS = 14; // activity window on the dashboard
+
+// SQL only returns days that had runs; the chart needs the quiet days too.
+function fillDays(rows) {
+  const byDay = new Map(rows.map(r => [r.d, r]));
+  const out = [];
+  const cursor = new Date();
+  cursor.setUTCDate(cursor.getUTCDate() - (DAYS - 1));
+  for (let i = 0; i < DAYS; i++) {
+    const d = cursor.toISOString().slice(0, 10);
+    out.push(byDay.get(d) ?? { d, n: 0, best: 0 });
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return out;
 }
 
 // Constant-time compare so the game key can't be brute-forced via response timing.
@@ -40,6 +58,51 @@ export default {
           `SELECT p.name AS name, ${agg} AS score FROM scores s JOIN players p ON p.id = s.player_id
            GROUP BY s.player_id ORDER BY score DESC LIMIT 20`).all();
         return json({ rows: results });
+      }
+
+      if (req.method === 'GET' && url.pathname === '/dashboard')
+        return new Response(DASHBOARD_HTML, {
+          headers: { 'content-type': 'text/html;charset=utf-8', 'cache-control': 'public, max-age=300' }
+        });
+
+      // Read-only aggregates behind /dashboard. Exposes nothing /top doesn't
+      // already make public (names + scores); no player_id ever leaves here.
+      if (req.method === 'GET' && url.pathname === '/stats') {
+        const [totals, daily, players, recent] = await env.DB.batch([
+          env.DB.prepare(`SELECT
+            (SELECT COUNT(*) FROM players) AS players,
+            (SELECT COUNT(*) FROM scores)  AS runs,
+            (SELECT COALESCE(MAX(score), 0) AS x FROM scores) AS best,
+            (SELECT COALESCE(SUM(score), 0) AS x FROM scores) AS total_score,
+            (SELECT COALESCE(CAST(AVG(score) AS INTEGER), 0) AS x FROM scores) AS avg,
+            (SELECT COUNT(*) FROM scores WHERE ts >= unixepoch() - 86400) AS runs_24h,
+            (SELECT COUNT(DISTINCT player_id) FROM scores WHERE ts >= unixepoch() - 86400) AS players_24h,
+            (SELECT p.name FROM scores s JOIN players p ON p.id = s.player_id
+             ORDER BY s.score DESC LIMIT 1) AS best_name`),
+          env.DB.prepare(
+            `SELECT date(s.ts, 'unixepoch') AS d, COUNT(*) AS n, MAX(s.score) AS best
+             FROM scores s WHERE s.ts >= unixepoch(date('now', ?1)) GROUP BY d ORDER BY d`
+          ).bind(`-${DAYS - 1} days`),
+          // LEFT JOIN so a registered pilot who has not banked a run still appears.
+          env.DB.prepare(
+            `SELECT p.name AS name, COUNT(s.player_id) AS runs,
+                    COALESCE(MAX(s.score), 0) AS best, COALESCE(SUM(s.score), 0) AS total,
+                    COALESCE(CAST(AVG(s.score) AS INTEGER), 0) AS avg,
+                    COALESCE(MAX(s.ts), 0) AS last
+             FROM players p LEFT JOIN scores s ON s.player_id = p.id
+             GROUP BY p.id ORDER BY best DESC LIMIT 100`),
+          env.DB.prepare(
+            `SELECT p.name AS name, s.score AS score, s.ts AS ts
+             FROM scores s JOIN players p ON p.id = s.player_id
+             ORDER BY s.ts DESC LIMIT 25`)
+        ]);
+        return new Response(JSON.stringify({
+          version: env.RELEASE_VERSION,
+          totals: totals.results[0],
+          daily: fillDays(daily.results),
+          players: players.results,
+          recent: recent.results
+        }), { headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
       }
 
       if (req.method === 'POST' && url.pathname === '/register') {

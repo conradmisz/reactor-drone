@@ -12,3 +12,4 @@ backend/.wrangler/
 *.bmp
 __pycache__/
 .claude/worktrees/
+backend/.dev.vars

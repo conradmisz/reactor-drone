@@ -5,6 +5,24 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
 
 ## Current Phase
 
+- **`feature/distribution` (2026-08-12): live-ops dashboard shipped and
+  deployed** as D198 — `GET /dashboard` + `GET /stats` on the existing Worker.
+  Verified against seeded local D1 and live production; four headless bot
+  clients drove 19 real runs through `bank_run_score` end to end.
+- Found while verifying: the built binary carried the old `127.0.0.1:8765`
+  `NET_BASE` after the header was reverted, so runs banked locally and silently
+  reached nothing. **`strings` the Windows artifact for `127.0.0.1` before
+  tagging a release.** Also: 23 local runs vs 19 banked online — the divergence
+  the telemetry spec names as the trigger for the deferred retry queue.
+- Production D1 still holds ~9 junk pilots from Task 7/8 testing
+  (`rtprobe`, `TestPilotXYZ123`, `CurlProbe1`, `AliceRace1*`, `FinalNameR1`,
+  `ZZZ_TASK8_*`) plus the four `BOT_*` pilots. Public on `/top`; delete before
+  release.
+- **Next: telemetry** (`specs/telemetry.md`, `plans/telemetry-plan.md`,
+  7 tasks). Nothing of it exists yet — no `telemetry.{hpp,cpp}`, no
+  `/telemetry` route, no `runs` table, no `ANALYTICS` toggle, no
+  `analytics/report.py`.
+
 - **`feature/gameplay-polish` (2026-08-11): the THIRD playtest batch is
   implemented** as D193 (one decisions.md entry, numbered by feedback item) —
   loot lifetime back to 14 s, +2 on every unit, a wave-15 credit vacuum and

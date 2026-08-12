@@ -2080,3 +2080,38 @@ game should *show* its state, not make you infer it.
   runs before formatting. `net_config.hpp` was restored to the live endpoint
   and the binary rebuilt, tests and canary re-run against that final build,
   before considering the change complete.
+
+### D198 — Live-ops dashboard is two read-only routes on the existing Worker, not a separate service; polled HTML with no build step and no chart library  *(2026-08-12)*
+- **Decision:** `GET /dashboard` serves one self-contained HTML page (inlined
+  CSS + JS, zero external requests) and `GET /stats` returns four aggregate D1
+  queries in a single `env.DB.batch`. Both live in `backend/src/worker.js`
+  beside the routes the game already calls; the page is a string constant in
+  `backend/src/dashboard.js`. The page polls `/stats` every 15 s (paused while
+  the tab is hidden) and redraws — the activity chart is hand-rolled inline SVG.
+  `/stats` returns `totals`, a gap-filled 14-day `daily` series, the top 100
+  `players` (LEFT JOIN, so a registered pilot with zero runs still appears) and
+  the 25 most recent runs. It deliberately never returns a `player_id`; the
+  only identifiers that leave are the names `/top` already makes public.
+- **Why:** the Worker + D1 are already deployed and hold the data, so a second
+  service, a build step, or a framework would all be pure overhead for a page
+  that renders four queries. Reading at request time (rather than storing
+  aggregates) keeps `scores` append-only, which is what makes the per-player
+  table possible at all.
+- **Rejected:** a chart library (inline SVG is ~40 lines and has no supply
+  chain); a static-fixed `viewBox` stretched to fit (`preserveAspectRatio=none`
+  distorts labels and corner radii — the chart now draws at the SVG's real
+  pixel width and redraws on resize); server-side rendering of the HTML with
+  the data inlined (a second code path for the same numbers, and no live
+  refresh); auth on `/dashboard` (it exposes strictly less than the already
+  public `/top`; if it ever needs gating, Cloudflare Access in front of the
+  route beats app code); storing per-player aggregates on write (a denormalised
+  copy that can disagree with `scores`, which is D81's rule applied here).
+- **Verified:** `backend/test.sh` green with six new assertions, including one
+  that fails if `/stats` ever leaks a `player_id` and one pinning the daily
+  series at exactly 14 entries. Screenshotted at 1280 px light, 1280 px dark
+  and 390 px mobile against both a seeded local D1 and live production — no
+  console errors, no page-level horizontal overflow, empty-database state
+  renders without NaN. The single series colour passed the data-viz palette
+  validator in both modes. Live end-to-end: four headless bot clients banked
+  19 runs through the real `bank_run_score` → `POST /score` path and the
+  dashboard reflected each one.
