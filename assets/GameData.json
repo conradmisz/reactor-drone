@@ -4292,10 +4292,11 @@
           "z_order": 10
         },
         {
-          "//": "Task 7: rename hint. Always shown - N re-enters name_entry pre-filled with the current name (or blank pre-registration) either way.",
+          "//": "Task 7/9: rename + leaderboard hint. Always shown - N re-enters name_entry pre-filled with the current name (or blank pre-registration) either way; the leaderboard half is rewritten out by main.cpp when net::enabled() is false (menu_hint_line).",
           "element_type": "label",
+          "name": "menu_hint_line",
           "rect": { "x": 204, "y": 84, "w": 392, "h": 24 },
-          "label_text": "N renames your pilot",
+          "label_text": "N renames your pilot  ·  L leaderboard",
           "style_id": "caption",
           "z_order": 10
         }
@@ -4340,6 +4341,70 @@
           "label_text": "Type a name, then press ENTER  (ESC to skip)",
           "style_id": "caption",
           "z_order": 10
+        }
+      ]
+    },
+    "leaderboard": {
+      "widgets": [
+        {
+          "//": "Task 9: global Highest/Cumulative leaderboard. CLEAR_TO target like every other title screen; main.cpp rewrites lb_title/lb_row_0..19/lb_hint every frame the screen is open from the Blackboard-mirrored lb_mode/lb_status/lb_rows.",
+          "element_type": "panel",
+          "rect": { "x": 100, "y": 20, "w": 600, "h": 560 },
+          "label_text": "",
+          "style_id": "panel",
+          "z_order": 0
+        },
+        {
+          "element_type": "label",
+          "name": "lb_title",
+          "rect": { "x": 124, "y": 524, "w": 552, "h": 44 },
+          "label_text": "LEADERBOARD — HIGHEST",
+          "style_id": "title",
+          "z_order": 10
+        },
+        {
+          "element_type": "panel",
+          "rect": { "x": 124, "y": 512, "w": 552, "h": 2 },
+          "label_text": "",
+          "style_id": "rule",
+          "z_order": 10
+        },
+        { "element_type": "label", "name": "lb_row_0",  "rect": { "x": 124, "y": 488, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_1",  "rect": { "x": 124, "y": 469, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_2",  "rect": { "x": 124, "y": 450, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_3",  "rect": { "x": 124, "y": 431, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_4",  "rect": { "x": 124, "y": 412, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_5",  "rect": { "x": 124, "y": 393, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_6",  "rect": { "x": 124, "y": 374, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_7",  "rect": { "x": 124, "y": 355, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_8",  "rect": { "x": 124, "y": 336, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_9",  "rect": { "x": 124, "y": 317, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_10", "rect": { "x": 124, "y": 298, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_11", "rect": { "x": 124, "y": 279, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_12", "rect": { "x": 124, "y": 260, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_13", "rect": { "x": 124, "y": 241, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_14", "rect": { "x": 124, "y": 222, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_15", "rect": { "x": 124, "y": 203, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_16", "rect": { "x": 124, "y": 184, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_17", "rect": { "x": 124, "y": 165, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_18", "rect": { "x": 124, "y": 146, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "lb_row_19", "rect": { "x": 124, "y": 127, "w": 552, "h": 18 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        {
+          "element_type": "label",
+          "name": "lb_hint",
+          "rect": { "x": 124, "y": 96, "w": 552, "h": 20 },
+          "label_text": "TAB switch  ·  ESC back",
+          "style_id": "caption",
+          "z_order": 10
+        },
+        {
+          "element_type": "button",
+          "name": "lb_back",
+          "rect": { "x": 124, "y": 40, "w": 200, "h": 40 },
+          "label_text": "BACK",
+          "style_id": "default_button",
+          "z_order": 10,
+          "on_click_fn": "on_back_click"
         }
       ]
     },

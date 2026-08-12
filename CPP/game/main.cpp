@@ -109,7 +109,8 @@ using SDL_RendererPtr = std::unique_ptr<SDL_Renderer, SDL_RendererDeleter>;
 
 // Game phases (Blackboard "phase").
 enum Phase { PHASE_TITLE = 0, PHASE_PLAYING = 1, PHASE_GAMEOVER = 2, PHASE_VICTORY = 3,
-             PHASE_SHOP = 4, PHASE_INTERMISSION = 5, PHASE_NAME_ENTRY = 6 };
+             PHASE_SHOP = 4, PHASE_INTERMISSION = 5, PHASE_NAME_ENTRY = 6,
+             PHASE_LEADERBOARD = 7 };
 
 // Screen name of the between-waves prompt, authored in GameData.json's "screens".
 constexpr const char* SCREEN_INTERMISSION = "wave_intermission";
@@ -122,6 +123,7 @@ constexpr const char* SCREEN_RECORDS      = "records";
 constexpr const char* SCREEN_HOW          = "how_to_play";
 constexpr const char* SCREEN_PRESTIGE     = "prestige_offer";   // Lane O (D128)
 constexpr const char* SCREEN_NAME_ENTRY   = "name_entry";       // Task 7 (D195)
+constexpr const char* SCREEN_LEADERBOARD  = "leaderboard";      // Task 9
 
 // Task 7 review round 1, Critical 2: std::async(std::launch::async)'s future
 // blocks in ITS DESTRUCTOR until the request finishes (up to the 8s
@@ -883,6 +885,32 @@ int main(int argc, char* argv[]) {
     // than letting a reassignment's implicit destructor block.
     std::future<net::Response> pending_score;
 
+    // Task 9: leaderboard fetch. Same single-future discipline as
+    // pending_register/pending_score above (net/http_client.hpp): declared
+    // outside the loop, polled with wait_for(0s), never a discarded temporary.
+    // Stale-tab guard: `fetch_leaderboard` below is the ONLY place `pending_top`
+    // is assigned, and it always abandons whatever was already in flight
+    // (abandon_future) and sets `lb_mode` in the SAME edge as issuing the new
+    // request. So there is only ever one live future at a time, and it always
+    // targets whatever `lb_mode` currently is — a late response for a mode the
+    // player has since switched away from was abandoned before its replacement
+    // request even went out, so it can never be applied to the new tab (the
+    // exact bug shape that hit Task 7 Critical 1).
+    std::future<net::Response> pending_top;
+    std::string lb_mode = "high";      // "high" | "total"
+    std::string lb_status = "loading"; // "loading" | "ok" | "error"
+    std::string lb_rows;               // pre-formatted "1. name  1234\n" lines
+    auto fetch_leaderboard = [&](const std::string& mode) {
+        abandon_future(std::move(pending_top));
+        lb_mode = mode;
+        lb_status = "loading";
+        lb_rows.clear();
+        blackboard.set<std::string>("lb_mode", lb_mode);
+        blackboard.set<std::string>("lb_status", lb_status);
+        blackboard.set<std::string>("lb_rows", lb_rows);
+        pending_top = net::get(std::string(net::NET_BASE) + "/top?mode=" + mode);
+    };
+
     // Phase B (D50): start a run at a chosen difficulty. Re-copying base_config
     // makes the choice re-selectable across runs — scaling `config` in place
     // would compound Hard onto Hard. set_config re-seeds the spawn RNG, so two
@@ -1072,6 +1100,21 @@ int main(int argc, char* argv[]) {
     Entity name_buf_w = 0, name_msg_w = 0;
     bool name_buf_w_resolved = false, name_msg_w_resolved = false;
 
+    // Task 9: the leaderboard's row labels + title, resolved the same way.
+    // net::enabled() never changes after boot, so the hint is settled once.
+    Entity lb_row_w[20] = {};
+    bool lb_row_w_resolved[20] = {false};
+    Entity lb_title_w = 0;
+    bool lb_title_w_resolved = false;
+    Entity menu_hint_w = 0;
+    bool menu_hint_w_resolved = false;
+    auto refresh_menu_hint = [&]() {
+        const Entity w = widget_by_name("menu_hint_line", menu_hint_w, menu_hint_w_resolved);
+        if (auto el = component_storage.get_component<UIElement>(w); el.has_value())
+            el->get().label_text = net::enabled() ? "N renames your pilot  \xc2\xb7  L leaderboard"
+                                                   : "N renames your pilot";
+    };
+
     // CONTINUE is one widget that is either an offer or nothing at all: UIElement
     // has no visibility flag (D82 hit the same wall), so with no save it renders
     // as an empty flat label and its click is ignored below.
@@ -1192,6 +1235,7 @@ int main(int argc, char* argv[]) {
                                 std::string(phase == PHASE_NAME_ENTRY ? SCREEN_NAME_ENTRY
                                                                       : SCREEN_MAIN_MENU));
     sync_settings_widgets();   // Phase C: checkboxes reflect the loaded file
+    refresh_menu_hint();       // Task 9: L hint hidden in headless/offline mode
 
     Timer timer(opts.fps > 0 ? static_cast<double>(opts.fps) : 60.0);
     if (opts.seed.has_value()) timer.set_deterministic(true);
@@ -1203,6 +1247,7 @@ int main(int argc, char* argv[]) {
     bool tab_prev = false, q_prev = false;
     bool digit_prev[8] = {false};
     bool n_prev = false;   // Task 7: N renames the pilot from the title screen
+    bool l_prev = false;   // Task 9: L opens the leaderboard from the title screen
     if (opts.paused) debug_paused = true;
 
     std::cout << "Reactor Drone v2 initialized. Arrows move, mouse aims, hold fire. ESC quits.\n";
@@ -1223,6 +1268,54 @@ int main(int argc, char* argv[]) {
             blackboard.set<std::string>("score_submit_status",
                 resp.ok() ? std::string("Score submitted!")
                           : std::string("Score not submitted (offline)"));
+        }
+
+        // Task 9: poll the leaderboard fetch every frame, regardless of phase —
+        // same reasoning as the score poll above. Defensive JSON parsing: the
+        // public /top endpoint could return malformed JSON, an unexpected
+        // shape, or garbage row data (agentProjectDocs house rule — never
+        // crash, never UB on untrusted input). A row-level parse failure only
+        // drops that one row; a top-level failure (bad JSON, missing "rows")
+        // drops the whole response to the error state.
+        if (pending_top.valid() &&
+            pending_top.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+            const net::Response resp = pending_top.get();
+            if (resp.ok()) {
+                try {
+                    const nlohmann::json j = nlohmann::json::parse(resp.body);
+                    std::string rows_out;
+                    int rank = 1;
+                    for (const auto& r : j.at("rows")) {
+                        try {
+                            const std::string raw_name = r.at("name").get<std::string>();
+                            const long long score = r.at("score").get<long long>();
+                            // Strip control bytes (incl. '\n', which would
+                            // otherwise inject a fake extra row into this
+                            // newline-delimited format) and clamp length — a
+                            // hostile/garbage response must not break the
+                            // format contract or rendering.
+                            std::string clean;
+                            for (char c : raw_name) {
+                                if (clean.size() >= 40) break;
+                                const unsigned char uc = static_cast<unsigned char>(c);
+                                if (uc >= 0x20 && uc != 0x7F) clean.push_back(c);
+                            }
+                            rows_out += std::to_string(rank++) + ". " + clean + "  "
+                                      + std::to_string(score) + "\n";
+                        } catch (...) {
+                            // One malformed row: skip it, keep the rest.
+                        }
+                    }
+                    lb_rows = rows_out;
+                    lb_status = "ok";
+                } catch (...) {
+                    lb_status = "error";
+                }
+            } else {
+                lb_status = "error";
+            }
+            blackboard.set<std::string>("lb_status", lb_status);
+            blackboard.set<std::string>("lb_rows", lb_rows);
         }
 
         // Scripted input injection (headless testing).
@@ -1311,6 +1404,12 @@ int main(int argc, char* argv[]) {
         bool n_now = keys[SDL_SCANCODE_N];
         bool n_edge = (n_now && !n_prev);
         n_prev = n_now;
+        // Task 9: L at the title opens the leaderboard. Gated on net::enabled()
+        // at the use site below, not here — determinism invariant #4: headless/
+        // scripted runs never make this reachable regardless of the edge.
+        bool l_now = keys[SDL_SCANCODE_L];
+        bool l_edge = (l_now && !l_prev);
+        l_prev = l_now;
         int digit = scripted_digit;
         for (int d = 0; d < 8; ++d) {
             bool down = keys[SDL_SCANCODE_1 + d];
@@ -1362,8 +1461,9 @@ int main(int argc, char* argv[]) {
         // handling below (CLEAR_TO the title) — letting this generic handler
         // also consume the escape flag first pushed/popped the screen stack a
         // frame ahead of that CLEAR_TO, producing a one-frame blank screen.
+        // Task 9: PHASE_LEADERBOARD has the same shape of its own ESC handling.
         if (blackboard.get_or<bool>("ui.escape_pressed", false) && phase != PHASE_TITLE &&
-            phase != PHASE_NAME_ENTRY) {
+            phase != PHASE_NAME_ENTRY && phase != PHASE_LEADERBOARD) {
             if (ScreenStackSystem::depth(blackboard) <= 1) {
                 blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH, std::string(SCREEN_PAUSE));
                 // Lane K: the button says SAVE again each time the screen opens,
@@ -2059,7 +2159,16 @@ int main(int argc, char* argv[]) {
                 // Task 7: N re-enters name_entry pre-filled with the current name
                 // (blank if never registered) — the server upserts by player_id,
                 // so a rename rides the exact same submit path as first-launch.
-                if (n_edge) {
+                if (l_edge && net::enabled()) {
+                    // Task 9: unreachable in headless/scripted runs — net::enabled()
+                    // is false whenever --stopframe is set (architecture.md
+                    // Invariant #4), so this whole branch, and everything it
+                    // fetches, is never entered by a replay.
+                    fetch_leaderboard("high");
+                    phase = PHASE_LEADERBOARD;
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                std::string(SCREEN_LEADERBOARD));
+                } else if (n_edge) {
                     name_buf = meta.player_name;
                     name_entry_error.clear();
                     // Critical 1: a stale future from an abandoned previous
@@ -2284,6 +2393,92 @@ int main(int argc, char* argv[]) {
                             // `caption`, same dim grey as every other screen.
                             el->get().style_id =
                                 !name_entry_error.empty() ? "pip_loss" : "caption";
+                        }
+                    }
+                }
+            } else if (phase == PHASE_LEADERBOARD) {
+                // Task 9: Highest/Cumulative global leaderboard. TAB toggles mode,
+                // ESC returns to the title — handled here directly rather than by
+                // the generic ESC handler above, same reasoning as PHASE_NAME_ENTRY
+                // (Minor 1, Task 7 review round 1): letting both fire the same frame
+                // would push/pop the stack a frame ahead of this CLEAR_TO.
+                if (blackboard.get_or<bool>("ui.escape_pressed", false)) {
+                    abandon_future(std::move(pending_top));
+                    phase = PHASE_TITLE;
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                std::string(SCREEN_MAIN_MENU));
+                } else if (tab_edge) {
+                    fetch_leaderboard(lb_mode == "high" ? "total" : "high");
+                }
+                // menu_click is only ever set by an actual confirmed click, and
+                // only the phase==PHASE_TITLE branch above consumes it — this
+                // phase must consume its own BACK button here or the click would
+                // sit stale on the Blackboard and fire again once back at title.
+                const std::string menu_click =
+                    blackboard.get_or<std::string>(UISystem::UI_CLICK_KEY, std::string());
+                if (menu_click == "on_back_click") {
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    if (phase == PHASE_LEADERBOARD) {
+                        abandon_future(std::move(pending_top));
+                        phase = PHASE_TITLE;
+                        blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                    std::string(SCREEN_MAIN_MENU));
+                    }
+                }
+
+                if (phase == PHASE_LEADERBOARD) {
+                    if (Entity w = widget_by_name("lb_title", lb_title_w, lb_title_w_resolved);
+                        w != 0) {
+                        if (auto el = component_storage.get_component<UIElement>(w);
+                            el.has_value())
+                            el->get().label_text = lb_mode == "total"
+                                ? "LEADERBOARD \xe2\x80\x94 CUMULATIVE"
+                                : "LEADERBOARD \xe2\x80\x94 HIGHEST";
+                    }
+                    // Split lb_rows into its "N. name  score\n" lines, one per row
+                    // widget. loading/error/empty each collapse to a single status
+                    // line in row 0 with the rest blanked — a fresh/empty
+                    // leaderboard must show something sensible, not a blank panel.
+                    std::vector<std::string> lines;
+                    if (lb_status == "loading") {
+                        lines.push_back("Loading...");
+                    } else if (lb_status == "error") {
+                        lines.push_back("Could not reach the leaderboard.");
+                    } else {
+                        size_t start = 0;
+                        while (start < lb_rows.size()) {
+                            size_t nl = lb_rows.find('\n', start);
+                            if (nl == std::string::npos) nl = lb_rows.size();
+                            if (nl > start) lines.push_back(lb_rows.substr(start, nl - start));
+                            start = nl + 1;
+                        }
+                        if (lines.empty()) lines.push_back("No scores yet.");
+                    }
+                    for (int i = 0; i < 20; ++i) {
+                        const Entity w = widget_by_name(("lb_row_" + std::to_string(i)).c_str(),
+                                                        lb_row_w[i], lb_row_w_resolved[i]);
+                        if (w == 0) continue;
+                        auto el = component_storage.get_component<UIElement>(w);
+                        if (!el.has_value()) continue;
+                        if (static_cast<size_t>(i) < lines.size()) {
+                            const std::string& line = lines[static_cast<size_t>(i)];
+                            el->get().label_text = line;
+                            // Design note: the player's own row stands out. A row
+                            // reads "N. name  score" — pull the name back out and
+                            // compare; registered names are unique (server-
+                            // enforced by /register), so an exact match is
+                            // unambiguous.
+                            const size_t dot = line.find(". ");
+                            const size_t sep = (dot == std::string::npos) ? std::string::npos
+                                                                          : line.rfind("  ");
+                            const bool is_me = !meta.player_name.empty() &&
+                                dot != std::string::npos && sep != std::string::npos &&
+                                sep > dot + 2 &&
+                                line.substr(dot + 2, sep - (dot + 2)) == meta.player_name;
+                            el->get().style_id = is_me ? "title" : "subtitle";
+                        } else {
+                            el->get().label_text.clear();
+                            el->get().style_id = "subtitle";
                         }
                     }
                 }
@@ -2545,6 +2740,9 @@ int main(int argc, char* argv[]) {
     // Task 8: same reasoning — a score submit from bank_run_score just above
     // may still be in flight at shutdown; never block the process exit on it.
     abandon_future(std::move(pending_score));
+    // Task 9: same reasoning — a leaderboard fetch may still be in flight if
+    // the window was closed while the screen was open.
+    abandon_future(std::move(pending_top));
 
     resource_manager_ptr.reset();
     renderer.reset();

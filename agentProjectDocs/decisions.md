@@ -2016,3 +2016,67 @@ game should *show* its state, not make you infer it.
   exited the process in 0.24s, proving `abandon_future()` — not the 8s
   timeout — bounds shutdown. `net_config.hpp` was restored to the live
   endpoint and rebuilt before considering the change complete.
+
+### D197 — Leaderboard screen (Tasks 8+9): one live future, always re-abandoned on tab switch, is the whole stale-tab guard; per-row defensive parsing over a whole-response reject  *(2026-08-11)*
+- **Decision:** `PHASE_LEADERBOARD = 7` (own phase, not a title sub-screen,
+  because it needs its own ESC handling — same shape as `PHASE_NAME_ENTRY`,
+  Task 7 Minor 1). `L` at the title (hidden from the hint line and a no-op
+  when `net::enabled()` is false, so headless/scripted runs never reach it —
+  architecture.md Invariant #4) fetches `GET /top?mode=high`; `TAB` inside the
+  screen toggles `high`/`total`. `pending_top` (declared outside the frame
+  loop, polled with `wait_for(0s)`, per `net/http_client.hpp`) is the single
+  point of truth: `fetch_leaderboard(mode)` is the ONLY place it is assigned,
+  and every call abandons whatever was already in flight (`abandon_future`)
+  and sets `lb_mode` in the SAME edge as issuing the new request. There is
+  therefore never more than one live future, and it always targets whatever
+  `lb_mode` currently is — a response for a mode the player has since
+  switched away from was abandoned before its replacement request even went
+  out, so it can never land in the wrong tab. This is a smaller mechanism
+  than Task 7's captured-string approach (`pending_name`) because leaderboard
+  fetches have no "identity" beyond which mode they're for, and mode and
+  future are updated atomically together.
+- **Why:** the alternative — capturing the requested mode in a side variable
+  and comparing it to `lb_mode` on arrival, mirroring `pending_name` — adds a
+  second piece of state that must always agree with `lb_mode`, for no benefit
+  here: unlike a name (arbitrary player input), a mode fetch's target and its
+  future are set in the exact same statement, so they can't drift apart.
+  Response parsing skips one malformed row (`try`/`catch` per row: bad
+  `name`/`score` types, non-array `"rows"`) instead of discarding the whole
+  response on a single bad row — a public, unauthenticated `/top` endpoint
+  can return anything, and one garbage row should not blank a working list.
+  Player names are also sanitised on arrival, not trusted from the wire:
+  bytes below 0x20 (control bytes, which includes `\n` — the exact character
+  that would otherwise inject a fake extra row into the `"1. name  score\n"`
+  format the Blackboard contract commits to) and 0x7F are stripped, and the
+  cleaned name is clamped to 40 chars, both before the row is ever formatted.
+- **Rejected:** a captured-mode side variable per fetch (no observable
+  difference from comparing `lb_mode` directly, given the atomic-update
+  argument above — added state with no new guarantee); failing the whole
+  response on any row-level parse error (one hostile/malformed row taking
+  down an otherwise-good leaderboard); trusting `UIRenderSystem`'s
+  overflow-shrink alone to make an unbounded name safe (it prevents a visual
+  crash, not a `\n` re-parsed as a row separator by the row-splitting code
+  that reads `lb_rows` back at render time).
+- **Verified:** `runTestsAll.py` 8/8 green; warning-free build (only Lua's
+  vendored `tmpnam`); the replay canary run twice byte-identical. Manual
+  walkthrough against the live backend (`DISPLAY=:1`, real windowed run,
+  keys driven via XTest since scripted `--keys` has no letter-key vocabulary):
+  `L` opened the screen showing "Loading..." then real rows
+  (`ZZZ_TASK8_REVIEW 80`, `ZZZ_TASK8_TEST 0`); `TAB` switched the header to
+  CUMULATIVE with the same two rows (both players have exactly one submitted
+  run, so cumulative == highest, consistent with "cumulative ≥ highest");
+  ESC and the BACK button both returned cleanly to the title. Six rapid `TAB`
+  presses in under 200ms landed on the mode the toggle count predicts, with
+  no wrong-tab flash and no hang (process still running throughout).
+  `net_config.hpp` was pointed at a local mock server (reverted after) for
+  three states unreachable on the live backend: `{"rows":[]}` rendered "No
+  scores yet."; an HTTP 500 rendered "Could not reach the leaderboard.";  and
+  a row with `score:"notanumber"` next to a valid row rendered only the valid
+  one (`"1. OK GARBAGE  42"`) — the rank counter only advances on rows that
+  parse. A targeted injection case — a valid-score row named
+  `"EVIL\nFAKE. ROW  9999"` next to a 200-character name — rendered as a
+  single row `"1. EVILFAKE. ROW 9999  77"` (no phantom second row from the
+  stripped `\n`) and a name clamped to 40 chars, confirming the sanitiser
+  runs before formatting. `net_config.hpp` was restored to the live endpoint
+  and the binary rebuilt, tests and canary re-run against that final build,
+  before considering the change complete.
