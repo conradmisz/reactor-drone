@@ -6,6 +6,8 @@ const json = (obj, status = 200) =>
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NAME_RE = /^[\x20-\x7e]+$/;
 const MAX_BODY_BYTES = 2048; // these payloads are tiny; reject anything absurd before parsing
+const MAX_TELEMETRY_BYTES = 16384; // one run report; ~3-5 KB typical
+const OUTCOMES = new Set(['death', 'victory', 'quit', 'close']);
 
 // Reads and JSON-parses the body, refusing to buffer an oversized payload.
 async function readJson(req) {
@@ -130,6 +132,34 @@ export default {
         const player = await env.DB.prepare('SELECT id FROM players WHERE id = ?1').bind(player_id).first();
         if (!player) return json({ error: 'unknown_player' }, 400);
         await env.DB.prepare('INSERT INTO scores (player_id, score) VALUES (?1, ?2)').bind(player_id, score).run();
+        return json({ ok: true });
+      }
+
+      // One per-run summary. Deliberately does NOT require a registered player
+      // row — a report from a never-registered install is still data. The raw
+      // text is stored verbatim in `body`, so this reads the request itself
+      // rather than going through readJson().
+      if (req.method === 'POST' && url.pathname === '/telemetry') {
+        if (!safeEqual(req.headers.get('X-Game-Key'), env.GAME_KEY)) return json({ error: 'unauthorized' }, 401);
+        // Same refuse-before-buffering discipline as readJson().
+        const len = req.headers.get('content-length');
+        if (len && Number(len) > MAX_TELEMETRY_BYTES) return json({ error: 'bad_request' }, 400);
+        const raw = await req.text();
+        if (raw.length > MAX_TELEMETRY_BYTES) return json({ error: 'bad_request' }, 400);
+        const b = JSON.parse(raw); // SyntaxError -> catch -> 400
+        const str = (v, max) => typeof v === 'string' && v.length > 0 && v.length <= max;
+        const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+        if (!int(b.v, 1, 99) || typeof b.player_id !== 'string' || !UUID_RE.test(b.player_id) ||
+            !str(b.session_id, 64) || !str(b.game_version, 32) || !str(b.difficulty, 32) ||
+            !int(b.prestige, 0, 99) || !int(b.ship, -1, 99) || !OUTCOMES.has(b.outcome) ||
+            !int(b.wave, 0, 999) || !int(b.score, 0, 10_000_000) ||
+            typeof b.dur_s !== 'number' || !Number.isFinite(b.dur_s) || b.dur_s < 0 || b.dur_s > 86400)
+          return json({ error: 'bad_request' }, 400);
+        await env.DB.prepare(
+          `INSERT INTO runs (player_id, session, version, difficulty, prestige, ship, outcome, wave, score, dur_s, body)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`)
+          .bind(b.player_id, b.session_id, b.game_version, b.difficulty, b.prestige, b.ship,
+                b.outcome, b.wave, b.score, Math.round(b.dur_s), raw).run();
         return json({ ok: true });
       }
 

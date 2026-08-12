@@ -13,6 +13,16 @@ curl -s "$BASE/top?mode=high"  | grep -q '"score":250'
 curl -s "$BASE/top?mode=total" | grep -q '"score":350'
 curl -s "$BASE/version" | grep -q '"version"'
 
+# telemetry
+T="{\"v\":1,\"player_id\":\"$U1\",\"session_id\":\"s1\",\"game_version\":\"2.0.0\",\"difficulty\":\"Normal\",\"prestige\":0,\"ship\":0,\"outcome\":\"death\",\"wave\":7,\"score\":1200,\"dur_s\":301.5,\"heat\":{},\"waves\":[]}"
+[ "$(c -XPOST "$BASE/telemetry" -H "$J" -d "$T")" = 401 ]                          # no key
+[ "$(c -XPOST "$BASE/telemetry" -H "$J" -H "X-Game-Key: $KEY" -d "$T")" = 200 ]
+[ "$(c -XPOST "$BASE/telemetry" -H "$J" -H "X-Game-Key: $KEY" -d '{"v":1}')" = 400 ]  # missing fields
+[ "$(c -XPOST "$BASE/telemetry" -H "$J" -H "X-Game-Key: $KEY" -d "{\"v\":1,\"player_id\":\"$U1\",\"session_id\":\"s1\",\"game_version\":\"2.0.0\",\"difficulty\":\"Normal\",\"prestige\":0,\"ship\":0,\"outcome\":\"rage\",\"wave\":7,\"score\":1,\"dur_s\":1}")" = 400 ]  # bad outcome
+[ "$(c -XPOST "$BASE/telemetry" -H "$J" -H "X-Game-Key: $KEY" -d "$(python3 -c 'print("{\"pad\":\""+"x"*17000+"\"}")')")" = 400 ]  # oversized
+[ "$(c -XPOST "$BASE/telemetry" -H "$J" -H "X-Game-Key: $KEY" -d '{"v":1,"player_id":"nope","session_id":"s1","game_version":"2.0.0","difficulty":"Normal","prestige":0,"ship":0,"outcome":"death","wave":7,"score":1,"dur_s":1}')" = 400 ]  # bad uuid
+[ "$(c -XPOST "$BASE/telemetry" -H "$J" -H "X-Game-Key: $KEY" -d "{\"v\":1,\"player_id\":\"$U1\",\"session_id\":\"s1\",\"game_version\":\"2.0.0\",\"difficulty\":\"Normal\",\"prestige\":0,\"ship\":0,\"outcome\":\"death\",\"wave\":7,\"score\":1,\"dur_s\":1,\"trailing\":}")" = 400 ]  # malformed json
+
 # dashboard + stats (read-only, no game key)
 [ "$(c "$BASE/dashboard")" = 200 ]
 curl -s "$BASE/dashboard" | grep -q 'Reactor Drone — Live Ops'
