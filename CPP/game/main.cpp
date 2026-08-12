@@ -123,6 +123,20 @@ constexpr const char* SCREEN_HOW          = "how_to_play";
 constexpr const char* SCREEN_PRESTIGE     = "prestige_offer";   // Lane O (D128)
 constexpr const char* SCREEN_NAME_ENTRY   = "name_entry";       // Task 7 (D195)
 
+// Task 7 review round 1, Critical 2: std::async(std::launch::async)'s future
+// blocks in ITS DESTRUCTOR until the request finishes (up to the 8s
+// CURLOPT_TIMEOUT — see net/http_client.hpp). An abandoned /register future
+// (ESC-skip, re-entering via N, or app shutdown mid-request) must never let
+// that destructor run synchronously on the main thread. Moving it in here
+// instead: the vector is heap-allocated once and intentionally never freed,
+// so the abandoned future's destructor never runs before process exit — the
+// OS reclaims it. One call site; not worth a generic task manager.
+void abandon_future(std::future<net::Response>&& f) {
+    if (!f.valid()) return;
+    static auto* graveyard = new std::vector<std::future<net::Response>>();
+    graveyard->push_back(std::move(f));
+}
+
 int main(int argc, char* argv[]) {
     auto opts = parse_command_line(argc, argv);
     if (opts.help_requested) return 0;
@@ -853,6 +867,13 @@ int main(int argc, char* argv[]) {
     std::string name_buf;
     std::string name_entry_error;
     std::future<net::Response> pending_register;
+    // Task 7 review round 1, Critical 1: the name actually POSTed for the
+    // in-flight `pending_register`, captured at submit time. `name_buf` is
+    // live and can change while the request is in flight (typing is not
+    // blocked during a pending submit) — applying `name_buf` on success would
+    // silently save whatever the player has typed by the time the response
+    // lands, not what the server actually registered. Always apply this.
+    std::string pending_name;
     if (phase == PHASE_NAME_ENTRY) SDL_StartTextInput(window.get());
 
     // Phase B (D50): start a run at a chosen difficulty. Re-copying base_config
@@ -1293,7 +1314,12 @@ int main(int argc, char* argv[]) {
             blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
                                         std::string(SCREEN_MAIN_MENU));
         }
-        if (blackboard.get_or<bool>("ui.escape_pressed", false) && phase != PHASE_TITLE) {
+        // Minor 1 (Task 7 review round 1): PHASE_NAME_ENTRY has its own ESC
+        // handling below (CLEAR_TO the title) — letting this generic handler
+        // also consume the escape flag first pushed/popped the screen stack a
+        // frame ahead of that CLEAR_TO, producing a one-frame blank screen.
+        if (blackboard.get_or<bool>("ui.escape_pressed", false) && phase != PHASE_TITLE &&
+            phase != PHASE_NAME_ENTRY) {
             if (ScreenStackSystem::depth(blackboard) <= 1) {
                 blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH, std::string(SCREEN_PAUSE));
                 // Lane K: the button says SAVE again each time the screen opens,
@@ -1992,6 +2018,14 @@ int main(int argc, char* argv[]) {
                 if (n_edge) {
                     name_buf = meta.player_name;
                     name_entry_error.clear();
+                    // Critical 1: a stale future from an abandoned previous
+                    // attempt (e.g. ESC'd out mid-submit earlier) must never
+                    // block this new submit's `!pending_register.valid()`
+                    // guard, and its eventual result must never be applied
+                    // here. Hand it to the graveyard so its destructor never
+                    // blocks this thread either (Critical 2).
+                    abandon_future(std::move(pending_register));
+                    pending_name.clear();
                     phase = PHASE_NAME_ENTRY;
                     SDL_StartTextInput(window.get());
                     blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
@@ -2131,7 +2165,10 @@ int main(int argc, char* argv[]) {
                         std::future_status::ready) {
                     const net::Response resp = pending_register.get();
                     if (resp.status == 200) {
-                        meta.player_name = name_buf;
+                        // Critical 1: apply the name that was actually POSTed
+                        // (`pending_name`), never the live `name_buf` — the
+                        // player may have edited it while this was in flight.
+                        meta.player_name = pending_name;
                         meta.registered = true;
                         meta_write(meta_save_path(), meta);
                         SDL_StopTextInput(window.get());
@@ -2147,6 +2184,12 @@ int main(int argc, char* argv[]) {
                 if (phase == PHASE_NAME_ENTRY &&
                     blackboard.get_or<bool>("ui.escape_pressed", false)) {
                     // Skip: registered stays false, so this retries next launch.
+                    // Critical 1/2: abandon (don't block-wait) any submit still
+                    // in flight for this attempt — its result must never be
+                    // applied once the player has walked away, and its future
+                    // must never stall this thread waiting on it.
+                    abandon_future(std::move(pending_register));
+                    pending_name.clear();
                     SDL_StopTextInput(window.get());
                     phase = PHASE_TITLE;
                     blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
@@ -2154,11 +2197,22 @@ int main(int argc, char* argv[]) {
                 } else if (phase == PHASE_NAME_ENTRY &&
                            blackboard.get_or<bool>("ui.enter_pressed", false) &&
                            !pending_register.valid() && !name_buf.empty()) {
-                    name_entry_error.clear();
-                    pending_register = net::post_json(
-                        std::string(net::NET_BASE) + "/register",
-                        nlohmann::json{{"player_id", meta.player_id},
-                                      {"name", name_buf}}.dump());
+                    // Minor 3: trim before submit — an all-whitespace name is
+                    // printable ASCII and would otherwise pass this guard,
+                    // relying entirely on the server to reject it.
+                    const size_t first = name_buf.find_first_not_of(' ');
+                    if (first != std::string::npos) {
+                        const size_t last = name_buf.find_last_not_of(' ');
+                        const std::string trimmed = name_buf.substr(first, last - first + 1);
+                        name_entry_error.clear();
+                        pending_name = trimmed;
+                        pending_register = net::post_json(
+                            std::string(net::NET_BASE) + "/register",
+                            nlohmann::json{{"player_id", meta.player_id},
+                                          {"name", trimmed}}.dump());
+                    } else {
+                        name_entry_error = "Name can't be blank";
+                    }
                 }
 
                 if (phase == PHASE_NAME_ENTRY) {
@@ -2173,12 +2227,20 @@ int main(int argc, char* argv[]) {
                                                   name_msg_w_resolved);
                         w != 0) {
                         if (auto el = component_storage.get_component<UIElement>(w);
-                            el.has_value())
+                            el.has_value()) {
                             el->get().label_text =
                                 !name_entry_error.empty() ? name_entry_error
                                 : pending_register.valid()
                                     ? "Submitting..."
                                     : "Type a name, then press ENTER  (ESC to skip)";
+                            // Minor 2: an error reuses the existing red-toned
+                            // `pip_loss` style (shop stat-loss preview) rather
+                            // than a new literal colour — house rule against
+                            // inventing new colours. Hint/status text stays
+                            // `caption`, same dim grey as every other screen.
+                            el->get().style_id =
+                                !name_entry_error.empty() ? "pip_loss" : "caption";
+                        }
                     }
                 }
             } else if (advance && (phase == PHASE_GAMEOVER || phase == PHASE_VICTORY)) {
@@ -2424,6 +2486,13 @@ int main(int argc, char* argv[]) {
               << "  Units: " << final_credits
               << "  Wave: " << blackboard.get_or<int>("wave", 0)
               << "  Phase: " << phase << std::endl;
+
+    // Critical 2: if a /register request is still in flight at shutdown,
+    // letting `pending_register` fall out of scope here would block up to
+    // the 8s CURLOPT_TIMEOUT in its destructor (std::async(std::launch::async)
+    // always blocks there, regardless of wait_for polling). Hand it to the
+    // graveyard instead — quit is no longer bounded by network latency at all.
+    abandon_future(std::move(pending_register));
 
     resource_manager_ptr.reset();
     renderer.reset();
