@@ -1145,15 +1145,19 @@ int main(int argc, char* argv[]) {
     SettingsSave settings = settings_load(settings_save_path());
     blackboard.set<bool>("settings.screen_shake", settings.screen_shake);
     blackboard.set<bool>("settings.minimap", settings.minimap);
-    Entity shake_w = 0, mini_w = 0, rec_w[4] = {};
-    bool shake_w_resolved = false, mini_w_resolved = false, rec_w_resolved[4] = {};
+    Entity shake_w = 0, mini_w = 0, analytics_w = 0, rec_w[4] = {};
+    bool shake_w_resolved = false, mini_w_resolved = false, analytics_w_resolved = false,
+         rec_w_resolved[4] = {};
     auto sync_settings_widgets = [&]() {
         const Entity sw = widget_by_name("settings_shake", shake_w, shake_w_resolved);
         const Entity mw = widget_by_name("settings_minimap", mini_w, mini_w_resolved);
+        const Entity aw = widget_by_name("settings_analytics", analytics_w, analytics_w_resolved);
         if (auto st = component_storage.get_component<UIState>(sw); st.has_value())
             st->get().value = settings.screen_shake ? 1.0f : 0.0f;
         if (auto st = component_storage.get_component<UIState>(mw); st.has_value())
             st->get().value = settings.minimap ? 1.0f : 0.0f;
+        if (auto st = component_storage.get_component<UIState>(aw); st.has_value())
+            st->get().value = settings.analytics ? 1.0f : 0.0f;
     };
     auto refresh_records = [&]() {
         const std::string rows[4] = {
@@ -2256,20 +2260,32 @@ int main(int argc, char* argv[]) {
                     blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
                                                 std::string(SCREEN_HOW));
                 } else if (menu_click == "on_toggle_shake" ||
-                           menu_click == "on_toggle_minimap") {
+                           menu_click == "on_toggle_minimap" ||
+                           menu_click == "on_toggle_analytics") {
                     // UISystem already flipped the checkbox's UIState.value — read
                     // it back as the truth, persist, and publish to the apply sites.
+                    // Analytics has no apply site: the telemetry POST guard reads
+                    // the settings struct directly, so it publishes no Blackboard key.
                     blackboard.remove(UISystem::UI_CLICK_KEY);
-                    const bool shake_toggle = (menu_click == "on_toggle_shake");
-                    const Entity w = shake_toggle
-                        ? widget_by_name("settings_shake", shake_w, shake_w_resolved)
-                        : widget_by_name("settings_minimap", mini_w, mini_w_resolved);
+                    Entity w = 0;
+                    bool* target = nullptr;
+                    const char* bb_key = nullptr;
+                    if (menu_click == "on_toggle_shake") {
+                        w = widget_by_name("settings_shake", shake_w, shake_w_resolved);
+                        target = &settings.screen_shake; bb_key = "settings.screen_shake";
+                    } else if (menu_click == "on_toggle_minimap") {
+                        w = widget_by_name("settings_minimap", mini_w, mini_w_resolved);
+                        target = &settings.minimap; bb_key = "settings.minimap";
+                    } else {
+                        w = widget_by_name("settings_analytics", analytics_w,
+                                           analytics_w_resolved);
+                        target = &settings.analytics;
+                    }
                     if (auto st = component_storage.get_component<UIState>(w);
                         st.has_value()) {
                         const bool on = st->get().value >= 0.5f;
-                        (shake_toggle ? settings.screen_shake : settings.minimap) = on;
-                        blackboard.set<bool>(shake_toggle ? "settings.screen_shake"
-                                                          : "settings.minimap", on);
+                        *target = on;
+                        if (bb_key != nullptr) blackboard.set<bool>(bb_key, on);
                         settings_write(settings_save_path(), settings);
                     }
                 } else if (menu_click.rfind("on_slot_load_", 0) == 0) {

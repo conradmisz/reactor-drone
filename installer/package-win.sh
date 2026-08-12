@@ -13,4 +13,7 @@ cp "$EXE" "$STAGE/"
 # is filesystem-dependent, not sorted) — breaking the x86-64 exe at load time.
 find "$ROOT/CPP/win-deps/bin" -maxdepth 1 -name '*.dll' -exec cp {} "$STAGE/" \;
 cp -r "$ROOT/assets" "$STAGE/assets"
+# specs/telemetry.md §7: the privacy notice ships with the installer. The .iss
+# needs no edit — [Files] already takes stage\* recursively.
+cp "$ROOT/PRIVACY.md" "$STAGE/"
 echo "staged: $(du -sh "$STAGE" | cut -f1)"

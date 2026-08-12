@@ -1,6 +1,9 @@
 #include <catch2/catch_test_macros.hpp>
 #include <nlohmann/json.hpp>
 #include "game/telemetry.hpp"
+#include "game/settings_save.hpp"
+
+#include <cstdio>
 
 TEST_CASE("heat_bin maps the arena circle's bounding square to 32x32", "[telemetry]") {
     // Arena: centre (1000, 1000), radius 800 -> square x,y in [200, 1800]
@@ -80,4 +83,17 @@ TEST_CASE("serialize emits envelope, sections and base64 heat", "[telemetry]") {
     alive.player_id = r.player_id; alive.session_id = "s1";
     alive.game_version = "2.0.0"; alive.difficulty = "Normal";
     REQUIRE(nlohmann::json::parse(telemetry::serialize(alive)).contains("death") == false);
+}
+
+TEST_CASE("analytics setting round-trips and defaults true", "[telemetry][settings]") {
+    REQUIRE(SettingsSave{}.analytics == true);            // default-on
+    const std::string p = "/tmp/rd_test_settings.json";
+    SettingsSave s; s.analytics = false;
+    REQUIRE(settings_write(p, s));
+    REQUIRE(settings_load(p).analytics == false);
+    // the other two survive the new field
+    REQUIRE(settings_load(p).screen_shake == true);
+    REQUIRE(settings_load(p).minimap == true);
+    std::remove(p.c_str());
+    REQUIRE(settings_load("/nonexistent/x.json").analytics == true);  // garbage-tolerant
 }

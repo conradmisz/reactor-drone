@@ -4341,6 +4341,13 @@
           "label_text": "Type a name, then press ENTER  (ESC to skip)",
           "style_id": "caption",
           "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 244, "w": 392, "h": 24 },
+          "label_text": "Anonymous gameplay stats are sent to improve the game (SETTINGS to opt out)",
+          "style_id": "caption",
+          "z_order": 10
         }
       ]
     },
@@ -4662,7 +4669,24 @@
         },
         {
           "element_type": "label",
-          "rect": { "x": 204, "y": 216, "w": 392, "h": 24 },
+          "rect": { "x": 204, "y": 208, "w": 280, "h": 44 },
+          "label_text": "ANALYTICS",
+          "style_id": "subtitle",
+          "z_order": 10
+        },
+        {
+          "element_type": "checkbox",
+          "rect": { "x": 500, "y": 208, "w": 96, "h": 44 },
+          "label_text": "",
+          "style_id": "default_button",
+          "z_order": 10,
+          "value": 1,
+          "on_click_fn": "on_toggle_analytics",
+          "name": "settings_analytics"
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 160, "w": 392, "h": 24 },
           "label_text": "Applies immediately. Stored between sessions.",
           "style_id": "caption",
           "z_order": 10

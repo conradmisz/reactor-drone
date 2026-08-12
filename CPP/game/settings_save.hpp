@@ -10,7 +10,8 @@
 #include "engine/project_paths.hpp"
 
 /**
- * SettingsSave — the options screen's two toggles (main-menu-suite Phase C).
+ * SettingsSave — the options screen's three toggles (main-menu-suite Phase C,
+ * plus telemetry consent).
  *
  * `saves/settings.json`, third file in the saves directory and a different
  * concern from both meta.json (lifetime progression) and runN.json (runs in
@@ -27,6 +28,10 @@
 struct SettingsSave {
     bool screen_shake = true;
     bool minimap = true;
+    /// Telemetry consent (specs/telemetry.md §7). On by default, disclosed on the
+    /// first-launch name screen. Read only by main.cpp's POST guard — deliberately
+    /// NOT published to the Blackboard, because it has no apply site in the sim.
+    bool analytics = true;
 };
 
 inline std::string settings_save_path() {
@@ -44,6 +49,8 @@ inline SettingsSave settings_load(const std::string& path) {
             s.screen_shake = j["screen_shake"].get<bool>();
         if (j.contains("minimap") && j["minimap"].is_boolean())
             s.minimap = j["minimap"].get<bool>();
+        if (j.contains("analytics") && j["analytics"].is_boolean())
+            s.analytics = j["analytics"].get<bool>();
     } catch (...) {
         return SettingsSave{};
     }
@@ -56,7 +63,8 @@ inline bool settings_write(const std::string& path, const SettingsSave& s) {
         std::ofstream out(path, std::ios::trunc);
         if (!out.is_open()) return false;
         out << nlohmann::json{{"screen_shake", s.screen_shake},
-                              {"minimap", s.minimap}}.dump(2) << "\n";
+                              {"minimap", s.minimap},
+                              {"analytics", s.analytics}}.dump(2) << "\n";
         return out.good();
     } catch (...) {
         return false;   // a read-only disk must not take the settings screen down
