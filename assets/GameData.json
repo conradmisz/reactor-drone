@@ -2594,6 +2594,17 @@
       "duration": 5.0
     }
   ],
+  "//engine-suite": "Engine-suite Phase 0 scaffolding (D138, specs/engine-feature-suite.md). Each block below is OWNED BY ONE LANE and every value is an inert default: enabled false (or an empty list) leaves the sim byte-identical. The owning lane fills its block in and deletes its 'still inert' line in test_scaffolding.cpp.",
+  "timescale": { "enabled": false },
+  "director": { "enabled": false },
+  "resonance": { "enabled": false },
+  "flight_report": { "enabled": false },
+  "forces": { "max_sources": 32 },
+  "scars": { "enabled": false },
+  "palettes": { "enabled": false },
+  "patterns": [],
+  "audio": { "enabled": false },
+
   "//ui": "UI & menu layer (Option-040 port). Rects are authored in the 800x600 design canvas; ui_canvas_transform letterboxes them onto the live window.",
   "ui_styles": {
     "pip_gain": {

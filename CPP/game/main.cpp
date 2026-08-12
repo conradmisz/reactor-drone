@@ -25,6 +25,7 @@
 #include "engine/ecs/component_storage.hpp"
 #include "engine/ecs/blackboard.hpp"
 #include "engine/ecs/destruction.hpp"
+#include "engine/ecs/fx_events.hpp"
 #include "engine/timer.hpp"
 #include "engine/resource_manager.hpp"
 #include "engine/project_paths.hpp"
@@ -1122,6 +1123,18 @@ int main(int argc, char* argv[]) {
         input_system.process_events(component_storage, running, blackboard, renderer.get());
         uint64_t frame = timer.get_frame_count();
 
+        // Engine-suite Phase 0 (D138): wipe last frame's render-FX event lists
+        // (grid impulses, scar stamps) whether or not any consumer is enabled —
+        // publishers append during the sim below, consumers read at render.
+        fx_events::clear_frame(blackboard);
+
+        // === HOOK: timescale === (Engine suite, D138 — Lane P / #1)
+        // Owner: Temporal Overload. Rewrites the Blackboard "delta_time" this
+        // frame by a scale that is a pure function of sim state, BEFORE anything
+        // reads it. Frames still advance one per loop, so frame-indexed --keys
+        // and --stopframe are unaffected by design.
+        // === END HOOK: timescale ===
+
         // Scripted input injection (headless testing).
         for (const auto& c : opts.clicks) if (c.frame == frame) {
             blackboard.set("mouse_click_x", static_cast<float>(c.x));
@@ -1598,6 +1611,12 @@ int main(int argc, char* argv[]) {
 
             player_aim.update(component_storage, blackboard);
 
+            // === HOOK: director === (Engine suite, D138 — Lane Q / #8)
+            // Owner: the Adaptive Director. Integrates a stress scalar from sim
+            // state and hands WaveSpawnerSystem ONE spacing multiplier — never
+            // counts, never skips the table. Publishes "director.stress".
+            // === END HOOK: director ===
+
             wave_spawner.update(blackboard, entity_manager, component_storage);
 
             // === HOOK: boss === (Iteration 3, D51 — Lane D / #4)
@@ -1702,6 +1721,13 @@ int main(int argc, char* argv[]) {
                 // === END HOOK: arena-vfx ===
             }
 
+            // === HOOK: surge === (Engine suite, D138 — Lane X / #7)
+            // Owner: Reactor Surge Events. After the arena-shift tick so a surge
+            // schedules against the settled arena. Sim-side: scheduling draws
+            // from the sim RNG stream under R2 (draws taken on every wave,
+            // whether or not an event fires).
+            // === END HOOK: surge ===
+
             enemy_seek.update(component_storage, blackboard);
 
             // === HOOK: enemy-fire === (Iteration 3, D51 — Lane D / #3)
@@ -1718,6 +1744,13 @@ int main(int argc, char* argv[]) {
             }
             // === END HOOK: enemy-fire ===
 
+            // === HOOK: pattern === (Engine suite, D138 — Lane Y / #2)
+            // Owner: the bullet-pattern interpreter. Beside enemy-fire because it
+            // is the same moment — "what does this enemy shoot" — dispatched when
+            // an EnemyType names a pattern. Spawns through the existing EnemyShot
+            // path; no RNG in the interpreter, variation is authored.
+            // === END HOOK: pattern ===
+
             // === HOOK: specialty === (Iteration 3, D51 — Lane D / #9)
             // Owner: the per-arena specialty-unit phase (spitter trails, mines,
             // bulwark facing, splitter). Immediately after enemy-fire because both
@@ -1728,6 +1761,13 @@ int main(int argc, char* argv[]) {
                 specialty.update(component_storage, entity_manager, blackboard);
             }
             // === END HOOK: specialty ===
+
+            // === HOOK: forces === (Engine suite, D138 — Lane T / #3)
+            // Owner: the force-field layer. One accumulation pass over the
+            // registered sources writing velocity deltas, BEFORE movement so a
+            // field acts on the frame it exists — and the arena clamp + obstacle
+            // push-out below stay the last word on position.
+            // === END HOOK: forces ===
 
             movement.update(component_storage, blackboard);
 
@@ -1780,6 +1820,13 @@ int main(int argc, char* argv[]) {
             player_fire.update(component_storage, entity_manager, blackboard);
             collision.update(component_storage, blackboard);
             projectile_hit.update(entity_manager, component_storage, blackboard);
+
+            // === HOOK: crumble === (Engine suite, D138 — Lane U / #9)
+            // Owner: the destructible arena. Routes this frame's projectile hits
+            // on obstacle colliders into obstacle HP; destruction removes the
+            // collider, spawns debris and dirty-rebuilds the A* grid region.
+            // === END HOOK: crumble ===
+
             // Shields regen *before* damage resolves, so a hit this frame restarts
             // the quiet timer with the last word (Phase 3).
             tick_shields(component_storage,
@@ -2095,6 +2142,19 @@ int main(int argc, char* argv[]) {
 
         game_hud.update(component_storage, blackboard);
 
+        // === HOOK: telemetry === (Engine suite, D138 — Lane S / #10)
+        // Owner: the Flight Report recorder. Every phase, outside the `sim`
+        // gate, so terminal screens can compose the report; recording itself is
+        // gated on PHASE_PLAYING inside the system. Passive — reads sim state
+        // into its own ring buffers, nothing reads it back.
+        // === END HOOK: telemetry ===
+
+        // === HOOK: audio === (Engine suite, D138 — Lane Z / #4)
+        // Owner: chip-synth audio. Every phase — menus click and the music keeps
+        // breathing on the title screen. Isolated: reads sim events, writes
+        // sound, is never read by anything.
+        // === END HOOK: audio ===
+
         // === HOOK: minimap === (Iteration 3, D51 — Lane B / #7)
         // Owner: the minimap phase. Beside game_hud.update because it is the same
         // kind of work — a per-frame refresh of screen-space furniture — and it
@@ -2261,6 +2321,19 @@ int main(int argc, char* argv[]) {
                               : 1.0f);
         }
         render_system.render_layers(bg_layers);
+
+        // === HOOK: grid-render === (Engine suite, D138 — Lane R / RG)
+        // Owner: the resonance grid. Above the parallax backdrops, under every
+        // entity. Render-only: consumes fx.grid_impulses, writes pixels; no sim
+        // system may ever read grid state.
+        // === END HOOK: grid-render ===
+
+        // === HOOK: scars-render === (Engine suite, D138 — Lane V / #6)
+        // Owner: the battle-scar layer. Consumes fx.scar_stamps into its
+        // accumulation texture and draws it once, under the entities and over
+        // the grid. Render-only, same contract as the grid.
+        // === END HOOK: scars-render ===
+
         render_system.render(component_storage, blackboard);
         hud_system.render(component_storage, blackboard);
         // Menus composite last, on top of the world and the gameplay HUD.
@@ -2270,6 +2343,14 @@ int main(int argc, char* argv[]) {
             for (uint64_t sf : opts.screenshot_frames) if (sf == frame) blackboard.set("screenshot_frame", frame);
         }
         screenshot_system.update(blackboard);
+
+        // === HOOK: palette === (Engine suite, D138 — Lane W / #5)
+        // Owner: the palette engine. The lane's spec resolves the feasibility
+        // gate (true post-LUT over a render target vs palette-driven tinting);
+        // whichever ships, this is its one render-block landing site, resolved
+        // before present. Render-only.
+        // === END HOOK: palette ===
+
         render_system.present();
 
         if (sim) timer.end_frame(); else timer.end_frame_no_advance();

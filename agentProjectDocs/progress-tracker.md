@@ -5,6 +5,18 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
 
 ## Current Phase
 
+- **`engine-suite-build` (2026-08-12): the engine feature suite is being built on
+  an isolated branch off `master`**, in the worktree
+  `../reactor-drone-v2-engine-suite`. The branch exists to answer one question —
+  is this worth merging? — so every lane is data-disabled by default and the
+  replay canary is re-checked against the pre-suite baseline at every step
+  (`bash gate.sh .canary-baseline.txt` runs the whole gate).
+- Phase 0 (D138) is done: eleven inert hooks in `main.cpp`, the shared
+  `fx_events.hpp` vocabulary, ten config blocks parsed-but-disabled, hooks pinned
+  by `test_scaffolding.cpp`. Gate green, canary identical to baseline.
+- Spec: `specs/engine-feature-suite.md`. Lane order: P/R, Q/S, T/V, U/W, X/Y, Z.
+
+
 - **`feature/gameplay-polish` (2026-08-11): the THIRD playtest batch is
   implemented** as D193 (one decisions.md entry, numbered by feedback item) —
   loot lifetime back to 14 s, +2 on every unit, a wave-15 credit vacuum and

@@ -74,6 +74,7 @@ GameConfig load_arena_config(const std::string& file_path) {
                     ObstacleDef od;
                     od.x = o.value("x", od.x); od.y = o.value("y", od.y);
                     od.w = o.value("w", od.w); od.h = o.value("h", od.h);
+                    od.hp = o.value("hp", od.hp);   // engine-suite D138: 0 = indestructible
                     def.obstacles.push_back(od);
                 }
             }
@@ -90,6 +91,21 @@ GameConfig load_arena_config(const std::string& file_path) {
             // step on the second pass over the same four themes.
             def.specialty_unit = a.value("specialty_unit", def.specialty_unit);
             def.specialty_tier = a.value("specialty_tier", def.specialty_tier);
+            // Engine-suite Phase 0 (D138): the arena's surge table (#7, Lane X).
+            if (a.contains("surges")) {
+                for (const auto& sg : a["surges"]) {
+                    SurgeDef sd;
+                    sd.effect     = sg.value("effect", sd.effect);
+                    sd.first_wave = sg.value("first_wave", sd.first_wave);
+                    sd.last_wave  = sg.value("last_wave", sd.last_wave);
+                    sd.chance     = sg.value("chance", sd.chance);
+                    sd.magnitude  = sg.value("magnitude", sd.magnitude);
+                    sd.duration   = sg.value("duration", sd.duration);
+                    sd.radius     = sg.value("radius", sd.radius);
+                    sd.telegraph  = sg.value("telegraph", sd.telegraph);
+                    def.surges.push_back(std::move(sd));
+                }
+            }
             cfg.arenas.push_back(std::move(def));
         }
     }
@@ -162,6 +178,7 @@ GameConfig load_arena_config(const std::string& file_path) {
             t.shot_speed     = e.value("shot_speed", t.shot_speed);
             t.shot_damage    = e.value("shot_damage", t.shot_damage);
             t.first_wave     = e.value("first_wave", t.first_wave);
+            t.pattern        = e.value("pattern", t.pattern);   // engine-suite D138 (#2)
             cfg.enemy_types.push_back(std::move(t));
         }
     }
@@ -273,6 +290,117 @@ GameConfig load_arena_config(const std::string& file_path) {
             ad.duration = a.value("duration", ad.duration);
             cfg.actives.push_back(std::move(ad));
         }
+    }
+
+    // === Engine-suite Phase 0 (D138). Every block is optional and every default
+    // is inert; each is consumed only by the lane that owns it (see
+    // specs/engine-feature-suite.md). Parsed with json.value so an older data
+    // file still loads. ===
+    if (data.contains("timescale")) {
+        const auto& t = data["timescale"];
+        auto& tc = cfg.timescale;
+        tc.enabled      = t.value("enabled", tc.enabled);
+        tc.kill_scale   = t.value("kill_scale", tc.kill_scale);
+        tc.kill_hold    = t.value("kill_hold", tc.kill_hold);
+        tc.chain_kills  = t.value("chain_kills", tc.chain_kills);
+        tc.chain_window = t.value("chain_window", tc.chain_window);
+        tc.hull_scale   = t.value("hull_scale", tc.hull_scale);
+        tc.hull_frac    = t.value("hull_frac", tc.hull_frac);
+        tc.ease_per_sec = t.value("ease_per_sec", tc.ease_per_sec);
+        tc.min_scale    = t.value("min_scale", tc.min_scale);
+    }
+    if (data.contains("director")) {
+        const auto& d = data["director"];
+        auto& dc = cfg.director;
+        dc.enabled       = d.value("enabled", dc.enabled);
+        dc.min_mult      = d.value("min_mult", dc.min_mult);
+        dc.max_mult      = d.value("max_mult", dc.max_mult);
+        dc.damage_weight = d.value("damage_weight", dc.damage_weight);
+        dc.kill_weight   = d.value("kill_weight", dc.kill_weight);
+        dc.hull_weight   = d.value("hull_weight", dc.hull_weight);
+        dc.ema_per_sec   = d.value("ema_per_sec", dc.ema_per_sec);
+    }
+    // "resonance", NOT "grid": the class-baseline gamedata_loader already claims a
+    // top-level "grid" (the match-3 tile grid) and reads grid["rows"] UNGUARDED,
+    // so a block of ours under that name aborts the loader before main() runs.
+    if (data.contains("resonance")) {
+        const auto& g = data["resonance"];
+        auto& gc = cfg.grid;
+        gc.enabled       = g.value("enabled", gc.enabled);
+        gc.cols          = g.value("cols", gc.cols);
+        gc.rows          = g.value("rows", gc.rows);
+        gc.spacing       = g.value("spacing", gc.spacing);
+        gc.stiffness     = g.value("stiffness", gc.stiffness);
+        gc.damping       = g.value("damping", gc.damping);
+        gc.impulse_scale = g.value("impulse_scale", gc.impulse_scale);
+        gc.max_offset    = g.value("max_offset", gc.max_offset);
+        if (g.contains("color")) {
+            const auto& c = g["color"];
+            gc.r = u8(c, "r", gc.r); gc.g = u8(c, "g", gc.g);
+            gc.b = u8(c, "b", gc.b); gc.a = u8(c, "a", gc.a);
+        }
+    }
+    if (data.contains("flight_report")) {
+        const auto& f = data["flight_report"];
+        auto& fc = cfg.flight_report;
+        fc.enabled        = f.value("enabled", fc.enabled);
+        fc.sample_every_n = f.value("sample_every_n", fc.sample_every_n);
+        fc.max_samples    = f.value("max_samples", fc.max_samples);
+    }
+    if (data.contains("forces")) {
+        cfg.forces.max_sources = data["forces"].value("max_sources", cfg.forces.max_sources);
+    }
+    if (data.contains("scars")) {
+        const auto& sc2 = data["scars"];
+        cfg.scars.enabled = sc2.value("enabled", cfg.scars.enabled);
+        cfg.scars.max_stamps_per_frame =
+            sc2.value("max_stamps_per_frame", cfg.scars.max_stamps_per_frame);
+        cfg.scars.alpha = sc2.value("alpha", cfg.scars.alpha);
+    }
+    if (data.contains("palettes")) {
+        const auto& pl = data["palettes"];
+        cfg.palettes.enabled = pl.value("enabled", cfg.palettes.enabled);
+        if (pl.contains("palettes")) {
+            for (const auto& row : pl["palettes"]) {
+                PaletteDef pd;
+                pd.name = row.value("name", pd.name);
+                if (row.contains("colors")) {
+                    for (const auto& c : row["colors"]) {
+                        pd.colors.push_back(c.get<uint32_t>());
+                    }
+                }
+                cfg.palettes.palettes.push_back(std::move(pd));
+            }
+        }
+    }
+    if (data.contains("patterns")) {
+        for (const auto& row : data["patterns"]) {
+            BulletPatternDef pat;
+            pat.name = row.value("name", pat.name);
+            pat.loop = row.value("loop", pat.loop);
+            if (row.contains("ops")) {
+                for (const auto& o : row["ops"]) {
+                    BulletPatternOp op;
+                    op.type            = o.value("type", op.type);
+                    op.count           = o.value("count", op.count);
+                    op.speed           = o.value("speed", op.speed);
+                    op.spread_deg      = o.value("spread_deg", op.spread_deg);
+                    op.angular_vel_deg = o.value("angular_vel_deg", op.angular_vel_deg);
+                    op.interval        = o.value("interval", op.interval);
+                    op.wait            = o.value("wait", op.wait);
+                    pat.ops.push_back(std::move(op));
+                }
+            }
+            cfg.patterns.push_back(std::move(pat));
+        }
+    }
+    if (data.contains("audio")) {
+        const auto& au = data["audio"];
+        auto& ac = cfg.audio;
+        ac.enabled       = au.value("enabled", ac.enabled);
+        ac.master_volume = au.value("master_volume", ac.master_volume);
+        ac.sample_rate   = au.value("sample_rate", ac.sample_rate);
+        ac.voices        = au.value("voices", ac.voices);
     }
 
     // Phase B (D50): run difficulties. Index 0 is the default, so an absent or

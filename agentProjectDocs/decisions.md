@@ -1887,3 +1887,55 @@ game should *show* its state, not make you infer it.
      three separate `currency < cost` sites; pinning the balance keeps all three
      real and touched no shop code. Everything is inside `if (opts.dev)`, so the
      default path draws no RNG and adds no per-frame state — canary verified.
+
+
+## D138 — Engine-suite Phase 0: eleven inert hooks, one shared FX event vocabulary
+
+Branch `engine-suite-build`, off current `master` (the older
+`feature/engine-suite` branch carries the umbrella spec but predates the
+gameplay-polish merges, so the spec was brought across as a file rather than the
+branch being rebased).
+
+Same playbook as iteration-3 Phase 0 (D51) and iteration 5: every shared-file
+edit made **once**, up front, inert, so each of the eleven features lands in one
+comment-delimited `// === HOOK: name ===` block and no lane has to touch
+`main.cpp`, `arena_config.*` or `GameData.json` while another is building. The
+hook table is in `ENGINE.md` §6b; `test_scaffolding.cpp` pins all eleven names
+by reading `main.cpp` as text.
+
+**The one new shared surface is `engine/ecs/fx_events.hpp`** — two per-frame
+Blackboard lists (`fx.grid_impulses`, `fx.scar_stamps`) that sim-side combat
+sites publish to and the two render-only lanes (resonance grid, battle scars)
+consume while drawing. Defined **once**, in Phase 0, because both consumers want
+the same three moments (deaths, dashes, blasts) and the iteration-5 lesson was
+that a vocabulary invented twice diverges. The contract is one-way — nothing
+sim-side may read the lists back — which is what keeps those two lanes out of the
+determinism argument entirely. `clear_frame()` runs unconditionally at the top of
+every frame so a disabled consumer cannot leak.
+
+**Rejected:** a `FxEvent` *component* per event. Invariant 6 makes a new
+component type the expensive move (storage member, two specialisations, six
+instantiations, a `destruction.cpp` sweep, a `debug_adapters` registration), and
+these events live exactly one frame and are never queried per entity. Two
+Blackboard vectors are the cheap structural option the standards ask for first.
+
+**Trap found and paid for immediately: the top-level JSON key `"grid"` is already
+claimed.** The class-baseline `gamedata_loader.cpp` §4.7 parses a match-3 tile
+grid from `data["grid"]` and reads `grid["rows"]` **unguarded**, so the
+resonance grid's first data block aborted the loader (an nlohmann assert inside
+`operator[]`) before `main()` ran — presenting as a `Game_Unit_Tests` SIGABRT in
+an unrelated test case. The block is `"resonance"` instead. The full list of
+engine-claimed top-level keys is now in `ENGINE.md` §6b; check it before naming
+a new one. Modifying the inherited loader to guard the read was rejected — it is
+a protected class-baseline file and the collision is ours to avoid.
+
+Config added to `GameConfig`, all inert: `TimescaleConfig`, `DirectorConfig`,
+`GridConfig`, `FlightReportConfig`, `ForceConfig`, `ScarConfig`, `PaletteConfig`,
+`AudioConfig`, `std::vector<BulletPatternDef>`, plus `ObstacleDef::hp`
+(0 = indestructible), `ArenaDef::surges` and `EnemyType::pattern`. No new
+component type.
+
+Verified: clean build (only Lua's `tmpnam`), `ctest` 8/8, replay canary
+byte-identical twice **and identical to the pre-Phase-0 baseline** on
+`--seed 42 --keys 5:SPACE --stopframe 3000`. Not played in a window — Phase 0
+ships no behaviour to play.

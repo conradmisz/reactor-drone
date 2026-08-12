@@ -450,6 +450,50 @@ in `main.cpp`:
 | `minimap` | after `game_hud.update`, every phase | minimap (#7) |
 | `prestige` | after `ui_system.update`, above the phase machine | 30-wave arc + prestige (#14, iteration 5) |
 
+### 6b. Engine-suite hooks (D138)
+
+The engine-feature suite (`agentProjectDocs/specs/engine-feature-suite.md`) uses the
+same convention: every shared-file edit made once, up front, inert, with one
+comment-delimited block per lane.
+
+| Hook | Frame-order slot | Owner |
+|---|---|---|
+| `timescale` | frame top, right after the frame counter | #1 Temporal Overload (P) |
+| `director` | after `player_aim`, before `wave_spawner.update` | #8 Adaptive Director (Q) |
+| `surge` | after the arena-shift tick | #7 Reactor Surges (X) |
+| `pattern` | after `enemy-fire` | #2 Bullet-Pattern Language (Y) |
+| `forces` | after `specialty`, before `movement.update` | #3 Force-Field Layer (T) |
+| `crumble` | after `projectile_hit.update` | #9 Destructible Arena (U) |
+| `telemetry` | after `game_hud.update`, every phase | #10 Flight Report (S) |
+| `audio` | beside `telemetry`, every phase | #4 Chip-Synth Audio (Z) |
+| `grid-render` | between `render_layers` and `render` | RG Resonance Grid (R) |
+| `scars-render` | after `grid-render` | #6 Battle-Scar Layer (V) |
+| `palette` | after `screenshot_system.update`, before `present` | #5 Palette Engine (W) |
+
+**The shared FX event vocabulary** is `CPP/engine/ecs/fx_events.hpp`: two per-frame
+Blackboard lists, `fx.grid_impulses` (`fx_events::Impulse`) and `fx.scar_stamps`
+(`fx_events::Stamp`). Sim-side code publishes; the grid and the scar layer consume
+while drawing. `fx_events::clear_frame` runs unconditionally at the top of every
+frame — before the `timescale` hook — so a disabled consumer cannot leak. The
+contract is one-way: **nothing sim-side may ever read these lists back**, which is
+what keeps the two render-only lanes outside the determinism argument entirely.
+
+**What Phase 0 added to `GameConfig`** (`arena_config.hpp`, all parsed in
+`arena_config.cpp`, all inert by default): `TimescaleConfig`, `DirectorConfig`,
+`GridConfig`, `FlightReportConfig`, `ForceConfig`, `ScarConfig`, `PaletteConfig`
+(+`PaletteDef`), `std::vector<BulletPatternDef>` (+`BulletPatternOp`),
+`AudioConfig`; plus `ObstacleDef::hp` (0 = indestructible), `ArenaDef::surges`
+(`SurgeDef`) and `EnemyType::pattern`. No new component type — Invariant 6 held.
+
+⚠️ **Trap, hit during Phase 0: the top-level JSON key `"grid"` is already taken.**
+The class-baseline `gamedata_loader.cpp` §4.7 parses a match-3 tile grid from
+`data["grid"]` and reads `grid["rows"]` **unguarded**, so any `"grid"` block of ours
+aborts the loader (an nlohmann assert) before `main()` runs. The resonance grid's
+data block is therefore `"resonance"`. The engine loader claims `window`, `camera`,
+`world`, `debug`, `grid`, `atlas`, `scoring`, `physics`, `levels`,
+`animation_definitions`, `tilemap`, `game`, `entities`, `hud_entities`,
+`ui_styles` and `screens` — check that list before naming a new block.
+
 Iteration 5 kept the same convention. `prestige` is **two** blocks by necessity:
 the frame-order one above, and one inside `start_run` — the single site where
 `apply_ship` / `apply_difficulty` already overlay the pristine `base_config`

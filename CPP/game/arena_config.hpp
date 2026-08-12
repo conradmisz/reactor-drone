@@ -40,7 +40,9 @@ struct ArenaConfig {
  * drone and stop shots); hazards carry ContactDamage and hurt the drone on
  * contact but let it pass. `damage` is the health removed per i-frame window.
  */
-struct ObstacleDef { float x = 0.0f, y = 0.0f, w = 40.0f, h = 40.0f; };
+// Engine-suite Phase 0 (D138): `hp` makes an obstacle destructible (#9, Lane U).
+// 0 = indestructible, the default — every arena shipped so far is unchanged.
+struct ObstacleDef { float x = 0.0f, y = 0.0f, w = 40.0f, h = 40.0f; float hp = 0.0f; };
 struct HazardDef   { float x = 0.0f, y = 0.0f, w = 40.0f, h = 40.0f; float damage = 10.0f; };
 
 /**
@@ -50,6 +52,22 @@ struct HazardDef   { float x = 0.0f, y = 0.0f, w = 40.0f, h = 40.0f; float damag
  * current wave (see active_arena_index). Arena geometry (radius/centre/spawn
  * ring) stays shared on ArenaConfig — only the theme + props swap.
  */
+/**
+ * SurgeDef — one reactor surge event an arena can schedule mid-wave (engine-suite
+ * #7, Lane X). Parsed in Phase 0 (D138) and inert until surge_system lands: an
+ * empty `surges` list per arena is the shipped default.
+ */
+struct SurgeDef {
+    std::string effect;           // slow_field | sweep_line | eruption | gravity_storm
+    int   first_wave = 1;         // wave window this surge may fire in...
+    int   last_wave  = 0;         // ...0 = no upper bound
+    float chance = 0.0f;          // P(fires in an eligible wave); 0 = never
+    float magnitude = 1.0f;       // effect-specific strength
+    float duration = 4.0f;        // seconds the effect lives
+    float radius = 160.0f;        // region size (circle radius / line half-width)
+    float telegraph = 1.5f;       // warning-glow seconds before it goes live
+};
+
 struct ArenaDef {
     std::string name;
     int first_wave = 1;
@@ -72,6 +90,9 @@ struct ArenaDef {
     // over the same four themes (waves 26-50) harder than the first.
     int specialty_unit = -1;
     int specialty_tier = 1;
+    // Engine-suite Phase 0 (D138): this arena's surge-event table (#7, Lane X).
+    // Empty = no surges, i.e. every arena shipped so far.
+    std::vector<SurgeDef> surges;
 };
 
 struct WeaponConfig {
@@ -142,6 +163,10 @@ struct EnemyType {
     // and the four specialty units, which are chosen by their arena instead).
     // This is how moon_1/2/3 arrive at waves 3/15/30 without editing 50 wave rows.
     int first_wave = 0;
+    // Engine-suite Phase 0 (D138): the authored bullet pattern this type fires
+    // (#2, Lane Y) — a BulletPatternDef::name, dispatched from the enemy-fire
+    // hook. Empty = whatever `behavior` already does, i.e. every type today.
+    std::string pattern;
     int currency = 1;   // value of each currency pickup this type drops
     // v2 Phase 5: P(a kill of this type drops anything at all). Sparks pay
     // rarely, hulks pay reliably, so target prioritisation has a reason to exist
@@ -342,6 +367,115 @@ struct ActiveItemDef {
     float duration = 5.0f;        // for the effects that persist
 };
 
+
+/**
+ * Engine-suite Phase-0 config blocks (D138). Same playbook as the iteration-3
+ * blocks above: all parsed now, each consumed later by the lane that owns it, so
+ * no lane edits this shared header while another is building. Every default is
+ * deliberately inert — a data file with none of these blocks plays exactly like
+ * the pre-suite game, and the replay canary is the proof.
+ */
+
+/// TimescaleConfig — Temporal Overload bullet-time (#1, Lane P). Sim-side: the
+/// scale is a pure function of sim state, so replays stay identical.
+struct TimescaleConfig {
+    bool  enabled = false;        // false => the multiplier is exactly 1.0f
+    float kill_scale = 0.45f;     // target scale on a kill-chain beat
+    float kill_hold = 0.22f;      // seconds the beat holds before easing back
+    int   chain_kills = 3;        // kills inside chain_window to trigger the beat
+    float chain_window = 1.2f;    // seconds
+    float hull_scale = 0.6f;      // target scale while hull is critical
+    float hull_frac = 0.15f;      // "critical" = hull below this fraction
+    float ease_per_sec = 6.0f;    // exponential ease rate toward the target
+    float min_scale = 0.35f;      // floor — the sim never fully stops
+};
+
+/// DirectorConfig — the adaptive pacing hand (#8, Lane Q). Scales wave-spawn
+/// *spacing* only; never counts, never skips the table.
+struct DirectorConfig {
+    bool  enabled = false;        // false => the spacing multiplier is exactly 1.0f
+    float min_mult = 0.7f;        // pressure arrives early when cruising
+    float max_mult = 1.3f;        // spawns hold off after a scramble
+    float damage_weight = 1.0f;   // stress from recent damage taken
+    float kill_weight = 0.5f;     // relief from recent kills
+    float hull_weight = 1.0f;     // standing stress from missing hull
+    float ema_per_sec = 0.8f;     // EMA rate the recent-events signals decay at
+};
+
+/// GridConfig — the resonance grid, the arena as a physics display (Lane R).
+/// Render-only: no sim system may ever read grid state.
+struct GridConfig {
+    bool  enabled = false;
+    int   cols = 40, rows = 28;   // fixed lattice; flat array, no allocation
+    float spacing = 40.0f;        // px between nodes at rest
+    float stiffness = 60.0f;      // spring constant toward rest position
+    float damping = 5.0f;         // velocity bleed per second
+    float impulse_scale = 90.0f;  // maps fx_events::Impulse.strength to a kick
+    float max_offset = 26.0f;     // px a node may leave its rest position
+    uint8_t r = 90, g = 200, b = 255, a = 46;   // line colour at rest
+};
+
+/// ScarConfig — the battle-scar accumulation layer (#6, Lane V). Render-only.
+struct ScarConfig {
+    bool  enabled = false;
+    int   max_stamps_per_frame = 16;  // bounded blit; overflow dropped, not queued
+    float alpha = 0.55f;              // stamp opacity into the accumulation texture
+};
+
+/// ForceConfig — the force-field layer (#3, Lane T). Inert by zero registered
+/// sources rather than a flag: the accumulation pass iterates nothing.
+struct ForceConfig {
+    int max_sources = 32;         // fixed-capacity source array (MCU headroom)
+};
+
+/// PaletteDef / PaletteConfig — the palette engine (#5, Lane W). The lane's spec
+/// resolves the feasibility gate (true LUT vs palette-driven tinting); either
+/// way a palette is a named row of colours selected by arena/state/unlock.
+struct PaletteDef {
+    std::string name;
+    std::vector<uint32_t> colors;  // 0xRRGGBB entries; roles defined by Lane W
+};
+
+struct PaletteConfig {
+    bool enabled = false;
+    std::vector<PaletteDef> palettes;
+};
+
+/// BulletPatternOp / BulletPatternDef — the danmaku language (#2, Lane Y). A
+/// pattern is an op list interpreted from the enemy-fire hook; new patterns are
+/// data, not C++. No RNG in the interpreter — variation is authored.
+struct BulletPatternOp {
+    std::string type;             // ring | fan | spiral | aimed | wait
+    int   count = 8;              // shots this op emits
+    float speed = 220.0f;         // projectile speed
+    float spread_deg = 360.0f;    // arc the shots cover (fan/ring)
+    float angular_vel_deg = 0.0f; // spiral rotation per second
+    float interval = 0.0f;        // seconds between shots within the op; 0 = burst
+    float wait = 0.0f;            // seconds (type == "wait")
+};
+
+struct BulletPatternDef {
+    std::string name;
+    bool loop = true;             // restart the op list when it finishes
+    std::vector<BulletPatternOp> ops;
+};
+
+/// AudioConfig — chip-synth audio (#4, Lane Z). false => no device is opened.
+struct AudioConfig {
+    bool  enabled = false;
+    float master_volume = 0.8f;
+    int   sample_rate = 48000;
+    int   voices = 8;             // fixed voice pool: pulse x3, saw x2, tri, noise x2
+};
+
+/// FlightReportConfig — the run-as-artifact recorder (#10, Lane S). Passive:
+/// reads sim state into fixed ring buffers, renders on terminal screens only.
+struct FlightReportConfig {
+    bool enabled = false;
+    int  sample_every_n = 6;      // player position every N frames
+    int  max_samples = 4096;      // fixed ring buffer (MCU headroom)
+};
+
 /**
  * DifficultyDef — one selectable run difficulty (Gameplay Phase B, D50).
  *
@@ -396,6 +530,16 @@ struct GameConfig {
     BossConfig boss;               // #4 boss every 10 waves
     SpecialtyConfig specialty;     // #3/#9 spawn-stream injections
     std::vector<ActiveItemDef> actives;  // boss-reward active items
+    // Engine-suite Phase 0 (D138) — parsed now, consumed by the lane that owns each.
+    TimescaleConfig timescale;     // #1 Temporal Overload (Lane P)
+    DirectorConfig director;       // #8 Adaptive Director (Lane Q)
+    GridConfig grid;               // RG Resonance Grid (Lane R)
+    FlightReportConfig flight_report;  // #10 Flight Report (Lane S)
+    ForceConfig forces;            // #3 Force-Field Layer (Lane T)
+    ScarConfig scars;              // #6 Battle-Scar Layer (Lane V)
+    PaletteConfig palettes;        // #5 Palette Engine (Lane W)
+    std::vector<BulletPatternDef> patterns;  // #2 Bullet-Pattern Language (Lane Y)
+    AudioConfig audio;             // #4 Chip-Synth Audio (Lane Z)
     unsigned int seed = 1234u;     // RNG seed for spread/spawn/drops
 };
 
