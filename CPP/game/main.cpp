@@ -21,6 +21,7 @@
 #include <ctime>
 #include <future>
 #include <random>
+#include <stdexcept>
 #include <vector>
 
 #include "engine/ecs/entity_manager.hpp"
@@ -1288,7 +1289,19 @@ int main(int argc, char* argv[]) {
                     for (const auto& r : j.at("rows")) {
                         try {
                             const std::string raw_name = r.at("name").get<std::string>();
-                            const long long score = r.at("score").get<long long>();
+                            // Fix round 1: r.at("score").get<long long>() is UB for an
+                            // out-of-range JSON float (nlohmann does an unchecked
+                            // static_cast<long long>(double) — from_json.hpp). Convert
+                            // through double first (safe for any JSON number type) and
+                            // range-check against the backend's own write-side bound
+                            // (backend/src/worker.js: 0..10_000_000) before the cast
+                            // that actually produces a long long. Out of range is
+                            // exactly as malformed as a bad type: skip the row.
+                            const double score_d = r.at("score").get<double>();
+                            if (!std::isfinite(score_d) || score_d < 0.0 ||
+                                score_d > 10'000'000.0)
+                                throw std::out_of_range("score out of range");
+                            const long long score = static_cast<long long>(score_d);
                             // Strip control bytes (incl. '\n', which would
                             // otherwise inject a fake extra row into this
                             // newline-delimited format) and clamp length — a
