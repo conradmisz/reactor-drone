@@ -262,12 +262,14 @@ TEST_CASE("the shipped final-wave arena and the hard-mode boss knob are authored
           "[Game][boss][config]") {
     GameConfig cfg = load_arena_config(project_paths::assets_dir() + "/GameData.json");
 
-    // The 9th arena: the final-wave void (wave 30 since Lane O, D125).
-    REQUIRE(cfg.arenas.size() == 9);
+    // The LAST arena: the final-wave void (wave 30 since Lane O, D125). Indexed
+    // off size() rather than at a literal 8/9 — roguelite phase 5 inserted two
+    // themes ahead of it, and what matters here is that the finale is last.
+    REQUIRE(cfg.arenas.size() == 11);
     const ArenaDef& fin = cfg.arenas.back();
     CHECK(fin.name == "Singularity");
     CHECK(fin.first_wave == 30);
-    CHECK(active_arena_index(cfg.arenas, 30) == 8);
+    CHECK(active_arena_index(cfg.arenas, 30) == static_cast<int>(cfg.arenas.size()) - 1);
     CHECK(active_arena_index(cfg.arenas, 29) != 8);
     CHECK_FALSE(fin.backdrop_layers.empty());
     CHECK_FALSE(fin.obstacles.empty());

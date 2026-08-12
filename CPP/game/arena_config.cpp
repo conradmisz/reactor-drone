@@ -106,6 +106,11 @@ GameConfig load_arena_config(const std::string& file_path) {
                     def.surges.push_back(std::move(sd));
                 }
             }
+            // Roguelite phase 5: the theme's signature mechanic. Absent on the
+            // nine original arenas, which is exactly the "off" value.
+            def.light_radius   = a.value("light_radius", def.light_radius);
+            def.drift_x        = a.value("drift_x", def.drift_x);
+            def.drift_y        = a.value("drift_y", def.drift_y);
             cfg.arenas.push_back(std::move(def));
         }
     }

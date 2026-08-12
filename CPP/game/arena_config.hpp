@@ -95,6 +95,15 @@ struct ArenaDef {
     // Engine-suite Phase 0 (D138): this arena's surge-event table (#7, Lane X).
     // Empty = no surges, i.e. every arena shipped so far.
     std::vector<SurgeDef> surges;
+    // Roguelite phase 5 (design §4): this theme's signature mechanic, resolved
+    // onto the ArenaDef and read in exactly one place each
+    // (arena_mechanics.hpp) — the Foundry-mines shape.
+    //   light_radius  > 0 turns The Shroud on: everything past this many px
+    //                 from the drone fades toward invisible.
+    //   drift_x/y     px/s of current pushing the drone, the enemies and the
+    //                 loot. 0,0 = no current.
+    float light_radius = 0.0f;
+    float drift_x = 0.0f, drift_y = 0.0f;
 };
 
 struct WeaponConfig {

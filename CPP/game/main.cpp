@@ -62,6 +62,7 @@
 #include "script_loader.hpp"
 #include "debug_state.hpp"
 #include "arena_config.hpp"
+#include "arena_mechanics.hpp"
 #include "arena_vfx.hpp"
 #include "explosion_fx.hpp"      // v3 Tier 11 (D216)
 #include "player_components.hpp"
@@ -2652,6 +2653,21 @@ int main(int argc, char* argv[]) {
 
             movement.update(component_storage, blackboard);
 
+            // === HOOK: arena mechanics === (roguelite phase 5, design §4)
+            // The Drift's current, applied to the drone, the enemies and the
+            // loot alike. HERE, after movement and before the clamp: it
+            // displaces Position because Velocity is overwritten every frame by
+            // the seek and control systems, and running before the clamp is
+            // what keeps the boundary wall the final authority on where
+            // anything ends up.
+            if (active_arena >= 0) {
+                const ArenaDef& ad = config.arenas[static_cast<size_t>(active_arena)];
+                arena_mechanics::tick_drift(
+                    component_storage, ad.drift_x, ad.drift_y,
+                    static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)));
+            }
+            // === END HOOK: arena mechanics ===
+
             // Clamp the player inside the arena circle. Gameplay Phase 1: enemies
             // too — waves now advance only on a cleared arena, so an enemy drifting
             // outside the ring would stall the run (R3).
@@ -2748,6 +2764,15 @@ int main(int argc, char* argv[]) {
                 tick_enemy_tint(component_storage,
                                 static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)),
                                 TIE_DYE_CYCLE_SECONDS);
+            }
+            // The Shroud's darkness, beside the tie-dye cycle and for the same
+            // reason: it writes Tint, and a hit flash written this frame must
+            // still win. tick_shroud skips a flashing enemy outright — being lit
+            // up when you hit it is the one thing darkness must not eat.
+            if (active_arena >= 0) {
+                arena_mechanics::tick_shroud(
+                    component_storage,
+                    config.arenas[static_cast<size_t>(active_arena)].light_radius);
             }
             flash_system.update(component_storage, blackboard);  // v2: tick hit flashes -> Tint
             destroy_marked_entities(entity_manager, component_storage);

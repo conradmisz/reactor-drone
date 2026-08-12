@@ -425,7 +425,7 @@
     },
     {
       "name": "Bio-lab",
-      "first_wave": 8,
+      "first_wave": 7,
       "enemy_tint": {
         "r": 190,
         "g": 120,
@@ -608,8 +608,143 @@
       "specialty_tier": 1
     },
     {
+      "name": "The Shroud",
+      "first_wave": 10,
+      "enemy_tint": {
+        "r": 255,
+        "g": 235,
+        "b": 140
+      },
+      "wall_image": "v2/wall_galaxy.png",
+      "obstacle_image": "v2/pillar_galaxy.png",
+      "hazard_image": "v2/vent_galaxy.png",
+      "backdrop_layers": [
+        {
+          "image": "v2/bg_galaxy_far.png",
+          "scroll_factor": 0.9
+        },
+        {
+          "image": "v2/bg_galaxy_mid.png",
+          "scroll_factor": 0.6
+        },
+        {
+          "image": "v2/bg_galaxy_near.png",
+          "scroll_factor": 0.25
+        }
+      ],
+      "obstacles": [
+        {
+          "x": 2342.8,
+          "y": 1837.9,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 2244.3,
+          "y": 2479.2,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 1603.2,
+          "y": 2380.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 963.0,
+          "y": 2484.5,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 859.2,
+          "y": 1844.1,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 562.0,
+          "y": 1267.5,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 1138.9,
+          "y": 970.9,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 1595.5,
+          "y": 510.0,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 2055.8,
+          "y": 967.1,
+          "w": 120.0,
+          "h": 120.0
+        },
+        {
+          "x": 2635.2,
+          "y": 1258.9,
+          "w": 120.0,
+          "h": 120.0
+        }
+      ],
+      "hazards": [
+        {
+          "x": 2070.0,
+          "y": 1600.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 18.0
+        },
+        {
+          "x": 1835.0,
+          "y": 2007.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 18.0
+        },
+        {
+          "x": 1365.0,
+          "y": 2007.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 18.0
+        },
+        {
+          "x": 1130.0,
+          "y": 1600.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 18.0
+        },
+        {
+          "x": 1365.0,
+          "y": 1193.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 18.0
+        },
+        {
+          "x": 1835.0,
+          "y": 1193.0,
+          "w": 110.0,
+          "h": 110.0,
+          "damage": 18.0
+        }
+      ],
+      "specialty_tier": 2,
+                         "//": "Roguelite phase 5 (design \u00a74): darkness. light_radius > 0 IS the mechanic \u2014 arena_mechanics::tick_shroud fades every enemy past this many px from the drone toward invisible, so they emerge from the black instead of being visible clear across the arena. PROVISIONAL, unplayed: 260 px is a bit over a third of the arena radius. The enemy tint is hot yellow because a dim shape needs to be a colour nothing else in the theme is. Reuses the galaxy art set \u2014 its own is offline generator work.",
+                         "light_radius": 260.0
+},
+    {
       "name": "Prism",
-      "first_wave": 12,
+      "first_wave": 13,
       "tie_dye": true,
       "enemy_tint": {
         "r": 255,
@@ -997,8 +1132,218 @@
       "specialty_tier": 2
     },
     {
-      "name": "Foundry II",
+      "name": "The Drift",
       "first_wave": 19,
+      "enemy_tint": {
+        "r": 140,
+        "g": 255,
+        "b": 220
+      },
+      "wall_image": "v2/wall_prism.png",
+      "obstacle_image": "v2/pillar_prism.png",
+      "hazard_image": "v2/vent_prism.png",
+      "backdrop_layers": [
+        {
+          "image": "v2/bg_prism_far.png",
+          "scroll_factor": 0.9
+        },
+        {
+          "image": "v2/bg_prism_mid.png",
+          "scroll_factor": 0.6
+        },
+        {
+          "image": "v2/bg_prism_near.png",
+          "scroll_factor": 0.25
+        }
+      ],
+      "obstacles": [
+        {
+          "x": 1975.0,
+          "y": 1545.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1760.0,
+          "y": 1917.4,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1330.0,
+          "y": 1917.4,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1115.0,
+          "y": 1545.0,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1330.0,
+          "y": 1172.6,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 1760.0,
+          "y": 1172.6,
+          "w": 110.0,
+          "h": 110.0
+        },
+        {
+          "x": 2301.8,
+          "y": 1852.6,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 1852.6,
+          "y": 2301.8,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 1217.4,
+          "y": 2301.8,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 768.2,
+          "y": 1852.6,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 768.2,
+          "y": 1217.4,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 1217.4,
+          "y": 768.2,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 1852.6,
+          "y": 768.2,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 2301.8,
+          "y": 1217.4,
+          "w": 130.0,
+          "h": 130.0
+        },
+        {
+          "x": 2576.9,
+          "y": 2145.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 1555.0,
+          "y": 2735.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 533.1,
+          "y": 2145.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 533.1,
+          "y": 965.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 1555.0,
+          "y": 375.0,
+          "w": 90.0,
+          "h": 90.0
+        },
+        {
+          "x": 2576.9,
+          "y": 965.0,
+          "w": 90.0,
+          "h": 90.0
+        }
+      ],
+      "hazards": [
+        {
+          "x": 1967.5,
+          "y": 2030.0,
+          "w": 170.0,
+          "h": 45.0,
+          "damage": 14.0
+        },
+        {
+          "x": 1062.5,
+          "y": 2030.0,
+          "w": 170.0,
+          "h": 45.0,
+          "damage": 14.0
+        },
+        {
+          "x": 1062.5,
+          "y": 1125.0,
+          "w": 170.0,
+          "h": 45.0,
+          "damage": 14.0
+        },
+        {
+          "x": 1967.5,
+          "y": 1125.0,
+          "w": 170.0,
+          "h": 45.0,
+          "damage": 14.0
+        },
+        {
+          "x": 2560.0,
+          "y": 1550.0,
+          "w": 100.0,
+          "h": 100.0,
+          "damage": 14.0
+        },
+        {
+          "x": 1550.0,
+          "y": 2560.0,
+          "w": 100.0,
+          "h": 100.0,
+          "damage": 14.0
+        },
+        {
+          "x": 540.0,
+          "y": 1550.0,
+          "w": 100.0,
+          "h": 100.0,
+          "damage": 14.0
+        },
+        {
+          "x": 1550.0,
+          "y": 540.0,
+          "w": 100.0,
+          "h": 100.0,
+          "damage": 14.0
+        }
+      ],
+      "specialty_tier": 1,
+                         "//": "Roguelite phase 5 (design \u00a74): a directional current. drift_x/y are px/s pushing the drone, the enemies AND the loose loot alike (arena_mechanics::tick_drift), applied after movement and before the arena clamp so the boundary wall still gets the last word. PROVISIONAL, unplayed: 38 px/s is well under the slowest enemy speed, so a current can never pin anything against a wall forever. Reuses the prism art set.",
+                         "drift_x": 38.0,
+                         "drift_y": -14.0
+},
+    {
+      "name": "Foundry II",
+      "first_wave": 22,
       "enemy_tint": {
         "r": 70,
         "g": 210,
@@ -1205,7 +1550,7 @@
     },
     {
       "name": "Bio-lab II",
-      "first_wave": 23,
+      "first_wave": 25,
       "enemy_tint": {
         "r": 190,
         "g": 120,
@@ -1389,7 +1734,7 @@
     },
     {
       "name": "Prism II",
-      "first_wave": 27,
+      "first_wave": 28,
       "tie_dye": true,
       "enemy_tint": {
         "r": 255,
@@ -2584,7 +2929,10 @@
       {
         "arena": "Singularity",
         "type": "prism_splitter"
-      }
+      },
+      { "//": "Roguelite phase 5: the two new themes field an EXISTING unit each rather than a new one \u2014 the theme's identity is its arena mechanic (darkness / current), and a brand-new specialty on top would be two new things to read at once. The Shroud takes the bulwark (a slow tank is the worst thing to meet at the edge of the light); The Drift takes the miner (a mine laid in a current drifts).",
+        "arena": "The Shroud", "type": "core_bulwark" },
+      { "arena": "The Drift", "type": "foundry_miner" }
     ]
   },
   "//boss": "Lane D / note #4 - the every-10th-wave boss. health_growth compounds per appearance; the boss is themed to whichever arena is live and borrows that arena's specialty attack. final_* is the wave-50 fight, which is a different fight rather than a bigger one. shift_hp_frac is the wave-50 mid-fight arena shift, which is NOT wired yet - see the SEAM comment in boss_system.cpp. PROVISIONAL: unplayed.",

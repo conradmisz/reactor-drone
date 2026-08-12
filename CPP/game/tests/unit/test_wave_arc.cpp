@@ -93,37 +93,49 @@ TEST_CASE("pressure never decreases across the arc", "[Game][wavearc][ramp]") {
     CHECK(cfg.waves.front().spawn_interval >= 0.5f);
 }
 
-TEST_CASE("eight arenas activate on the two-pass schedule", "[Game][wavearc][arena]") {
+TEST_CASE("the arena ladder activates in band order", "[Game][wavearc][arena]") {
     const GameConfig cfg = shipped();
-    // Lane D (D72) appended a 9th arena, the final-wave Singularity void. The
-    // two-pass schedule this case owns is still the FIRST eight; the 9th and its
-    // activation are asserted in test_boss.cpp.
-    REQUIRE(cfg.arenas.size() == 9);
+    // Lane D (D72) appended the final-wave Singularity void; roguelite phase 5
+    // inserted The Shroud and The Drift and re-banded the whole ladder, so this
+    // case no longer hardcodes the bands — it asserts the PROPERTY that made the
+    // old literal list worth having: every arena activates at its own band, and
+    // holds until the next one's. The exact numbers live in
+    // test_arena_mechanics.cpp, next to the two themes that moved them.
+    REQUIRE(cfg.arenas.size() == 11);
 
-    const int first[8] = {1, 4, 8, 12, 16, 19, 23, 27};
-    for (int i = 0; i < 8; ++i) {
-        INFO("arena " << i);
-        CHECK(cfg.arenas[static_cast<size_t>(i)].first_wave == first[i]);
-        CHECK(active_arena_index(cfg.arenas, first[i]) == i);
+    for (size_t i = 0; i < cfg.arenas.size(); ++i) {
+        const int band = cfg.arenas[i].first_wave;
+        INFO("arena " << cfg.arenas[i].name << " at wave " << band);
+        CHECK(active_arena_index(cfg.arenas, band) == static_cast<int>(i));
         // Still the same arena the wave before the NEXT activation.
-        if (i < 7) CHECK(active_arena_index(cfg.arenas, first[i + 1] - 1) == i);
+        if (i + 1 < cfg.arenas.size())
+            CHECK(active_arena_index(cfg.arenas, cfg.arenas[i + 1].first_wave - 1) ==
+                  static_cast<int>(i));
     }
-    // Wave 29 is the last of the two passes; wave 30 is Lane D's void.
-    CHECK(active_arena_index(cfg.arenas, 29) == 7);
+    // The last band is the finale, and it owns the last wave of the arc.
+    CHECK(active_arena_index(cfg.arenas, 30) == static_cast<int>(cfg.arenas.size()) - 1);
 
     std::set<std::string> names;
     for (const ArenaDef& a : cfg.arenas) names.insert(a.name);
-    CHECK(names.size() == 9);   // eight distinct arenas + the final-wave void
+    CHECK(names.size() == cfg.arenas.size());   // every theme is distinct
 }
 
 TEST_CASE("the second pass reuses the art and changes only the layout",
           "[Game][wavearc][arena]") {
     const GameConfig cfg = shipped();
-    REQUIRE(cfg.arenas.size() == 9);   // 8 two-pass themes + Lane D's final-wave void
+    REQUIRE(cfg.arenas.size() == 11);  // 8 two-pass themes + the void + 2 new (phase 5)
 
+    // The four two-pass themes by name, not by index: phase 5's insertions moved
+    // every position in this list.
+    auto by_name = [&](const std::string& n) -> const ArenaDef& {
+        for (const ArenaDef& a : cfg.arenas) if (a.name == n) return a;
+        throw std::runtime_error("no arena " + n);
+    };
+    static const char* kPass1[4] = {"Core", "Foundry", "Bio-lab", "Prism"};
+    static const char* kPass2[4] = {"Core II", "Foundry II", "Bio-lab II", "Prism II"};
     for (size_t i = 0; i < 4; ++i) {
-        const ArenaDef& a = cfg.arenas[i];       // pass 1
-        const ArenaDef& b = cfg.arenas[i + 4];   // its twin
+        const ArenaDef& a = by_name(kPass1[i]);  // pass 1
+        const ArenaDef& b = by_name(kPass2[i]);  // its twin
         INFO("theme " << a.name);
 
         CHECK(a.specialty_tier == 1);
