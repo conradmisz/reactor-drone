@@ -13,3 +13,9 @@ backend/.wrangler/
 __pycache__/
 .claude/worktrees/
 backend/.dev.vars
+CPP/build-portable/
+CPP/build-ci-test/
+CPP/linux-deps/
+CPP/linux-deps-src/
+installer/stage-linux/
+installer/ReactorDrone.app/

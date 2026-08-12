@@ -3,8 +3,9 @@
 
 #include <string>
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(RD_PORTABLE)
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_stdinc.h>
 #endif
 
 /**
@@ -43,9 +44,14 @@ inline std::string strip_trailing_seps(std::string dir) {
 }
 
 /// Absolute path to the read-only shared assets directory.
+///
+/// RD_PORTABLE (release packaging, any OS) selects the same exe-relative
+/// resolution Windows always uses — an installed copy must never look for the
+/// build machine's source tree. Dev builds keep CLASS_ROOT_DIR so run.py, the
+/// replay canary and the saves/ workflow are untouched.
 inline std::string assets_dir() {
-#ifdef _WIN32
-    // Installed layout is flat: assets/ sits beside the exe (installer/package-win.sh).
+#if defined(_WIN32) || defined(RD_PORTABLE)
+    // Installed layout is flat: assets/ sits beside the exe (installer/package-*.sh).
     const char* base = SDL_GetBasePath();  // may be null if SDL is not initialized
     std::string dir = base ? strip_trailing_seps(base) : std::string(".");
     return dir + "/assets";
@@ -59,7 +65,9 @@ inline std::string assets_dir() {
 /// separator on either platform, so `+ "/saves/x.json"` call sites keep
 /// working unchanged.
 inline std::string user_data_dir() {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(RD_PORTABLE)
+    // Windows: %APPDATA%\conradm\ReactorDrone. macOS: ~/Library/Application
+    // Support/conradm/ReactorDrone. Linux: $XDG_DATA_HOME/conradm/ReactorDrone.
     char* pref = SDL_GetPrefPath("conradm", "ReactorDrone");
     std::string dir = pref ? strip_trailing_seps(pref) : std::string(".");
     if (pref) SDL_free(pref);

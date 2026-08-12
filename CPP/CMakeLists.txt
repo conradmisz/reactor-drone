@@ -25,6 +25,14 @@ endif()
 # CLASS_ROOT_DIR points to the class root (one level up from CPP/)
 add_compile_definitions(CLASS_ROOT_DIR="${CMAKE_SOURCE_DIR}/..")
 
+# OFF for dev (source-tree assets + saves, the class workflow). Release
+# packaging turns it ON so every platform resolves assets beside the exe and
+# saves via SDL_GetPrefPath — the codepath Windows builds have always used.
+option(RD_PORTABLE "Exe-relative assets + per-user save dir (release packaging)" OFF)
+if(RD_PORTABLE)
+    add_compile_definitions(RD_PORTABLE)
+endif()
+
 # Find SDL3 package using CONFIG mode
 find_package(SDL3 REQUIRED CONFIG)
 find_package(SDL3_image REQUIRED CONFIG)

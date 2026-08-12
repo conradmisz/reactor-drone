@@ -22,13 +22,80 @@ jobs:
       - run: installer/package-win.sh
       - uses: actions/upload-artifact@v4
         with: { name: stage, path: installer/stage }
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev libfreetype-dev libharfbuzz-dev
+      - uses: actions/cache@v4
+        with:
+          path: CPP/linux-deps
+          key: linux-deps-${{ hashFiles('CPP/fetch-linux-deps.sh') }}
+      - run: CPP/fetch-linux-deps.sh
+      - run: |
+          cmake -S CPP -B CPP/build-portable -DRD_PORTABLE=ON -DBUILD_TESTING=OFF \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$PWD/CPP/linux-deps
+          cmake --build CPP/build-portable -j
+      - run: installer/package-linux.sh
+      - name: Smoke test the staged build from an alien cwd
+        run: |
+          cd / && HOME=$(mktemp -d) SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+            $GITHUB_WORKSPACE/installer/stage-linux/run.sh --seed 42 --keys 5:SPACE --stopframe 300
+      - name: Tarball (preserves exec bits; upload-artifact does not)
+        run: tar czf ReactorDrone-linux-x86_64.tar.gz -C installer/stage-linux .
+      - uses: actions/upload-artifact@v4
+        with: { name: linux-tarball, path: ReactorDrone-linux-x86_64.tar.gz }
+      - name: Push to itch.io
+        env: { BUTLER_API_KEY: '${{ secrets.BUTLER_API_KEY }}' }
+        run: |
+          curl -fL https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default -o butler.zip
+          unzip -o butler.zip && chmod +x butler
+          ./butler push installer/stage-linux brainstormlabs/reactor-drone:linux --userversion "${GITHUB_REF_NAME#v}"
+
+  build-mac:
+    strategy:
+      matrix:
+        include:
+          - { runner: macos-latest, arch: arm64 }
+          - { runner: macos-13, arch: x86_64 }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install sdl3 sdl3_image sdl3_ttf dylibbundler
+      - run: |
+          cmake -S CPP -B CPP/build-portable -DRD_PORTABLE=ON -DBUILD_TESTING=OFF \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(brew --prefix)"
+          cmake --build CPP/build-portable -j3
+      - run: installer/package-mac.sh "${GITHUB_REF_NAME#v}"
+      - name: Smoke test the bundle from an alien cwd
+        run: |
+          cd / && HOME=$(mktemp -d) SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+            $GITHUB_WORKSPACE/installer/ReactorDrone.app/Contents/MacOS/ReactorDrone \
+            --seed 42 --keys 5:SPACE --stopframe 300
+      - name: Zip the bundle (ditto keeps exec bits + structure)
+        run: ditto -c -k --keepParent installer/ReactorDrone.app ReactorDrone-mac-${{ matrix.arch }}.zip
+      - uses: actions/upload-artifact@v4
+        with: { name: 'mac-${{ matrix.arch }}', path: 'ReactorDrone-mac-${{ matrix.arch }}.zip' }
+      - name: Push to itch.io
+        env: { BUTLER_API_KEY: '${{ secrets.BUTLER_API_KEY }}' }
+        run: |
+          curl -fL https://broth.itch.zone/butler/darwin-amd64/LATEST/archive/default -o butler.zip
+          unzip -o butler.zip && chmod +x butler
+          ./butler push installer/ReactorDrone.app brainstormlabs/reactor-drone:mac-${{ matrix.arch }} --userversion "${GITHUB_REF_NAME#v}"
+
   release:
-    needs: build-win
+    needs: [build-win, build-linux, build-mac]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: { name: stage, path: installer/stage }
+      - uses: actions/download-artifact@v4
+        with: { name: linux-tarball }
+      - uses: actions/download-artifact@v4
+        with: { name: mac-arm64 }
+      - uses: actions/download-artifact@v4
+        with: { name: mac-x86_64 }
       - name: Version from tag
         shell: bash
         run: echo "VER=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
@@ -49,6 +116,9 @@ jobs:
           files: |
             installer/Output/ReactorDrone-Setup-*.exe
             ReactorDrone-win64.zip
+            ReactorDrone-linux-x86_64.tar.gz
+            ReactorDrone-mac-arm64.zip
+            ReactorDrone-mac-x86_64.zip
       - name: Push to itch.io
         shell: bash
         env: { BUTLER_API_KEY: '${{ secrets.BUTLER_API_KEY }}' }

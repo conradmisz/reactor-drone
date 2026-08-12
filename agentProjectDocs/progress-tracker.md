@@ -18,10 +18,19 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   (`rtprobe`, `TestPilotXYZ123`, `CurlProbe1`, `AliceRace1*`, `FinalNameR1`,
   `ZZZ_TASK8_*`) plus the four `BOT_*` pilots. Public on `/top`; delete before
   release.
-- **Next: telemetry** (`specs/telemetry.md`, `plans/telemetry-plan.md`,
-  7 tasks). Nothing of it exists yet — no `telemetry.{hpp,cpp}`, no
-  `/telemetry` route, no `runs` table, no `ANALYTICS` toggle, no
-  `analytics/report.py`.
+- **Telemetry tasks 1-5 built** (2026-08-12): `/telemetry` route + `runs`
+  table (committed, NOT yet migrated/deployed to prod — needs
+  `wrangler d1 execute --remote --file schema.sql` then `wrangler deploy`),
+  telemetry.{hpp,cpp} + tests, tm.* counters, consent (ANALYTICS toggle +
+  disclosure + PRIVACY.md, pulled ahead of collection), main.cpp collection +
+  POST. E2E-verified against local wrangler dev; canary byte-identical to
+  pre-telemetry baseline throughout. Remaining: Task 6 `analytics/report.py`,
+  Task 7 doc sync.
+- **Cross-platform distribution** (2026-08-12, D199): RD_PORTABLE flag +
+  Linux tarball + mac .app jobs in release.yml. Linux verified end-to-end
+  locally (alien dir, scratch HOME, bundled libs, windowed gameplay); mac
+  authored but only CI-tested — **first tag push is the real mac test, check
+  the build-mac jobs**. Windows path unchanged.
 
 - **`feature/gameplay-polish` (2026-08-11): the THIRD playtest batch is
   implemented** as D193 (one decisions.md entry, numbered by feedback item) —

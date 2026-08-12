@@ -2115,3 +2115,47 @@ game should *show* its state, not make you infer it.
   validator in both modes. Live end-to-end: four headless bot clients banked
   19 runs through the real `bank_run_score` → `POST /score` path and the
   dashboard reflected each one.
+
+### D199 — Cross-platform distribution rides one compile-time switch (RD_PORTABLE), not per-OS path code; Linux ships a tarball with bundled SDL3 + launcher, macOS an ad-hoc-signed .app  *(2026-08-12)*
+- **Decision:** a single CMake option `RD_PORTABLE` (default OFF) switches
+  `project_paths.hpp` onto the codepath Windows always shipped with:
+  `SDL_GetBasePath()`-relative assets and `SDL_GetPrefPath("conradm",
+  "ReactorDrone")` saves, on every OS. Dev builds are byte-for-byte unaffected
+  — CLASS_ROOT_DIR, project-root saves, run.py, canary and all docs stay true.
+  Release CI builds with `-DRD_PORTABLE=ON`. Linux: `fetch-linux-deps.sh`
+  builds the pinned SDL3 stack from source (same versions as
+  fetch-win-deps.sh), `package-linux.sh` stages exe + the three SDL3 .so's +
+  assets + PRIVACY.md + a `run.sh` that sets LD_LIBRARY_PATH; shipped as a
+  tar.gz (artifact zips strip exec bits) and an itch `linux` channel. macOS:
+  brew deps, `package-mac.sh` builds ReactorDrone.app (assets in
+  Contents/Resources, where SDL_GetBasePath points for bundles), dylibbundler
+  rewrites the SDL dylibs into Contents/Frameworks, ad-hoc `codesign -s -`
+  (arm64 refuses unsigned binaries outright); zipped with `ditto`; two arches
+  via runner matrix (macos-latest=arm64, macos-13=x86_64), itch channels
+  `mac-arm64`/`mac-x86_64`.
+- **Why:** the only real porting blocker was CLASS_ROOT_DIR baking the build
+  machine's source path into non-Windows binaries; everything else (SDL3, Lua,
+  libcurl, nlohmann) is already portable. One flag beats per-OS path code and
+  keeps the class dev workflow untouched.
+- **Rejected:** patchelf/$ORIGIN rpath on Linux (run.sh + LD_LIBRARY_PATH is
+  equivalent and needs no extra tool); bundling libcurl/TLS on Linux (means
+  shipping a CA story; every distro has libcurl); SDLTTF_VENDORED=ON (the
+  release tarball ships no harfbuzz sources — system freetype/harfbuzz instead,
+  same linkage as the dev build); AppImage (a tarball + run.sh is the same
+  double-click-ability for a fraction of the tooling); universal mac binary
+  (two plain arch builds via matrix are simpler than lipo-merging brew deps).
+- **Verified (Linux, the full CI path locally):** pinned deps built from
+  source; game built against them with RD_PORTABLE=ON; staged; copied to an
+  alien directory and run with a scratch HOME — assets loaded beside the exe,
+  save landed in XDG (~/.local/share/conradm/ReactorDrone), repo saves
+  untouched, ldd confirms the bundled .so's are the ones loaded, and a real
+  windowed run rendered actual gameplay (HUD, arena, enemies) from the staged
+  assets. Dev build re-verified after the header change: canary byte-identical
+  to the pre-change baseline, ctest 8/8. **macOS is authored but CI-verified
+  only** — no Mac hardware here; the workflow smoke-tests both arches headless
+  from an alien cwd on the runners, and the first tag push is the real test.
+- **Known limits:** mac bundles are ad-hoc signed, not notarized — first launch
+  needs right-click→Open (Gatekeeper); debug logs/ (screenshot/dump/trace) are
+  cwd-relative and fail from a read-only cwd, dev-only flags so not a player
+  bug; /version still serves one INSTALLER_URL (nothing consumes it yet — make
+  it per-OS when the update check lands).
