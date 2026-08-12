@@ -7,7 +7,7 @@
 
 void PlayerFireSystem::update(ComponentStorage& storage,
                               EntityManager& entity_manager,
-                              const Blackboard& blackboard) {
+                              Blackboard& blackboard) {
     if (!blackboard.has("delta_time")) return;
     float dt = static_cast<float>(blackboard.get<double>("delta_time"));
     bool mouse_held = blackboard.get_or<bool>("mouse.held", false);
@@ -110,6 +110,10 @@ void PlayerFireSystem::update(ComponentStorage& storage,
             Velocity vel = aim_math::velocity_from_angle(shot_angle, wpn.projectile_speed);
 
             Entity shot = entity_manager.create_entity();
+            // telemetry: write-only observation, nothing in the sim reads tm.* (the
+            // player.hit_bearing precedent) — cannot move the replay canary. One
+            // increment per projectile, so a multi-barrel volley counts each shot.
+            blackboard.set<double>("tm.shots", blackboard.get_or<double>("tm.shots", 0.0) + 1.0);
             storage.add_component<Position>(shot, Position{cx - PR, cy - PR});
             storage.add_component<Velocity>(shot, vel);
             storage.add_component<Size>(shot, Size{PR * 2.0f, PR * 2.0f});

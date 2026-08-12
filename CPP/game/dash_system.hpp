@@ -134,6 +134,9 @@ inline void tick_dash(ComponentStorage& storage,
             state.player_contact = false;
             ship.dash_timer = cfg.duration;
             --ship.dash_charges;
+            // telemetry: write-only observation, nothing in the sim reads tm.* (the
+            // player.hit_bearing precedent) — cannot move the replay canary.
+            blackboard.set<double>("tm.dashes", blackboard.get_or<double>("tm.dashes", 0.0) + 1.0);
             // Only start the refill clock if the stack was full; spending a
             // second charge must not rewind the one already regenerating.
             if (stack_was_full) ship.dash_cd = cfg.cooldown;

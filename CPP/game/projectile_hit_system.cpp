@@ -43,7 +43,7 @@ void apply_bounce(ComponentStorage& s, Entity proj, const bounce::Result& b, flo
 // always win over a surface in the same frame — a ricochet must never eat a hit.
 void ProjectileHitSystem::update(EntityManager& entity_manager,
                                  ComponentStorage& component_storage,
-                                 const Blackboard& blackboard) {
+                                 Blackboard& blackboard) {
     const float fdur = blackboard.get_or<float>("fb.flash_duration", 0.12f);
     const uint8_t fr = static_cast<uint8_t>(blackboard.get_or<int>("fb.enemy_flash_r", 255));
     const uint8_t fg = static_cast<uint8_t>(blackboard.get_or<int>("fb.enemy_flash_g", 255));
@@ -66,6 +66,9 @@ void ProjectileHitSystem::update(EntityManager& entity_manager,
                 if (component_storage.has_component<EnemyTag>(other) &&
                     entity_manager.is_alive(other)) {
                     hit_enemy = other;
+                    // telemetry: write-only observation, nothing in the sim reads tm.*
+                    // (the player.hit_bearing precedent) — cannot move the replay canary.
+                    blackboard.set<double>("tm.hits", blackboard.get_or<double>("tm.hits", 0.0) + 1.0);
                     break;   // one hit per projectile, and an enemy outranks a wall
                 }
                 if (auto col = component_storage.get_component<Collider>(other);

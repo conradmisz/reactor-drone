@@ -134,7 +134,7 @@ void launch_missiles(ComponentStorage& s, EntityManager& em,
 
 /// Home + fuse every missile in flight. Runs whatever the equipped active is:
 /// a missile outlives the frame it was fired on, and may outlive the swap.
-void tick_missiles(ComponentStorage& s, EntityManager& em, float dt) {
+void tick_missiles(ComponentStorage& s, EntityManager& em, Blackboard& blackboard, float dt) {
     for (Entity m : s.entities_with_component<ProjectileTag>()) {
         if (s.has_component<DestroyRequest>(m)) continue;
         auto data = s.get_component<ProjectileData>(m);
@@ -169,6 +169,9 @@ void tick_missiles(ComponentStorage& s, EntityManager& em, float dt) {
             s.add_component<DamageEvent>(ev, DamageEvent{e, data->get().damage});
         }
         burst(s, em, mx, my, 900.0f, 0.10f, 255, 190, 90, MISSILE_AOE, 14.0f);
+        // telemetry: write-only observation, nothing in the sim reads tm.* (the
+        // player.hit_bearing precedent) — cannot move the replay canary.
+        blackboard.set<double>("tm.bombs", blackboard.get_or<double>("tm.bombs", 0.0) + 1.0);
         s.add_component<DestroyRequest>(m, DestroyRequest{});
     }
 }
@@ -298,7 +301,7 @@ void tick(ComponentStorage& storage, EntityManager& entity_manager,
 
     // Upkeep first: a missile, beam or sphere outlives the frame it was fired on
     // and must keep running even if the active is swapped out underneath it.
-    tick_missiles(storage, entity_manager, dt);
+    tick_missiles(storage, entity_manager, blackboard, dt);
     tick_laser(storage, entity_manager, blackboard, dt);
     tick_field(storage, entity_manager, blackboard, dt);
 

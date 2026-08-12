@@ -21,7 +21,7 @@ class ProjectileHitSystem {
 public:
     void update(EntityManager& entity_manager,
                 ComponentStorage& component_storage,
-                const Blackboard& blackboard);
+                Blackboard& blackboard);
 
     /// The boundary ring a ricocheting shot reflects off (D98). The ring is a
     /// clamp rather than a collider, so it cannot arrive through CollidedWith.

@@ -228,3 +228,20 @@ TEST_CASE("the shipped GameData dash block is live and sane", "[Game][dash][conf
     CHECK(cfg.dash.cooldown > cfg.dash.duration);   // or it is a permanent speed buff
     CHECK(cfg.dash.speed > 0.0f);
 }
+
+TEST_CASE("a triggered dash bumps the tm.dashes counter", "[Game][dash][telemetry]") {
+    ComponentStorage cs;
+    EntityManager em;
+    Blackboard bb;
+    DashState st;
+    const DashConfig cfg = test_cfg();
+    make_player(cs, em);
+
+    REQUIRE(bb.get_or<double>("tm.dashes", 0.0) == 0.0);
+    tick_dash(cs, em, bb, cfg, st, /*key_down=*/true, DT);
+    REQUIRE(bb.get_or<double>("tm.dashes", 0.0) == 1.0);
+
+    // Held through the cooldown: no re-trigger, so no double count.
+    for (int i = 0; i < 60; ++i) tick_dash(cs, em, bb, cfg, st, true, DT);
+    REQUIRE(bb.get_or<double>("tm.dashes", 0.0) == 1.0);
+}

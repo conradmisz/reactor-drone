@@ -21,7 +21,7 @@ public:
 
     void update(ComponentStorage& storage,
                 EntityManager& entity_manager,
-                const Blackboard& blackboard);
+                Blackboard& blackboard);
 
 private:
     std::mt19937 rng_;

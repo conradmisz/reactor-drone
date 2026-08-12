@@ -1,5 +1,6 @@
 #include "player_damage_system.hpp"
 #include "player_components.hpp"   // PlayerTag, ContactDamage, Flash
+#include "enemy_components.hpp"    // EnemyShot, EnemyBehavior, EnemyTag (telemetry classifier)
 #include "tower_components.hpp"    // DamageEvent
 #include "feedback.hpp"            // add_trauma
 #include <algorithm>
@@ -73,6 +74,19 @@ void PlayerDamageSystem::update(EntityManager& entity_manager,
                             std::atan2(dy, dx) * 180.0f / 3.14159265358979323846f);
                     }
                 }
+            }
+
+            // telemetry: what last hurt the drone, read only at death (write-only, the
+            // hit_bearing precedent). "enemy:0" = a default enemy with no EnemyBehavior.
+            if (storage.has_component<EnemyShot>(other)) {
+                blackboard.set<std::string>("tm.last_hit_by", "shot");
+            } else if (auto eb = storage.get_component<EnemyBehavior>(other); eb.has_value()) {
+                blackboard.set<std::string>("tm.last_hit_by",
+                                            "enemy:" + std::to_string(eb->get().kind));
+            } else if (storage.has_component<EnemyTag>(other)) {
+                blackboard.set<std::string>("tm.last_hit_by", "enemy:0");
+            } else {
+                blackboard.set<std::string>("tm.last_hit_by", "hazard");
             }
 
             // v2 Phase 4: kick the camera and flash the drone red on the hit.
