@@ -157,6 +157,17 @@ void GameHUDSystem::update(ComponentStorage& component_storage, Blackboard& blac
         // across the whole window in a font that never fit.
         if (auto t = component_storage.get_component<Text>(status_entity_); t.has_value())
             t->get().content = banner;
+        // Task 8: leaderboard submit status. Set by main.cpp's bank_run_score /
+        // per-frame poll, cleared (blackboard key removed) when a new run
+        // starts. Reuses `message_entity_` — the gameplay hint line, already
+        // blanked above and otherwise idle on every non-gameplay phase — rather
+        // than a third status widget for the two phases that ever have
+        // something to say here.
+        if (phase == 2 || phase == 3) {
+            if (auto t = component_storage.get_component<Text>(message_entity_); t.has_value())
+                t->get().content =
+                    blackboard.get_or<std::string>("score_submit_status", std::string());
+        }
         return;
     }
     if (auto t = component_storage.get_component<Text>(status_entity_); t.has_value())

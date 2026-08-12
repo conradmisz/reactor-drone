@@ -1955,3 +1955,64 @@ game should *show* its state, not make you infer it.
   `registered:false` retrying the same name), ESC-skip, and `N`-rename with
   ESC-cancel — all observed directly, screenshotted, and logged in
   `task-7-report.md`.
+
+### D196 — Score submission rides the existing `bank_run_score` guard; a run submits exactly once regardless of which of its five call sites fires  *(2026-08-11)*
+- **Decision:** the `POST /score` call lives inside `bank_run_score` itself
+  (main.cpp), immediately after the local `meta.lifetime_score` accrual it
+  already guarded with `run_banked` — not at any of the five sites that call
+  it (death, victory, pause-quit, pause-to-menu, window-close/shutdown). That
+  guard is what makes the submission exactly-once: every call site can fire on
+  the same frame or in sequence and only the first actually runs the body.
+  Gated on `net::enabled() && meta.registered`; an unregistered or headless
+  player still banks locally with zero network calls and no status text
+  implying failure. The submitted score is read into a local (`run_score`)
+  once, before either the meta write or the POST body is built, so nothing
+  downstream can apply a value the request didn't actually send (the trap
+  Task 7's Critical 1 hit with `pending_name`). `pending_score`, the future,
+  is declared outside the frame loop like Task 7's `pending_register`, polled
+  once per frame unconditionally (not phase-gated, since a submit can still be
+  in flight after the player has already backed out to the title), and
+  `abandon_future()`'d — Task 7's shutdown-safe graveyard, reused rather than
+  building a second one — at every point a new run could start (both
+  `start_run` and the gameover/victory retry branch) and at process shutdown,
+  since a fast retry or a fast quit can both catch the previous run's request
+  still connecting. The status line ("Submitting score..." /
+  "Score submitted!" / "Score not submitted (offline)") is Blackboard state
+  (`score_submit_status`) that `GameHUDSystem` renders by reusing
+  `message_entity_` — the gameplay-hint text row, already blanked on every
+  non-gameplay phase — rather than adding a third status widget for the two
+  phases (game-over, victory) that ever have something to say there.
+- **Why:** the alternative was a `submitted` bool alongside `run_banked`, but
+  that would be a second flag tracking the same "has this run's end already
+  been handled" question the guard already answers — two flags that must
+  never disagree is exactly the kind of drift this codebase avoids (the same
+  reasoning D80 used for `run_banked` itself, one call site instead of one per
+  caller). Polling unconditionally rather than only in PHASE_GAMEOVER/VICTORY
+  matters because pressing ESC or clicking MENU moves the player back to
+  PHASE_TITLE while the request from a pause-quit or pause-to-menu bank is
+  still in flight; a phase-gated poll would leave it dangling until the next
+  run's `abandon_future()` call, which is correct but would show no status
+  text at all in the meantime.
+- **Rejected:** a second "already submitted" flag (drifts from `run_banked`,
+  see above); polling only while `PHASE_GAMEOVER`/`PHASE_VICTORY` is active
+  (misses the pause-quit/to-menu paths, which return to the title the same
+  frame); a dedicated status-line widget (a third piece of screen furniture
+  for two phases when an idle one already sits there).
+- **Verified:** `runTestsAll.py` 8/8 green; warning-free build (only Lua's
+  vendored `tmpnam`); the replay canary run twice byte-identical
+  (`net::enabled()` is false whenever `--stopframe` is set, so headless banks
+  locally and makes zero network calls). Manual walkthrough against the live
+  backend with a registered test player (`ZZZ_TASK8_TEST`): a real windowed
+  run driven to victory via `--dev --level 20` + synthetic F5 wave-skips
+  showed "Submitting score..." then "Score submitted!", confirmed landed with
+  `curl .../top?mode=high`. A second real run's `POST /score` count was
+  verified 1:1 against `runs_played` by pointing `NET_BASE` at a local
+  logging HTTP server for two consecutive runs (2 runs → 2 requests, reverted
+  after). The offline path was exercised by pointing `NET_BASE` at an
+  unreachable address: the line stayed "Submitting score..." until the 8s
+  `CURLOPT_TIMEOUT` elapsed, then flipped to "Score not submitted (offline)"
+  with the UI still fully responsive throughout. Closing the game window
+  (`WM_DELETE_WINDOW`) while that same unreachable request was in flight
+  exited the process in 0.24s, proving `abandon_future()` — not the 8s
+  timeout — bounds shutdown. `net_config.hpp` was restored to the live
+  endpoint and rebuilt before considering the change complete.

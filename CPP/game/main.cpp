@@ -876,6 +876,13 @@ int main(int argc, char* argv[]) {
     std::string pending_name;
     if (phase == PHASE_NAME_ENTRY) SDL_StartTextInput(window.get());
 
+    // Task 8: score-submission future. Same lifetime discipline as
+    // `pending_register` above — declared outside the loop, polled with
+    // wait_for(0s), never a discarded temporary (net/http_client.hpp). Also
+    // shared across runs: abandon_future() whatever is still in flight rather
+    // than letting a reassignment's implicit destructor block.
+    std::future<net::Response> pending_score;
+
     // Phase B (D50): start a run at a chosen difficulty. Re-copying base_config
     // makes the choice re-selectable across runs — scaling `config` in place
     // would compound Hard onto Hard. set_config re-seeds the spawn RNG, so two
@@ -887,13 +894,34 @@ int main(int argc, char* argv[]) {
     auto bank_run_score = [&](const Blackboard& bb) {
         if (run_banked) return;
         run_banked = true;
-        meta.lifetime_score += bb.get_or<int>("score", 0);
+        const int run_score = bb.get_or<int>("score", 0);
+        meta.lifetime_score += run_score;
         // Main-menu-suite Phase C: the records screen's numbers, banked in the
         // same breath as the score so they can never disagree with it.
         meta.runs_played += 1;
         meta.best_wave = std::max(meta.best_wave,
                                   wave_spawner.current_wave_index() + 1);
         meta_write(meta_save_path(), meta);
+        // Task 8: submit to the global leaderboard on THIS transition edge only —
+        // the `run_banked` guard above is what makes this exactly-once despite
+        // five call sites (quit, to-menu, death, victory, shutdown). Headless/
+        // scripted runs have net::enabled() == false (architecture.md Invariant
+        // 4) so they bank locally above and make zero network calls here. An
+        // unregistered player (ESC-skipped name entry) also just banks locally —
+        // no status text, nothing that implies a failure.
+        if (net::enabled() && meta.registered) {
+            // A fast retry could still have the previous run's submit in
+            // flight; reassigning `pending_score` below would otherwise run
+            // its destructor synchronously (net/http_client.hpp).
+            abandon_future(std::move(pending_score));
+            blackboard.set<std::string>("score_submit_status",
+                                        std::string("Submitting score..."));
+            pending_score = net::post_json(
+                std::string(net::NET_BASE) + "/score",
+                nlohmann::json{{"player_id", meta.player_id},
+                              {"score", run_score}}.dump(),
+                net::NET_GAME_KEY);
+        }
     };
 
     // Lane K (D100): `resume` is the ONE difference between starting a run and
@@ -946,6 +974,11 @@ int main(int argc, char* argv[]) {
         std::cout << "Prestige: " << meta.prestige << "\n";
         // === END HOOK: prestige ===
         run_banked = false;
+        // Task 8: a new run starts with no submit status on screen, and any
+        // still-in-flight submit from the run just left is abandoned rather
+        // than awaited — see the doc comment on `pending_score`'s declaration.
+        abandon_future(std::move(pending_score));
+        blackboard.remove("score_submit_status");
         run_difficulty = static_cast<int>(difficulty_index);
         std::string label = "Normal";
         if (difficulty_index < config.difficulties.size()) {
@@ -1180,6 +1213,17 @@ int main(int argc, char* argv[]) {
         timer.start_frame();
         input_system.process_events(component_storage, running, blackboard, renderer.get());
         uint64_t frame = timer.get_frame_count();
+
+        // Task 8: poll the score submission every frame, regardless of phase —
+        // it can still be in flight after the player has already backed out to
+        // the title. wait_for(0s) never blocks (net/http_client.hpp).
+        if (pending_score.valid() &&
+            pending_score.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+            const net::Response resp = pending_score.get();
+            blackboard.set<std::string>("score_submit_status",
+                resp.ok() ? std::string("Score submitted!")
+                          : std::string("Score not submitted (offline)"));
+        }
 
         // Scripted input injection (headless testing).
         for (const auto& c : opts.clicks) if (c.frame == frame) {
@@ -2247,6 +2291,11 @@ int main(int argc, char* argv[]) {
                 // Restart keeps the difficulty the run was started at — `config`
                 // is already scaled, so only the world is rebuilt.
                 run_banked = false;   // Lane F: a new run to bank at its end
+                // Task 8: same reasoning as start_run's copy of this pair — clear
+                // the on-screen status and abandon (never await) a submit still
+                // in flight from the run that just ended.
+                abandon_future(std::move(pending_score));
+                blackboard.remove("score_submit_status");
                 spawn_world();
                 phase = PHASE_PLAYING;
             }
@@ -2493,6 +2542,9 @@ int main(int argc, char* argv[]) {
     // always blocks there, regardless of wait_for polling). Hand it to the
     // graveyard instead — quit is no longer bounded by network latency at all.
     abandon_future(std::move(pending_register));
+    // Task 8: same reasoning — a score submit from bank_run_score just above
+    // may still be in flight at shutdown; never block the process exit on it.
+    abandon_future(std::move(pending_score));
 
     resource_manager_ptr.reset();
     renderer.reset();
