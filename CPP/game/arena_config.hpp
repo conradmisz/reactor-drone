@@ -402,9 +402,9 @@ struct DirectorConfig {
     float ema_per_sec = 0.8f;     // EMA rate the recent-events signals decay at
 };
 
-/// GridConfig — the resonance grid, the arena as a physics display (Lane R).
+/// ResonanceConfig — the resonance grid, the arena as a physics display (Lane R).
 /// Render-only: no sim system may ever read grid state.
-struct GridConfig {
+struct ResonanceConfig {
     bool  enabled = false;
     int   cols = 40, rows = 28;   // fixed lattice; flat array, no allocation
     float spacing = 40.0f;        // px between nodes at rest
@@ -474,6 +474,8 @@ struct FlightReportConfig {
     bool enabled = false;
     int  sample_every_n = 6;      // player position every N frames
     int  max_samples = 4096;      // fixed ring buffer (MCU headroom)
+    // Where the report square sits, in the 800x600 UI design canvas (Lane S).
+    float x = 250.0f, y = 150.0f, size = 300.0f;
 };
 
 /**
@@ -533,7 +535,8 @@ struct GameConfig {
     // Engine-suite Phase 0 (D138) — parsed now, consumed by the lane that owns each.
     TimescaleConfig timescale;     // #1 Temporal Overload (Lane P)
     DirectorConfig director;       // #8 Adaptive Director (Lane Q)
-    GridConfig grid;               // RG Resonance Grid (Lane R)
+    ResonanceConfig resonance;     // RG Resonance Grid (Lane R). NOT `grid` —
+                                   // top-level JSON "grid" is the baseline loader's.
     FlightReportConfig flight_report;  // #10 Flight Report (Lane S)
     ForceConfig forces;            // #3 Force-Field Layer (Lane T)
     ScarConfig scars;              // #6 Battle-Scar Layer (Lane V)

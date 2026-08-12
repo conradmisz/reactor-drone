@@ -3,6 +3,7 @@
 #include "player_components.hpp"  // ContactDamage, Pickup
 #include "collision_layers.hpp"
 #include "feedback.hpp"           // add_trauma
+#include "engine/ecs/fx_events.hpp"  // engine-suite D138: grid impulses / scar stamps
 #include "engine/project_paths.hpp"
 #include <algorithm>
 #include <cmath>
@@ -371,6 +372,25 @@ void EnemyDeathSystem::update(ComponentStorage& component_storage,
         blackboard.set<float>("feedback.trauma", feedback::add_trauma(
             blackboard.get_or<float>("feedback.trauma", 0.0f),
             blackboard.get_or<float>("fb.trauma_enemy_death", 0.25f)));
+
+        // Engine suite (D138/D139/D140): a kill is one sim event with two
+        // consumers. `sim.kills` is a plain monotonic counter Temporal Overload
+        // reads to find a kill chain; the grid impulse and the scorch stamp are
+        // the RENDER-ONLY half — published here, read by the grid and the scar
+        // layer while drawing, and never read back by anything sim-side.
+        // Scaled by the body's size so a hulk shakes the lattice harder.
+        blackboard.set<int>("sim.kills", blackboard.get_or<int>("sim.kills", 0) + 1);
+        if (auto dpos = component_storage.get_component<Position>(enemy);
+            dpos.has_value()) {
+            float dw = 40.0f;
+            if (auto dsz = component_storage.get_component<Size>(enemy); dsz.has_value())
+                dw = dsz->get().width;
+            const float dcx = dpos->get().x + dw * 0.5f;
+            const float dcy = dpos->get().y + dw * 0.5f;
+            const float mag = dw / 40.0f;
+            fx_events::push_impulse(blackboard, dcx, dcy, mag);
+            fx_events::push_stamp(blackboard, dcx, dcy, /*kind=*/0, mag);
+        }
 
         component_storage.add_component<DestroyRequest>(enemy, DestroyRequest{});
     }

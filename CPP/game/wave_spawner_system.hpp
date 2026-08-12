@@ -102,6 +102,18 @@ public:
     // this latch, so a fresh spawner (run start, resume_at_wave) cannot fall
     // through its empty-arena check and skip the boss before it spawns.
     void set_clear_hold(bool held) { clear_hold_ = held; if (held) boss_engaged_ = true; }
+
+    /**
+     * Engine suite (D142): the Adaptive Director's spacing multiplier — the ONE
+     * thing it is allowed to change. Scales the seconds between spawns inside a
+     * wave and nothing else: not `count`, not the roster, not the wave order. 1.0
+     * (the default) is the authored table, exactly.
+     *
+     * Pushed every frame like `set_speed` on the player: nothing caches it, so
+     * there is no stale value to survive a restart.
+     */
+    void set_spacing_mult(float m) { spacing_mult_ = m > 0.0f ? m : 1.0f; }
+    float spacing_mult() const { return spacing_mult_; }
     bool clear_hold() const { return clear_hold_; }
 
     void update(Blackboard& blackboard,
@@ -155,6 +167,7 @@ private:
     float elapsed_time_ = 0.0f;
     float spawn_timer_ = 0.0f;
     float stall_timer_ = 0.0f;      // seconds a finished wave has waited on stragglers
+    float spacing_mult_ = 1.0f;     // engine suite D142: the director's one knob
     bool all_waves_complete_ = false;
     bool wave_just_cleared_ = false;
     bool clear_hold_ = false;       // BossSystem holds a boss wave open (D70)

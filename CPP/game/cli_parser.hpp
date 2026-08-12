@@ -86,6 +86,10 @@ struct CommandLineOptions {
     bool debug_keys   = true;              // --debug-keys (default) / --no-debug-keys
     int  level        = 1;                 // --level N (1-based; selects level from levels.json)
     bool dev          = false;             // --dev / --god (developer playtest mode; off by default)
+    // Engine suite (D141): turn every suite feature on at once for a playtest.
+    // The shipped GameData leaves them all disabled so the replay canary stays
+    // byte-identical; this is the one switch that flips them without a data edit.
+    bool suite        = false;             // --suite
     bool parse_error  = false;             // set on any parse failure
     bool help_requested = false;           // --help
 };

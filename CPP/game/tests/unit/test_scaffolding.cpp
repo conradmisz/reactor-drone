@@ -158,8 +158,8 @@ TEST_CASE("the engine-suite config blocks parse and default inert",
     GameConfig cfg = load_arena_config(project_paths::assets_dir() + "/GameData.json");
 
     // Present and parsed (defaults reachable through the struct)...
-    CHECK(cfg.grid.cols == 40);
-    CHECK(cfg.grid.rows == 28);
+    CHECK(cfg.resonance.cols == 40);
+    CHECK(cfg.resonance.rows == 28);
     CHECK(cfg.forces.max_sources == 32);
     CHECK(cfg.flight_report.max_samples == 4096);
     CHECK(cfg.audio.voices == 8);
@@ -169,7 +169,7 @@ TEST_CASE("the engine-suite config blocks parse and default inert",
     // ...and INERT. These lines ARE the Phase-0 gate: no behaviour shipped.
     CHECK_FALSE(cfg.timescale.enabled);   // Lane P deletes this line
     CHECK_FALSE(cfg.director.enabled);    // Lane Q
-    CHECK_FALSE(cfg.grid.enabled);        // Lane R
+    CHECK_FALSE(cfg.resonance.enabled);        // Lane R
     CHECK_FALSE(cfg.flight_report.enabled);  // Lane S
     CHECK_FALSE(cfg.scars.enabled);       // Lane V
     CHECK_FALSE(cfg.palettes.enabled);    // Lane W

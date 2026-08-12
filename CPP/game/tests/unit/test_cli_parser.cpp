@@ -22,6 +22,7 @@
 #include "game/cli_parser.hpp"
 #include "game/debug_state.hpp"
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -623,4 +624,33 @@ TEST_CASE("dev mode is off by default and free only when opted in",
         CHECK(units == DEV_UNITS);
         CHECK(units > 10000);
     }
+}
+
+// ===========================================================================
+// --suite (engine suite, D141) — opt-in, and it must not eat the argv cursor
+// ===========================================================================
+
+TEST_CASE("--suite is off by default and parses without stalling the loop",
+          "[cli_parser][suite][unit]") {
+    CHECK(parse_args({"game"}).suite == false);
+    CHECK(parse_args({"game", "--suite"}).suite == true);
+
+    // Every flag branch in the parser must advance `i`. A branch that forgets
+    // spins forever on that argument — which is exactly what happened when
+    // --suite was first inserted and silently took --dev's `++i` with it. These
+    // combinations would hang rather than fail if that regressed.
+    auto both = parse_args({"game", "--suite", "--dev", "--seed", "42"});
+    CHECK(both.suite == true);
+    CHECK(both.dev == true);
+    CHECK(both.seed.has_value());
+    CHECK(parse_args({"game", "--dev", "--suite"}).suite == true);
+
+    // Round-trips through options_to_argv, like every other flag.
+    CommandLineOptions on;
+    on.suite = true;
+    auto argv = options_to_argv(on);
+    CHECK(std::find(argv.begin(), argv.end(), "--suite") != argv.end());
+    CommandLineOptions off;
+    auto argv_off = options_to_argv(off);
+    CHECK(std::find(argv_off.begin(), argv_off.end(), "--suite") == argv_off.end());
 }

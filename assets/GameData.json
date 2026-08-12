@@ -2601,7 +2601,16 @@
   "flight_report": { "enabled": false },
   "forces": { "max_sources": 32 },
   "scars": { "enabled": false },
-  "palettes": { "enabled": false },
+  "//palettes": "Lane W (D147) - the frame is resolved between two anchor colours per arena (duotone; see palette_system.hpp for why a true LUT is not available under SDL3's 2D renderer). colors[0] is the shadow anchor, colors[1] the highlight, as 0xRRGGBB. The rows are authored but INERT until enabled (or --suite). PROVISIONAL: unplayed.",
+  "palettes": {
+    "enabled": false,
+    "palettes": [
+      { "name": "Reactor Core", "colors": [1846131, 15330257] },
+      { "name": "Foundry",      "colors": [2361872, 16764057] },
+      { "name": "Bio-lab",      "colors": [663060, 13500365] },
+      { "name": "Prism",        "colors": [2100536, 15194879] }
+    ]
+  },
   "patterns": [],
   "audio": { "enabled": false },
 

@@ -44,6 +44,9 @@
 #include "engine/ecs/systems/render_system.hpp"
 #include "engine/ecs/systems/hud_system.hpp"
 #include "engine/ecs/systems/screenshot_system.hpp"
+#include "engine/ecs/systems/resonance_grid_system.hpp"   // Lane R (D140)
+#include "engine/ecs/systems/scar_system.hpp"             // Lane V (D145)
+#include "engine/ecs/systems/palette_system.hpp"          // Lane W (D147)
 
 #include "cli_parser.hpp"
 #include "script_loader.hpp"
@@ -64,6 +67,16 @@
 // Lane B (iteration 3): sustain pickups (#10), thruster dash (#5), minimap (#7).
 #include "sustain_spawn_system.hpp"
 #include "dash_system.hpp"
+// Engine suite: Lane P (#1 Temporal Overload, D139).
+#include "timescale_system.hpp"
+// Engine suite: Lane Q (#8 Adaptive Director, D142).
+#include "director_system.hpp"
+// Engine suite: Lane S (#10 Flight Report, D143).
+#include "flight_report.hpp"
+// Engine suite: Lane T (#3 Force-Field Layer, D144).
+#include "force_field_system.hpp"
+// Engine suite: Lane U (#9 Destructible Arena, D146).
+#include "crumble_system.hpp"
 // Lane N (iteration 5, D123): the shop-upgrade look on the drone's plume.
 #include "upgrade_visuals.hpp"
 #include "minimap_system.hpp"
@@ -152,6 +165,38 @@ int main(int argc, char* argv[]) {
     load_game_data(gamedata_path, entity_manager, component_storage, blackboard);
     GameConfig config = load_arena_config(gamedata_path);
     if (opts.seed.has_value()) config.seed = static_cast<unsigned int>(opts.seed.value());
+
+    // Engine suite (D141): --suite flips every feature on for a playtest. The
+    // shipped GameData leaves them all disabled so the replay canary is
+    // byte-identical by default; this is the ONE switch, applied before
+    // base_config is taken so a restart mid-session keeps the suite on.
+    //
+    // Two of them are inert by shape rather than by a flag and so are absent
+    // here: the force layer is inert with zero registered sources, and the
+    // bullet patterns / arena surges are inert with empty data tables — a flag
+    // could not turn either on without authored content.
+    if (opts.suite) {
+        config.timescale.enabled = true;
+        config.director.enabled = true;
+        config.resonance.enabled = true;
+        config.flight_report.enabled = true;
+        config.scars.enabled = true;
+        config.palettes.enabled = true;
+        config.audio.enabled = true;
+        // Two lanes are inert by DATA rather than by a flag, so --suite has to
+        // author something for them or they would silently stay off:
+        //   * destructible arenas need obstacle HP (shipped rows are all `hp: 0`,
+        //     i.e. indestructible, and authoring HP into the shipped arenas would
+        //     change the default game rather than the suite one);
+        //   * the force layer needs a registered source, which only a surge or an
+        //     active can supply — nothing to flip here, so it stays inert until
+        //     Lane X authors a surge table.
+        for (ArenaDef& a : config.arenas)
+            for (ObstacleDef& o : a.obstacles)
+                if (o.hp <= 0.0f) o.hp = 240.0f;   // ~12 standard shots
+        std::cout << "Engine suite: ON (--suite)\n";
+    }
+
     // Phase B (D50): `config` is the *scaled* config every system holds a pointer
     // to, so difficulty is applied by re-copying this pristine one over it at the
     // start of a run. apply_difficulty is not idempotent — never scale in place.
@@ -342,6 +387,17 @@ int main(int argc, char* argv[]) {
     // not widgets because UIElement has no texture path and adding one is an
     // engine change; same "pool it once, park it when idle" shape as the kit.
     Entity dash_icon = 0, dash_dial = 0;
+    // Engine suite (D144): the force-field layer outlives a single hook because
+    // other lanes REGISTER into it (surges, actives) and only the `forces` hook
+    // consumes. Declared here with the other long-lived systems; cleared at
+    // start_run so a well can never outlive its run.
+    ForceFieldSystem forces;
+    forces.set_capacity(config.forces.max_sources);
+
+    // Engine suite (D146): the destructible-arena bookkeeping. Declared out here
+    // because the arena-apply path seeds it and the `crumble` hook consumes it.
+    CrumbleSystem crumble;
+
     int active_arena = -1;
     // Hazards, tracked separately from arena_props so the glow tick has a list to
     // walk without a HazardTag component (which would mean a storage map, two
@@ -434,6 +490,11 @@ int main(int argc, char* argv[]) {
             component_storage.add_component<Color>(e, Color{70, 96, 128, 255});
             component_storage.add_component<Collider>(e,
                 Collider{o.w, o.h, layers::OBSTACLE, layers::OBSTACLE_MASK});
+            // Engine suite (D146): hp > 0 makes this pillar destructible. Health
+            // is what ProjectileHitSystem tests for, so `hp: 0` (the shipped
+            // default) leaves the obstacle exactly as indestructible as before.
+            if (o.hp > 0.0f)
+                component_storage.add_component<Health>(e, Health{o.hp, o.hp});
             // Images beats Color in render priority; Color stays as the load fallback.
             if (!def.obstacle_image.empty())
                 component_storage.add_component<Images>(e, Images{{def.obstacle_image}, 0});
@@ -501,9 +562,15 @@ int main(int argc, char* argv[]) {
         // Enemies already alive keep theirs — the tint is captured at spawn.
         wave_spawner.set_enemy_tint(def.enemy_r, def.enemy_g, def.enemy_b);
         // v2 Phase 7: rasterise this arena's obstacles into the A* grid.
-        enemy_seek.set_arena(&def.obstacles,
+        // Engine suite (D146): the grid is built from CrumbleSystem's LIVE list
+        // rather than straight from the config rows, so a destroyed pillar can
+        // reopen the path. set_arena() re-seeds that list from the config on every
+        // apply — each arena arrives whole, so a run cannot permanently strip the
+        // map, and a shift back to a wrecked theme is a fresh one.
+        crumble.set_arena(def.obstacles);
+        enemy_seek.set_arena(&crumble.live_obstacles(),
             enemy_path::build_obstacle_grid(path_cols, path_rows, path_cell,
-                def.obstacles, config.pathfinding.clearance));
+                crumble.live_obstacles(), config.pathfinding.clearance));
     };
 
     // Lane E (D78): the shift-start was inlined in the cleared-wave branch, which
@@ -652,6 +719,9 @@ int main(int argc, char* argv[]) {
         destroy_marked_entities(entity_manager, component_storage);
 
         blackboard.set("score", 0);
+        blackboard.set<int>("sim.kills", 0);   // engine suite D139: kill-chain source
+        blackboard.set<bool>("flight_report.reset", true);  // D143: drop last run's path
+        forces.clear();                        // D144: no field outlives its run
         blackboard.set("wave", 0);
         blackboard.set<float>("player.iframes", 0.0f);
         blackboard.set<float>("hud_message_timer", 0.0f);
@@ -1128,11 +1198,27 @@ int main(int argc, char* argv[]) {
         // publishers append during the sim below, consumers read at render.
         fx_events::clear_frame(blackboard);
 
-        // === HOOK: timescale === (Engine suite, D138 — Lane P / #1)
-        // Owner: Temporal Overload. Rewrites the Blackboard "delta_time" this
-        // frame by a scale that is a pure function of sim state, BEFORE anything
-        // reads it. Frames still advance one per loop, so frame-indexed --keys
-        // and --stopframe are unaffected by design.
+        // === HOOK: timescale === (Engine suite, D139 — Lane P / #1)
+        // Owner: Temporal Overload. Rewrites the Blackboard "delta_time" for this
+        // frame, BEFORE anything reads it — Timer::update_blackboard wrote the
+        // real dt at the END of the previous iteration, so this is the single
+        // point where the frame's seconds are decided.
+        //
+        // The scale is fed the REAL dt, never its own output, or the ease rate
+        // would itself dilate and the effect would never recover. Only
+        // PHASE_PLAYING dilates: a menu, the shop and the intermission are always
+        // 1.0f, so no UI animation is ever slowed by a fight that is not running.
+        {
+            static TimescaleState timescale_state;
+            const double real_dt = blackboard.get_or<double>("delta_time", 0.0);
+            const float scale = tick_timescale(
+                component_storage, blackboard, config.timescale, timescale_state,
+                static_cast<float>(real_dt), phase == PHASE_PLAYING);
+            // Exactly 1.0f when disabled, so the multiply is bit-for-bit a no-op.
+            if (scale != 1.0f)
+                blackboard.set<double>("delta_time", real_dt * static_cast<double>(scale));
+            blackboard.set<float>("timescale", scale);   // HUD/audio may read it
+        }
         // === END HOOK: timescale ===
 
         // Scripted input injection (headless testing).
@@ -1606,15 +1692,43 @@ int main(int argc, char* argv[]) {
                 tick_dash(component_storage, entity_manager, blackboard, config.dash,
                           dash_state, dash_key,
                           static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)));
+
+                // Engine suite (D140): a dash drags the lattice behind it. One
+                // publish per dashing frame, at the drone's centre — render-only
+                // (fx_events is one-way), so this cannot reach the sim.
+                for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+                    auto ss = component_storage.get_component<ShipState>(p);
+                    if (!ss.has_value() || ss->get().dash_timer <= 0.0f) break;
+                    auto pp = component_storage.get_component<Position>(p);
+                    auto psz = component_storage.get_component<Size>(p);
+                    if (pp.has_value() && psz.has_value()) {
+                        fx_events::push_impulse(
+                            blackboard,
+                            pp->get().x + psz->get().width * 0.5f,
+                            pp->get().y + psz->get().height * 0.5f,
+                            0.45f);
+                    }
+                    break;
+                }
             }
             // === END HOOK: dash ===
 
             player_aim.update(component_storage, blackboard);
 
-            // === HOOK: director === (Engine suite, D138 — Lane Q / #8)
+            // === HOOK: director === (Engine suite, D142 — Lane Q / #8)
             // Owner: the Adaptive Director. Integrates a stress scalar from sim
             // state and hands WaveSpawnerSystem ONE spacing multiplier — never
             // counts, never skips the table. Publishes "director.stress".
+            //
+            // Pushed every frame, immediately before the spawner reads it, the
+            // same discipline as player_control.set_speed: nothing caches it.
+            {
+                static DirectorState director_state;
+                wave_spawner.set_spacing_mult(tick_director(
+                    component_storage, blackboard, config.director, director_state,
+                    static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)),
+                    /*active=*/true));
+            }
             // === END HOOK: director ===
 
             wave_spawner.update(blackboard, entity_manager, component_storage);
@@ -1762,11 +1876,19 @@ int main(int argc, char* argv[]) {
             }
             // === END HOOK: specialty ===
 
-            // === HOOK: forces === (Engine suite, D138 — Lane T / #3)
+            // === HOOK: forces === (Engine suite, D144 — Lane T / #3)
             // Owner: the force-field layer. One accumulation pass over the
             // registered sources writing velocity deltas, BEFORE movement so a
             // field acts on the frame it exists — and the arena clamp + obstacle
             // push-out below stay the last word on position.
+            //
+            // Inert by shape: with nothing registered the pass iterates nothing,
+            // which is why there is no `enabled` flag to check here. The system
+            // is exposed to the rest of the frame through `forces` (declared at
+            // outer scope) so Lane X's surges can register a gravity storm.
+            forces.set_capacity(config.forces.max_sources);
+            forces.update(component_storage,
+                          static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)));
             // === END HOOK: forces ===
 
             movement.update(component_storage, blackboard);
@@ -1821,10 +1943,21 @@ int main(int argc, char* argv[]) {
             collision.update(component_storage, blackboard);
             projectile_hit.update(entity_manager, component_storage, blackboard);
 
-            // === HOOK: crumble === (Engine suite, D138 — Lane U / #9)
-            // Owner: the destructible arena. Routes this frame's projectile hits
-            // on obstacle colliders into obstacle HP; destruction removes the
-            // collider, spawns debris and dirty-rebuilds the A* grid region.
+            // === HOOK: crumble === (Engine suite, D146 — Lane U / #9)
+            // Owner: the destructible arena. The damage itself already landed:
+            // ProjectileHitSystem emits a DamageEvent against a solid that carries
+            // Health, and DamageApplySystem resolves it below. This resolves what
+            // that leaves behind — cracked shading, debris, collider removal, and
+            // the A* rebuild.
+            //
+            // The rebuild is HERE rather than inside the system so there is
+            // exactly one place in the codebase that knows how the grid is built
+            // (the arena-apply path above is the other caller of the same pair).
+            if (crumble.update(component_storage, entity_manager, blackboard)) {
+                enemy_seek.set_arena(&crumble.live_obstacles(),
+                    enemy_path::build_obstacle_grid(path_cols, path_rows, path_cell,
+                        crumble.live_obstacles(), config.pathfinding.clearance));
+            }
             // === END HOOK: crumble ===
 
             // Shields regen *before* damage resolves, so a hit this frame restarts
@@ -2142,11 +2275,20 @@ int main(int argc, char* argv[]) {
 
         game_hud.update(component_storage, blackboard);
 
-        // === HOOK: telemetry === (Engine suite, D138 — Lane S / #10)
-        // Owner: the Flight Report recorder. Every phase, outside the `sim`
-        // gate, so terminal screens can compose the report; recording itself is
-        // gated on PHASE_PLAYING inside the system. Passive — reads sim state
-        // into its own ring buffers, nothing reads it back.
+        // === HOOK: telemetry === (Engine suite, D143 — Lane S / #10)
+        // Owner: the Flight Report recorder. Every phase, outside the `sim` gate,
+        // so the terminal screens keep drawing the report while the sim is
+        // stopped; recording itself is gated on PHASE_PLAYING inside the system.
+        // Passive — reads sim state into its own ring buffers, nothing reads back.
+        {
+            static FlightReport flight_report;   // ring buffers + widget pool, once
+            flight_report.set_config(config.flight_report, config.arena);
+            if (blackboard.get_or<bool>("flight_report.reset", false)) {
+                flight_report.reset();
+                blackboard.set<bool>("flight_report.reset", false);
+            }
+            flight_report.update(component_storage, entity_manager, blackboard);
+        }
         // === END HOOK: telemetry ===
 
         // === HOOK: audio === (Engine suite, D138 — Lane Z / #4)
@@ -2229,6 +2371,20 @@ int main(int argc, char* argv[]) {
         }
 
         // === Render ===
+        // === HOOK: palette === (Engine suite, D147 — Lane W / #5) — part 1 of 2
+        // The palette engine needs TWO sites, for the same reason the prestige
+        // hook does: the capture has to be armed before the first draw call and
+        // resolved after the last one. Nothing else lives between them, so the
+        // whole feature is still one contiguous idea and one revert.
+        //
+        // Off (the shipped default) begin_capture returns false and every draw
+        // below goes straight to the backbuffer, on exactly the code path that
+        // existed before the feature.
+        static PaletteSystem palette;
+        const bool palette_on = config.palettes.enabled &&
+            palette.begin_capture(renderer.get(), win_w, win_h);
+        // === END HOOK: palette ===
+
         camera.update(component_storage, blackboard);
 
         // #11: the dash button's face, parked over the authored "hud_dash_frame"
@@ -2322,16 +2478,64 @@ int main(int argc, char* argv[]) {
         }
         render_system.render_layers(bg_layers);
 
-        // === HOOK: grid-render === (Engine suite, D138 — Lane R / RG)
-        // Owner: the resonance grid. Above the parallax backdrops, under every
-        // entity. Render-only: consumes fx.grid_impulses, writes pixels; no sim
-        // system may ever read grid state.
+        // === HOOK: grid-render === (Engine suite, D140 — Lane R / RG)
+        // Owner: the resonance grid. Between render_layers and render, so it is
+        // over the parallax backdrops and under every entity.
+        //
+        // Render-only, and structurally so: it consumes fx.grid_impulses (published
+        // sim-side at deaths, dashes and blasts) and writes pixels. Nothing reads
+        // grid state back, it owns no RNG, and it is stepped by the REAL frame dt
+        // rather than the dilated one — the ripple keeps its own clock so bullet
+        // time does not turn the lattice to treacle.
+        if (config.resonance.enabled) {
+            static ResonanceGridSystem grid;
+            // The lattice is centred on the arena and sized to cover it; the
+            // configure() call is cheap and only rebuilds on a size change.
+            const float span_x = static_cast<float>(config.resonance.cols - 1) *
+                                 config.resonance.spacing;
+            const float span_y = static_cast<float>(config.resonance.rows - 1) *
+                                 config.resonance.spacing;
+            grid.configure(config.resonance.cols, config.resonance.rows,
+                           config.resonance.spacing,
+                           config.arena.center_x - span_x * 0.5f,
+                           config.arena.center_y - span_y * 0.5f);
+            grid.set_tuning(config.resonance.stiffness, config.resonance.damping,
+                            config.resonance.impulse_scale, config.resonance.max_offset,
+                            config.resonance.r, config.resonance.g,
+                            config.resonance.b, config.resonance.a);
+            grid.update(static_cast<float>(timer.get_delta_time()),
+                        blackboard.get_or<std::vector<fx_events::Impulse>>(
+                            fx_events::GRID_IMPULSES, {}));
+            grid.render(renderer.get(), blackboard);
+        }
         // === END HOOK: grid-render ===
 
-        // === HOOK: scars-render === (Engine suite, D138 — Lane V / #6)
+        // === HOOK: scars-render === (Engine suite, D145 — Lane V / #6)
         // Owner: the battle-scar layer. Consumes fx.scar_stamps into its
         // accumulation texture and draws it once, under the entities and over
         // the grid. Render-only, same contract as the grid.
+        //
+        // The texture covers the arena's bounding square and is cleared on an
+        // arena shift — each arena accumulates its own history — which is why the
+        // shift generation is compared rather than the arena index alone (a shift
+        // back to the same theme is still a new floor).
+        if (config.scars.enabled) {
+            static ScarSystem scars;
+            static int scars_arena = -2;
+            const float arena_span = config.arena.radius * 2.0f;
+            scars.configure(renderer.get(),
+                            static_cast<int>(arena_span), static_cast<int>(arena_span),
+                            config.arena.center_x - config.arena.radius,
+                            config.arena.center_y - config.arena.radius);
+            scars.set_tuning(config.scars.max_stamps_per_frame, config.scars.alpha);
+            if (scars_arena != active_arena) {
+                scars.clear(renderer.get());
+                scars_arena = active_arena;
+            }
+            scars.update_and_render(renderer.get(), blackboard,
+                                    blackboard.get_or<std::vector<fx_events::Stamp>>(
+                                        fx_events::SCAR_STAMPS, {}));
+        }
         // === END HOOK: scars-render ===
 
         render_system.render(component_storage, blackboard);
@@ -2344,11 +2548,40 @@ int main(int argc, char* argv[]) {
         }
         screenshot_system.update(blackboard);
 
-        // === HOOK: palette === (Engine suite, D138 — Lane W / #5)
-        // Owner: the palette engine. The lane's spec resolves the feasibility
-        // gate (true post-LUT over a render target vs palette-driven tinting);
-        // whichever ships, this is its one render-block landing site, resolved
-        // before present. Render-only.
+        // === HOOK: palette === (Engine suite, D147 — Lane W / #5) — part 2 of 2
+        // Resolve the captured frame through the live palette. The palette is
+        // picked from SIM STATE — which arena is live, and whether the hull is
+        // critical — and nothing reads back, so this stays render-only.
+        if (palette_on) {
+            PaletteSystem::Palette pal;
+            if (!config.palettes.palettes.empty()) {
+                const size_t idx = static_cast<size_t>(std::max(0, active_arena)) %
+                                   config.palettes.palettes.size();
+                const PaletteDef& def = config.palettes.palettes[idx];
+                if (def.colors.size() >= 2) {
+                    const uint32_t s0 = def.colors[0], s1 = def.colors[1];
+                    pal.shadow_r = static_cast<uint8_t>((s0 >> 16) & 0xFF);
+                    pal.shadow_g = static_cast<uint8_t>((s0 >> 8) & 0xFF);
+                    pal.shadow_b = static_cast<uint8_t>(s0 & 0xFF);
+                    pal.light_r = static_cast<uint8_t>((s1 >> 16) & 0xFF);
+                    pal.light_g = static_cast<uint8_t>((s1 >> 8) & 0xFF);
+                    pal.light_b = static_cast<uint8_t>(s1 & 0xFF);
+                }
+                pal.mix = 0.55f;
+            }
+            // Hull-critical washes the WORLD, not a vignette — the whole point of
+            // owning the frame's colour. Pushed toward the palette's shadow so it
+            // reads as the reactor browning out rather than as a red overlay.
+            for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+                auto h = component_storage.get_component<Health>(p);
+                if (h.has_value() && h->get().max_hp > 0.0f &&
+                    h->get().current > 0.0f &&
+                    h->get().current / h->get().max_hp < 0.2f)
+                    pal.mix = std::min(1.0f, pal.mix + 0.3f);
+                break;
+            }
+            palette.resolve(renderer.get(), pal);
+        }
         // === END HOOK: palette ===
 
         render_system.present();

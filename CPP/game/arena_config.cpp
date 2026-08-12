@@ -325,7 +325,7 @@ GameConfig load_arena_config(const std::string& file_path) {
     // so a block of ours under that name aborts the loader before main() runs.
     if (data.contains("resonance")) {
         const auto& g = data["resonance"];
-        auto& gc = cfg.grid;
+        auto& gc = cfg.resonance;
         gc.enabled       = g.value("enabled", gc.enabled);
         gc.cols          = g.value("cols", gc.cols);
         gc.rows          = g.value("rows", gc.rows);
@@ -346,6 +346,9 @@ GameConfig load_arena_config(const std::string& file_path) {
         fc.enabled        = f.value("enabled", fc.enabled);
         fc.sample_every_n = f.value("sample_every_n", fc.sample_every_n);
         fc.max_samples    = f.value("max_samples", fc.max_samples);
+        fc.x              = f.value("x", fc.x);
+        fc.y              = f.value("y", fc.y);
+        fc.size           = f.value("size", fc.size);
     }
     if (data.contains("forces")) {
         cfg.forces.max_sources = data["forces"].value("max_sources", cfg.forces.max_sources);
