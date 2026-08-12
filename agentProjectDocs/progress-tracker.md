@@ -25,6 +25,9 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   `master` property-test flake (~5% of runs) that can make this branch's gate
   report 7/8. It is not a suite regression; measured at the same rate on `master`.
 - Spec: `specs/engine-feature-suite.md`. Lane order was P/R, Q/S, T/V, U/W, X/Y, Z.
+- **Read `handoff-engine-suite.md` first** — it is the merge-decision brief:
+  what shipped per lane, what verification actually ran, what to judge, and what
+  was deliberately left out.
 
 
 - **`feature/gameplay-polish` (2026-08-11): the THIRD playtest batch is

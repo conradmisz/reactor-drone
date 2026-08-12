@@ -59,10 +59,18 @@ void PaletteSystem::resolve(SDL_Renderer* renderer, const Palette& p) {
     // bright pixels take the highlight and dark ones keep the shadow: a duotone
     // resolve out of two draw calls, with no per-pixel CPU work at all.
     SDL_SetTextureBlendMode(target_, SDL_BLENDMODE_ADD);
+    // The 0.85 is a LUMINANCE-MATCHING gain, measured rather than guessed: pass 1
+    // multiplies the frame down toward the shadow colour, so without enough added
+    // back the resolve reads as "the game got dimmer" instead of "the game got
+    // recoloured". At 0.5 the mean frame luminance fell ~33% against the
+    // unresolved frame (44/31/21 -> 30/15/9 on a wave-6 capture); this is the knob
+    // to turn if a playtest still finds it dark, and it wants a human eye rather
+    // than another mean-pixel measurement.
+    constexpr float LIGHT_GAIN = 0.85f;
     SDL_SetTextureColorMod(target_,
-                           static_cast<uint8_t>(p.light_r * mix * 0.5f),
-                           static_cast<uint8_t>(p.light_g * mix * 0.5f),
-                           static_cast<uint8_t>(p.light_b * mix * 0.5f));
+                           static_cast<uint8_t>(p.light_r * mix * LIGHT_GAIN),
+                           static_cast<uint8_t>(p.light_g * mix * LIGHT_GAIN),
+                           static_cast<uint8_t>(p.light_b * mix * LIGHT_GAIN));
     SDL_RenderTexture(renderer, target_, nullptr, nullptr);
 
     // Leave the texture neutral: the next frame's capture clears it, but its

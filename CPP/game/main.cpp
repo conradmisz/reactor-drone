@@ -2601,13 +2601,12 @@ int main(int argc, char* argv[]) {
         // Menus composite last, on top of the world and the gameplay HUD.
         ui_render_system.render(component_storage, blackboard);
 
-        if (!opts.screenshot_frames.empty()) {
-            for (uint64_t sf : opts.screenshot_frames) if (sf == frame) blackboard.set("screenshot_frame", frame);
-        }
-        screenshot_system.update(blackboard);
-
         // === HOOK: palette === (Engine suite, D147 — Lane W / #5) — part 2 of 2
-        // Resolve the captured frame through the live palette. The palette is
+        // Resolve the captured frame through the live palette. BEFORE
+        // screenshot_system, not after: a screenshot taken while the capture
+        // target was still bound recorded the UNRESOLVED frame, which made the
+        // palette invisible to every headless check (it looked like the feature
+        // was inert when it was in fact working on screen). The palette is
         // picked from SIM STATE — which arena is live, and whether the hull is
         // critical — and nothing reads back, so this stays render-only.
         if (palette_on) {
@@ -2641,6 +2640,12 @@ int main(int argc, char* argv[]) {
             palette.resolve(renderer.get(), pal);
         }
         // === END HOOK: palette ===
+
+        if (!opts.screenshot_frames.empty()) {
+            for (uint64_t sf : opts.screenshot_frames) if (sf == frame) blackboard.set("screenshot_frame", frame);
+        }
+        screenshot_system.update(blackboard);
+
 
         render_system.present();
 
