@@ -146,12 +146,15 @@ int main(int argc, char* argv[]) {
     // a headless driver, no Vulkan — and the classic renderer is byte-for-byte
     // the pre-Tier-4 pipeline (PostFx self-disables off a non-GPU renderer).
     SDL_RendererPtr renderer;
-    // D197: the GPU renderer is OPT-IN (--gpu-renderer). The bugs/003 crashes
-    // are gone since the 2026-08-11 system SDL update, but the classic
-    // renderer stays the default because it is the deterministic verification
-    // baseline every canary and screenshot was built on; flip after a windowed
-    // playtest signs off on the GPU path.
-    if (opts.gpu_renderer && !opts.classic_renderer) {
+    // D199 (v3 Tier 6a): the GPU renderer is now the DEFAULT, as the v3 plan
+    // always specified; --classic-renderer is the escape hatch. The opt-in was a
+    // bugs/003 stability hold, resolved by the 2026-08-11 system SDL update and
+    // signed off by the 2026-08-13 windowed playtest. --gpu-renderer is kept as
+    // an accepted no-op so existing scripts and the run.py forwarder still work.
+    // Headless is unaffected without an explicit guard: the dummy/offscreen
+    // drivers refuse a "gpu" renderer, so creation fails and the fallback below
+    // lands on the classic path the canary baseline was built on.
+    if (!opts.classic_renderer) {
         SDL_PropertiesID rp = SDL_CreateProperties();
         SDL_SetStringProperty(rp, SDL_PROP_RENDERER_CREATE_NAME_STRING, "gpu");
         SDL_SetPointerProperty(rp, SDL_PROP_RENDERER_CREATE_WINDOW_POINTER, window.get());
