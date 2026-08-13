@@ -87,17 +87,36 @@ the game delivers the Laser Hockey look it was aiming at.
 
 ## Merge Notes
 
-- **Decision:** GPU renderer default flipped (D199) — the plan always
-  specified it; the opt-in was a stability hold that `bugs/003` + the
-  2026-08-13 windowed playtest resolved. → `decisions.md`
-- **Decision:** documented replay canary was inert and could not reach
-  hit-stop; replaced with a firing canary. → `decisions.md`
-- **Decision:** trail history lives in a render-side map in `main.cpp`, not an
-  ECS component (D200). Keeping it out of `component_storage` means no
-  gameplay system *can* read it, so presentation-only is enforced by
-  construction rather than by convention. → `decisions.md`
-- **Decision:** Tier 6c (per-arena LUT grade + dash radial blur) deferred
-  after 6a/6b were judged sufficient. → `decisions.md`
-- **State:** tiers 6a, 6b, 7a, 7b, 8 done on `visual-overhaul`; 6c deferred.
-  Branch is unplayed since 7b — the trails have never been seen.
-  → `progress-tracker.md`
+Hoist to `decisions.md` / `progress-tracker.md` on `master` at merge, then empty.
+
+- **D199:** GPU renderer is now the default; `--classic-renderer` is the escape
+  hatch. The plan always specified this — Tier 4 shipped it inverted as a
+  bugs/003 stability hold, discharged by the SDL update + a windowed playtest.
+- **D200:** trail history lives in a render-side `unordered_map` in `main.cpp`,
+  NOT an ECS component. Keeping it out of `component_storage` means no gameplay
+  system *can* read it, so presentation-only is enforced by construction.
+- **D201:** projectiles carry no `Color` component — the neon ribbon is their
+  only visual. Colour rides on `ProjectileTag` / `EnemyShot` instead. A new
+  `HiddenVisual` engine component was built for this first and discarded: a bare
+  tag costs ~30 lines of ComponentStorage instantiation boilerplate, and
+  dropping `Color` achieves the same thing with none.
+- **Deferred:** Tier 6c (per-arena LUT grade + dash radial blur). 6a + 6b were
+  judged sufficient. Still live if the grade reads flat.
+- **Rejected:** textured particles as the box-halo fix — measured ~27x slower
+  (bugs/004). The mitigation shipped instead is a bloom pullback.
+- **Rejected:** `Timer::set_external_pacing` for the menu framerate — the vsync
+  double-pacing hypothesis was disproved by A/B (bugs/005). Reverted unshipped.
+
+## State
+
+- Tiers 6a, 6b, 7a, 7b, 7c, 8 done on `visual-overhaul`. 6c deferred.
+- **7 commits local and UNPUSHED** as of 2026-08-13.
+- Open: bugs/004 (box halos, mitigated only — real fix is a batched
+  `SDL_RenderGeometry` particle renderer, not attempted) and bugs/005 (menu
+  ~52fps on a 60Hz display, pre-existing on master, not root-caused).
+- **Unjudged:** whether the shots now read as lasers. Two playtests happened;
+  no verdict was recorded either time.
+- bugs/006 resolved: the canary reads `saves/` and is not seed-deterministic.
+  `CLAUDE.md` now requires clearing `saves/` first. NOTE: the last playtest
+  bumped `saves/meta.json` again, so this worktree's canary is invalid until
+  reset.
