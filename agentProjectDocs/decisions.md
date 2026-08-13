@@ -2159,3 +2159,40 @@ game should *show* its state, not make you infer it.
   cwd-relative and fail from a read-only cwd, dev-only flags so not a player
   bug; /version still serves one INSTALLER_URL (nothing consumes it yet — make
   it per-OS when the update check lands).
+
+### D200 — Feedback reports: a PHASE_FEEDBACK form on name_entry's plumbing, flat-column D1 table as the AI export, context captured at open, consent = the submit itself  *(2026-08-12)*
+- **Decision:** FEEDBACK buttons on the pause screen (row re-laid 4→5 at
+  w=86) and the main menu (QUIT row split 392→188+188) open `PHASE_FEEDBACK
+  = 8` — four typed fields (subject/body/tags/from), TAB cycles focus, ENTER
+  submits except in BODY where it inserts a newline, ESC routes back to
+  where the form opened from (`fb_from_pause`: CMD_POP under the pause
+  screen vs CLEAR_TO the title). Run context (wave/score/ship/difficulty/
+  prestige) is captured AT OPEN — the numbers the player is looking at — not
+  at send. POST /feedback stores flat columns (`ts DEFAULT unixepoch()`
+  server-side; client clocks are never trusted) plus auto-attached
+  version/platform/player identity/session; `session` joins feedback to the
+  same launch's telemetry rows. A failed POST keeps the typed content for
+  retry. NOT gated on the ANALYTICS toggle: pressing send is the consent
+  (PRIVACY.md line added). Offline: both handlers net-gated, the pause
+  button's caption blanks.
+- **Why flat columns, not a body blob:** feedback is exactly the table that
+  gets exported to an AI triage pipeline — one SELECT yields clean JSONL
+  with zero json_extract gymnastics, unlike telemetry where new report
+  fields must not need migrations.
+- **Rejected:** gating on settings.analytics (a form the player explicitly
+  submits is its own consent; coupling them would silently drop feedback
+  from opted-out players, the people most likely to have something to say);
+  capture-at-send (the form can outlive the wave the complaint is about); a
+  tag taxonomy (free text now, normalize at ingestion); a feedback
+  browser/dashboard tab, edit/delete, rate limiting, offline queue (YAGNI,
+  spec's Out of Scope).
+- **Verified:** backend 6 new test.sh cases green (auth, both shapes, empty
+  subject, bad platform, in_run without run state); live XTest walkthrough
+  on DISPLAY=:1 against local wrangler dev — title submission landed
+  in_run=0/NULL run state, pause submission landed in_run=1 wave=1 score=0
+  ship=0 difficulty=Normal, server-down showed the red failure line with
+  typed content preserved and a clean ESC exit; ctest 8/8; replay canary
+  byte-identical to the session baseline. Harness facts for the next
+  walkthrough: SDL_GetKeyboardState-polled keys need XTest holds ≥3 frames,
+  and clicks must map through the 800x600→window ui_canvas_transform
+  (scale 1.1, offset_x 50 at 980x660).

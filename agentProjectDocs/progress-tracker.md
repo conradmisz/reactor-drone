@@ -18,6 +18,11 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   (`rtprobe`, `TestPilotXYZ123`, `CurlProbe1`, `AliceRace1*`, `FinalNameR1`,
   `ZZZ_TASK8_*`) plus the four `BOT_*` pilots. Public on `/top`; delete before
   release.
+- **Feedback reports shipped** (2026-08-12, D200): in-game form (pause +
+  main menu) -> POST /feedback -> flat-column D1 table with server ts and
+  auto context (version/platform/identity/run state/session). Live-verified
+  both entry points + failure path. Prod deploy rides the SAME pending
+  migration as telemetry.
 - **Telemetry tasks 1-5 built** (2026-08-12): `/telemetry` route + `runs`
   table (committed, NOT yet migrated/deployed to prod — needs
   `wrangler d1 execute --remote --file schema.sql` then `wrangler deploy`),
