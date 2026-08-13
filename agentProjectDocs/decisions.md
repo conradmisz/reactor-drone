@@ -2196,3 +2196,33 @@ game should *show* its state, not make you infer it.
   walkthrough: SDL_GetKeyboardState-polled keys need XTest holds ≥3 frames,
   and clicks must map through the 800x600→window ui_canvas_transform
   (scale 1.1, offset_x 50 at 980x660).
+
+### D201 — The pause freeze is stack-wide, and any screen that must accept input while the sim is frozen belongs ABOVE the phase machine  *(2026-08-13)*
+- **Decision:** `menu_paused` tests whether SCREEN_PAUSE is anywhere in the
+  screen stack, not just on top, so every screen pushed over pause inherits the
+  freeze. Correspondingly, PHASE_FEEDBACK's input block moved out of the phase
+  machine's `} else if (sim) {` chain to sit beside the pause-button handling,
+  which already documents the rule: the phase machine is gated on `sim`, and
+  pausing turns `sim` off.
+- **Why (both halves are one bug):** the feedback form was the first screen
+  ever pushed over pause. A top-of-stack-only freeze test left three `if (sim)`
+  blocks outside the phase machine running while the player typed — particle
+  ageing with emit=false (the frozen battlefield visibly drained), trauma decay,
+  and `timer.end_frame()` advancing sim time instead of
+  `end_frame_no_advance()`. Fixing that alone then revealed the severe half:
+  with `sim` correctly false, the feedback block stopped executing, and since
+  the generic pause-ESC handler excludes PHASE_FEEDBACK, the player was
+  **soft-locked on the form** with no way back. The first bug had been masking
+  the second.
+- **Rejected:** special-casing PHASE_FEEDBACK in the freeze test (leaves the
+  same trap armed for the next screen pushed over pause); giving the form its
+  own ESC path through the generic handler (two ESC owners racing on one frame
+  is the exact bug D195/D197 already fixed for name entry and the leaderboard).
+- **Verified** with `scripts/drive_ui.py` (committed with this change) against
+  local wrangler dev. Freeze, by frame count — `end_frame()` increments
+  `frame_count_`, `end_frame_no_advance()` does not — holding on each screen for
+  6 s and 20 s: pre-fix pause 350 vs form 1583 (delta scaled with hold);
+  post-fix 350/354 vs 351/353 (flat). Function: a pause-path report landed with
+  in_run=1, wave=1, difficulty Normal, tags and from_name intact while frames
+  stayed at 347; ESC returned to the pause screen (Phase 1) and RESUME
+  unfroze — frames 347 -> 539. ctest 8/8, canary byte-identical.

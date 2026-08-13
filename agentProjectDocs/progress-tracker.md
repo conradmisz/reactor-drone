@@ -18,6 +18,11 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   (`rtprobe`, `TestPilotXYZ123`, `CurlProbe1`, `AliceRace1*`, `FinalNameR1`,
   `ZZZ_TASK8_*`) plus the four `BOT_*` pilots. Public on `/top`; delete before
   release.
+- **D201 (2026-08-13):** the pause freeze is now stack-wide and PHASE_FEEDBACK
+  handles input above the phase machine. Found two chained bugs: a screen
+  pushed over pause silently un-froze the sim, and fixing that exposed a
+  soft-lock (the form went inert, ESC included). `scripts/drive_ui.py` is the
+  committed XTest harness for UI verification `--keys` cannot reach.
 - **Feedback reports shipped** (2026-08-12, D200): in-game form (pause +
   main menu) -> POST /feedback -> flat-column D1 table with server ts and
   auto context (version/platform/identity/run state/session). Live-verified
