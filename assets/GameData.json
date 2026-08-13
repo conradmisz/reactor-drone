@@ -4363,9 +4363,9 @@
     "feedback": {
       "//": "Feedback form (specs/feedback-reports.md). main.cpp owns the four field buffers and rewrites fb_subject/fb_body/fb_tags/fb_from/fb_msg every frame - the name_entry by-name-rewrite pattern. Reached via on_feedback_click from pause and main_menu.",
       "widgets": [
-        { "element_type": "panel", "rect": { "x": 180, "y": 64, "w": 620, "h": 472 }, "label_text": "", "z_order": 9 },
+        { "element_type": "panel", "rect": { "x": 180, "y": 64, "w": 620, "h": 472 }, "label_text": "", "style_id": "panel", "z_order": 9 },
         { "element_type": "label", "rect": { "x": 204, "y": 452, "w": 392, "h": 44 }, "label_text": "FEEDBACK", "style_id": "title", "z_order": 10 },
-        { "element_type": "panel", "rect": { "x": 204, "y": 440, "w": 552, "h": 2 }, "label_text": "", "z_order": 10 },
+        { "element_type": "panel", "rect": { "x": 204, "y": 440, "w": 552, "h": 2 }, "label_text": "", "style_id": "panel", "z_order": 10 },
         { "element_type": "label", "rect": { "x": 204, "y": 396, "w": 100, "h": 24 }, "label_text": "SUBJECT", "style_id": "caption", "z_order": 10 },
         { "element_type": "label", "name": "fb_subject", "rect": { "x": 316, "y": 396, "w": 440, "h": 24 }, "label_text": "_", "style_id": "subtitle", "z_order": 10 },
         { "element_type": "label", "rect": { "x": 204, "y": 356, "w": 100, "h": 24 }, "label_text": "BODY", "style_id": "caption", "z_order": 10 },
