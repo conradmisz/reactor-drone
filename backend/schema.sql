@@ -24,3 +24,19 @@ CREATE TABLE IF NOT EXISTS runs (
   body       TEXT    NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_runs_ts ON runs(ts);
+CREATE TABLE IF NOT EXISTS feedback (
+  id         INTEGER PRIMARY KEY,
+  ts         INTEGER NOT NULL DEFAULT (unixepoch()),
+  subject    TEXT    NOT NULL,
+  body       TEXT    NOT NULL,
+  tags       TEXT    NOT NULL DEFAULT '',
+  from_name  TEXT    NOT NULL DEFAULT '',
+  player_id  TEXT    NOT NULL,
+  pilot      TEXT    NOT NULL DEFAULT '',
+  version    TEXT    NOT NULL,
+  platform   TEXT    NOT NULL,
+  session    TEXT    NOT NULL,
+  in_run     INTEGER NOT NULL,
+  wave INTEGER, score INTEGER, ship INTEGER, prestige INTEGER, difficulty TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_feedback_ts ON feedback(ts);

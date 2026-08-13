@@ -23,6 +23,15 @@ T="{\"v\":1,\"player_id\":\"$U1\",\"session_id\":\"s1\",\"game_version\":\"2.0.0
 [ "$(c -XPOST "$BASE/telemetry" -H "$J" -H "X-Game-Key: $KEY" -d '{"v":1,"player_id":"nope","session_id":"s1","game_version":"2.0.0","difficulty":"Normal","prestige":0,"ship":0,"outcome":"death","wave":7,"score":1,"dur_s":1}')" = 400 ]  # bad uuid
 [ "$(c -XPOST "$BASE/telemetry" -H "$J" -H "X-Game-Key: $KEY" -d "{\"v\":1,\"player_id\":\"$U1\",\"session_id\":\"s1\",\"game_version\":\"2.0.0\",\"difficulty\":\"Normal\",\"prestige\":0,\"ship\":0,\"outcome\":\"death\",\"wave\":7,\"score\":1,\"dur_s\":1,\"trailing\":}")" = 400 ]  # malformed json
 
+# feedback
+FB="{\"subject\":\"Boss too hard\",\"body\":\"wave 9 boss\\nmelts me\",\"tags\":\"balance,boss\",\"from_name\":\"conrad\",\"player_id\":\"$U1\",\"pilot\":\"testconrad\",\"version\":\"2.0.0\",\"platform\":\"linux\",\"session_id\":\"s1\",\"in_run\":true,\"wave\":9,\"score\":4200,\"ship\":1,\"prestige\":0,\"difficulty\":\"Normal\"}"
+[ "$(c -XPOST "$BASE/feedback" -H "$J" -d "$FB")" = 401 ]                                # no key
+[ "$(c -XPOST "$BASE/feedback" -H "$J" -H "X-Game-Key: $KEY" -d "$FB")" = 200 ]
+[ "$(c -XPOST "$BASE/feedback" -H "$J" -H "X-Game-Key: $KEY" -d "{\"subject\":\"menu note\",\"body\":\"more ships pls\",\"player_id\":\"$U1\",\"version\":\"2.0.0\",\"platform\":\"win\",\"session_id\":\"s2\",\"in_run\":false}")" = 200 ]   # optionals absent
+[ "$(c -XPOST "$BASE/feedback" -H "$J" -H "X-Game-Key: $KEY" -d "{\"subject\":\"\",\"body\":\"x\",\"player_id\":\"$U1\",\"version\":\"2.0.0\",\"platform\":\"win\",\"session_id\":\"s\",\"in_run\":false}")" = 400 ]  # empty subject
+[ "$(c -XPOST "$BASE/feedback" -H "$J" -H "X-Game-Key: $KEY" -d "{\"subject\":\"s\",\"body\":\"x\",\"player_id\":\"$U1\",\"version\":\"2.0.0\",\"platform\":\"amiga\",\"session_id\":\"s\",\"in_run\":false}")" = 400 ]  # bad platform
+[ "$(c -XPOST "$BASE/feedback" -H "$J" -H "X-Game-Key: $KEY" -d "{\"subject\":\"s\",\"body\":\"x\",\"player_id\":\"$U1\",\"version\":\"2.0.0\",\"platform\":\"win\",\"session_id\":\"s\",\"in_run\":true}")" = 400 ]  # in_run without run state
+
 # dashboard + stats (read-only, no game key)
 [ "$(c "$BASE/dashboard")" = 200 ]
 curl -s "$BASE/dashboard" | grep -q 'Reactor Drone — Live Ops'

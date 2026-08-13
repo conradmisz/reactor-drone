@@ -8,6 +8,8 @@ const NAME_RE = /^[\x20-\x7e]+$/;
 const MAX_BODY_BYTES = 2048; // these payloads are tiny; reject anything absurd before parsing
 const MAX_TELEMETRY_BYTES = 16384; // one run report; ~3-5 KB typical
 const OUTCOMES = new Set(['death', 'victory', 'quit', 'close']);
+const MAX_FEEDBACK_BYTES = 8192;
+const PLATFORMS = new Set(['win', 'linux', 'mac']);
 
 // Reads and JSON-parses the body, refusing to buffer an oversized payload.
 async function readJson(req) {
@@ -160,6 +162,42 @@ export default {
            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`)
           .bind(b.player_id, b.session_id, b.game_version, b.difficulty, b.prestige, b.ship,
                 b.outcome, b.wave, b.score, Math.round(b.dur_s), raw).run();
+        return json({ ok: true });
+      }
+
+      // Explicit player action — deliberately not gated on any consent flag
+      // beyond the submit itself. Flat columns: this table is the AI export.
+      if (req.method === 'POST' && url.pathname === '/feedback') {
+        if (!safeEqual(req.headers.get('X-Game-Key'), env.GAME_KEY)) return json({ error: 'unauthorized' }, 401);
+        const len = req.headers.get('content-length');
+        if (len && Number(len) > MAX_FEEDBACK_BYTES) return json({ error: 'bad_request' }, 400);
+        const raw = await req.text();
+        if (raw.length > MAX_FEEDBACK_BYTES) return json({ error: 'bad_request' }, 400);
+        const b = JSON.parse(raw); // SyntaxError -> catch -> 400
+        // Body allows \n; everything else is single-line printable ASCII.
+        const line = (v, min, max) => typeof v === 'string' && v.length >= min && v.length <= max &&
+                                      (v === '' || NAME_RE.test(v));
+        const text = (v, min, max) => typeof v === 'string' && v.length >= min && v.length <= max &&
+                                      /^[\x20-\x7e\n]*$/.test(v) && v.trim().length >= min;
+        const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+        if (!line(b.subject, 1, 120) || b.subject.trim().length === 0 || !text(b.body, 1, 4000) ||
+            !line(b.tags ?? '', 0, 200) || !line(b.from_name ?? '', 0, 60) ||
+            typeof b.player_id !== 'string' || !UUID_RE.test(b.player_id) ||
+            !line(b.pilot ?? '', 0, 40) || !line(b.version, 1, 32) ||
+            !PLATFORMS.has(b.platform) || !line(b.session_id, 1, 64) ||
+            typeof b.in_run !== 'boolean')
+          return json({ error: 'bad_request' }, 400);
+        if (b.in_run && (!int(b.wave, 0, 999) || !int(b.score, 0, 10_000_000) ||
+                         !int(b.ship, -1, 99) || !int(b.prestige, 0, 99) || !line(b.difficulty, 1, 32)))
+          return json({ error: 'bad_request' }, 400);
+        await env.DB.prepare(
+          `INSERT INTO feedback (subject, body, tags, from_name, player_id, pilot, version, platform,
+                                 session, in_run, wave, score, ship, prestige, difficulty)
+           VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)`)
+          .bind(b.subject.trim(), b.body, b.tags ?? '', b.from_name ?? '', b.player_id, b.pilot ?? '',
+                b.version, b.platform, b.session_id, b.in_run ? 1 : 0,
+                b.in_run ? b.wave : null, b.in_run ? b.score : null, b.in_run ? b.ship : null,
+                b.in_run ? b.prestige : null, b.in_run ? b.difficulty : null).run();
         return json({ ok: true });
       }
 
