@@ -1698,6 +1698,131 @@ int main(int argc, char* argv[]) {
             }
         }
 
+        // === HOOK: feedback form === (specs/feedback-reports.md)
+        // Handled HERE, above the phase machine, for exactly the reason the
+        // pause buttons are: the phase machine is gated on `sim`, and opening
+        // this form over the pause screen turns `sim` off. Left inside that
+        // chain the form went inert the moment the sim froze — no typing, no
+        // submit, and no ESC either, which soft-locked the player on the form.
+        if (phase == PHASE_FEEDBACK) {
+            // specs/feedback-reports.md: four typed fields, TAB cycles focus,
+            // ENTER submits (in BODY it inserts a newline instead), ESC backs
+            // out. Same frame plumbing as PHASE_NAME_ENTRY directly above.
+            constexpr size_t FB_CAPS[4] = {120, 4000, 200, 60};
+            const std::string typed =
+                blackboard.get_or<std::string>("ui.text_input", std::string());
+            {
+                std::string& cur = fb_fields[fb_focus];
+                for (char c : typed) {
+                    if (cur.size() >= FB_CAPS[static_cast<size_t>(fb_focus)]) break;
+                    if (c >= 0x20 && c < 0x7F) cur.push_back(c);
+                }
+                if (blackboard.get_or<bool>("ui.backspace_pressed", false) &&
+                    !cur.empty())
+                    cur.pop_back();
+            }
+            if (blackboard.get_or<bool>("ui.tab_pressed", false))
+                fb_focus = (fb_focus + 1) % 4;
+
+            // Poll last frame's submit before reading enter/escape (the
+            // name_entry ordering — a same-frame response never races input).
+            if (pending_feedback.valid() &&
+                pending_feedback.wait_for(std::chrono::seconds(0)) ==
+                    std::future_status::ready) {
+                const net::Response resp = pending_feedback.get();
+                if (resp.status == 200) {
+                    for (auto& f : fb_fields) f.clear();
+                    fb_focus = 0;
+                    fb_msg = "Thanks - received!";
+                } else {
+                    // Typed content is kept: a retry must not lose their words.
+                    fb_msg = "Couldn't send - check your connection";
+                }
+            }
+
+            const bool fb_enter = blackboard.get_or<bool>("ui.enter_pressed", false);
+            if (fb_enter && fb_focus == 1) {
+                if (fb_fields[1].size() < FB_CAPS[1]) fb_fields[1].push_back('\n');
+            } else if (fb_enter && !pending_feedback.valid()) {
+                if (fb_fields[0].find_first_not_of(' ') == std::string::npos) {
+                    fb_msg = "Subject is required";
+                } else if (fb_fields[1].find_first_not_of(" \n") == std::string::npos) {
+                    fb_msg = "Body is required";
+                } else {
+                    nlohmann::json j = fb_ctx;
+                    j["subject"] = fb_fields[0];
+                    j["body"] = fb_fields[1];
+                    j["tags"] = fb_fields[2];
+                    j["from_name"] = fb_fields[3];
+                    j["player_id"] = meta.player_id;
+                    j["pilot"] = meta.registered ? meta.player_name : "";
+                    j["version"] = GAME_VERSION;
+                    j["platform"] = RD_PLATFORM;
+                    j["session_id"] = session_id;
+                    fb_msg = "Sending...";
+                    pending_feedback = net::post_json(
+                        std::string(net::NET_BASE) + "/feedback", j.dump(),
+                        net::NET_GAME_KEY);
+                }
+            }
+
+            if (blackboard.get_or<bool>("ui.escape_pressed", false)) {
+                abandon_future(std::move(pending_feedback));
+                SDL_StopTextInput(window.get());
+                for (auto& f : fb_fields) f.clear();
+                fb_focus = 0;
+                fb_msg.clear();
+                if (fb_from_pause) {
+                    phase = fb_prev_phase;   // back under the pause screen
+                    blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
+                } else {
+                    phase = PHASE_TITLE;
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                std::string(SCREEN_MAIN_MENU));
+                }
+            }
+
+            if (phase == PHASE_FEEDBACK) {
+                // Widget rewrites: focused field carries the cursor; BODY
+                // shows the tail that fits its 5-line box (full text sends).
+                static const char* FB_NAMES[5] = {"fb_subject", "fb_body",
+                                                  "fb_tags", "fb_from", "fb_msg"};
+                for (int i = 0; i < 4; ++i) {
+                    Entity w = widget_by_name(FB_NAMES[i], fb_w[i], fb_w_resolved[i]);
+                    if (w == 0) continue;
+                    auto el = component_storage.get_component<UIElement>(w);
+                    if (!el.has_value()) continue;
+                    std::string text = fb_fields[i];
+                    if (i == 1) {
+                        // last 5 newline-separated lines of the body
+                        int lines = 0;
+                        size_t pos = text.size();
+                        while (pos > 0 && lines < 5) {
+                            pos = text.find_last_of('\n', pos - 1);
+                            if (pos == std::string::npos) { pos = 0; break; }
+                            ++lines;
+                        }
+                        if (pos > 0) text = text.substr(pos + 1);
+                    }
+                    el->get().label_text = (i == fb_focus) ? text + "_" : text;
+                }
+                if (Entity w = widget_by_name(FB_NAMES[4], fb_w[4], fb_w_resolved[4]);
+                    w != 0) {
+                    if (auto el = component_storage.get_component<UIElement>(w);
+                        el.has_value()) {
+                        el->get().label_text =
+                            !fb_msg.empty()
+                                ? fb_msg
+                                : "TAB next field - ENTER send - ESC back";
+                        el->get().style_id =
+                            (fb_msg.find("required") != std::string::npos ||
+                             fb_msg.find("Couldn't") != std::string::npos)
+                                ? "pip_loss" : "caption";
+                    }
+                }
+            }
+        }
+
         // === HOOK: prestige === (Iteration 5, D128/D129 — Lane O / #14)
         // The arc-complete offer. Handled HERE, above the phase machine, for the
         // same reason the pause buttons are: the click that presses PRESTIGE RUN
@@ -2630,123 +2755,6 @@ int main(int argc, char* argv[]) {
                             // `caption`, same dim grey as every other screen.
                             el->get().style_id =
                                 !name_entry_error.empty() ? "pip_loss" : "caption";
-                        }
-                    }
-                }
-            } else if (phase == PHASE_FEEDBACK) {
-                // specs/feedback-reports.md: four typed fields, TAB cycles focus,
-                // ENTER submits (in BODY it inserts a newline instead), ESC backs
-                // out. Same frame plumbing as PHASE_NAME_ENTRY directly above.
-                constexpr size_t FB_CAPS[4] = {120, 4000, 200, 60};
-                const std::string typed =
-                    blackboard.get_or<std::string>("ui.text_input", std::string());
-                {
-                    std::string& cur = fb_fields[fb_focus];
-                    for (char c : typed) {
-                        if (cur.size() >= FB_CAPS[static_cast<size_t>(fb_focus)]) break;
-                        if (c >= 0x20 && c < 0x7F) cur.push_back(c);
-                    }
-                    if (blackboard.get_or<bool>("ui.backspace_pressed", false) &&
-                        !cur.empty())
-                        cur.pop_back();
-                }
-                if (blackboard.get_or<bool>("ui.tab_pressed", false))
-                    fb_focus = (fb_focus + 1) % 4;
-
-                // Poll last frame's submit before reading enter/escape (the
-                // name_entry ordering — a same-frame response never races input).
-                if (pending_feedback.valid() &&
-                    pending_feedback.wait_for(std::chrono::seconds(0)) ==
-                        std::future_status::ready) {
-                    const net::Response resp = pending_feedback.get();
-                    if (resp.status == 200) {
-                        for (auto& f : fb_fields) f.clear();
-                        fb_focus = 0;
-                        fb_msg = "Thanks - received!";
-                    } else {
-                        // Typed content is kept: a retry must not lose their words.
-                        fb_msg = "Couldn't send - check your connection";
-                    }
-                }
-
-                const bool fb_enter = blackboard.get_or<bool>("ui.enter_pressed", false);
-                if (fb_enter && fb_focus == 1) {
-                    if (fb_fields[1].size() < FB_CAPS[1]) fb_fields[1].push_back('\n');
-                } else if (fb_enter && !pending_feedback.valid()) {
-                    if (fb_fields[0].find_first_not_of(' ') == std::string::npos) {
-                        fb_msg = "Subject is required";
-                    } else if (fb_fields[1].find_first_not_of(" \n") == std::string::npos) {
-                        fb_msg = "Body is required";
-                    } else {
-                        nlohmann::json j = fb_ctx;
-                        j["subject"] = fb_fields[0];
-                        j["body"] = fb_fields[1];
-                        j["tags"] = fb_fields[2];
-                        j["from_name"] = fb_fields[3];
-                        j["player_id"] = meta.player_id;
-                        j["pilot"] = meta.registered ? meta.player_name : "";
-                        j["version"] = GAME_VERSION;
-                        j["platform"] = RD_PLATFORM;
-                        j["session_id"] = session_id;
-                        fb_msg = "Sending...";
-                        pending_feedback = net::post_json(
-                            std::string(net::NET_BASE) + "/feedback", j.dump(),
-                            net::NET_GAME_KEY);
-                    }
-                }
-
-                if (blackboard.get_or<bool>("ui.escape_pressed", false)) {
-                    abandon_future(std::move(pending_feedback));
-                    SDL_StopTextInput(window.get());
-                    for (auto& f : fb_fields) f.clear();
-                    fb_focus = 0;
-                    fb_msg.clear();
-                    if (fb_from_pause) {
-                        phase = fb_prev_phase;   // back under the pause screen
-                        blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
-                    } else {
-                        phase = PHASE_TITLE;
-                        blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
-                                                    std::string(SCREEN_MAIN_MENU));
-                    }
-                }
-
-                if (phase == PHASE_FEEDBACK) {
-                    // Widget rewrites: focused field carries the cursor; BODY
-                    // shows the tail that fits its 5-line box (full text sends).
-                    static const char* FB_NAMES[5] = {"fb_subject", "fb_body",
-                                                      "fb_tags", "fb_from", "fb_msg"};
-                    for (int i = 0; i < 4; ++i) {
-                        Entity w = widget_by_name(FB_NAMES[i], fb_w[i], fb_w_resolved[i]);
-                        if (w == 0) continue;
-                        auto el = component_storage.get_component<UIElement>(w);
-                        if (!el.has_value()) continue;
-                        std::string text = fb_fields[i];
-                        if (i == 1) {
-                            // last 5 newline-separated lines of the body
-                            int lines = 0;
-                            size_t pos = text.size();
-                            while (pos > 0 && lines < 5) {
-                                pos = text.find_last_of('\n', pos - 1);
-                                if (pos == std::string::npos) { pos = 0; break; }
-                                ++lines;
-                            }
-                            if (pos > 0) text = text.substr(pos + 1);
-                        }
-                        el->get().label_text = (i == fb_focus) ? text + "_" : text;
-                    }
-                    if (Entity w = widget_by_name(FB_NAMES[4], fb_w[4], fb_w_resolved[4]);
-                        w != 0) {
-                        if (auto el = component_storage.get_component<UIElement>(w);
-                            el.has_value()) {
-                            el->get().label_text =
-                                !fb_msg.empty()
-                                    ? fb_msg
-                                    : "TAB next field - ENTER send - ESC back";
-                            el->get().style_id =
-                                (fb_msg.find("required") != std::string::npos ||
-                                 fb_msg.find("Couldn't") != std::string::npos)
-                                    ? "pip_loss" : "caption";
                         }
                     }
                 }
