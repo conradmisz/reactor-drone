@@ -2480,24 +2480,52 @@ int main(int argc, char* argv[]) {
                 const int shot_g = blackboard.get_or<int>("ship.shot_g", 240);
                 const int shot_b = blackboard.get_or<int>("ship.shot_b", 255);
 
-                auto emit = [&](Entity e, float head_w, Color col) {
+                // Shots carry NO Color component, so the ribbon is their ONLY
+                // visual and must never fail to draw. When history is too
+                // short (a shot fired this frame) or the budget is spent, they
+                // fall back to a minimum-length dash along the velocity, which
+                // is what makes a fresh shot read as a laser rather than pop in.
+                auto emit = [&](Entity e, float head_w, Color col, bool is_shot) {
+                    std::vector<line_mesh::P2> pts;
                     auto it = trail_history.find(e);
-                    if (it == trail_history.end()) return;
+                    const std::size_t have = it == trail_history.end() ? 0 : it->second.size();
                     const std::size_t keep =
-                        trail::points_within_budget(it->second.size(), verts_left);
-                    if (keep < 2) return;
+                        trail::points_within_budget(have, verts_left);
+                    if (keep >= 2) {
+                        // Budget trims from the TAIL: the head is the projectile.
+                        pts.assign(it->second.end() - static_cast<long>(keep),
+                                   it->second.end());
+                    } else if (is_shot) {
+                        float cx, cy;
+                        if (!center_of(e, &cx, &cy)) return;
+                        auto v = component_storage.get_component<Velocity>(e);
+                        float dx = v.has_value() ? v->get().dx : 0.0f;
+                        float dy = v.has_value() ? v->get().dy : 1.0f;
+                        const float len = std::sqrt(dx * dx + dy * dy);
+                        if (len < 1e-3f) { dx = 0.0f; dy = 1.0f; }
+                        else { dx /= len; dy /= len; }
+                        const float dash = head_w * 2.0f;   // a short bolt, not a dot
+                        pts = {{cx - dx * dash, cy - dy * dash}, {cx, cy}};
+                    } else {
+                        return;
+                    }
                     RenderSystem::GlowLine t;
-                    // Budget trims from the TAIL: the head is the projectile.
-                    t.points.assign(it->second.end() - static_cast<long>(keep),
-                                    it->second.end());
-                    t.widths = trail::taper_widths(keep, head_w);
+                    const std::size_t n = pts.size();
+                    t.points = std::move(pts);
+                    t.widths = trail::taper_widths(n, head_w);
                     t.width = head_w;
                     t.color = col;
                     t.fade_tail = true;
-                    t.core = false;   // the taper already gives it a hot head
-                    verts_left -= keep * 2;
+                    // Shots keep the hot white core — that is what reads as a
+                    // laser rather than a smear. Hull/dash trails do not.
+                    t.core = is_shot;
+                    verts_left -= n * 2;
                     glow_lines.push_back(std::move(t));
                 };
+
+                // A shot's colour rides on its own tag: enemy types carry
+                // per-spec colours, and the player's hue already bakes in
+                // D184's complement at spawn.
 
                 for (Entity e : component_storage.entities_with_component<PlayerTag>()) {
                     auto pd = component_storage.get_component<ShipState>(e);
@@ -2505,15 +2533,24 @@ int main(int argc, char* argv[]) {
                     emit(e, dashing ? config.trails.dash_width
                                     : config.trails.drone_width,
                          dashing ? Color{200, 245, 255, 235}
-                                 : Color{150, 210, 255, 170});
+                                 : Color{150, 210, 255, 170},
+                         false);
                 }
-                for (Entity e : component_storage.entities_with_component<ProjectileTag>())
-                    emit(e, config.trails.shot_width,
-                         Color{static_cast<Uint8>(shot_r), static_cast<Uint8>(shot_g),
-                               static_cast<Uint8>(shot_b), 210});
-                for (Entity e : component_storage.entities_with_component<EnemyShot>())
-                    emit(e, config.trails.shot_width,
-                         Color{255, 80, 80, 200});   // D185: enemy fire is red
+                for (Entity e : component_storage.entities_with_component<ProjectileTag>()) {
+                    auto pt = component_storage.get_component<ProjectileTag>(e);
+                    const Color c = pt.has_value()
+                        ? Color{pt->get().r, pt->get().g, pt->get().b, 235}
+                        : Color{static_cast<Uint8>(shot_r), static_cast<Uint8>(shot_g),
+                                static_cast<Uint8>(shot_b), 235};
+                    emit(e, config.trails.shot_width, c, true);
+                }
+                for (Entity e : component_storage.entities_with_component<EnemyShot>()) {
+                    auto es = component_storage.get_component<EnemyShot>(e);
+                    const Color c = es.has_value()
+                        ? Color{es->get().r, es->get().g, es->get().b, 235}
+                        : Color{255, 80, 80, 235};   // D185: enemy fire is red
+                    emit(e, config.trails.shot_width, c, true);
+                }
             }
         }
 

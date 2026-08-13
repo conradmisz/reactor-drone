@@ -17,7 +17,7 @@ Entity spawn_shot(ComponentStorage& storage, EntityManager& entity_manager,
     storage.add_component<Position>(shot, Position{cx - r, cy - r});
     storage.add_component<Velocity>(shot, aim_math::velocity_from_angle(angle, speed));
     storage.add_component<Size>(shot, Size{r * 2.0f, r * 2.0f});
-    storage.add_component<Color>(shot, Color{spec.r, spec.g, spec.b, 255});
+    // v3 Tier 7: no Color — the ribbon is the shot (colour on EnemyShot).
     storage.add_component<Collider>(shot,
         Collider{r * 2.0f, r * 2.0f, layers::ENEMY_SHOT, layers::ENEMY_SHOT_MASK});
     storage.add_component<CircleCollider>(shot, CircleCollider{r, 0.0f, 0.0f});
@@ -25,7 +25,7 @@ Entity spawn_shot(ComponentStorage& storage, EntityManager& entity_manager,
     // is the whole damage path — PlayerDamageSystem picks it up off CollidedWith.
     storage.add_component<ContactDamage>(shot, ContactDamage{damage, 0, 0, 1.0f});
     storage.add_component<Lifetime>(shot, Lifetime{spec.lifetime});
-    storage.add_component<EnemyShot>(shot, EnemyShot{});
+    storage.add_component<EnemyShot>(shot, EnemyShot{spec.r, spec.g, spec.b});
     // The tier rides on the shot itself so the expire step below knows whether it
     // pierces, without a second component type (the D17/ShipState discipline).
     storage.add_component<EnemyBehavior>(shot,

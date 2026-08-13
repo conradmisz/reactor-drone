@@ -113,15 +113,17 @@ void PlayerFireSystem::update(ComponentStorage& storage,
             storage.add_component<Position>(shot, Position{cx - PR, cy - PR});
             storage.add_component<Velocity>(shot, vel);
             storage.add_component<Size>(shot, Size{PR * 2.0f, PR * 2.0f});
-            storage.add_component<Color>(shot,
-                Color{static_cast<uint8_t>(std::min(255, sr + 90)),
-                      static_cast<uint8_t>(std::min(255, sg + 35)),
-                      static_cast<uint8_t>(std::min(255, sb + 60)), 255});
+            // v3 Tier 7: NO Color component — a shot with one renders as the
+            // old solid square underneath its ribbon. The same brightened hue
+            // now rides on ProjectileTag and drives the neon ribbon instead.
             storage.add_component<Collider>(shot,
                 Collider{PR * 2.0f, PR * 2.0f, layers::PROJECTILE, layers::PROJECTILE_MASK});
             storage.add_component<CircleCollider>(shot, CircleCollider{PR, 0.0f, 0.0f});
             storage.add_component<Lifetime>(shot, Lifetime{wpn.projectile_lifetime});
-            storage.add_component<ProjectileTag>(shot, ProjectileTag{});
+            storage.add_component<ProjectileTag>(shot, ProjectileTag{
+                static_cast<uint8_t>(std::min(255, sr + 90)),
+                static_cast<uint8_t>(std::min(255, sg + 35)),
+                static_cast<uint8_t>(std::min(255, sb + 60))});
             storage.add_component<ProjectileData>(shot,
                 ProjectileData{NO_TARGET, wpn.projectile_speed, wpn.damage, bounces});
             storage.add_component<RenderLayer>(shot, RenderLayer{5});

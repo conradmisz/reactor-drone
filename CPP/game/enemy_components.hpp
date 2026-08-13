@@ -57,7 +57,11 @@ struct Health {
  * has to exist. The tag is only so EnemyFireSystem can find its own shots to
  * expire them on contact.
  */
-struct EnemyShot {};
+struct EnemyShot {
+    // v3 Tier 7: the neon ribbon's colour, per enemy spec. Same reasoning as
+    // ProjectileTag — a Color component would draw the old square underneath.
+    uint8_t r = 255, g = 80, b = 80;
+};
 
 /**
  * EnemyBehavior — what makes an enemy something other than a seeker (D51).
