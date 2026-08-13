@@ -130,6 +130,42 @@ believing a red ctest line.
 
 ---
 
+## Where this stands, and how to pick it up
+
+Last session ended 2026-08-13, after the first playtest and the D151 batch it
+produced. Nothing is in flight; the branch is committed and the gate is green.
+
+**The one thing owed: re-play `--suite`.** Four of the five D151 items shipped
+unplayed, and the grid revision in particular is a visual change only a window can
+judge. In order of what is least verified:
+
+1. **The revised resonance grid** — it now covers the arena, is invisible at rest,
+   and only a bomb, a collapsing pillar or a boss volley rings it. Does a blast
+   read as a shockwave, or is it still clutter? (`--dev --level 8` reaches mines
+   and pillars fast; the boss is wave 10/20/30.)
+2. **Temporal Overload** — never triggered in the first playtest. `--dev --level
+   12` is dense enough to chain three kills almost by accident.
+3. **Flight report** — reachable by simply dying.
+4. **Surges** (waves 2/4/6), **bullet patterns** (the boss), **destructible
+   cover** (240 HP, ~12 shots).
+
+```bash
+cd ../reactor-drone-v2-engine-suite
+python run.py -- --suite --dev --level 8
+bash gate.sh .canary-baseline.txt        # build + ctest + canary vs pre-suite master
+```
+
+**Environment notes from that session, so they are not rediscovered:**
+
+- A Remote Control session named `engine-suite` was left running in a terminal on
+  this worktree (`claude --remote-control "engine-suite"`), so the branch can be
+  driven from the Claude phone app. It may or may not still be alive.
+- A cloud session was created in error and never used —
+  `session_01VnpiFdZS2xk37X1rqH1bLU`. There is no CLI to delete it; stop it from
+  claude.ai/code if it is still listed.
+- `--cloud` requires a TTY, so it cannot be started from inside a Claude Code Bash
+  tool without a pty; `--remote-control` has no such restriction.
+
 ## If the answer is "merge"
 
 1. Play `--suite` first and decide flag by flag; merging with everything off is
