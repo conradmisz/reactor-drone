@@ -1610,9 +1610,17 @@ int main(int argc, char* argv[]) {
 
         // The pause screen freezes the sim. Note this is NOT is_modal(): the wave
         // intermission is also a modal screen, and it must keep the drone flying.
+        //
+        // ANYWHERE in the stack, not just on top: the feedback form pushes over
+        // the pause screen, and a top-only test silently un-froze the three
+        // `if (sim)` blocks outside the phase machine (particle ageing, trauma
+        // decay, and timer.end_frame() advancing sim time) while the player
+        // typed. The phase-gated main sim block was never affected — nothing
+        // could move or hurt the drone — but the frozen battlefield's effects
+        // drained away and the run clock kept running behind the form.
         {
             const std::vector<std::string> stack = ScreenStackSystem::get_stack(blackboard);
-            menu_paused = !stack.empty() && stack.back() == SCREEN_PAUSE;
+            menu_paused = std::find(stack.begin(), stack.end(), SCREEN_PAUSE) != stack.end();
         }
         bool sim = ((!debug_paused && !menu_paused) || step_requested);
 
