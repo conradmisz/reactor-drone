@@ -21,9 +21,11 @@ the game delivers the Laser Hockey look it was aiming at.
 2. **Tier 6 GPU.** (a) `--gpu-renderer` becomes default, `--classic-renderer`
    the escape hatch (the plan's original intent; shipped inverted). Auto
    fallback on GPU init failure stays; dummy/headless still forces classic.
-   (b) Retune existing uniforms via GameData only. (c) New effects: per-arena
-   LUT grade (Tier 4 item 3, unshipped) + radial blur on dash; `make.sh`
-   recompile, `.spv` committed.
+   (b) Retune existing uniforms via GameData only. (c) **DEFERRED 2026-08-13
+   at the user's call** — per-arena LUT grade (Tier 4 item 3) + dash radial
+   blur. The 6a flip plus the 6b retune were judged to deliver the GPU feel
+   without a new 32^3 LUT generator and shader pass. Not cancelled: it stays
+   the natural next tier if the grade still reads flat.
 3. **Tier 7 trails.** Position-history ribbons on player projectiles, enemy
    projectiles, player drone, dash arc.
 4. **Tier 8 fullscreen.** Third `SettingsSave` field + third options-screen
@@ -72,7 +74,7 @@ the game delivers the Laser Hockey look it was aiming at.
 1. Canary fix in both docs; re-verify master vs branch.
 2. Tier 6a default flip (+ `bugs/003` note).
 3. Tier 6b GameData retune.
-4. Tier 6c LUT grade + dash radial blur.
+4. ~~Tier 6c LUT grade + dash radial blur~~ — DEFERRED, see req 2(c).
 5. Tier 7a `trail_math.hpp` + unit tests (no rendering yet).
 6. Tier 7b `Trail` component, sampling, emission, vertex cap.
 7. Tier 8 fullscreen setting + menu row.
@@ -90,4 +92,12 @@ the game delivers the Laser Hockey look it was aiming at.
   2026-08-13 windowed playtest resolved. → `decisions.md`
 - **Decision:** documented replay canary was inert and could not reach
   hit-stop; replaced with a firing canary. → `decisions.md`
-- **State:** tiers 6–8 in progress on `visual-overhaul`. → `progress-tracker.md`
+- **Decision:** trail history lives in a render-side map in `main.cpp`, not an
+  ECS component (D200). Keeping it out of `component_storage` means no
+  gameplay system *can* read it, so presentation-only is enforced by
+  construction rather than by convention. → `decisions.md`
+- **Decision:** Tier 6c (per-arena LUT grade + dash radial blur) deferred
+  after 6a/6b were judged sufficient. → `decisions.md`
+- **State:** tiers 6a, 6b, 7a, 7b, 8 done on `visual-overhaul`; 6c deferred.
+  Branch is unplayed since 7b — the trails have never been seen.
+  → `progress-tracker.md`
