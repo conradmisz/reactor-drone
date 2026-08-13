@@ -4270,12 +4270,21 @@
         },
         {
           "element_type": "button",
-          "rect": { "x": 204, "y": 180, "w": 392, "h": 44 },
+          "rect": { "x": 204, "y": 180, "w": 188, "h": 44 },
           "label_text": "QUIT",
           "style_id": "default_button",
           "z_order": 10,
           "on_click_fn": "on_menu_quit_click",
           "name": "menu_quit"
+        },
+        {
+          "element_type": "button",
+          "rect": { "x": 408, "y": 180, "w": 188, "h": 44 },
+          "label_text": "FEEDBACK",
+          "style_id": "default_button",
+          "z_order": 10,
+          "on_click_fn": "on_feedback_click",
+          "name": "menu_feedback"
         },
         {
           "element_type": "label",
@@ -4349,6 +4358,24 @@
           "style_id": "caption",
           "z_order": 10
         }
+      ]
+    },
+    "feedback": {
+      "//": "Feedback form (specs/feedback-reports.md). main.cpp owns the four field buffers and rewrites fb_subject/fb_body/fb_tags/fb_from/fb_msg every frame - the name_entry by-name-rewrite pattern. Reached via on_feedback_click from pause and main_menu.",
+      "widgets": [
+        { "element_type": "panel", "rect": { "x": 180, "y": 64, "w": 620, "h": 472 }, "label_text": "", "z_order": 9 },
+        { "element_type": "label", "rect": { "x": 204, "y": 452, "w": 392, "h": 44 }, "label_text": "FEEDBACK", "style_id": "title", "z_order": 10 },
+        { "element_type": "panel", "rect": { "x": 204, "y": 440, "w": 552, "h": 2 }, "label_text": "", "z_order": 10 },
+        { "element_type": "label", "rect": { "x": 204, "y": 396, "w": 100, "h": 24 }, "label_text": "SUBJECT", "style_id": "caption", "z_order": 10 },
+        { "element_type": "label", "name": "fb_subject", "rect": { "x": 316, "y": 396, "w": 440, "h": 24 }, "label_text": "_", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "rect": { "x": 204, "y": 356, "w": 100, "h": 24 }, "label_text": "BODY", "style_id": "caption", "z_order": 10 },
+        { "element_type": "label", "name": "fb_body", "rect": { "x": 316, "y": 260, "w": 440, "h": 120 }, "label_text": "", "style_id": "caption", "z_order": 10 },
+        { "element_type": "label", "rect": { "x": 204, "y": 216, "w": 100, "h": 24 }, "label_text": "TAGS", "style_id": "caption", "z_order": 10 },
+        { "element_type": "label", "name": "fb_tags", "rect": { "x": 316, "y": 216, "w": 440, "h": 24 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "rect": { "x": 204, "y": 176, "w": 100, "h": 24 }, "label_text": "FROM", "style_id": "caption", "z_order": 10 },
+        { "element_type": "label", "name": "fb_from", "rect": { "x": 316, "y": 176, "w": 440, "h": 24 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
+        { "element_type": "label", "name": "fb_msg", "rect": { "x": 204, "y": 128, "w": 552, "h": 24 }, "label_text": "TAB next field - ENTER send - ESC back", "style_id": "caption", "z_order": 10 },
+        { "element_type": "label", "rect": { "x": 204, "y": 96, "w": 552, "h": 24 }, "label_text": "Sent with game version, platform and (mid-run) wave/score.", "style_id": "caption", "z_order": 10 }
       ]
     },
     "leaderboard": {
@@ -5217,7 +5244,7 @@
           "rect": {
             "x": 164,
             "y": 36,
-            "w": 110,
+            "w": 86,
             "h": 48
           },
           "label_text": "RESUME",
@@ -5230,9 +5257,9 @@
         {
           "element_type": "button",
           "rect": {
-            "x": 286,
+            "x": 258,
             "y": 36,
-            "w": 110,
+            "w": 86,
             "h": 48
           },
           "label_text": "SAVE",
@@ -5244,9 +5271,9 @@
         {
           "element_type": "button",
           "rect": {
-            "x": 530,
+            "x": 446,
             "y": 36,
-            "w": 106,
+            "w": 86,
             "h": 48
           },
           "label_text": "QUIT",
@@ -5258,9 +5285,9 @@
         {
           "element_type": "button",
           "rect": {
-            "x": 408,
+            "x": 352,
             "y": 36,
-            "w": 110,
+            "w": 86,
             "h": 48
           },
           "label_text": "MENU",
@@ -5269,6 +5296,20 @@
           "on_click_fn": "on_to_menu_click",
           "name": "pause_menu",
           "//": "Main-menu-suite Phase C: back to the hub. Banks the score like QUIT but keeps the app alive; the world freezes behind the menu."
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 540,
+            "y": 36,
+            "w": 86,
+            "h": 48
+          },
+          "label_text": "FEEDBACK",
+          "style_id": "default_button",
+          "z_order": 40,
+          "on_click_fn": "on_feedback_click",
+          "name": "pause_feedback"
         }
       ]
     },
