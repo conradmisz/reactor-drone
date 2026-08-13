@@ -351,6 +351,28 @@ struct ActiveItemDef {
 };
 
 /**
+ * TrailConfig — v3 Tier 7 position-history trails. Presentation only: the
+ * history is sampled by the render pass and never read by a gameplay system.
+ *
+ * `min_spacing` is world units between retained samples. It doubles as the
+ * hit-stop guard — with delta_time at 0 nothing moves, so no sample is taken
+ * and no trail eats itself (see trail_math::push_sample).
+ *
+ * `vertex_budget` caps TOTAL ribbon verts per frame across all trails.
+ * build_ribbon emits 2 per point, so the default 4000 is ~2000 points, and
+ * trails degrade (tail-first, then dropped whole) before the framerate does.
+ */
+struct TrailConfig {
+    bool  enabled       = true;
+    int   max_points    = 14;     // history length per entity
+    float min_spacing   = 3.0f;   // world units between retained samples
+    float shot_width    = 7.0f;   // head width, player + enemy shots
+    float drone_width   = 9.0f;   // head width, the player hull
+    float dash_width    = 16.0f;  // head width while dash_timer > 0
+    int   vertex_budget = 4000;
+};
+
+/**
  * DifficultyDef — one selectable run difficulty (Gameplay Phase B, D50).
  *
  * A difficulty is *only* a set of multipliers over the one authored wave table;
@@ -406,8 +428,10 @@ struct GameConfig {
     std::vector<ActiveItemDef> actives;  // boss-reward active items
     BloomConfig bloom;             // v3 Tier 1: render-target bloom
     PostFxConfig postfx;           // v3 Tier 4: SPIR-V post-process (GPU renderer only)
+    TrailConfig trails;            // v3 Tier 7: position-history neon trails
     unsigned int seed = 1234u;     // RNG seed for spread/spawn/drops
 };
+
 
 /**
  * Index of the active arena for a given 1-based `wave`: the last arena whose

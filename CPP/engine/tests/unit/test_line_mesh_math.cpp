@@ -88,3 +88,41 @@ TEST_CASE("circle_points closes the loop", "[linemesh]") {
     CHECK(circle_points(0, 0, 3.0f, 2).empty());
     CHECK(circle_points(0, 0, -1.0f, 16).empty());
 }
+
+// --- v3 Tier 7: per-point widths (tapered trail ribbons) -------------------
+
+TEST_CASE("per-point build_ribbon tapers the half-offset per point", "[line]") {
+    std::vector<P2> pts{{0.0f, 0.0f}, {10.0f, 0.0f}, {20.0f, 0.0f}};
+    auto v = line_mesh::build_ribbon(pts, std::vector<float>{0.0f, 4.0f, 8.0f});
+    REQUIRE(v.size() == 6);
+    // Straight horizontal line -> normals are +/-y, so the offset IS half-width.
+    CHECK(v[0].y == 0.0f);                    // tail: zero width, edges collapse
+    CHECK(v[1].y == 0.0f);
+    CHECK(v[2].y == 2.0f);                    // mid: 4/2
+    CHECK(v[3].y == -2.0f);
+    CHECK(v[4].y == 4.0f);                    // head: 8/2
+    CHECK(v[5].y == -4.0f);
+}
+
+TEST_CASE("scalar build_ribbon still matches the per-point form", "[line]") {
+    std::vector<P2> pts{{0.0f, 0.0f}, {3.0f, 4.0f}, {10.0f, 4.0f}};
+    auto a = line_mesh::build_ribbon(pts, 6.0f);
+    auto b = line_mesh::build_ribbon(pts, std::vector<float>(3, 6.0f));
+    REQUIRE(a.size() == b.size());
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        CHECK(a[i].x == b[i].x);
+        CHECK(a[i].y == b[i].y);
+        CHECK(a[i].u == b[i].u);
+    }
+}
+
+TEST_CASE("per-point build_ribbon rejects a widths/points size mismatch", "[line]") {
+    std::vector<P2> pts{{0.0f, 0.0f}, {10.0f, 0.0f}};
+    CHECK(line_mesh::build_ribbon(pts, std::vector<float>{4.0f}).empty());
+    CHECK(line_mesh::build_ribbon(pts, std::vector<float>{4.0f, 4.0f, 4.0f}).empty());
+}
+
+TEST_CASE("per-point build_ribbon rejects an all-zero taper", "[line]") {
+    std::vector<P2> pts{{0.0f, 0.0f}, {10.0f, 0.0f}};
+    CHECK(line_mesh::build_ribbon(pts, std::vector<float>{0.0f, 0.0f}).empty());
+}

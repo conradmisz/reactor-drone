@@ -116,6 +116,13 @@ public:
         float width = 6.0f;                  // world units (zoom-scaled)
         Color color{255, 255, 255, 255};
         bool core = true;                    // also draw a narrow white core
+        // v3 Tier 7: per-point widths for a tapered trail. Empty = uniform
+        // `width` (every pre-Tier-7 caller). Size must match `points`.
+        std::vector<float> widths;
+        // v3 Tier 7: ramp alpha with arc length so the tail dissolves. Uses
+        // the u build_ribbon already computes — 0 at the oldest point, 1 at
+        // the head — so it costs nothing extra to compute.
+        bool fade_tail = false;
     };
 
     /**

@@ -20,6 +20,9 @@
 #include <ctime>
 #include <random>
 #include <vector>
+#include <unordered_map>
+#include <unordered_set>
+#include <iterator>
 
 #include "engine/ecs/entity_manager.hpp"
 #include "engine/ecs/component_storage.hpp"
@@ -43,6 +46,7 @@
 #include "engine/ecs/systems/render_system.hpp"
 #include "engine/ecs/systems/hud_system.hpp"
 #include "engine/ecs/systems/screenshot_system.hpp"
+#include "engine/ecs/systems/trail_math.hpp"   // v3 Tier 7 (D200)
 
 #include "cli_parser.hpp"
 #include "script_loader.hpp"
@@ -1069,15 +1073,24 @@ int main(int argc, char* argv[]) {
     SettingsSave settings = settings_load(settings_save_path());
     blackboard.set<bool>("settings.screen_shake", settings.screen_shake);
     blackboard.set<bool>("settings.minimap", settings.minimap);
-    Entity shake_w = 0, mini_w = 0, rec_w[4] = {};
-    bool shake_w_resolved = false, mini_w_resolved = false, rec_w_resolved[4] = {};
+    // v3 Tier 8: apply the saved display mode once, at boot. Logical
+    // presentation already scales the 980x660 surface to whatever the window
+    // is, so nothing else in the pipeline cares. Best-effort: a driver that
+    // refuses fullscreen just stays windowed.
+    SDL_SetWindowFullscreen(window.get(), settings.fullscreen);
+    Entity shake_w = 0, mini_w = 0, fs_w = 0, rec_w[4] = {};
+    bool shake_w_resolved = false, mini_w_resolved = false,
+         fs_w_resolved = false, rec_w_resolved[4] = {};
     auto sync_settings_widgets = [&]() {
         const Entity sw = widget_by_name("settings_shake", shake_w, shake_w_resolved);
         const Entity mw = widget_by_name("settings_minimap", mini_w, mini_w_resolved);
+        const Entity fw = widget_by_name("settings_fullscreen", fs_w, fs_w_resolved);
         if (auto st = component_storage.get_component<UIState>(sw); st.has_value())
             st->get().value = settings.screen_shake ? 1.0f : 0.0f;
         if (auto st = component_storage.get_component<UIState>(mw); st.has_value())
             st->get().value = settings.minimap ? 1.0f : 0.0f;
+        if (auto st = component_storage.get_component<UIState>(fw); st.has_value())
+            st->get().value = settings.fullscreen ? 1.0f : 0.0f;
     };
     auto refresh_records = [&]() {
         const std::string rows[4] = {
@@ -1170,6 +1183,14 @@ int main(int argc, char* argv[]) {
     if (opts.paused) debug_paused = true;
 
     std::cout << "Reactor Drone v2 initialized. Arrows move, mouse aims, hold fire. ESC quits.\n";
+
+    // v3 Tier 7 (D200): position-history trails. The history lives HERE, in a
+    // render-side map keyed by entity — deliberately NOT a component. Nothing
+    // in component_storage means no gameplay system can read it, so it cannot
+    // feed the sim, touch the RNG, or move the replay canary. That is the
+    // whole invariant the tier rests on, enforced by construction rather than
+    // by a comment asking people to be careful.
+    std::unordered_map<Entity, std::vector<line_mesh::P2>> trail_history;
 
     bool running = true;
     bool menu_paused = false;   // true while the pause screen is the top screen
@@ -2068,20 +2089,35 @@ int main(int argc, char* argv[]) {
                     blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
                                                 std::string(SCREEN_HOW));
                 } else if (menu_click == "on_toggle_shake" ||
-                           menu_click == "on_toggle_minimap") {
+                           menu_click == "on_toggle_minimap" ||
+                           menu_click == "on_toggle_fullscreen") {
                     // UISystem already flipped the checkbox's UIState.value — read
                     // it back as the truth, persist, and publish to the apply sites.
+                    // v3 Tier 8 made this three-way; the old binary ternary
+                    // did not extend, so each row is just its own branch.
                     blackboard.remove(UISystem::UI_CLICK_KEY);
-                    const bool shake_toggle = (menu_click == "on_toggle_shake");
-                    const Entity w = shake_toggle
-                        ? widget_by_name("settings_shake", shake_w, shake_w_resolved)
-                        : widget_by_name("settings_minimap", mini_w, mini_w_resolved);
+                    Entity w = 0;
+                    if (menu_click == "on_toggle_shake")
+                        w = widget_by_name("settings_shake", shake_w, shake_w_resolved);
+                    else if (menu_click == "on_toggle_minimap")
+                        w = widget_by_name("settings_minimap", mini_w, mini_w_resolved);
+                    else
+                        w = widget_by_name("settings_fullscreen", fs_w, fs_w_resolved);
                     if (auto st = component_storage.get_component<UIState>(w);
                         st.has_value()) {
                         const bool on = st->get().value >= 0.5f;
-                        (shake_toggle ? settings.screen_shake : settings.minimap) = on;
-                        blackboard.set<bool>(shake_toggle ? "settings.screen_shake"
-                                                          : "settings.minimap", on);
+                        if (menu_click == "on_toggle_shake") {
+                            settings.screen_shake = on;
+                            blackboard.set<bool>("settings.screen_shake", on);
+                        } else if (menu_click == "on_toggle_minimap") {
+                            settings.minimap = on;
+                            blackboard.set<bool>("settings.minimap", on);
+                        } else {
+                            settings.fullscreen = on;
+                            // Applied straight to the window: no per-frame
+                            // system reads it, so it needs no blackboard flag.
+                            SDL_SetWindowFullscreen(window.get(), on);
+                        }
                         settings_write(settings_save_path(), settings);
                     }
                 } else if (menu_click.rfind("on_slot_load_", 0) == 0) {
@@ -2394,6 +2430,90 @@ int main(int argc, char* argv[]) {
                 beam.width = 10.0f;
                 beam.color = Color{160, 230, 255, 230};
                 glow_lines.push_back(std::move(beam));
+            }
+
+            // v3 Tier 7 (D200): position-history trails. Sampled here, in the
+            // render pass, from live Positions — a pure observer. A trail IS a
+            // glow line whose points are where the entity has been, so this
+            // reuses Tier 5's ribbon end to end and adds no draw path.
+            if (config.trails.enabled) {
+                const std::size_t max_pts =
+                    static_cast<std::size_t>(std::max(0, config.trails.max_points));
+                std::unordered_set<Entity> alive;
+
+                auto center_of = [&](Entity e, float* cx, float* cy) {
+                    auto pp = component_storage.get_component<Position>(e);
+                    auto ps = component_storage.get_component<Size>(e);
+                    if (!pp.has_value() || !ps.has_value()) return false;
+                    *cx = pp->get().x + ps->get().width * 0.5f;
+                    *cy = pp->get().y + ps->get().height * 0.5f;
+                    return true;
+                };
+                auto sample = [&](Entity e) {
+                    float cx, cy;
+                    if (!center_of(e, &cx, &cy)) return;
+                    alive.insert(e);
+                    trail::push_sample(trail_history[e], {cx, cy},
+                                       config.trails.min_spacing, max_pts);
+                };
+
+                for (Entity e : component_storage.entities_with_component<PlayerTag>())
+                    sample(e);
+                for (Entity e : component_storage.entities_with_component<ProjectileTag>())
+                    sample(e);
+                for (Entity e : component_storage.entities_with_component<EnemyShot>())
+                    sample(e);
+
+                // Drop history for anything that died this frame, or the map
+                // grows for the whole run.
+                for (auto it = trail_history.begin(); it != trail_history.end();)
+                    it = (alive.count(it->first) == 0) ? trail_history.erase(it)
+                                                       : std::next(it);
+
+                // Emit within the per-frame vertex budget, most important
+                // first: the hull, then your shots, then incoming fire. What
+                // runs out of budget is enemy trails in a heavy wave — the
+                // least load-bearing of the three.
+                std::size_t verts_left =
+                    static_cast<std::size_t>(std::max(0, config.trails.vertex_budget));
+                const int shot_r = blackboard.get_or<int>("ship.shot_r", 120);
+                const int shot_g = blackboard.get_or<int>("ship.shot_g", 240);
+                const int shot_b = blackboard.get_or<int>("ship.shot_b", 255);
+
+                auto emit = [&](Entity e, float head_w, Color col) {
+                    auto it = trail_history.find(e);
+                    if (it == trail_history.end()) return;
+                    const std::size_t keep =
+                        trail::points_within_budget(it->second.size(), verts_left);
+                    if (keep < 2) return;
+                    RenderSystem::GlowLine t;
+                    // Budget trims from the TAIL: the head is the projectile.
+                    t.points.assign(it->second.end() - static_cast<long>(keep),
+                                    it->second.end());
+                    t.widths = trail::taper_widths(keep, head_w);
+                    t.width = head_w;
+                    t.color = col;
+                    t.fade_tail = true;
+                    t.core = false;   // the taper already gives it a hot head
+                    verts_left -= keep * 2;
+                    glow_lines.push_back(std::move(t));
+                };
+
+                for (Entity e : component_storage.entities_with_component<PlayerTag>()) {
+                    auto pd = component_storage.get_component<ShipState>(e);
+                    const bool dashing = pd.has_value() && pd->get().dash_timer > 0.0f;
+                    emit(e, dashing ? config.trails.dash_width
+                                    : config.trails.drone_width,
+                         dashing ? Color{200, 245, 255, 235}
+                                 : Color{150, 210, 255, 170});
+                }
+                for (Entity e : component_storage.entities_with_component<ProjectileTag>())
+                    emit(e, config.trails.shot_width,
+                         Color{static_cast<Uint8>(shot_r), static_cast<Uint8>(shot_g),
+                               static_cast<Uint8>(shot_b), 210});
+                for (Entity e : component_storage.entities_with_component<EnemyShot>())
+                    emit(e, config.trails.shot_width,
+                         Color{255, 80, 80, 200});   // D185: enemy fire is red
             }
         }
 

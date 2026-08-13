@@ -83,11 +83,32 @@ inline std::vector<P2> miter_normals(const std::vector<P2>& pts,
  * Fewer than 2 points or width <= 0 → empty.
  */
 inline std::vector<RibbonVert> build_ribbon(const std::vector<P2>& pts,
+                                            const std::vector<float>& widths,
+                                            float miter_limit = 3.0f);
+
+inline std::vector<RibbonVert> build_ribbon(const std::vector<P2>& pts,
                                             float width,
                                             float miter_limit = 3.0f) {
+    if (pts.size() < 2 || width <= 0.0f) return {};
+    return build_ribbon(pts, std::vector<float>(pts.size(), width), miter_limit);
+}
+
+/**
+ * v3 Tier 7: the per-point-width form, for trails that taper from a wide
+ * head to a vanishing tail. `widths` must have one entry per point; a size
+ * mismatch, fewer than 2 points, or a non-positive width at EVERY point
+ * yields an empty ribbon. Individual zero widths are legal and are what a
+ * taper's tail end looks like.
+ */
+inline std::vector<RibbonVert> build_ribbon(const std::vector<P2>& pts,
+                                            const std::vector<float>& widths,
+                                            float miter_limit) {
     std::vector<RibbonVert> out;
     const std::size_t n = pts.size();
-    if (n < 2 || width <= 0.0f) return out;
+    if (n < 2 || widths.size() != n) return out;
+    bool any_positive = false;
+    for (float w : widths) if (w > 0.0f) { any_positive = true; break; }
+    if (!any_positive) return out;
 
     // Arc lengths for u.
     std::vector<float> arc(n, 0.0f);
@@ -99,10 +120,10 @@ inline std::vector<RibbonVert> build_ribbon(const std::vector<P2>& pts,
     }
 
     const auto normals = miter_normals(pts, miter_limit);
-    const float half = width * 0.5f;
     out.reserve(n * 2);
     for (std::size_t i = 0; i < n; ++i) {
         float u = total > 0.0f ? arc[i] / total : 0.0f;
+        const float half = widths[i] * 0.5f;
         out.push_back(RibbonVert{pts[i].x + normals[i].x * half,
                                  pts[i].y + normals[i].y * half, u, 0.0f});
         out.push_back(RibbonVert{pts[i].x - normals[i].x * half,

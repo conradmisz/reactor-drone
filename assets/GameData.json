@@ -2526,6 +2526,16 @@
     "shock_amp": 0.055
   },
   "//bloom": "v3 Tier 1 (D194) - render-target bloom. levels is the downsample-chain depth (each level halves, so 4 from 980x660 bottoms out at 62x42); intensities[i] is level i's additive composite weight in [0,1] (clamped), default_intensity covers any level past the list's end. Purely presentation: the system self-disables on drivers without render targets and no game system reads anything it writes.",
+  "//trails": "v3 Tier 7 (D200). Position-history neon ribbons on the hull, player shots and enemy shots. Presentation only: history lives in a render-side map, never in component_storage, so no gameplay system can read it. min_spacing doubles as the hit-stop guard (delta_time 0 = no movement = no sample). vertex_budget caps TOTAL ribbon verts per frame; 2 verts per point, so 4000 is ~2000 points, and trails degrade tail-first before the framerate does.",
+  "trails": {
+    "enabled": true,
+    "max_points": 14,
+    "min_spacing": 3.0,
+    "shot_width": 7.0,
+    "drone_width": 9.0,
+    "dash_width": 16.0,
+    "vertex_budget": 4000
+  },
   "bloom": {
     "enabled": true,
     "levels": 4,

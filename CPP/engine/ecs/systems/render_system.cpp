@@ -263,9 +263,14 @@ void RenderSystem::render_glow_lines(const std::vector<GlowLine>& lines,
     SDL_Texture* falloff = resource_manager_.try_load_texture("v2/line_falloff.png");
     if (falloff) SDL_SetTextureBlendMode(falloff, SDL_BLENDMODE_ADD);
 
+    // widths empty -> uniform `width`; otherwise per-point (v3 Tier 7 taper).
+    // `fade` ramps alpha with the ribbon's arc-length u so the tail dissolves.
     auto draw_ribbon = [&](const std::vector<line_mesh::P2>& pts, float width,
+                           const std::vector<float>& widths, bool fade,
                            Uint8 r, Uint8 g, Uint8 b, Uint8 a) {
-        const auto ribbon = line_mesh::build_ribbon(pts, width);
+        const auto ribbon = widths.empty()
+                                ? line_mesh::build_ribbon(pts, width)
+                                : line_mesh::build_ribbon(pts, widths);
         if (ribbon.size() < 4) return;
         const auto idx = line_mesh::strip_indices(ribbon.size());
         std::vector<SDL_Vertex> verts;
@@ -279,6 +284,7 @@ void RenderSystem::render_glow_lines(const std::vector<GlowLine>& lines,
             sv.position.x = (v.x - cam_left) * zoom;
             sv.position.y = static_cast<float>(win_h) - (v.y - cam_bottom) * zoom;
             sv.color = col;
+            if (fade) sv.color.a = col.a * v.u;   // u: 0 oldest -> 1 head
             // Cross-section drives the falloff texture's vertical gradient.
             sv.tex_coord.x = 0.5f;
             sv.tex_coord.y = v.v;
@@ -294,16 +300,27 @@ void RenderSystem::render_glow_lines(const std::vector<GlowLine>& lines,
     for (const auto& line : lines) {
         if (line.points.size() < 2) continue;
         const float w = line.width * zoom;
-        draw_ribbon(line.points, w, line.color.r, line.color.g, line.color.b,
-                    line.color.a);
+        // Per-point widths are authored in world units too, so they take the
+        // same zoom as the scalar path.
+        std::vector<float> zoomed;
+        if (!line.widths.empty() && line.widths.size() == line.points.size()) {
+            zoomed.reserve(line.widths.size());
+            for (float pw : line.widths) zoomed.push_back(pw * zoom);
+        }
+        draw_ribbon(line.points, w, zoomed, line.fade_tail, line.color.r,
+                    line.color.g, line.color.b, line.color.a);
         if (line.core) {
             // The hot center: narrower, lifted toward white.
             auto lift = [](Uint8 c) {
                 int v = static_cast<int>(c) + 140;
                 return static_cast<Uint8>(v > 255 ? 255 : v);
             };
-            draw_ribbon(line.points, w * 0.35f, lift(line.color.r),
-                        lift(line.color.g), lift(line.color.b), line.color.a);
+            std::vector<float> core_w;
+            core_w.reserve(zoomed.size());
+            for (float pw : zoomed) core_w.push_back(pw * 0.35f);
+            draw_ribbon(line.points, w * 0.35f, core_w, line.fade_tail,
+                        lift(line.color.r), lift(line.color.g),
+                        lift(line.color.b), line.color.a);
         }
     }
 }

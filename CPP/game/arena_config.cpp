@@ -217,6 +217,16 @@ GameConfig load_arena_config(const std::string& file_path) {
         if (b.contains("intensities"))
             cfg.bloom.intensities = b["intensities"].get<std::vector<float>>();
     }
+    if (data.contains("trails")) {
+        const auto& tr = data["trails"];
+        cfg.trails.enabled       = tr.value("enabled", cfg.trails.enabled);
+        cfg.trails.max_points    = tr.value("max_points", cfg.trails.max_points);
+        cfg.trails.min_spacing   = tr.value("min_spacing", cfg.trails.min_spacing);
+        cfg.trails.shot_width    = tr.value("shot_width", cfg.trails.shot_width);
+        cfg.trails.drone_width   = tr.value("drone_width", cfg.trails.drone_width);
+        cfg.trails.dash_width    = tr.value("dash_width", cfg.trails.dash_width);
+        cfg.trails.vertex_budget = tr.value("vertex_budget", cfg.trails.vertex_budget);
+    }
     if (data.contains("postfx")) {
         const auto& px = data["postfx"];
         cfg.postfx.enabled        = px.value("enabled", cfg.postfx.enabled);
