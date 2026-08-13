@@ -113,7 +113,16 @@ using SDL_RendererPtr = std::unique_ptr<SDL_Renderer, SDL_RendererDeleter>;
 // Game phases (Blackboard "phase").
 enum Phase { PHASE_TITLE = 0, PHASE_PLAYING = 1, PHASE_GAMEOVER = 2, PHASE_VICTORY = 3,
              PHASE_SHOP = 4, PHASE_INTERMISSION = 5, PHASE_NAME_ENTRY = 6,
-             PHASE_LEADERBOARD = 7 };
+             PHASE_LEADERBOARD = 7, PHASE_FEEDBACK = 8 };
+
+// Which OS this build reports in feedback rows (specs/feedback-reports.md).
+#if defined(_WIN32)
+constexpr const char* RD_PLATFORM = "win";
+#elif defined(__APPLE__)
+constexpr const char* RD_PLATFORM = "mac";
+#else
+constexpr const char* RD_PLATFORM = "linux";
+#endif
 
 // Screen name of the between-waves prompt, authored in GameData.json's "screens".
 constexpr const char* SCREEN_INTERMISSION = "wave_intermission";
@@ -127,6 +136,7 @@ constexpr const char* SCREEN_HOW          = "how_to_play";
 constexpr const char* SCREEN_PRESTIGE     = "prestige_offer";   // Lane O (D128)
 constexpr const char* SCREEN_NAME_ENTRY   = "name_entry";       // Task 7 (D195)
 constexpr const char* SCREEN_LEADERBOARD  = "leaderboard";      // Task 9
+constexpr const char* SCREEN_FEEDBACK     = "feedback";         // specs/feedback-reports.md
 
 // Task 7 review round 1, Critical 2: std::async(std::launch::async)'s future
 // blocks in ITS DESTRUCTOR until the request finishes (up to the 8s
@@ -872,6 +882,15 @@ int main(int argc, char* argv[]) {
     std::string name_buf;
     std::string name_entry_error;
     std::future<net::Response> pending_register;
+    // Feedback form (specs/feedback-reports.md). One live future, name_entry's
+    // plumbing. fb_fields: 0=subject 1=body 2=tags 3=from.
+    std::string fb_fields[4];
+    int fb_focus = 0;
+    bool fb_from_pause = false;      // routes ESC: pop-to-pause vs back-to-title
+    int fb_prev_phase = PHASE_TITLE; // restored on exit when fb_from_pause
+    std::string fb_msg;              // "" = show the default hint line
+    std::future<net::Response> pending_feedback;
+    nlohmann::json fb_ctx;           // run context captured AT OPEN, not at send
     // === HOOK: telemetry state === (specs/telemetry.md)
     // The per-run report lives in main's scope, never the ECS (Invariant 6), and
     // is write-only with respect to the sim (Invariant 4). Declared here because
@@ -1215,6 +1234,12 @@ int main(int argc, char* argv[]) {
     Entity shake_w = 0, mini_w = 0, analytics_w = 0, rec_w[4] = {};
     bool shake_w_resolved = false, mini_w_resolved = false, analytics_w_resolved = false,
          rec_w_resolved[4] = {};
+    // Feedback screen widget caches: the four field value labels + status line,
+    // plus the pause button whose caption is blanked when offline.
+    Entity fb_w[5] = {};
+    bool fb_w_resolved[5] = {};
+    Entity fb_pause_btn_w = 0;
+    bool fb_pause_btn_w_resolved = false;
     auto sync_settings_widgets = [&]() {
         const Entity sw = widget_by_name("settings_shake", shake_w, shake_w_resolved);
         const Entity mw = widget_by_name("settings_minimap", mini_w, mini_w_resolved);
@@ -1557,9 +1582,11 @@ int main(int argc, char* argv[]) {
         // handling below (CLEAR_TO the title) — letting this generic handler
         // also consume the escape flag first pushed/popped the screen stack a
         // frame ahead of that CLEAR_TO, producing a one-frame blank screen.
-        // Task 9: PHASE_LEADERBOARD has the same shape of its own ESC handling.
+        // Task 9: PHASE_LEADERBOARD has the same shape of its own ESC handling,
+        // and the feedback form (specs/feedback-reports.md) likewise.
         if (blackboard.get_or<bool>("ui.escape_pressed", false) && phase != PHASE_TITLE &&
-            phase != PHASE_NAME_ENTRY && phase != PHASE_LEADERBOARD) {
+            phase != PHASE_NAME_ENTRY && phase != PHASE_LEADERBOARD &&
+            phase != PHASE_FEEDBACK) {
             if (ScreenStackSystem::depth(blackboard) <= 1) {
                 blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH, std::string(SCREEN_PAUSE));
                 // Lane K: the button says SAVE again each time the screen opens,
@@ -1567,6 +1594,14 @@ int main(int argc, char* argv[]) {
                 if (Entity w = save_widget(); w != 0) {
                     if (auto el = component_storage.get_component<UIElement>(w); el.has_value())
                         el->get().label_text = "SAVE";
+                }
+                // Feedback needs the network; offline shows a blank button and
+                // the click handler is net-gated too, so a blind click is a no-op.
+                if (Entity w = widget_by_name("pause_feedback", fb_pause_btn_w,
+                                              fb_pause_btn_w_resolved);
+                    w != 0) {
+                    if (auto el = component_storage.get_component<UIElement>(w); el.has_value())
+                        el->get().label_text = net::enabled() ? "FEEDBACK" : "";
                 }
             } else {
                 blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
@@ -1634,6 +1669,24 @@ int main(int argc, char* argv[]) {
                 phase = PHASE_TITLE;
                 blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
                                             std::string(SCREEN_MAIN_MENU));
+            } else if (pause_click == "on_feedback_click" && net::enabled()) {
+                blackboard.remove(UISystem::UI_CLICK_KEY);
+                fb_from_pause = true;
+                fb_prev_phase = phase;
+                // Run context is captured at OPEN — the numbers the player is
+                // looking at — not at send, when the form may outlive the wave.
+                fb_ctx = {{"in_run", true},
+                          {"wave", blackboard.get_or<int>("wave", 0)},
+                          {"score", blackboard.get_or<int>("score", 0)},
+                          {"ship", selected_ship},
+                          {"prestige", meta.prestige},
+                          {"difficulty", blackboard.get_or<std::string>(
+                                             "difficulty", std::string("Normal"))}};
+                fb_focus = 0; fb_msg.clear();
+                phase = PHASE_FEEDBACK;   // the sim block only runs in PHASE_PLAYING
+                blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH,
+                                            std::string(SCREEN_FEEDBACK));
+                SDL_StartTextInput(window.get());
             }
         }
 
@@ -2349,6 +2402,15 @@ int main(int argc, char* argv[]) {
                 } else if (menu_click == "on_menu_quit_click") {
                     blackboard.remove(UISystem::UI_CLICK_KEY);
                     running = false;      // nothing to bank at the title
+                } else if (menu_click == "on_feedback_click" && net::enabled()) {
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    fb_from_pause = false;
+                    fb_ctx = {{"in_run", false}};
+                    fb_focus = 0; fb_msg.clear();
+                    phase = PHASE_FEEDBACK;
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                std::string(SCREEN_FEEDBACK));
+                    SDL_StartTextInput(window.get());
                 } else if (menu_click == "on_pick_normal") {
                     blackboard.remove(UISystem::UI_CLICK_KEY);
                     setup_difficulty = 0;
@@ -2560,6 +2622,123 @@ int main(int argc, char* argv[]) {
                             // `caption`, same dim grey as every other screen.
                             el->get().style_id =
                                 !name_entry_error.empty() ? "pip_loss" : "caption";
+                        }
+                    }
+                }
+            } else if (phase == PHASE_FEEDBACK) {
+                // specs/feedback-reports.md: four typed fields, TAB cycles focus,
+                // ENTER submits (in BODY it inserts a newline instead), ESC backs
+                // out. Same frame plumbing as PHASE_NAME_ENTRY directly above.
+                constexpr size_t FB_CAPS[4] = {120, 4000, 200, 60};
+                const std::string typed =
+                    blackboard.get_or<std::string>("ui.text_input", std::string());
+                {
+                    std::string& cur = fb_fields[fb_focus];
+                    for (char c : typed) {
+                        if (cur.size() >= FB_CAPS[static_cast<size_t>(fb_focus)]) break;
+                        if (c >= 0x20 && c < 0x7F) cur.push_back(c);
+                    }
+                    if (blackboard.get_or<bool>("ui.backspace_pressed", false) &&
+                        !cur.empty())
+                        cur.pop_back();
+                }
+                if (blackboard.get_or<bool>("ui.tab_pressed", false))
+                    fb_focus = (fb_focus + 1) % 4;
+
+                // Poll last frame's submit before reading enter/escape (the
+                // name_entry ordering — a same-frame response never races input).
+                if (pending_feedback.valid() &&
+                    pending_feedback.wait_for(std::chrono::seconds(0)) ==
+                        std::future_status::ready) {
+                    const net::Response resp = pending_feedback.get();
+                    if (resp.status == 200) {
+                        for (auto& f : fb_fields) f.clear();
+                        fb_focus = 0;
+                        fb_msg = "Thanks - received!";
+                    } else {
+                        // Typed content is kept: a retry must not lose their words.
+                        fb_msg = "Couldn't send - check your connection";
+                    }
+                }
+
+                const bool fb_enter = blackboard.get_or<bool>("ui.enter_pressed", false);
+                if (fb_enter && fb_focus == 1) {
+                    if (fb_fields[1].size() < FB_CAPS[1]) fb_fields[1].push_back('\n');
+                } else if (fb_enter && !pending_feedback.valid()) {
+                    if (fb_fields[0].find_first_not_of(' ') == std::string::npos) {
+                        fb_msg = "Subject is required";
+                    } else if (fb_fields[1].find_first_not_of(" \n") == std::string::npos) {
+                        fb_msg = "Body is required";
+                    } else {
+                        nlohmann::json j = fb_ctx;
+                        j["subject"] = fb_fields[0];
+                        j["body"] = fb_fields[1];
+                        j["tags"] = fb_fields[2];
+                        j["from_name"] = fb_fields[3];
+                        j["player_id"] = meta.player_id;
+                        j["pilot"] = meta.registered ? meta.player_name : "";
+                        j["version"] = GAME_VERSION;
+                        j["platform"] = RD_PLATFORM;
+                        j["session_id"] = session_id;
+                        fb_msg = "Sending...";
+                        pending_feedback = net::post_json(
+                            std::string(net::NET_BASE) + "/feedback", j.dump(),
+                            net::NET_GAME_KEY);
+                    }
+                }
+
+                if (blackboard.get_or<bool>("ui.escape_pressed", false)) {
+                    abandon_future(std::move(pending_feedback));
+                    SDL_StopTextInput(window.get());
+                    for (auto& f : fb_fields) f.clear();
+                    fb_focus = 0;
+                    fb_msg.clear();
+                    if (fb_from_pause) {
+                        phase = fb_prev_phase;   // back under the pause screen
+                        blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
+                    } else {
+                        phase = PHASE_TITLE;
+                        blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                    std::string(SCREEN_MAIN_MENU));
+                    }
+                }
+
+                if (phase == PHASE_FEEDBACK) {
+                    // Widget rewrites: focused field carries the cursor; BODY
+                    // shows the tail that fits its 5-line box (full text sends).
+                    static const char* FB_NAMES[5] = {"fb_subject", "fb_body",
+                                                      "fb_tags", "fb_from", "fb_msg"};
+                    for (int i = 0; i < 4; ++i) {
+                        Entity w = widget_by_name(FB_NAMES[i], fb_w[i], fb_w_resolved[i]);
+                        if (w == 0) continue;
+                        auto el = component_storage.get_component<UIElement>(w);
+                        if (!el.has_value()) continue;
+                        std::string text = fb_fields[i];
+                        if (i == 1) {
+                            // last 5 newline-separated lines of the body
+                            int lines = 0;
+                            size_t pos = text.size();
+                            while (pos > 0 && lines < 5) {
+                                pos = text.find_last_of('\n', pos - 1);
+                                if (pos == std::string::npos) { pos = 0; break; }
+                                ++lines;
+                            }
+                            if (pos > 0) text = text.substr(pos + 1);
+                        }
+                        el->get().label_text = (i == fb_focus) ? text + "_" : text;
+                    }
+                    if (Entity w = widget_by_name(FB_NAMES[4], fb_w[4], fb_w_resolved[4]);
+                        w != 0) {
+                        if (auto el = component_storage.get_component<UIElement>(w);
+                            el.has_value()) {
+                            el->get().label_text =
+                                !fb_msg.empty()
+                                    ? fb_msg
+                                    : "TAB next field - ENTER send - ESC back";
+                            el->get().style_id =
+                                (fb_msg.find("required") != std::string::npos ||
+                                 fb_msg.find("Couldn't") != std::string::npos)
+                                    ? "pip_loss" : "caption";
                         }
                     }
                 }
