@@ -19,3 +19,5 @@ CPP/linux-deps/
 CPP/linux-deps-src/
 installer/stage-linux/
 installer/ReactorDrone.app/
+CPP/build-win/
+installer/stage/
