@@ -2518,19 +2518,19 @@
   "//postfx": "v3 Tier 4 (D197) - SPIR-V full-screen post-process, GPU renderer only (classic renderer and headless runs never see it). aberration is chromatic fringe in UV units; vignette darkens edges; saturation/gain grade the frame; shock_* shape the boss-death / arena-shift ripple. All presentation.",
   "postfx": {
     "enabled": true,
-    "aberration": 0.0015,
-    "vignette": 0.32,
-    "saturation": 1.12,
-    "gain": 1.02,
+    "aberration": 0.0028,
+    "vignette": 0.44,
+    "saturation": 1.26,
+    "gain": 1.05,
     "shock_duration": 0.9,
-    "shock_amp": 0.035
+    "shock_amp": 0.055
   },
   "//bloom": "v3 Tier 1 (D194) - render-target bloom. levels is the downsample-chain depth (each level halves, so 4 from 980x660 bottoms out at 62x42); intensities[i] is level i's additive composite weight in [0,1] (clamped), default_intensity covers any level past the list's end. Purely presentation: the system self-disables on drivers without render targets and no game system reads anything it writes.",
   "bloom": {
     "enabled": true,
     "levels": 4,
-    "intensities": [0.35, 0.3, 0.25, 0.2],
-    "default_intensity": 0.3
+    "intensities": [0.55, 0.47, 0.39, 0.31],
+    "default_intensity": 0.45
   },
   "//specialty": "Lane D / notes #3 + #9 (D67). Two cadences over the spawn counter, not RNG: every_n_spawns injects the live arena's specialty unit, moon_every_n_spawns injects one unlocked shooter (a type with first_wave > 0). by_arena maps an arena NAME to an enemy_types NAME - names, not indices, because the two lists are authored by different lanes. tier2_* is what makes the second pass over the same four themes (waves 26-50) harder. PROVISIONAL: unplayed.",
   "specialty": {
