@@ -35,7 +35,17 @@ read all of them for every task.
 - Single test case: `./CPP/build/game/tests/game_unit_tests "[items],[consumables]"`
 - Run the game: `python run.py -- --seed 42`
 - Headless run: `SDL_VIDEODRIVER=dummy ./CPP/build/game/game --seed 42 --keys 5:SPACE --stopframe 3000`
-- Replay canary: run the line above twice — the summary must be identical.
+- **Replay canary — must FIRE, not idle.** A single `--keys N:SPACE` only
+  presses start (SPACE is both the title-screen start key and the fire key), so
+  the run ends `score 0 / units 0` and never reaches hit-stop — the canary passes
+  without exercising the one path that could break it. Use:
+
+      SDL_VIDEODRIVER=dummy ./CPP/build/game/game --seed 42 \
+        --keys $(seq -f '%g:SPACE' 10 4 2990) --stopframe 3000
+
+  Expected: `Frames: 3000  Final score: 100  Units: 24  Wave: 1  Phase: 1`.
+  Run twice — identical. For presentation-only work, also diff against the same
+  command on `master`; that summary must match too.
 - Warning check: build and grep the log for `warning:` — only Lua's vendored
   `tmpnam` is allowed.
 - Regenerate assets (offline, needs Pillow): `python assets/generator/v2/make_sprites.py`

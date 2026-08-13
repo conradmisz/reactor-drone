@@ -6,9 +6,13 @@ committed separately. Every tier leaves the standing gates green:
 
 - Zero warnings (`-Wall -Wextra -Wpedantic`, Lua `tmpnam` exempt).
 - 100% ctest (`runTestsAll.py`).
-- Deterministic replay canary: `SDL_VIDEODRIVER=dummy ./CPP/build/game/game --seed 42
-  --keys 10:SPACE --stopframe 3000` prints a byte-identical summary before/after the tier.
-  All five tiers are presentation-only, so the canary must never move.
+- Deterministic replay canary — **must fire, not idle** (corrected 2026-08-13):
+  `SDL_VIDEODRIVER=dummy ./CPP/build/game/game --seed 42
+  --keys $(seq -f '%g:SPACE' 10 4 2990) --stopframe 3000` prints a byte-identical
+  summary before/after the tier. All tiers are presentation-only, so it must never
+  move. The original `--keys 10:SPACE` form was INERT: one SPACE press only starts
+  the run, ending `score 0 / units 0`, so it never reached the hit-stop path Tier 3
+  itself flagged as the risk. Expected now: `score 100, units 24, wave 1`.
 - `ENGINE.md` updated in the same commit as any engine change (its maintenance rule).
 
 Verification per tier additionally includes `--screenshot` captures at fixed frames,
@@ -73,7 +77,8 @@ compared by eye (screenshots land in `logs/`).
    hit-stop scales `delta_time` to 0 for K frames — RNG draws still happen in fixed
    order, systems integrate zero motion, frame counter still advances. Canary safe
    only if K frames of zero-dt produce identical draw counts — they do, since draws
-   are per-update not per-dt. Verify canary explicitly.)
+   are per-update not per-dt. Verify canary explicitly — with the FIRING canary;
+   an idle run never raises `hitstop_left` and proves nothing.)
 3. **Camera punch**: existing trauma system gains a zoom impulse (decays with trauma).
 4. **Impact squash**: on hit, a 100 ms scale-x/scale-y pulse via existing `Size` +
    a `Squash` timer folded into `Flash`-style feedback (reuse `flash_system` idiom).
