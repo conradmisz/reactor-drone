@@ -54,6 +54,7 @@ add_executable(engine_unit_tests
     unit/test_particle_system.cpp
     unit/test_bloom_math.cpp
     unit/test_line_mesh_math.cpp
+    unit/test_trail_math.cpp
 
     # UI & menu layer (Option-040 port)
     unit/test_ui_components_storage.cpp
