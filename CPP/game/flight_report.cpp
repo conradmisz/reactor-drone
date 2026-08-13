@@ -81,12 +81,14 @@ void FlightReport::record(ComponentStorage& component_storage, Blackboard& black
     if (hull >= 0.0f) last_hull_ = hull;
 
     // --- kills, off the shared render-FX vocabulary ------------------------
-    // The scar stamps are already published at every death (Phase 0, D138) and
-    // this is a render-side consumer, so the kill positions cost nothing new.
-    // The list is capped per frame at the publisher, so this loop is bounded.
-    for (const fx_events::Stamp& st :
-         blackboard.get_or<std::vector<fx_events::Stamp>>(fx_events::SCAR_STAMPS, {})) {
-        push_ring(kills_, kill_cursor_, cap, st.x, st.y);
+    // Kill marks are already published at every death (Phase 0, D138) and this is
+    // a render-side consumer, so the kill positions cost nothing new. The list is
+    // capped per frame at the publisher, so this loop is bounded. (D151: the marks
+    // outlived the battle-scar layer that first needed them — this is now their
+    // only consumer.)
+    for (const fx_events::Mark& m :
+         blackboard.get_or<std::vector<fx_events::Mark>>(fx_events::KILL_MARKS, {})) {
+        push_ring(kills_, kill_cursor_, cap, m.x, m.y);
     }
 }
 

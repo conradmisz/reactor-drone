@@ -77,7 +77,6 @@ add_executable(engine_unit_tests
     ../ecs/systems/palette_system.cpp
     ../ecs/systems/particle_system.cpp
     ../ecs/systems/resonance_grid_system.cpp
-    ../ecs/systems/scar_system.cpp
     ../sidecar_loader.cpp
     ../ecs/systems/camera_system.cpp
     ../ecs/systems/camera_control_system.cpp
@@ -203,7 +202,6 @@ add_executable(engine_property_tests
     ../ecs/systems/palette_system.cpp
     ../ecs/systems/particle_system.cpp
     ../ecs/systems/resonance_grid_system.cpp
-    ../ecs/systems/scar_system.cpp
     ../sidecar_loader.cpp
     ../ecs/systems/camera_system.cpp
     ../ecs/systems/camera_control_system.cpp

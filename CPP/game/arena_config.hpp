@@ -406,20 +406,18 @@ struct DirectorConfig {
 /// Render-only: no sim system may ever read grid state.
 struct ResonanceConfig {
     bool  enabled = false;
-    int   cols = 40, rows = 28;   // fixed lattice; flat array, no allocation
-    float spacing = 40.0f;        // px between nodes at rest
+    // D151: the lattice is sized FROM THE ARENA (configure_for_arena), because the
+    // first version's fixed 40x28 covered 1600 px of a 2800 px arena and visibly
+    // stopped short of the wall. Only the pitch is authored.
+    float spacing = 64.0f;        // px between nodes; 512/8, commensurate with the
+                                  // 512px backdrop tiles on the frames both show
     float stiffness = 60.0f;      // spring constant toward rest position
     float damping = 5.0f;         // velocity bleed per second
     float impulse_scale = 90.0f;  // maps fx_events::Impulse.strength to a kick
     float max_offset = 26.0f;     // px a node may leave its rest position
-    uint8_t r = 90, g = 200, b = 255, a = 46;   // line colour at rest
-};
-
-/// ScarConfig — the battle-scar accumulation layer (#6, Lane V). Render-only.
-struct ScarConfig {
-    bool  enabled = false;
-    int   max_stamps_per_frame = 16;  // bounded blit; overflow dropped, not queued
-    float alpha = 0.55f;              // stamp opacity into the accumulation texture
+    // PEAK line colour, not a resting one: at rest the lattice is not drawn at
+    // all (D151), which is what stops it reading as clutter over the backdrop.
+    uint8_t r = 120, g = 215, b = 255, a = 190;
 };
 
 /// ForceConfig — the force-field layer (#3, Lane T). Inert by zero registered
@@ -539,7 +537,6 @@ struct GameConfig {
                                    // top-level JSON "grid" is the baseline loader's.
     FlightReportConfig flight_report;  // #10 Flight Report (Lane S)
     ForceConfig forces;            // #3 Force-Field Layer (Lane T)
-    ScarConfig scars;              // #6 Battle-Scar Layer (Lane V)
     PaletteConfig palettes;        // #5 Palette Engine (Lane W)
     std::vector<BulletPatternDef> patterns;  // #2 Bullet-Pattern Language (Lane Y)
     AudioConfig audio;             // #4 Chip-Synth Audio (Lane Z)

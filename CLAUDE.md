@@ -61,10 +61,7 @@ read all of them for every task.
 
 - Update `progress-tracker.md` after every meaningful change.
 - Append design calls (with the *why* and what was rejected) to `decisions.md`.
-  Ids are stable and cited from code — next free id is **D194** on `master`;
-  `engine-suite-build` has spent **D138-D150** (Phase 0 + eleven lanes), so a
-  merge of that branch makes the next free id **D194** still (the suite's
-  reservation was D138-D180 and the unused D151-D180 are burned).
+  Ids are stable and cited from code — next free id is **D194**.
   (`feature/engine-suite` reserves D138-D180; the gameplay-polish batch is
   D181-D191, logged as one entry; the second playtest batch is D192 and the
   third is D193, each also one entry.)

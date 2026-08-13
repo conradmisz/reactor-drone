@@ -131,3 +131,35 @@ TEST_CASE("a zero-sized lattice is inert rather than a crash", "[Game][grid]") {
     CHECK(g.total_displacement() == 0.0f);
     g.render(nullptr, Blackboard{});   // null renderer is a no-op, not a segfault
 }
+
+TEST_CASE("the lattice covers the whole arena", "[Game][grid]") {
+    // The D151 bug in one assertion: the shipped arena is radius 1400, i.e. 2800
+    // across, and the old fixed 40x28 lattice at 40px spanned 1600 — it stopped a
+    // third of the way to the wall, which is exactly what the playtest saw.
+    ResonanceGridSystem g;
+    g.configure_for_arena(1600.0f, 1600.0f, 1400.0f, 64.0f);
+    const float span = static_cast<float>(g.cols() - 1) * 64.0f;
+    CHECK(span >= 2800.0f);
+    CHECK(g.cols() == g.rows());
+
+    // ...and it is CENTRED on the arena, so the margin is equal on both sides.
+    // node(0,0) sits at (centre - span/2); the far corner mirrors it.
+    const float half = span * 0.5f;
+    CHECK(1600.0f - half <= 1600.0f - 1400.0f);   // reaches past the left wall
+    CHECK(1600.0f + half >= 1600.0f + 1400.0f);   // and past the right one
+}
+
+TEST_CASE("a lattice at rest draws nothing", "[Game][grid]") {
+    // The clutter fix (D151): at rest there is no mesh to see. total_displacement
+    // is the probe the renderer's per-strip alpha is derived from, so zero
+    // displacement means every strip is skipped.
+    ResonanceGridSystem g = make_grid();
+    for (int i = 0; i < 60; ++i) g.update(DT, {});
+    CHECK(g.total_displacement() == 0.0f);
+
+    // One impulse lights it, and ~10 s later it is back to (near) nothing.
+    g.update(DT, one(400.0f, 260.0f, 2.0f));
+    CHECK(g.total_displacement() > 0.0f);
+    for (int i = 0; i < 600; ++i) g.update(DT, {});
+    CHECK(g.total_displacement() < 0.5f);
+}

@@ -474,9 +474,12 @@ comment-delimited block per lane.
 | `palette` | after `screenshot_system.update`, before `present` | #5 Palette Engine (W) |
 
 **The shared FX event vocabulary** is `CPP/engine/ecs/fx_events.hpp`: two per-frame
-Blackboard lists, `fx.grid_impulses` (`fx_events::Impulse`) and `fx.scar_stamps`
-(`fx_events::Stamp`). Sim-side code publishes; the grid and the scar layer consume
-while drawing. `fx_events::clear_frame` runs unconditionally at the top of every
+Blackboard lists, `fx.grid_impulses` (`fx_events::Impulse`) and `fx.kill_marks`
+(`fx_events::Mark`). Sim-side code publishes; the resonance grid and the flight
+report consume while drawing. **D151:** impulses are BIG events only — a bomb, a
+collapsing pillar, a boss volley — because the grid became an event display rather
+than an ambient one; an ordinary kill publishes a mark and nothing else. The marks
+were `fx.scar_stamps` until the battle-scar layer was cut. `fx_events::clear_frame` runs unconditionally at the top of every
 frame — before the `timescale` hook — so a disabled consumer cannot leak. The
 contract is one-way: **nothing sim-side may ever read these lists back**, which is
 what keeps the two render-only lanes outside the determinism argument entirely.
@@ -512,13 +515,15 @@ the two lanes that are inert by data rather than by a flag).
 | `crumble` | `game/crumble_system.*` | sim-side, no RNG |
 | `pattern` | `game/bullet_pattern.*` | sim-side, **no RNG at all** |
 | `telemetry` | `game/flight_report.*` | passive |
-| `audio` | `engine/ecs/systems/chip_synth_system.*` | isolated |
+| `audio` | **EMPTY** — `chip_synth_system.*` shelved (D151), still builds | — |
 | `grid-render` | `engine/ecs/systems/resonance_grid_system.*` | render-only |
-| `scars-render` | `engine/ecs/systems/scar_system.*` | render-only |
+| `scars-render` | **EMPTY** — the scar layer was cut (D151) | — |
 | `palette` | `engine/ecs/systems/palette_system.*` | render-only, **two blocks** |
 
-Five new engine `.cpp` files (resonance grid, scars, palette, chip synth) went
-into the three explicit CMake lists (Invariant 7). No new component type was
+Four new engine `.cpp` files (resonance grid, palette, chip synth — the scar
+layer was added and then cut, D151) went into the three explicit CMake lists
+(Invariant 7). `chip_synth_system.cpp` still builds although nothing constructs it,
+deliberately: shelved code that stops compiling is deleted code with extra steps. No new component type was
 needed (Invariant 6): `EnemyBehavior` gained `pattern`/`cursor`/`phase`,
 `ObstacleDef` gained `hp`, `ArenaDef` gained `surges`, `EnemyType` gained
 `pattern`.

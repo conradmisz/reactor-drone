@@ -19,9 +19,8 @@
  * PASSIVE, and that is the determinism stance in full: it reads sim state into
  * its own fixed ring buffers and renders on the terminal screens. Nothing reads
  * it back, it owns no RNG, and it never writes a value any sim system reads. Its
- * kill marks come from the render-side `fx.scar_stamps` list (Phase 0's shared
- * vocabulary) rather than from a second publisher at the death site — one event,
- * two render-only consumers.
+ * kill marks come from the render-side `fx.kill_marks` list (Phase 0's shared
+ * vocabulary) rather than from a second publisher at the death site.
  *
  * Fixed ring buffers, sized once from config (MCU headroom): recording is
  * O(1) per sample with no allocation after the first wave, and the *drawing* pool

@@ -141,7 +141,7 @@ TEST_CASE("hits taken are recorded from the hull dropping",
     CHECK(fr.hit_samples() == 2);
 }
 
-TEST_CASE("kills come off the shared scar-stamp list", "[Game][flight_report]") {
+TEST_CASE("kills come off the shared kill-mark list", "[Game][flight_report]") {
     EntityManager em; ComponentStorage cs; Blackboard bb;
     make_player(em, cs);
     FlightReport fr;
@@ -149,8 +149,8 @@ TEST_CASE("kills come off the shared scar-stamp list", "[Game][flight_report]") 
     bb.set<int>("phase", kPlaying);
 
     fx_events::clear_frame(bb);
-    fx_events::push_stamp(bb, 400.0f, 300.0f, 0);
-    fx_events::push_stamp(bb, 500.0f, 350.0f, 0);
+    fx_events::push_mark(bb, 400.0f, 300.0f, 0);
+    fx_events::push_mark(bb, 500.0f, 350.0f, 0);
     fr.update(cs, em, bb);
     CHECK(fr.kill_samples() == 2);
 

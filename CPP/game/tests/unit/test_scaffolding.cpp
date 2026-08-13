@@ -158,8 +158,6 @@ TEST_CASE("the engine-suite config blocks parse and default inert",
     GameConfig cfg = load_arena_config(project_paths::assets_dir() + "/GameData.json");
 
     // Present and parsed (defaults reachable through the struct)...
-    CHECK(cfg.resonance.cols == 40);
-    CHECK(cfg.resonance.rows == 28);
     CHECK(cfg.forces.max_sources == 32);
     CHECK(cfg.flight_report.max_samples == 4096);
     CHECK(cfg.audio.voices == 8);
@@ -171,13 +169,12 @@ TEST_CASE("the engine-suite config blocks parse and default inert",
     CHECK_FALSE(cfg.director.enabled);    // Lane Q
     CHECK_FALSE(cfg.resonance.enabled);        // Lane R
     CHECK_FALSE(cfg.flight_report.enabled);  // Lane S
-    CHECK_FALSE(cfg.scars.enabled);       // Lane V
     CHECK_FALSE(cfg.palettes.enabled);    // Lane W
     // Lane Y landed (D148): the patterns are AUTHORED now, so the inertness that
     // matters is that no enemy type references one — an unreferenced pattern
     // spawns nothing. --suite is what points the boss at "reactor_bloom".
     CHECK_FALSE(cfg.patterns.empty());
-    CHECK_FALSE(cfg.audio.enabled);       // Lane Z
+    CHECK_FALSE(cfg.audio.enabled);       // Lane Z — SHELVED (D151), unwired
     for (const ArenaDef& a : cfg.arenas) CHECK(a.surges.empty());   // Lane X
     for (const ArenaDef& a : cfg.arenas)
         for (const ObstacleDef& o : a.obstacles) CHECK(o.hp == 0.0f);  // Lane U
@@ -190,16 +187,16 @@ TEST_CASE("the fx-events vocabulary round-trips and clears per frame",
     // Publishers may fire before the first clear — get_or covers the cold start.
     fx_events::push_impulse(bb, 100.0f, 200.0f, 2.5f);
     fx_events::push_impulse(bb, 5.0f, 6.0f, 1.0f);
-    fx_events::push_stamp(bb, 50.0f, 60.0f, 3, 1.5f, 0.7f);
+    fx_events::push_mark(bb, 50.0f, 60.0f, 3, 1.5f);
 
     auto imps = bb.get<std::vector<fx_events::Impulse>>(fx_events::GRID_IMPULSES);
     REQUIRE(imps.size() == 2);
     CHECK_THAT(imps[0].strength, WithinAbs(2.5f, 1e-6f));
-    auto stamps = bb.get<std::vector<fx_events::Stamp>>(fx_events::SCAR_STAMPS);
-    REQUIRE(stamps.size() == 1);
-    CHECK(stamps[0].kind == 3);
+    auto marks = bb.get<std::vector<fx_events::Mark>>(fx_events::KILL_MARKS);
+    REQUIRE(marks.size() == 1);
+    CHECK(marks[0].kind == 3);
 
     fx_events::clear_frame(bb);
     CHECK(bb.get<std::vector<fx_events::Impulse>>(fx_events::GRID_IMPULSES).empty());
-    CHECK(bb.get<std::vector<fx_events::Stamp>>(fx_events::SCAR_STAMPS).empty());
+    CHECK(bb.get<std::vector<fx_events::Mark>>(fx_events::KILL_MARKS).empty());
 }

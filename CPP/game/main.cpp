@@ -45,9 +45,7 @@
 #include "engine/ecs/systems/hud_system.hpp"
 #include "engine/ecs/systems/screenshot_system.hpp"
 #include "engine/ecs/systems/resonance_grid_system.hpp"   // Lane R (D140)
-#include "engine/ecs/systems/scar_system.hpp"             // Lane V (D145)
 #include "engine/ecs/systems/palette_system.hpp"          // Lane W (D147)
-#include "engine/ecs/systems/chip_synth_system.hpp"       // Lane Z (D150)
 
 #include "cli_parser.hpp"
 #include "script_loader.hpp"
@@ -184,17 +182,12 @@ int main(int argc, char* argv[]) {
         config.director.enabled = true;
         config.resonance.enabled = true;
         config.flight_report.enabled = true;
-        config.scars.enabled = true;
         config.palettes.enabled = true;
-        config.audio.enabled = true;
-        // Two lanes are inert by DATA rather than by a flag, so --suite has to
-        // author something for them or they would silently stay off:
-        //   * destructible arenas need obstacle HP (shipped rows are all `hp: 0`,
-        //     i.e. indestructible, and authoring HP into the shipped arenas would
-        //     change the default game rather than the suite one);
-        //   * the force layer needs a registered source, which only a surge or an
-        //     active can supply — nothing to flip here, so it stays inert until
-        //     Lane X authors a surge table.
+        // Absent here on purpose (D151): the battle-scar layer was CUT, chip-synth
+        // audio is SHELVED (its code still builds, nothing constructs it), and the
+        // force layer is inert by shape rather than by a flag. Destructible arenas
+        // and surges need authored DATA, so --suite writes it below — the shipped
+        // rows stay untouched, or the default game would change with them.
         for (ArenaDef& a : config.arenas)
             for (ObstacleDef& o : a.obstacles)
                 if (o.hp <= 0.0f) o.hp = 240.0f;   // ~12 standard shots
@@ -2333,26 +2326,11 @@ int main(int argc, char* argv[]) {
         }
         // === END HOOK: telemetry ===
 
-        // === HOOK: audio === (Engine suite, D150 — Lane Z / #4)
-        // Owner: chip-synth audio. Every phase — the music keeps breathing while
-        // the shop is open. Isolated: it reads sim events, writes sound, and is
-        // never read by anything, so the canary cannot see it.
-        //
-        // This block, the include above and SDL_INIT_AUDIO inside start() are the
-        // ENTIRE diff outside the file pair (project law for this lane): deleting
-        // the pair and these lines removes the feature with nothing left behind.
-        {
-            static ChipSynthSystem chip;
-            static bool chip_started = false;
-            if (config.audio.enabled && !chip_started) {
-                chip_started = true;   // one attempt: a machine with no sound card
-                                       // plays silently rather than retrying forever
-                if (!chip.start(config.audio.sample_rate, config.audio.voices,
-                                config.audio.master_volume))
-                    std::cout << "Audio: device unavailable, running silent\n";
-            }
-            if (chip.running()) chip.update(blackboard);
-        }
+        // === HOOK: audio ===
+        // EMPTY — deliberately. Chip-synth audio (#4, D150) is SHELVED, not
+        // deleted (D151): engine/ecs/systems/chip_synth_system.* still builds and
+        // is still tested, so it cannot bitrot, but nothing constructs it.
+        // Re-wiring is this block plus one include; see D150 for what it does.
         // === END HOOK: audio ===
 
         // === HOOK: minimap === (Iteration 3, D51 — Lane B / #7)
@@ -2547,16 +2525,12 @@ int main(int argc, char* argv[]) {
         // time does not turn the lattice to treacle.
         if (config.resonance.enabled) {
             static ResonanceGridSystem grid;
-            // The lattice is centred on the arena and sized to cover it; the
-            // configure() call is cheap and only rebuilds on a size change.
-            const float span_x = static_cast<float>(config.resonance.cols - 1) *
-                                 config.resonance.spacing;
-            const float span_y = static_cast<float>(config.resonance.rows - 1) *
-                                 config.resonance.spacing;
-            grid.configure(config.resonance.cols, config.resonance.rows,
-                           config.resonance.spacing,
-                           config.arena.center_x - span_x * 0.5f,
-                           config.arena.center_y - span_y * 0.5f);
+            // D151: sized FROM THE ARENA, not from two numbers in a config block.
+            // The first version was a fixed 40x28 at 40 px — 1600 px across an
+            // arena 2800 px wide, so it stopped a third of the way to the wall.
+            // configure_for_arena is cheap and only rebuilds on a size change.
+            grid.configure_for_arena(config.arena.center_x, config.arena.center_y,
+                                     config.arena.radius, config.resonance.spacing);
             grid.set_tuning(config.resonance.stiffness, config.resonance.damping,
                             config.resonance.impulse_scale, config.resonance.max_offset,
                             config.resonance.r, config.resonance.g,
@@ -2568,32 +2542,12 @@ int main(int argc, char* argv[]) {
         }
         // === END HOOK: grid-render ===
 
-        // === HOOK: scars-render === (Engine suite, D145 — Lane V / #6)
-        // Owner: the battle-scar layer. Consumes fx.scar_stamps into its
-        // accumulation texture and draws it once, under the entities and over
-        // the grid. Render-only, same contract as the grid.
-        //
-        // The texture covers the arena's bounding square and is cleared on an
-        // arena shift — each arena accumulates its own history — which is why the
-        // shift generation is compared rather than the arena index alone (a shift
-        // back to the same theme is still a new floor).
-        if (config.scars.enabled) {
-            static ScarSystem scars;
-            static int scars_arena = -2;
-            const float arena_span = config.arena.radius * 2.0f;
-            scars.configure(renderer.get(),
-                            static_cast<int>(arena_span), static_cast<int>(arena_span),
-                            config.arena.center_x - config.arena.radius,
-                            config.arena.center_y - config.arena.radius);
-            scars.set_tuning(config.scars.max_stamps_per_frame, config.scars.alpha);
-            if (scars_arena != active_arena) {
-                scars.clear(renderer.get());
-                scars_arena = active_arena;
-            }
-            scars.update_and_render(renderer.get(), blackboard,
-                                    blackboard.get_or<std::vector<fx_events::Stamp>>(
-                                        fx_events::SCAR_STAMPS, {}));
-        }
+        // === HOOK: scars-render ===
+        // EMPTY. The battle-scar layer (#6, D145) was cut after the first playtest
+        // (D151): the arena reads as floating in space, so scorch marks
+        // accumulating on "the floor" never made sense. The hook stays — it is
+        // pinned by test_scaffolding, and it is a useful slot: under the entities,
+        // over the grid.
         // === END HOOK: scars-render ===
 
         render_system.render(component_storage, blackboard);

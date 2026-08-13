@@ -30,7 +30,6 @@ set(ENGINE_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/render_system.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/resonance_grid_system.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/rotation_system.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/scar_system.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/screenshot_system.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/script_system.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/screen_fade_system.cpp"

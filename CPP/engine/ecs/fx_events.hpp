@@ -9,12 +9,16 @@
 #include "blackboard.hpp"
 
 /**
- * fx_events — the shared render-FX event vocabulary (engine-suite Phase 0, D138).
+ * fx_events — the shared render-FX event vocabulary (engine-suite Phase 0, D138;
+ * revised by the playtest batch, D151).
  *
- * Sim-side systems PUBLISH combat moments (deaths, dashes, blasts) as entries in
- * two per-frame Blackboard lists; render-only consumers (the resonance grid, the
- * battle-scar layer) READ them while drawing. The contract that keeps the replay
- * canary honest:
+ * Sim-side systems PUBLISH combat moments as entries in two per-frame Blackboard
+ * lists; render-only and passive consumers READ them while drawing.
+ *
+ * `impulses` are the BIG events only — a bomb going off, a pillar coming down, a
+ * boss doing something — because the resonance grid is now an event display
+ * rather than an ambient one (D151). `kill_marks` are every kill, consumed by the
+ * flight report. The contract that keeps the replay canary honest:
  *
  *   - publishers append during the sim half of the frame;
  *   - consumers only read — nothing sim-side may ever read these lists back;
@@ -32,16 +36,19 @@ struct Impulse {
     float strength = 1.0f;   // publisher-scaled; the grid config maps it to force
 };
 
-/// One permanent mark stamped into the battle-scar layer.
-struct Stamp {
+/// One kill, recorded where it happened. Was the battle-scar layer's stamp
+/// (D145); that layer was cut after the playtest — the arena floats in space, so
+/// scorch marks on "the floor" never made sense — and the flight report is now
+/// the only consumer. Kept as a list rather than folded into the report because
+/// the deferred ghost/replay family wants the same events.
+struct Mark {
     float x = 0.0f, y = 0.0f;
-    int kind = 0;            // index into the scar stamp table (data-defined)
+    int kind = 0;            // 0 = enemy kill; room for player deaths later
     float scale = 1.0f;
-    float angle = 0.0f;      // radians
 };
 
 inline const std::string GRID_IMPULSES = "fx.grid_impulses";  // std::vector<Impulse>
-inline const std::string SCAR_STAMPS   = "fx.scar_stamps";    // std::vector<Stamp>
+inline const std::string KILL_MARKS    = "fx.kill_marks";     // std::vector<Mark>
 
 /**
  * Hard per-frame cap on each list, and it is load-bearing twice over.
@@ -55,14 +62,14 @@ inline const std::string SCAR_STAMPS   = "fx.scar_stamps";    // std::vector<Sta
  * stall force-kill wipes a whole wave in one frame, ~96 deaths at wave 20).
  *
  * Overflow is DROPPED, not queued: one frame's worth of ripples is a visual
- * moment, and a queued backlog would stamp last frame's explosions into this
- * frame's floor.
+ * moment, and a queued backlog would ring the lattice for explosions that already
+ * finished.
  */
 inline constexpr size_t MAX_PER_FRAME = 64;
 
 inline void clear_frame(Blackboard& bb) {
     bb.set(GRID_IMPULSES, std::vector<Impulse>{});
-    bb.set(SCAR_STAMPS, std::vector<Stamp>{});
+    bb.set(KILL_MARKS, std::vector<Mark>{});
 }
 
 inline void push_impulse(Blackboard& bb, float x, float y, float strength) {
@@ -72,12 +79,12 @@ inline void push_impulse(Blackboard& bb, float x, float y, float strength) {
     bb.set(GRID_IMPULSES, std::move(v));
 }
 
-inline void push_stamp(Blackboard& bb, float x, float y, int kind,
-                       float scale = 1.0f, float angle = 0.0f) {
-    auto v = bb.get_or<std::vector<Stamp>>(SCAR_STAMPS, {});
+inline void push_mark(Blackboard& bb, float x, float y, int kind,
+                      float scale = 1.0f) {
+    auto v = bb.get_or<std::vector<Mark>>(KILL_MARKS, {});
     if (v.size() >= MAX_PER_FRAME) return;
-    v.push_back({x, y, kind, scale, angle});
-    bb.set(SCAR_STAMPS, std::move(v));
+    v.push_back({x, y, kind, scale});
+    bb.set(KILL_MARKS, std::move(v));
 }
 
 }  // namespace fx_events

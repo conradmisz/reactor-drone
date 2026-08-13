@@ -1,4 +1,5 @@
 #include "boss_system.hpp"
+#include "engine/ecs/fx_events.hpp"   // engine suite D151: boss events ring the grid
 
 #include "active_items.hpp"
 #include "collision_layers.hpp"
@@ -285,6 +286,12 @@ void BossSystem::update(ComponentStorage& storage, EntityManager& entity_manager
                     beh->get().timer = beh->get().cooldown;
                     float bx, by;
                     if (centre_of(storage, boss_, bx, by)) {
+                        // Engine suite (D151): the boss slamming out a summon
+                        // volley is the loudest thing in the game, and one of the
+                        // three events that ring the resonance grid. Big impulse
+                        // — this is the moment the lattice exists for.
+                        // Render-only (fx_events is one-way); no sim coupling.
+                        fx_events::push_impulse(blackboard, bx, by, 6.0f);
                         const BossConfig& bc = cfg_->boss;
                         const int adds = bc.summon_count +
                                          (final_boss_ ? bc.final_summon_bonus : 0);

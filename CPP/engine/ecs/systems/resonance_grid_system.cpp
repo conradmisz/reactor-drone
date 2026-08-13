@@ -30,6 +30,17 @@ void ResonanceGridSystem::configure(int cols, int rows, float spacing,
     origin_y_ = origin_y;
 }
 
+void ResonanceGridSystem::configure_for_arena(float center_x, float center_y,
+                                              float radius, float spacing) {
+    if (!(spacing > 0.0f) || !(radius > 0.0f)) return;
+    // +2 nodes of margin so the lattice reaches past the boundary ring rather
+    // than stopping visibly short of it, which is how the undersized version
+    // read in the playtest.
+    const int n = static_cast<int>(std::ceil(2.0f * radius / spacing)) + 2;
+    const float span = static_cast<float>(n - 1) * spacing;
+    configure(n, n, spacing, center_x - span * 0.5f, center_y - span * 0.5f);
+}
+
 void ResonanceGridSystem::set_tuning(float stiffness, float damping,
                                      float impulse_scale, float max_offset,
                                      uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
@@ -129,16 +140,20 @@ void ResonanceGridSystem::render(SDL_Renderer* renderer,
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
-    // Per-strip alpha: a row that is rippling lights up, a flat one stays faint.
-    // This is what makes the grid read as a *display* of the combat rather than
-    // as a decorative mesh — and it costs one extra pass over each strip.
-    auto strip_alpha = [&](float peak) {
-        const float lit = max_offset_ > 0.0f
-                              ? std::min(1.0f, peak / max_offset_)
-                              : 0.0f;
-        const float boost = 1.0f + 3.0f * lit;   // up to 4x the resting alpha
-        return static_cast<uint8_t>(
-            std::min(255.0f, static_cast<float>(a_) * boost));
+    // Per-strip alpha, and the strip is SKIPPED entirely when nothing has moved
+    // it (D151). `a_` is the peak alpha of a fully-displaced strip, not a resting
+    // one — at rest the lattice does not exist, which is what stops it reading as
+    // a permanent mesh laid over the backdrop art.
+    //
+    // The curve is deliberately not linear: sqrt lifts a small ripple into
+    // visibility quickly and then flattens, so the leading edge of a blast wave
+    // reads as an edge rather than as a slow gradient.
+    auto strip_alpha = [&](float peak) -> uint8_t {
+        if (max_offset_ <= 0.0f) return 0;
+        const float lit = std::min(1.0f, peak / max_offset_);
+        if (lit <= 0.004f) return 0;             // below one alpha step: not drawn
+        return static_cast<uint8_t>(std::min(255.0f,
+            static_cast<float>(a_) * std::sqrt(lit)));
     };
 
     std::vector<SDL_FPoint>& strip = strip_;   // mutable scratch; see the header
@@ -152,7 +167,9 @@ void ResonanceGridSystem::render(SDL_Renderer* renderer,
                 to_screen(origin_x_ + static_cast<float>(col) * spacing_ + n.dx,
                           origin_y_ + static_cast<float>(row) * spacing_ + n.dy);
         }
-        SDL_SetRenderDrawColor(renderer, r_, g_, b_, strip_alpha(peak));
+        const uint8_t alpha = strip_alpha(peak);
+        if (alpha == 0) continue;                // a flat row is not drawn at all
+        SDL_SetRenderDrawColor(renderer, r_, g_, b_, alpha);
         SDL_RenderLines(renderer, strip.data(), cols_);
     }
     for (int col = 0; col < cols_; ++col) {
@@ -164,7 +181,9 @@ void ResonanceGridSystem::render(SDL_Renderer* renderer,
                 to_screen(origin_x_ + static_cast<float>(col) * spacing_ + n.dx,
                           origin_y_ + static_cast<float>(row) * spacing_ + n.dy);
         }
-        SDL_SetRenderDrawColor(renderer, r_, g_, b_, strip_alpha(peak));
+        const uint8_t alpha = strip_alpha(peak);
+        if (alpha == 0) continue;
+        SDL_SetRenderDrawColor(renderer, r_, g_, b_, alpha);
         SDL_RenderLines(renderer, strip.data(), rows_);
     }
 }

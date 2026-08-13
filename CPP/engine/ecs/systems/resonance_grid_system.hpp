@@ -10,12 +10,27 @@
 #include "engine/ecs/fx_events.hpp"
 
 /**
- * ResonanceGridSystem — the arena floor as a physics display (engine suite, Lane R,
- * D140).
+ * ResonanceGridSystem — the arena as a physics display (engine suite, Lane R,
+ * D140; revised after the first playtest, D151).
  *
- * A fixed spring-mass lattice under the entities: every explosion, dash and death
- * injects a radial impulse (`fx_events::Impulse`, published sim-side) and the
- * lattice ripples with damped integration, then pulls itself flat again.
+ * A spring-mass lattice under the entities: a big event — a bomb, a collapsing
+ * pillar, a boss volley — injects a radial impulse (`fx_events::Impulse`,
+ * published sim-side) and the lattice ripples with damped integration, then pulls
+ * itself flat and DISAPPEARS.
+ *
+ * The D151 revision is three changes, all from the same playtest note:
+ *   1. **It covers the arena.** The lattice was a fixed 40x28 at 40 px = 1600 px
+ *      across, against an arena 2800 px across — it stopped a third of the way to
+ *      the wall. `cols`/`rows` of 0 now mean "derive from the arena span".
+ *   2. **It is invisible at rest.** Resting alpha is zero and a strip with no
+ *      displacement is not drawn at all, so there is no permanent mesh over the
+ *      backdrop. This is what fixes the clutter, and it also disposes of the
+ *      parallax-alignment complaint: the backdrops move at 0.25-0.9x the camera
+ *      while the lattice is anchored in world space, so the two can only ever
+ *      line up at one camera position — but you never see a resting lattice next
+ *      to the backdrop grid to compare them against.
+ *   3. **Only big events ring it.** An impulse per kill made it a permanent
+ *      shimmer; ordinary deaths no longer publish one.
  *
  * RENDER-ONLY, and that is a hard contract: the grid *reads* sim events and
  * writes pixels. No sim system may read grid state, so it can never feed back
@@ -38,6 +53,15 @@ public:
      * Re-callable — a changed size rebuilds and zeroes the lattice.
      */
     void configure(int cols, int rows, float spacing, float origin_x, float origin_y);
+
+    /**
+     * Cover a circular arena, centred on it: picks the node counts from the span
+     * and places the origin so the lattice is centred. This is the caller main.cpp
+     * uses, so "how big is the grid" is answered by the arena rather than by two
+     * numbers in a config block that silently stop matching it (D151).
+     */
+    void configure_for_arena(float center_x, float center_y, float radius,
+                             float spacing);
 
     /// Spring/damping/impulse tuning and the line colour. Cheap; call per frame.
     void set_tuning(float stiffness, float damping, float impulse_scale,

@@ -42,27 +42,6 @@ the graded course submission.
 
 ## Features
 
-### Engine feature suite (branch `engine-suite-build`, NOT merged)
-
-Eleven engine-level features, each behind a `GameData.json` flag that ships OFF;
-`--suite` turns the whole set on. Unmerged and unplayed — this list exists so the
-merge decision has one place to read. See `specs/engine-feature-suite.md` and
-D138-D150.
-
-- Temporal Overload — bullet time on a kill chain and on critical hull.
-- Resonance Grid — the arena floor is a spring lattice the combat ripples through.
-- Adaptive Director — spawn *spacing* breathes with how the player is doing.
-- Flight Report — game over shows the run: flight path, kills, hits taken.
-- Force-Field Layer — attractors and repulsors as a shared mechanism.
-- Battle-Scar Layer — the floor accumulates scorch marks for the whole arena.
-- Destructible Arena — obstacles have HP, crack, collapse and reopen the paths.
-- Palette Engine — the whole frame is resolved through a per-arena palette.
-- Bullet-Pattern Language — authored danmaku choreography as JSON, not C++.
-- Reactor Surge Events — mid-wave arena weather (flood, arc, eruption, storm).
-- Chip-Synth Audio — no samples; every SFX and the music synthesised live, with
-  the music's intensity following the Director's stress.
-
-
 ### Combat & progression
 - 20-wave arc: waves 1-11 fixed-count, 12-20 timed; per-wave `hp_mult` /
   `speed_mult` scaling over 3 enemy types (spark / runner / hulk).

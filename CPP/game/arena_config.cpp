@@ -327,8 +327,6 @@ GameConfig load_arena_config(const std::string& file_path) {
         const auto& g = data["resonance"];
         auto& gc = cfg.resonance;
         gc.enabled       = g.value("enabled", gc.enabled);
-        gc.cols          = g.value("cols", gc.cols);
-        gc.rows          = g.value("rows", gc.rows);
         gc.spacing       = g.value("spacing", gc.spacing);
         gc.stiffness     = g.value("stiffness", gc.stiffness);
         gc.damping       = g.value("damping", gc.damping);
@@ -352,13 +350,6 @@ GameConfig load_arena_config(const std::string& file_path) {
     }
     if (data.contains("forces")) {
         cfg.forces.max_sources = data["forces"].value("max_sources", cfg.forces.max_sources);
-    }
-    if (data.contains("scars")) {
-        const auto& sc2 = data["scars"];
-        cfg.scars.enabled = sc2.value("enabled", cfg.scars.enabled);
-        cfg.scars.max_stamps_per_frame =
-            sc2.value("max_stamps_per_frame", cfg.scars.max_stamps_per_frame);
-        cfg.scars.alpha = sc2.value("alpha", cfg.scars.alpha);
     }
     if (data.contains("palettes")) {
         const auto& pl = data["palettes"];

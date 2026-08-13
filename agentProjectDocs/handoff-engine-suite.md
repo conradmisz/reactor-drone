@@ -6,7 +6,7 @@ Nothing is enabled by default, so the branch is safe to sit on indefinitely and
 safe to merge as a whole *without* changing how the game plays until a flag is
 flipped. This document is what to read before deciding.
 
-Worktree: `../reactor-drone-v2-engine-suite`. Four commits, one per stage.
+Worktree: `../reactor-drone-v2-engine-suite`. Five commits, one per stage.
 
 ---
 
@@ -36,16 +36,19 @@ pillars can be destroyed, a three-row surge table per arena, and
 | RG | R | Resonance Grid | `resonance.enabled` | render-only |
 | 10 | S | Flight Report | `flight_report.enabled` | passive |
 | 3 | T | Force-Field Layer | *(inert by shape)* | sim-side |
-| 6 | V | Battle-Scar Layer | `scars.enabled` | render-only |
+| ~~6~~ | ~~V~~ | ~~Battle-Scar Layer~~ | **CUT (D151)** | — |
 | 9 | U | Destructible Arena | `ObstacleDef::hp` | sim-side |
 | 5 | W | Palette Engine | `palettes.enabled` | render-only |
 | 2 | Y | Bullet-Pattern Language | `EnemyType::pattern` | sim-side |
 | 7 | X | Reactor Surge Events | `ArenaDef::surges` | sim-side |
-| 4 | Z | Chip-Synth Audio | `audio.enabled` | isolated |
+| 4 | Z | Chip-Synth Audio | **SHELVED (D151)** — builds, unwired | isolated |
 
-Design reasoning, the rejected alternatives and every trap are in `decisions.md`
-D138-D150 (one entry per lane). The frame-order table and the hook contract are in
-`ENGINE.md` §6b/§6c.
+Design reasoning, the rejected alternatives and every trap are in
+**`specs/engine-feature-suite.md` → Merge Notes**, D138-D151 (one entry per lane
+plus the playtest batch). They live there rather than in `decisions.md` because
+`ai-workflow-rules.md` forbids a feature branch from writing the shared,
+append-heavy docs — at merge time they move across. The frame-order table and the
+hook contract are in `ENGINE.md` §6b/§6c.
 
 ---
 
@@ -67,11 +70,12 @@ D138-D150 (one entry per lane). The frame-order table and the hook contract are 
   frame (mean RGB 44/31/21 → 43/23/13 on a wave-6 capture) while leaving the
   enemy-cyan and hazard-orange colour language intact.
 
-**NOT done, and the whole remaining question: nobody has played it.** No human has
-seen the grid ripple, watched a pillar come down, read a flight report, or **heard
-a single note of the audio**. Every tuning number in the suite is provisional in
-the strict sense the project uses: it was chosen to be plausible, not because it
-felt right.
+**One playtest done (2026-08-12).** It produced D151: the grid was undersized and
+cluttered (revised), the scar layer made no sense in a arena that floats in space
+(cut), and the audio is shelved. **Everything else is still unplayed** — nobody has
+seen the revised grid, watched a pillar come down, read a flight report, met a
+surge or a bullet pattern, or triggered bullet time. Every tuning number is
+provisional in the strict sense the project uses.
 
 **Known noise:** `Game_Property_Tests` fails about 1 run in 20 on a **pre-existing
 `master` flake** — measured at the same rate in both worktrees and filed as
@@ -84,14 +88,15 @@ believing a red ctest line.
 
 1. **Bullet time** — does the kill-chain beat read as impact, or as lag? It is the
    one feature that changes the *feel* of every other one.
-2. **Resonance grid** — readable under the parallax backdrops, or visual noise? The
-   headless capture says it draws correctly; whether 40 px pitch at alpha 46 is
-   right is a human call.
+2. **Resonance grid (revised, D151)** — it now covers the whole arena, is
+   invisible at rest, and only a bomb, a collapsing pillar or a boss volley rings
+   it. Does a blast read as a shockwave through the lattice, or is it still
+   clutter? Knobs: `resonance.spacing` (64), `max_offset` (26), `a` (190, the PEAK
+   alpha).
 3. **Adaptive Director** — is it perceptible at all? It is *meant* not to be. If it
    is noticeable, `min_mult`/`max_mult` want narrowing.
 4. **Flight report** — legible? Does it fit its 300-unit square on the game-over
    panel without fighting the buttons?
-5. **Battle scars** — by wave 10, history or mud? `scars.alpha` is the knob.
 6. **Palette** — the duotone resolve is a tone map, not a true index remap (see
    D147 for why SDL3 leaves no better option). Check it does not break the rule
    that red always means "this hurts you" (D136). `LIGHT_GAIN` in
@@ -102,8 +107,7 @@ believing a red ctest line.
    one most likely to feel unfair.
 9. **Bullet patterns** — is `reactor_bloom` dodgeable at the boss's size? A ring of
    14 at 190 px/s is a guess.
-10. **Audio** — unheard. Check the mix level first: master 0.8, 8 voices, no
-    limiter beyond a hard clamp, so a busy frame may clip.
+9. **Audio** — shelved (D151). Nothing to judge until it is re-wired.
 
 ---
 
@@ -118,7 +122,9 @@ believing a red ctest line.
   the generator work is flagged with a `ponytail:` comment at the site.
 - **The SFX note table is code, not data** — 1–3 note blips, where a JSON table
   would be more surface area than the sounds. The comment names where it moves.
-- **No playtest, and therefore no balance pass.** Every number is provisional.
+- **One playtest, and no balance pass.** Every number is still provisional.
+- **The battle-scar layer was cut and the audio shelved** after that playtest
+  (D151). The audio code still builds; the scar layer is gone from the tree.
 - The eight committed WAVs under `assets/Audio/` are still unused by anything; the
   chip synth replaces them rather than playing them.
 
@@ -129,10 +135,14 @@ believing a red ctest line.
 1. Play `--suite` first and decide flag by flag; merging with everything off is
    also a legitimate outcome (it lands eleven dormant features and the hook
    scaffolding, and costs nothing at runtime).
-2. Re-run the provenance sweep in `ENGINE.md` §2 — the suite adds four engine file
-   pairs and the counts in that section are now stale by design.
-3. `bugs/003` should be fixed on `master`, not here.
-4. The suite reserved decision ids D138–D180 and spent D138–D150; D151–D180 are
+2. **Move the Merge Notes across**: the decisions into `decisions.md`, the state
+   into `progress-tracker.md`, a line per kept feature into `project-overview.md`,
+   then delete the section. The branch deliberately leaves all four of those files
+   byte-identical to `master`.
+3. Re-run the provenance sweep in `ENGINE.md` §2 — the suite adds three engine
+   file pairs and the counts in that section are now stale by design.
+4. `bugs/003` should be fixed on `master`, not here.
+5. The suite reserved decision ids D138–D180 and spent D138–D151; D152–D180 are
    burned, so the next free id after a merge is still **D194**.
 
 ## If the answer is "not yet"

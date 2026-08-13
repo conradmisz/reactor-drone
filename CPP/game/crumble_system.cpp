@@ -94,15 +94,18 @@ bool CrumbleSystem::update(ComponentStorage& component_storage,
         if (it != live_.end()) live_.erase(it);
         dirty = true;
 
-        // A pillar coming down is a real event: it shakes the room, rings the
-        // lattice and scorches the floor it stood on. Trauma rides the same key
-        // the rest of the game's feedback uses; the impulse and the stamp ride the
-        // one-way render-FX vocabulary a death already uses (Phase 0, D138), so
+        // A pillar coming down is a real event: it shakes the room and rings the
+        // lattice. Trauma rides the same key the rest of the game's feedback uses;
+        // the impulse rides the one-way render-FX vocabulary (Phase 0, D138), so
         // this adds no new coupling and nothing sim-side can read it back.
+        //
+        // D151: this is one of the three things that may ring the grid now (bombs,
+        // pillars, bosses). A collapsing pillar is an explosion in all but name —
+        // it already spawns a debris burst — so it kept its impulse when ordinary
+        // kills lost theirs.
         blackboard.set<float>("feedback.trauma",
             std::min(1.0f, blackboard.get_or<float>("feedback.trauma", 0.0f) + 0.35f));
         fx_events::push_impulse(blackboard, cx, cy, sz->get().width / 40.0f * 1.5f);
-        fx_events::push_stamp(blackboard, cx, cy, /*kind=*/0, sz->get().width / 48.0f);
     }
 
     return dirty;
