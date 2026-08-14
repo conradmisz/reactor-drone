@@ -2562,6 +2562,7 @@ int main(int argc, char* argv[]) {
         render_system.render_layers(bg_layers);
         render_system.render(component_storage, blackboard);
         render_system.render_glow_lines(glow_lines, blackboard);   // v3 Tier 5
+        render_system.render_particles(component_storage, blackboard);  // v3 Tier 9
         hud_system.render(component_storage, blackboard);
         // Menus composite last, on top of the world and the gameplay HUD.
         ui_render_system.render(component_storage, blackboard);
@@ -2574,6 +2575,7 @@ int main(int argc, char* argv[]) {
             bloom_system.begin_emissive();
             render_system.render_emissive(component_storage, blackboard);
             render_system.render_glow_lines(glow_lines, blackboard);   // lines bloom too
+            render_system.render_particles(component_storage, blackboard);  // discs bloom too
         }
         bloom_system.resolve();
         postfx.apply();

@@ -1,7 +1,7 @@
 ---
 id: 004
 title: Additive particles bloom as box-shaped halos
-status: mitigated
+status: fixed
 severity: medium
 area: render
 opened: 2026-08-13
@@ -53,3 +53,31 @@ not attempted.
 `bloom.intensities` pulled back to .46/.40/.33/.27 and `default_intensity` to
 0.38 — between the original .35 and Tier 6b's .55. The squares still seed the
 bloom; they are just less amplified. This treats the symptom, deliberately.
+
+## Fixed (2026-08-14, v3 Tier 9, D202)
+
+The "real fix" this file called for is what shipped: `RenderSystem::render_particles`
+builds ONE mesh of camera-facing quads UV'd across `v2/glow_disc_64.png` and hands
+it to a single `SDL_RenderGeometry` call, exactly as `render_glow_lines` already
+did for ribbons. `render_walk` now skips additive-tinted `Color` entities, so the
+fill-rect path — the actual square — is never taken for a particle.
+
+No performance regression. Canary command (3000 frames, dummy driver), 3 reps each:
+
+    before: 144.74 / 141.12 / 137.26 s   (median 141.12)
+    after:  139.36 / 139.39 / 139.25 s   (median 139.36)
+
+Against the ~27x of the per-particle-texture attempt, batching costs nothing
+measurable: six SDL state calls per FRAME instead of six per PARTICLE.
+
+The `bloom.intensities` mitigation was reverted — back up to Tier 6b's
+.55/.47/.39/.31 / 0.45, since there are no hard edges left to amplify.
+
+One calibration was needed: `glow_disc_64.png` falls from alpha 243 at its centre
+to 59 at quarter-radius, so a 1:1 quad reads as a ~2px dot, far dimmer than the
+fill-rect it replaces. `DISC_SCALE` (2.5) sizes the quad so the solid core lands
+on the particle's real footprint and the soft halo spills outside it.
+
+**Uncovered a second, pre-existing bug while fixing this** — the UI's fills were
+silently relying on particles setting the renderer draw blend mode. See ENGINE.md
+section 5, first entry.

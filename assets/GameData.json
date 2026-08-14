@@ -2539,8 +2539,8 @@
   "bloom": {
     "enabled": true,
     "levels": 4,
-    "intensities": [0.46, 0.40, 0.33, 0.27],
-    "default_intensity": 0.38
+    "intensities": [0.55, 0.47, 0.39, 0.31],
+    "default_intensity": 0.45
   },
   "//specialty": "Lane D / notes #3 + #9 (D67). Two cadences over the spawn counter, not RNG: every_n_spawns injects the live arena's specialty unit, moon_every_n_spawns injects one unlocked shooter (a type with first_wave > 0). by_arena maps an arena NAME to an enemy_types NAME - names, not indices, because the two lists are authored by different lanes. tier2_* is what makes the second pass over the same four themes (waves 26-50) harder. PROVISIONAL: unplayed.",
   "specialty": {

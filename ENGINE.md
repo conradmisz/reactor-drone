@@ -92,6 +92,7 @@ Current measured state: **150 identical · 31 modified · 27 new** (208 source f
 | `tests/unit/test_bloom_math.cpp` | Chain geometry + intensity clamp |
 | `ecs/systems/line_mesh_math.hpp` | v3 Tier 5 (D198): pure ribbon geometry — miter joins (width-preserving, hairpin-clamped), strip triangulation, arc-length UVs. v3 Tier 7 (D200) adds a **per-point-width** `build_ribbon` overload for tapered trails; the scalar form delegates to it, so pre-Tier-7 callers are unchanged |
 | `tests/unit/test_line_mesh_math.cpp` | Its tests, including the taper overload and scalar/per-point equivalence |
+| `ecs/systems/particle_mesh.hpp` | v3 Tier 9 (D202): pure quad geometry for the batched particle renderer — four corner verts per particle with full [0,1] UVs over the glow disc, and `quad_indices` winding two triangles each at a 4-vert stride. Takes ALREADY camera-transformed positions (unlike `line_mesh_math.hpp`, which takes world space): particles are read off entities the CameraSystem has already transformed, so only the Y-flip is left for the render system |
 | `ecs/systems/trail_math.hpp` | v3 Tier 7 (D200): pure position-history math — `push_sample` (with the `min_spacing` guard that stops a stationary or hit-stopped entity packing the buffer with duplicates), `taper_widths`, `points_within_budget`. Points are stored oldest-first so they feed `build_ribbon` directly and its `u` doubles as head-ness |
 | `tests/unit/test_trail_math.cpp` | Its tests (10 cases) |
 | `ecs/systems/postfx_system.{hpp,cpp}` | v3 Tier 4 (D197): one SPIR-V fragment shader (offline-compiled `assets/shaders/postfx.frag.spv`) on a full-screen draw via `SDL_CreateGPURenderState` — aberration, vignette, grade, shockwave. GPU renderer only, which is OPT-IN (`--gpu-renderer`, see bugs/003); self-disables everywhere else. Destructor deliberately leaks the GPU state/shader (bugs/003 teardown wedge) |
@@ -116,7 +117,7 @@ Current measured state: **150 identical · 31 modified · 27 new** (208 source f
 | `gamedata_loader.cpp` | Parses the optional top-level `ui_styles` and `screens` blocks. Both are gated on the key being present, so a data file without them creates zero UI entities and raises no error |
 | `lua_bindings.cpp` | The `ui.*` global table (`push_screen`, `pop_screen`, `set_label`, `get_value`, `set_disabled`, `widget_id`). Unused by this game — see §5 |
 | `ecs/systems/player_control_system.{hpp,cpp}` | `set_speed()` (so a shop purchase applies mid-run) and diagonal normalisation |
-| `ecs/systems/render_system.{hpp,cpp}` | Colour-mod / alpha-mod from `Tint`, additive blend mode, `RenderLayer` bucketing, rotation with `flip_when_left`, `render_layers()` + `TiledLayer` (tiled parallax backdrops, with `alpha` for the v2 Phase 5b arena crossfade), the v3 Tier 2 `render_emissive()` — the same walk drawing only `_glow` siblings + additive-tinted visuals into the bloom emissive target (D195) — and the v3 Tier 5 `render_glow_lines()` (D198): immediate-mode world-space neon ribbons via `SDL_RenderGeometry`, camera transform + Y-flip applied in this file (the one world-space flip site), drawn into scene AND emissive. v3 Tier 7 (D200/D201) adds `GlowLine::widths` (empty = uniform, every pre-Tier-7 caller) and `GlowLine::fade_tail`, which ramps per-vertex alpha with the arc-length `u` the ribbon already computes. Projectiles carry NO `Color` component, so this walk skips them and the ribbon is their only visual (D201) |
+| `ecs/systems/render_system.{hpp,cpp}` | Colour-mod / alpha-mod from `Tint`, additive blend mode, `RenderLayer` bucketing, rotation with `flip_when_left`, `render_layers()` + `TiledLayer` (tiled parallax backdrops, with `alpha` for the v2 Phase 5b arena crossfade), the v3 Tier 2 `render_emissive()` — the same walk drawing only `_glow` siblings + additive-tinted visuals into the bloom emissive target (D195) — and the v3 Tier 5 `render_glow_lines()` (D198): immediate-mode world-space neon ribbons via `SDL_RenderGeometry`, camera transform + Y-flip applied in this file (the one world-space flip site), drawn into scene AND emissive. v3 Tier 7 (D200/D201) adds `GlowLine::widths` (empty = uniform, every pre-Tier-7 caller) and `GlowLine::fade_tail`, which ramps per-vertex alpha with the arc-length `u` the ribbon already computes. Projectiles carry NO `Color` component, so this walk skips them and the ribbon is their only visual (D201). v3 Tier 9 (D202) adds `render_particles()`: every additive particle in ONE `SDL_RenderGeometry` call UV-mapped over `v2/glow_disc_64.png`, drawn into scene AND emissive. The walk itself now SKIPS additive-tinted `Color` entities — drawing them there is the SDL fill-rect path, i.e. the hard square that seeded the box halos (bugs/004). Note the disc's steep falloff: the quad is scaled by `DISC_SCALE` so the solid core lands on the particle's real footprint |
 
 ### Engine — byte-identical class originals (~150 files)
 
@@ -259,6 +260,8 @@ render:
   render_system.render_glow_lines           — v3 Tier 5: arena ring, obstacle
                                               outlines, beam ribbons (list rebuilt
                                               each frame above the render block)
+  render_system.render_particles            — v3 Tier 9: every additive particle
+                                              as one batched mesh of soft discs
   hud_system.render
   ui_render_system.render                   — menus composite last, over world AND HUD
   (v3 Tier 4: when postfx is live, the whole composite above landed in its
@@ -269,6 +272,8 @@ render:
   if bloom.active():
     bloom.begin_emissive()                  — v3 Tier 2: switch to the emissive target
     render_system.render_emissive           — `_glow` siblings + additive Tints only
+    render_system.render_glow_lines         — v3 Tier 5: lines bloom too
+    render_system.render_particles          — v3 Tier 9: discs bloom too
   bloom.resolve()                           — back to the backbuffer: scene 1:1 + blur
                                               chain additive. The chain reads the
                                               EMISSIVE target, not the scene, so only
@@ -317,6 +322,18 @@ render:
 
 ## 5. Known discrepancies and traps
 
+- **The renderer's DRAW blend mode is global state, and until v3 Tier 9 only
+  particles ever set it.** `SDL_SetRenderDrawBlendMode` is renderer-wide, and
+  SDL's default is `SDL_BLENDMODE_NONE`, under which an alpha-0 fill writes
+  SOLID BLACK rather than nothing. `UIRenderSystem` fills every panel/button
+  background with `SDL_RenderFillRect` and never set the mode — it worked only
+  because `draw_entity`'s additive-colour path (i.e. every additive PARTICLE)
+  set `BLENDMODE_BLEND` on its way past each frame. Tier 9 moved particles to a
+  batched `SDL_RenderGeometry` pass, that incidental setter disappeared, and the
+  dash button's "rim, no fill" frame immediately painted an opaque black square
+  over its own icon. `UIRenderSystem::render` now sets `BLENDMODE_BLEND` itself
+  at entry. **Any new system that draws filled rects must set the draw blend
+  mode it needs — never inherit it.**
 - **`--dump` and `--trace` are parsed but never consumed.** `CliOptions::dump_frames` /
   `trace_frames` are populated by `cli_parser.cpp` and `main.cpp` never reads them. There is
   no state dump. `--screenshot` *does* work.

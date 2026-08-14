@@ -238,12 +238,97 @@ void RenderSystem::render_walk(const ComponentStorage& storage,
             auto color_opt = storage.get_component<Color>(entity);
             if (color_opt.has_value()) {
                 if (emissive && !(tint && tint->additive)) continue;
+                // v3 Tier 9 (D202): an additive, textureless Color entity is a
+                // particle. render_particles draws it as a soft batched disc;
+                // drawing it here too would put the hard square back (bugs/004)
+                // AND double its brightness. Both passes skip it.
+                if (tint && tint->additive) continue;
                 draw_entity(x, y, render_width, render_height, color_opt->get(),
                             nullptr, 0.0f, nullptr, tint, flip_when_left);
             }
         }
         // else: has Position+Size but neither Images nor Color → skip
     }
+}
+
+void RenderSystem::render_particles(const ComponentStorage& storage,
+                                    const Blackboard& blackboard) {
+    // Gather first: entities the render walk deliberately skips — additive
+    // Tint, a Color, and no sprite of their own.
+    std::vector<particle_mesh::Quad> quads;
+    const float zoom = std::max(blackboard.get_or<float>("camera.zoom", 1.0f), 0.01f);
+    for (Entity e : storage.entities_with_component<Color>()) {
+        if (!storage.has_component<Size>(e)) continue;
+        auto tint = storage.get_component<Tint>(e);
+        if (!tint.has_value() || !tint->get().additive) continue;
+        if (storage.has_component<SpriteSheet>(e) || storage.has_component<Images>(e)) continue;
+        auto color = storage.get_component<Color>(e);
+        if (!color.has_value()) continue;
+
+        // Same coordinate choice as render_walk: ScreenPosition (already
+        // camera-transformed) when present, raw Position otherwise. x,y is the
+        // rect's bottom-left there, so the quad centres on x + w/2, y + h/2.
+        float x, y;
+        if (storage.has_component<ScreenPosition>(e)) {
+            auto sp = storage.get_component<ScreenPosition>(e);
+            if (!sp.has_value()) continue;
+            x = sp->get().x; y = sp->get().y;
+        } else {
+            auto pos = storage.get_component<Position>(e);
+            if (!pos.has_value()) continue;
+            x = pos->get().x; y = pos->get().y;
+        }
+        const auto& size = storage.get_component<Size>(e)->get();
+        const float w = size.width * zoom;
+        const float h = size.height * zoom;
+        const auto& c = color->get();
+        // ponytail: calibration knob. glow_disc_64's alpha is 243 at the centre
+        // but only 59 at quarter-radius, so the disc's SOLID core is roughly a
+        // third of the quad. Drawn at 1:1 a particle reads as a ~2px dot — much
+        // dimmer than the fill-rect it replaces. Scaling the quad puts the core
+        // back on the old footprint and lets the soft halo spill outside it.
+        // Tune by eye against a real playtest; there is no formula for "reads
+        // like light".
+        constexpr float DISC_SCALE = 2.5f;
+        quads.push_back(particle_mesh::Quad{
+            x + w * 0.5f, y + h * 0.5f, std::max(w, h) * DISC_SCALE,
+            particle_mesh::Rgba{c.r, c.g, c.b, c.a}});
+    }
+    if (quads.empty()) return;
+
+    const auto verts = particle_mesh::build_mesh(quads);
+    const auto idx = particle_mesh::quad_indices(quads.size());
+
+    SDL_Texture* disc = resource_manager_.try_load_texture("v2/glow_disc_64.png");
+    if (disc) SDL_SetTextureBlendMode(disc, SDL_BLENDMODE_ADD);
+
+    int win_w, win_h;
+    draw_surface_size(renderer_, &win_w, &win_h);
+    (void)win_w;
+
+    std::vector<SDL_Vertex> sdl_verts;
+    sdl_verts.reserve(verts.size());
+    for (const auto& v : verts) {
+        SDL_Vertex sv;
+        sv.position.x = v.x;
+        // The world Y-flip, which lives in this file and nowhere else.
+        sv.position.y = static_cast<float>(win_h) - v.y;
+        sv.color = SDL_FColor{static_cast<float>(v.r) / 255.0f,
+                              static_cast<float>(v.g) / 255.0f,
+                              static_cast<float>(v.b) / 255.0f,
+                              static_cast<float>(v.a) / 255.0f};
+        sv.tex_coord.x = v.u;
+        sv.tex_coord.y = v.v;
+        sdl_verts.push_back(sv);
+    }
+
+    // No texture on disk -> additive draw-blend keeps the batch (still one
+    // call); the discs degrade to flat quads rather than vanishing.
+    if (!disc) SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_ADD);
+    SDL_RenderGeometry(renderer_, disc, sdl_verts.data(),
+                       static_cast<int>(sdl_verts.size()), idx.data(),
+                       static_cast<int>(idx.size()));
+    if (!disc) SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
 }
 
 void RenderSystem::render_glow_lines(const std::vector<GlowLine>& lines,

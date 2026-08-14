@@ -69,6 +69,16 @@ void UIRenderSystem::render(const ComponentStorage& storage, Blackboard& blackbo
     // freeze while menus are closed.
     elapsed_ += static_cast<float>(blackboard.get_or<double>("delta_time", 0.0));
 
+    // Every fill below is alpha-composited, so the renderer's draw blend mode
+    // must be BLEND. It is set HERE and not inherited: SDL's default is NONE,
+    // under which an alpha-0 fill writes SOLID BLACK instead of nothing — a
+    // "rim, no fill" widget then paints over whatever it frames. Until v3 Tier
+    // 9 this happened to work only because additive PARTICLES reset the mode to
+    // BLEND on their way past (render_system draw_entity's colour path); the
+    // frame a particle failed to draw, the dash button's icon vanished behind
+    // its own frame. Don't rely on another system's leftovers.
+    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+
     // 1. Collect active screen names. (R8.1)
     std::unordered_set<std::string> active_screens;
     for (Entity screen_entity : storage.entities_with_component<UIScreen>()) {

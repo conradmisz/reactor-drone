@@ -30,6 +30,7 @@
 #include "engine/ecs/component_storage.hpp"
 #include "engine/ecs/blackboard.hpp"
 #include "engine/ecs/systems/line_mesh_math.hpp"
+#include "engine/ecs/systems/particle_mesh.hpp"
 
 // Forward declaration — no #include needed in the header
 class ResourceManager;
@@ -134,6 +135,23 @@ public:
      */
     void render_glow_lines(const std::vector<GlowLine>& lines,
                            const Blackboard& blackboard);
+
+    /**
+     * v3 Tier 9 (D202): every additive particle in ONE SDL_RenderGeometry call,
+     * UV-mapped across v2/glow_disc_64.png so each one is a soft round disc.
+     *
+     * This exists because the alternative shapes are both wrong. Drawn with no
+     * texture, a particle takes draw_entity's fill-rect path and is a hard
+     * SQUARE that seeds the bloom chain and smears into a box halo (bugs/004).
+     * Given a texture per particle, draw_entity makes six batch-flushing SDL
+     * state calls EACH, measured at ~27x. One mesh makes six per frame.
+     *
+     * render_walk skips additive-tinted Color entities for exactly this reason
+     * — this pass owns them. Call it wherever render()/render_emissive() are
+     * called: once into the scene, once into the emissive target.
+     */
+    void render_particles(const ComponentStorage& storage,
+                          const Blackboard& blackboard);
 
     /**
      * v3 Tier 2: the emissive pass. Walks the same entities in the same order
