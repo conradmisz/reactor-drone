@@ -124,6 +124,9 @@ public:
         // the u build_ribbon already computes — 0 at the oldest point, 1 at
         // the head — so it costs nothing extra to compute.
         bool fade_tail = false;
+        // v3 Tier 10: how wide the hot core rides relative to the ribbon.
+        // Narrower reads hotter — the same total light through less width.
+        float core_scale = 0.35f;
     };
 
     /**

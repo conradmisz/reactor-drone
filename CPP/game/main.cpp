@@ -53,6 +53,7 @@
 #include "debug_state.hpp"
 #include "arena_config.hpp"
 #include "arena_vfx.hpp"
+#include "explosion_fx.hpp"      // v3 Tier 11 (D203)
 #include "player_components.hpp"
 #include "enemy_components.hpp"
 #include "collision_layers.hpp"
@@ -2512,16 +2513,87 @@ int main(int argc, char* argv[]) {
                     RenderSystem::GlowLine t;
                     const std::size_t n = pts.size();
                     t.points = std::move(pts);
-                    t.widths = trail::taper_widths(n, head_w);
+                    // v3 Tier 10: shots taper head-heavy (exponent 2) so the
+                    // streak reads as a tracer with a bright nose; hull and
+                    // dash trails keep the straight taper they were tuned on.
+                    t.widths = trail::taper_widths(n, head_w, 0.0f,
+                                                   is_shot ? 2.0f : 1.0f);
                     t.width = head_w;
                     t.color = col;
                     t.fade_tail = true;
                     // Shots keep the hot white core — that is what reads as a
                     // laser rather than a smear. Hull/dash trails do not.
                     t.core = is_shot;
+                    if (is_shot) t.core_scale = 0.26f;   // v3 Tier 10: hotter nose
                     verts_left -= n * 2;
                     glow_lines.push_back(std::move(t));
                 };
+
+                // v3 Tier 11 (D203): the layered explosion. The effect entity
+                // enemy_death_system already spawns IS the clock — its sprite
+                // clip gives progress, so the ring and the shards need no
+                // component, no event and no state of their own. Emitted
+                // before the trails so a heavy wave spends its vertex budget on
+                // blasts rather than on the tail of every enemy shot.
+                for (Entity e : component_storage.entities_with_component<SpriteSheet>()) {
+                    auto ss = component_storage.get_component<SpriteSheet>(e);
+                    if (!ss.has_value()) continue;
+                    if (ss->get().atlas_filename.find("effect_explosion") ==
+                        std::string::npos) continue;
+                    float cx, cy;
+                    if (!center_of(e, &cx, &cy)) continue;
+                    const int last = std::max(1, ss->get().total_frames - 1);
+                    const float t = std::min(1.0f,
+                        static_cast<float>(ss->get().current_frame) /
+                        static_cast<float>(last));
+                    const float a = explosion_fx::ring_alpha(t);
+                    if (a <= 0.01f) continue;
+
+                    auto sz = component_storage.get_component<Size>(e);
+                    const float scale = sz.has_value()
+                        ? std::max(sz->get().width, sz->get().height) / 40.0f : 1.0f;
+
+                    // Layer 2: the shockwave ring.
+                    const float rad = explosion_fx::ring_radius(t, 6.0f * scale,
+                                                                62.0f * scale);
+                    RenderSystem::GlowLine ring;
+                    ring.points = explosion_fx::ring_points(cx, cy, rad, 24);
+                    if (ring.points.size() >= 2 && verts_left >= ring.points.size() * 2) {
+                        ring.width = std::max(2.5f, 11.0f * scale * (0.45f + 0.55f * a));
+                        ring.color = Color{255, 170, 80,
+                                           static_cast<Uint8>(255.0f * std::min(1.0f, a * 1.6f))};
+                        // No white core on the blast layers: a white-lifted
+                        // ring is what the bloom chain smears into the flat
+                        // grey ball that filled the blast. Warm ring, warm
+                        // bloom.
+                        ring.core = false;
+                        verts_left -= ring.points.size() * 2;
+                        glow_lines.push_back(std::move(ring));
+                    }
+
+                    // Layer 3: debris shards, seeded off the entity id so a
+                    // replay throws the same debris.
+                    const auto span = explosion_fx::shard_span(t, 70.0f * scale);
+                    if (span.outer > span.inner) {
+                        constexpr std::size_t SHARDS = 7;
+                        for (std::size_t k = 0; k < SHARDS; ++k) {
+                            if (verts_left < 4) break;
+                            const float ang = explosion_fx::shard_angle(
+                                k, SHARDS, static_cast<std::uint32_t>(e));
+                            const float dx = std::cos(ang), dy = std::sin(ang);
+                            RenderSystem::GlowLine sh;
+                            sh.points = {{cx + dx * span.inner, cy + dy * span.inner},
+                                         {cx + dx * span.outer, cy + dy * span.outer}};
+                            sh.width = std::max(2.0f, 7.0f * scale * (0.4f + 0.6f * a));
+                            sh.color = Color{255, 120, 45,
+                                             static_cast<Uint8>(255.0f * std::min(1.0f, a * 1.5f))};
+                            sh.core = false;
+                            sh.fade_tail = true;
+                            verts_left -= 4;
+                            glow_lines.push_back(std::move(sh));
+                        }
+                    }
+                }
 
                 // A shot's colour rides on its own tag: enemy types carry
                 // per-spec colours, and the player's hue already bakes in

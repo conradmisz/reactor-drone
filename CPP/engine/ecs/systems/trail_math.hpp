@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+
 /**
  * trail_math.hpp — v3 Tier 7: position-history trails.
  *
@@ -57,18 +59,25 @@ inline bool push_sample(std::vector<P2>& pts, P2 p, float min_spacing,
 
 /**
  * Per-point widths for a trail ribbon: `head_width` at the newest point,
- * tapering linearly to `tail_width` at the oldest. n < 1 → empty; n == 1 →
- * just the head (build_ribbon rejects it anyway, which is intended — a
- * one-point trail has no length to draw).
+ * tapering to `tail_width` at the oldest. n < 1 → empty; n == 1 → just the
+ * head (build_ribbon rejects it anyway, which is intended — a one-point trail
+ * has no length to draw).
+ *
+ * `exponent` shapes the taper: 1.0 is the original straight line, and > 1
+ * concentrates the width at the head so the tail thins out fast (v3 Tier 10 —
+ * that head-heavy profile is what reads as a tracer instead of a smear).
+ * Endpoints are pinned either way.
  */
 inline std::vector<float> taper_widths(std::size_t n, float head_width,
-                                       float tail_width = 0.0f) {
+                                       float tail_width = 0.0f,
+                                       float exponent = 1.0f) {
     std::vector<float> w;
     if (n == 0) return w;
     w.reserve(n);
     if (n == 1) { w.push_back(head_width); return w; }
     for (std::size_t i = 0; i < n; ++i) {
-        const float t = static_cast<float>(i) / static_cast<float>(n - 1);
+        float t = static_cast<float>(i) / static_cast<float>(n - 1);
+        if (exponent != 1.0f) t = std::pow(t, exponent);
         w.push_back(tail_width + (head_width - tail_width) * t);
     }
     return w;

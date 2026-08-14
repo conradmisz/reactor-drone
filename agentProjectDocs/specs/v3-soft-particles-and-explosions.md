@@ -78,7 +78,14 @@ arena looks polished rather than like lit rectangles.
   fixed. Gates: build clean, ctest 8/8, canary identical twice AND unchanged from
   the pre-Tier-9 baseline (`Frames: 3000  Final score: 100  Units: 24  Wave: 1
   Phase: 1`), timing median 141.1s -> 139.4s (no regression, 3 reps each).
-- Tiers 10 (tracer) and 11 (layered explosion) NOT started.
+- **Tiers 10 + 11 DONE**, 2026-08-14. Gates re-run after both: build clean,
+  ctest 8/8, canary identical and still matching the pre-Tier-9 baseline, timing
+  median 139.5s (flat).
+- Tier 11 turned up the real cause of "the explosion is very simple": the death
+  system was loading the CLASS-ORIGINAL atlas (a grey sphere growing into a
+  rounded square), not the v2 art. Repointed at `v2/effect_explosion.json`, and
+  the v2 clip itself was re-authored as a brief flash (12 frames @0.04) now that
+  the ring and shards are drawn live.
 - **Not playtested.** All Tier 9 verification is headless captures read back;
   nobody has judged the soft discs in a real window. `DISC_SCALE` (2.5) is a
   by-eye constant and is the first thing to tune when someone does.
@@ -95,7 +102,14 @@ arena looks polished rather than like lit rectangles.
 - **D203:** the explosion shockwave ring and debris shards are `GlowLine`s, not
   new sprites or a new renderer — the Tier 5 line renderer already draws exactly
   this shape.
-- **D204:** reserved for Tier 10's tracer tuning if it needs a recorded call.
+- **D204:** the tracer is tuning, not new machinery — `taper_widths` gained an
+  `exponent` (shots use 2.0) and `GlowLine` a `core_scale` (shots 0.26), plus
+  GameData trail length 14x3.0 -> 20x3.6 (~9.8x the 7.0 shot width) with the
+  vertex budget raised 4000 -> 6000 to pay for it.
+- **D206:** `EnemyDeathSystem` loads `images/v2/effect_explosion.json`. It had
+  loaded the class-original placeholder since before v2; see ENGINE.md section 5.
+  The blast layers also set `core = false` — a white-lifted core blooms into a
+  flat grey ball that fills the ring.
 - **D205:** `UIRenderSystem::render` sets `SDL_BLENDMODE_BLEND` itself instead of
   inheriting it. Found by Tier 9: the UI's alpha fills had been relying on
   additive particles setting the renderer-wide draw blend mode each frame, so

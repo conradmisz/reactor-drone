@@ -402,7 +402,7 @@ void RenderSystem::render_glow_lines(const std::vector<GlowLine>& lines,
             };
             std::vector<float> core_w;
             core_w.reserve(zoomed.size());
-            for (float pw : zoomed) core_w.push_back(pw * 0.35f);
+            for (float pw : zoomed) core_w.push_back(pw * line.core_scale);
             draw_ribbon(line.points, w * 0.35f, core_w, line.fade_tail,
                         lift(line.color.r), lift(line.color.g),
                         lift(line.color.b), line.color.a);

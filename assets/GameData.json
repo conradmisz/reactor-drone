@@ -2529,12 +2529,12 @@
   "//trails": "v3 Tier 7 (D200). Position-history neon ribbons on the hull, player shots and enemy shots. Presentation only: history lives in a render-side map, never in component_storage, so no gameplay system can read it. min_spacing doubles as the hit-stop guard (delta_time 0 = no movement = no sample). vertex_budget caps TOTAL ribbon verts per frame; 2 verts per point, so 4000 is ~2000 points, and trails degrade tail-first before the framerate does.",
   "trails": {
     "enabled": true,
-    "max_points": 14,
-    "min_spacing": 3.0,
+    "max_points": 20,
+    "min_spacing": 3.6,
     "shot_width": 7.0,
     "drone_width": 9.0,
     "dash_width": 16.0,
-    "vertex_budget": 4000
+    "vertex_budget": 6000
   },
   "bloom": {
     "enabled": true,

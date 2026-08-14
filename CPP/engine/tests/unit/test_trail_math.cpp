@@ -2,6 +2,7 @@
 // Tier 7 position-history trails. No SDL, no window.
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 
 #include "engine/ecs/systems/trail_math.hpp"
 
@@ -89,4 +90,28 @@ TEST_CASE("points_within_budget spends 2 verts per point", "[trail]") {
 TEST_CASE("points_within_budget drops a trail it cannot draw", "[trail]") {
     CHECK(points_within_budget(10, 3) == 0);   // affords 1 point
     CHECK(points_within_budget(10, 0) == 0);
+}
+
+// v3 Tier 10: a tracer wants its width concentrated at the head, so the tail
+// thins out fast instead of at a constant rate.
+TEST_CASE("taper_widths with an exponent thins the tail faster than linear",
+          "[trail]") {
+    auto lin = taper_widths(5, 8.0f, 0.0f);
+    auto sharp = taper_widths(5, 8.0f, 0.0f, 2.0f);
+    REQUIRE(lin.size() == 5);
+    REQUIRE(sharp.size() == 5);
+    // Head and tail are pinned by the endpoints regardless of the exponent.
+    CHECK(sharp.front() == Catch::Approx(lin.front()));
+    CHECK(sharp.back() == Catch::Approx(lin.back()));
+    // Everything between is narrower — that IS the sharper taper.
+    for (std::size_t i = 1; i + 1 < sharp.size(); ++i) CHECK(sharp[i] < lin[i]);
+    // Still monotone tail -> head, so the ribbon never pinches.
+    for (std::size_t i = 1; i < sharp.size(); ++i) CHECK(sharp[i] >= sharp[i - 1]);
+}
+
+TEST_CASE("taper_widths exponent defaults to linear", "[trail]") {
+    auto a = taper_widths(4, 6.0f, 1.0f);
+    auto b = taper_widths(4, 6.0f, 1.0f, 1.0f);
+    REQUIRE(a.size() == b.size());
+    for (std::size_t i = 0; i < a.size(); ++i) CHECK(a[i] == Catch::Approx(b[i]));
 }

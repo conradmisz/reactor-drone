@@ -3,12 +3,12 @@
   "frame_width": 128,
   "frame_height": 128,
   "columns": 4,
-  "total_frames": 8,
+  "total_frames": 12,
   "animations": {
     "expand": {
       "start_frame": 0,
-      "frame_count": 8,
-      "frame_duration": 0.06,
+      "frame_count": 12,
+      "frame_duration": 0.04,
       "looping": false
     }
   }
