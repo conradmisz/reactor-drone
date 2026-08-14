@@ -110,7 +110,7 @@ Current measured state: **150 identical · 31 modified · 27 new** (208 source f
 | `lua_bindings.cpp` | The `ui.*` global table (`push_screen`, `pop_screen`, `set_label`, `get_value`, `set_disabled`, `widget_id`). Unused by this game — see §5 |
 | `ecs/systems/player_control_system.{hpp,cpp}` | `set_speed()` (so a shop purchase applies mid-run) and diagonal normalisation |
 | `ecs/systems/render_system.{hpp,cpp}` | Colour-mod / alpha-mod from `Tint`, additive blend mode, `RenderLayer` bucketing, rotation with `flip_when_left`, and `render_layers()` + `TiledLayer` (tiled parallax backdrops, with `alpha` for the v2 Phase 5b arena crossfade) |
-| `project_paths.hpp` | Task 2b: `assets_dir()` gained a `_WIN32` branch resolving relative to `SDL_GetBasePath()` instead of the baked `CLASS_ROOT_DIR`, and a new `user_data_dir()` — `class_root()` on Linux (unchanged on-disk saves), `SDL_GetPrefPath("conradm", "ReactorDrone")` on Windows. Linux/dev behaviour is byte-identical; only reachable via `#ifdef _WIN32`. See §5 |
+| `project_paths.hpp` | Task 2b + D199: `assets_dir()` gained a `_WIN32`/`RD_PORTABLE` branch resolving relative to `SDL_GetBasePath()` instead of the baked `CLASS_ROOT_DIR`, and a new `user_data_dir()` — `class_root()` on Linux (unchanged on-disk saves), `SDL_GetPrefPath("conradm", "ReactorDrone")` on Windows and on any `RD_PORTABLE` release build. Dev behaviour is byte-identical. See §5 |
 
 ### Engine — byte-identical class originals (~150 files)
 
@@ -293,8 +293,8 @@ render:
 
 ## 5. Known discrepancies and traps
 
-- **`assets_dir()`/`user_data_dir()` (Task 2b) are Windows-only branches; Linux is untouched
-  on purpose.** `CLASS_ROOT_DIR` is an absolute build-machine path baked in at compile time —
+- **`assets_dir()`/`user_data_dir()` branch on `_WIN32` OR `RD_PORTABLE`; a plain dev
+  build is untouched on purpose.** `CLASS_ROOT_DIR` is an absolute build-machine path baked in at compile time —
   fine for the class dev workflow (run from any CWD), fatal for a Windows binary handed to
   someone else's PC. On `_WIN32`, `assets_dir()` resolves `<exe dir>/assets` via
   `SDL_GetBasePath()` (the flat install layout `installer/package-win.sh` stages — exe, DLLs
@@ -307,6 +307,15 @@ render:
   test harness (`test_resource_manager.cpp`, `test_sidecar_loader.cpp`, `test_script_system.cpp`,
   `test_lua_manager.cpp` and two property-test files) keeps using the raw `CLASS_ROOT_DIR`
   macro directly to find `CPP/engine/tests/test_assets` — untouched, native-only.
+  **D199 (2026-08-13) widened both branches from `_WIN32` to
+  `defined(_WIN32) || defined(RD_PORTABLE)`.** `RD_PORTABLE` is a CMake option, OFF by
+  default, that release packaging turns ON — so a Linux or macOS *release* build resolves
+  assets beside the exe and saves via `SDL_GetPrefPath` exactly as Windows always has, while
+  every dev build, `run.py`, the saves/ workflow and the replay canary keep the
+  `CLASS_ROOT_DIR` behaviour byte-for-byte. This was the only real blocker to shipping on
+  Linux/macOS: without it a non-Windows binary looks for the *build machine's* source tree on
+  the player's computer and fails instantly. Verified by running a staged build from an alien
+  cwd under a scratch `HOME` (`scripts/verify_branch.sh` section 6 pins it).
 - **`--dump` and `--trace` are parsed but never consumed.** `CliOptions::dump_frames` /
   `trace_frames` are populated by `cli_parser.cpp` and `main.cpp` never reads them. There is
   no state dump. `--screenshot` *does* work.

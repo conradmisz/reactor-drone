@@ -18,6 +18,17 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   (`rtprobe`, `TestPilotXYZ123`, `CurlProbe1`, `AliceRace1*`, `FinalNameR1`,
   `ZZZ_TASK8_*`) plus the four `BOT_*` pilots. Public on `/top`; delete before
   release.
+- **UNJUDGED BY A HUMAN: nobody has played any of this in a window.** The
+  feedback form, ANALYTICS toggle, leaderboard screen and the 5-button pause row
+  have only ever been driven by `scripts/drive_ui.py`. Tests passing is not a
+  playtest.
+- **Uncommitted on this branch (2026-08-13):** the mailing-list feature —
+  `/subscribe` + `/unsubscribe` routes, `subscribers` table, CORS on every JSON
+  reply, plus main.cpp/GameData.json changes and an untracked
+  `specs/mailing-list.md`. Schema and routes are consistent (checked); the work
+  is simply not committed. `wrangler deploy` ships what is on disk, so commit
+  before deploying or production runs code that exists in no commit.
+- **67 commits unpushed.** No remote has any of this.
 - **D201 (2026-08-13):** the pause freeze is now stack-wide and PHASE_FEEDBACK
   handles input above the phase machine. Found two chained bugs: a screen
   pushed over pause silently un-froze the sim, and fixing that exposed a
