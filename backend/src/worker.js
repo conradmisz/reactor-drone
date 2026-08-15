@@ -122,7 +122,8 @@ export default {
       // Read-only aggregates behind /dashboard. Exposes nothing /top doesn't
       // already make public (names + scores); no player_id ever leaves here.
       if (req.method === 'GET' && url.pathname === '/stats') {
-        const [totals, daily, players, recent, feedback, subs] = await env.DB.batch([
+        const [totals, daily, players, recent, feedback, subs,
+               outcomes, waves, pops, db] = await env.DB.batch([
           env.DB.prepare(`SELECT
             (SELECT COUNT(*) FROM players) AS players,
             (SELECT COUNT(*) FROM scores)  AS runs,
@@ -160,7 +161,32 @@ export default {
                     in_run, wave, score, difficulty
              FROM feedback ORDER BY ts DESC LIMIT 30`),
           env.DB.prepare(
-            `SELECT email, source, ts FROM subscribers ORDER BY ts DESC LIMIT 50`)
+            `SELECT email, source, ts FROM subscribers ORDER BY ts DESC LIMIT 50`),
+          // Telemetry aggregates (specs/dashboard-telemetry-and-status.md).
+          // Per-run rows, so COUNT(*) is runs; indexed columns, no json_extract.
+          env.DB.prepare(
+            `SELECT outcome, COUNT(*) AS n FROM runs GROUP BY outcome`),
+          env.DB.prepare(
+            `SELECT wave, COUNT(*) AS n FROM runs GROUP BY wave ORDER BY wave`),
+          // The three populations are three different numbers by design:
+          // registration, banking a score, and telemetry are separate consents
+          // (ESC skips name entry but not analytics), so telem may exceed reg.
+          env.DB.prepare(`SELECT
+            (SELECT COUNT(*) FROM players) AS reg,
+            (SELECT COUNT(DISTINCT player_id) FROM scores) AS scored,
+            (SELECT COUNT(DISTINCT player_id) FROM runs) AS telem`),
+          // DB status: per-table rows, plus today's writes vs the D1 free
+          // tier's 100K rows/day that drove the one-row-per-run design.
+          env.DB.prepare(`SELECT
+            (SELECT COUNT(*) FROM players)     AS players,
+            (SELECT COUNT(*) FROM scores)      AS scores,
+            (SELECT COUNT(*) FROM runs)        AS runs,
+            (SELECT COUNT(*) FROM feedback)    AS feedback,
+            (SELECT COUNT(*) FROM subscribers) AS subscribers,
+              (SELECT (SELECT COUNT(*) FROM scores      WHERE ts >= unixepoch('now','start of day'))
+                    + (SELECT COUNT(*) FROM runs        WHERE ts >= unixepoch('now','start of day'))
+                    + (SELECT COUNT(*) FROM feedback    WHERE ts >= unixepoch('now','start of day'))
+                    + (SELECT COUNT(*) FROM subscribers WHERE ts >= unixepoch('now','start of day'))) AS writes_today`)
         ]);
         return new Response(JSON.stringify({
           version: env.RELEASE_VERSION,
@@ -169,7 +195,11 @@ export default {
           players: players.results,
           recent: recent.results,
           feedback: feedback.results,
-          subs: subs.results
+          subs: subs.results,
+          outcomes: outcomes.results,
+          waves: waves.results,
+          pops: pops.results[0],
+          db: db.results[0]
         }), { headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
       }
 

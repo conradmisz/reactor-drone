@@ -9,20 +9,27 @@ export const DASHBOARD_HTML = `<!doctype html>
 :root{
   color-scheme:light;
   --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
-  --grid:#e1e0d9; --axis:#c3c2b7; --series:#2a78d6; --good:#0ca30c;
+  --grid:#e1e0d9; --axis:#c3c2b7; --series:#2a78d6; --good:#0ca30c; --warn:#fab219; --bad:#d03b3b;
   --border:rgba(11,11,11,.10); --wash:rgba(42,120,214,.14);
+  /* categorical slots 1-4 (validated light) — outcome split only */
+  --c1:#2a78d6; --c2:#eb6834; --c3:#1baf7a; --c4:#eda100;
+  --meter-track:#cde2fb;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
   color-scheme:dark;
   --page:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink-2:#c3c2b7; --muted:#898781;
-  --grid:#2c2c2a; --axis:#383835; --series:#3987e5; --good:#0ca30c;
+  --grid:#2c2c2a; --axis:#383835; --series:#3987e5; --good:#0ca30c; --warn:#fab219; --bad:#d03b3b;
   --border:rgba(255,255,255,.10); --wash:rgba(57,135,229,.18);
+  --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500;
+  --meter-track:#0d366b;
 }}
 :root[data-theme=dark]{
   color-scheme:dark;
   --page:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink-2:#c3c2b7; --muted:#898781;
-  --grid:#2c2c2a; --axis:#383835; --series:#3987e5; --good:#0ca30c;
+  --grid:#2c2c2a; --axis:#383835; --series:#3987e5; --good:#0ca30c; --warn:#fab219; --bad:#d03b3b;
   --border:rgba(255,255,255,.10); --wash:rgba(57,135,229,.18);
+  --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500;
+  --meter-track:#0d366b;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--page);color:var(--ink);
@@ -30,6 +37,12 @@ body{margin:0;background:var(--page);color:var(--ink);
 /* minmax(0,1fr): an auto track sizes to max-content and would let the tile
    grid push the page wider than the viewport on narrow screens. */
 .wrap{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:20px}
+/* inverted pyramid: tiles up top, then paired live panels, reference last.
+   Two columns only when there is room; .full spans both either way. */
+@media (min-width:960px){
+  .wrap{grid-template-columns:repeat(2,minmax(0,1fr))}
+  header,.tiles,.full{grid-column:1 / -1}
+}
 header{display:flex;flex-wrap:wrap;gap:12px;align-items:baseline;justify-content:space-between}
 h1{font-size:20px;margin:0;letter-spacing:-.01em}
 h2{font-size:14px;margin:0 0 2px;letter-spacing:-.01em}
@@ -81,6 +94,31 @@ td.bar span{position:relative}
 .tag{display:inline-block;background:var(--wash);color:var(--ink-2);border-radius:5px;
   padding:1px 6px;font-size:11px;margin-right:4px}
 #stab{min-width:420px}
+/* populations trio — three labeled figures, not a chart */
+.pops{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:10px 0 16px}
+.pops .k{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.pops .v{font-size:24px;letter-spacing:-.02em;margin-top:2px}
+.pops .d{color:var(--ink-2);font-size:12px}
+/* outcome split — one horizontal stacked bar, segments gapped 2px */
+.stack{display:flex;height:26px;border-radius:5px;overflow:hidden;gap:2px;margin:8px 0 6px}
+.stack i{min-width:3px}
+.skey{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;color:var(--ink-2)}
+.skey .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+.hist{width:100%;height:150px;display:block;overflow:visible}
+.hist text{fill:var(--muted);font-size:11px}
+/* db meter — track is a lighter step of the fill's own ramp */
+.meter{height:10px;border-radius:5px;background:var(--meter-track);overflow:hidden;margin:6px 0 4px}
+.meter i{display:block;height:100%;border-radius:5px;background:var(--series);min-width:2px}
+.meter.warn i{background:var(--warn)} .meter.bad i{background:var(--bad)}
+#dtab{min-width:0}
+/* tech center — reference typography, quieter than the live panels */
+.tech h3{font-size:12px;margin:16px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.tech table{font-size:13px}
+.tech td,.tech th{white-space:normal;text-align:left}
+.tech .flow{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
+  color:var(--ink-2);background:color-mix(in srgb,var(--ink) 4%,transparent);
+  border-radius:8px;padding:10px 12px;overflow-x:auto;white-space:pre}
+.tech code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
 .err{color:#d03b3b;font-size:13px}
 </style></head><body>
 <div class="wrap">
@@ -92,12 +130,22 @@ td.bar span{position:relative}
 
 <div class="tiles" id="tiles"></div>
 
-<section class="card">
+<section class="card full">
   <h2>Runs per day</h2><div class="sub" id="actsub">last 14 days</div>
   <svg class="chart" id="act" role="img" aria-label="Runs per day, last 14 days"></svg>
 </section>
 
-<section class="card">
+<section class="card full">
+  <h2>Telemetry</h2><div class="sub">per-run reports · ANALYTICS-on players only</div>
+  <div class="pops" id="pops"></div>
+  <h3 class="sub" style="margin:8px 0 0">How runs end</h3>
+  <div class="stack" id="ostack"></div><div class="skey" id="okey"></div>
+  <h3 class="sub" style="margin:16px 0 0">Waves reached</h3>
+  <svg class="hist" id="whist" role="img" aria-label="Runs by wave reached"></svg>
+  <div class="empty" id="tempty" hidden>No telemetry yet.</div>
+</section>
+
+<section class="card full">
   <h2>Feedback</h2><div class="sub">newest first · last 30 reports</div>
   <div id="flist"></div>
   <div class="empty" id="fempty" hidden>No feedback yet.</div>
@@ -128,6 +176,50 @@ td.bar span{position:relative}
     <thead><tr><th class="lead">Address</th><th>Source</th><th>When</th></tr></thead><tbody></tbody>
   </table></div>
   <div class="empty" id="sempty" hidden>No subscribers yet.</div>
+</section>
+
+<section class="card">
+  <h2>Database</h2><div class="sub">D1 reactor-drone-db · free tier</div>
+  <div class="scroll"><table id="dtab">
+    <thead><tr><th class="lead">Table</th><th>Rows</th></tr></thead><tbody></tbody>
+  </table></div>
+  <div class="sub" style="margin-top:12px">Writes today <span id="wpct"></span></div>
+  <div class="meter" id="wmeter"><i style="width:0"></i></div>
+  <div class="sub">of 100,000 rows/day (free tier); one row per run by design</div>
+</section>
+
+<section class="card full tech">
+  <h2>Tech center</h2><div class="sub">the full stack on one screen · updated with the code it describes</div>
+  <h3>Request flow</h3>
+  <div class="flow">game (main.cpp) --net::post_json + X-Game-Key--> Worker reactor-drone-api --D1 binding--> reactor-drone-db
+website signup form --fetch, CORS--> Worker /subscribe ----------------------------^
+this page ----------Basic auth----> Worker /stats (6-query batch) ------------------^</div>
+  <h3>Routes <span style="text-transform:none;letter-spacing:0">(checked against worker.js by verify_branch.sh)</span></h3>
+  <div class="scroll"><table id="routes">
+    <thead><tr><th>Route</th><th>Auth</th><th>Writes</th><th>Notes</th></tr></thead>
+    <tbody>
+    <tr><td><code>GET /version</code></td><td>public</td><td>—</td><td>update check; version + installer URL from Worker vars</td></tr>
+    <tr><td><code>POST /register</code></td><td>public</td><td>players</td><td>UUID + pilot name; 409 on a taken name (NOCASE)</td></tr>
+    <tr><td><code>POST /score</code></td><td>X-Game-Key</td><td>scores</td><td>score 0–10M; player must exist</td></tr>
+    <tr><td><code>GET /top</code></td><td>public</td><td>—</td><td>leaderboard, high|total, top 20, names only</td></tr>
+    <tr><td><code>POST /telemetry</code></td><td>X-Game-Key</td><td>runs</td><td>one run report, 16KB cap; consent = ANALYTICS toggle</td></tr>
+    <tr><td><code>POST /feedback</code></td><td>X-Game-Key</td><td>feedback</td><td>player-written report + auto context, 8KB cap</td></tr>
+    <tr><td><code>POST /subscribe</code></td><td>public</td><td>subscribers</td><td>dedupes by address; reply never reveals membership</td></tr>
+    <tr><td><code>GET|POST /unsubscribe</code></td><td>token</td><td>subscribers</td><td>GET offers, POST deletes (prefetch-safe)</td></tr>
+    <tr><td><code>GET /dashboard</code></td><td>Basic</td><td>—</td><td>this page</td></tr>
+    <tr><td><code>GET /stats</code></td><td>Basic</td><td>—</td><td>every panel here; never emits player_id</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Where things live</h3>
+  <div class="scroll"><table>
+    <tbody>
+    <tr><td class="lead">Client net calls</td><td><code>CPP/game/main.cpp</code> — register, score, telemetry, feedback, subscribe; <code>net_config.hpp</code> pins NET_BASE (compiled into every shipped binary — do not move the Worker)</td></tr>
+    <tr><td class="lead">Worker + page</td><td><code>backend/src/worker.js</code>, <code>dashboard.js</code>; config <code>wrangler.jsonc</code>; secrets GAME_KEY, DASH_PASS</td></tr>
+    <tr><td class="lead">Schema</td><td><code>backend/schema.sql</code> — players, scores, runs, feedback, subscribers (all CREATE IF NOT EXISTS; migrate with d1 execute --remote)</td></tr>
+    <tr><td class="lead">Releases</td><td><code>.github/workflows/release.yml</code> on tag v* — Windows installer + portable zip, Linux tarball, mac .app, itch via butler</td></tr>
+    <tr><td class="lead">Decisions</td><td><code>agentProjectDocs/decisions.md</code> D195–D203 cover this subsystem; specs in <code>agentProjectDocs/specs/</code></td></tr>
+    </tbody>
+  </table></div>
 </section>
 
 <div class="sub" id="err"></div>
@@ -216,6 +308,115 @@ function drawActivity(){
       + (d.best ? '<br>best ' + fmt(d.best) : ''));
   };
   svg.onmouseleave = hideTip;
+}
+
+// Outcome slots are assigned once, in canonical order — color follows the
+// entity, never its rank, so a quiet outcome keeps its hue forever.
+// Segment order IS the palette's validated adjacency (blue-orange-aqua-yellow):
+// death,quit,victory,close. Reordering these repaints nothing (color follows
+// the outcome) but changes which hues sit side by side — re-run the validator.
+var OUTCOMES = [
+  { k: 'death',   label: 'Death',   c: 'var(--c1)' },
+  { k: 'quit',    label: 'Quit',    c: 'var(--c2)' },
+  { k: 'victory', label: 'Victory', c: 'var(--c3)' },
+  { k: 'close',   label: 'Closed',  c: 'var(--c4)' }
+];
+
+function drawOutcomes(rows){
+  var by = {}, total = 0, i;
+  for (i = 0; i < rows.length; i++){ by[rows[i].outcome] = rows[i].n; total += rows[i].n; }
+  var bar = '', key = '';
+  for (i = 0; i < OUTCOMES.length; i++){
+    var o = OUTCOMES[i], n = by[o.k] || 0;
+    var pct = total ? (n / total * 100) : 0;
+    if (n) bar += '<i style="flex:' + n + ' 0 0;background:' + o.c
+      + '" data-o="' + i + '"></i>';
+    // the key doubles as the direct label: name + count, ink not series color
+    key += '<span><span class="sw" style="background:' + o.c + '"></span>'
+      + o.label + ' <b>' + fmt(n) + '</b>'
+      + (total ? ' <span style="color:var(--muted)">' + (n/total*100).toFixed(0) + '%</span>' : '')
+      + '</span>';
+  }
+  $('ostack').innerHTML = bar;
+  $('okey').innerHTML = key;
+  $('ostack').onmousemove = function(e){
+    var t = e.target.getAttribute && e.target.getAttribute('data-o');
+    if (t == null) return hideTip();
+    var o = OUTCOMES[+t], n = by[o.k] || 0;
+    showTip(e, '<b>' + o.label + '</b><br>' + fmt(n) + ' of ' + fmt(total) + ' runs');
+  };
+  $('ostack').onmouseleave = hideTip;
+}
+
+var waves = [];
+function drawWaves(){
+  var svg = $('whist');
+  var W = Math.max(280, Math.round(svg.getBoundingClientRect().width) || 720);
+  var H = 150, padL = 30, padR = 8, padT = 8, padB = 24;
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  var iw = W - padL - padR, ih = H - padT - padB;
+  // continuous 0..maxWave axis so gaps read as zero, not as missing bars
+  var maxW = 0, by = {}, max = 0, i;
+  for (i = 0; i < waves.length; i++){
+    maxW = Math.max(maxW, waves[i].wave); by[waves[i].wave] = waves[i].n;
+    max = Math.max(max, waves[i].n);
+  }
+  var top = Math.max(1, max), n = maxW + 1;
+  var s = '', ticks = [0, Math.round(top/2), top].filter(function(v,j,a){ return a.indexOf(v)===j; });
+  for (i = 0; i < ticks.length; i++){
+    var gy = padT + ih - (ticks[i]/top)*ih;
+    s += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (W-padR) + '" y2="' + gy
+      + '" stroke="var(--grid)" stroke-width="1"/>'
+      + '<text x="' + (padL-8) + '" y="' + (gy+4) + '" text-anchor="end">' + ticks[i] + '</text>';
+  }
+  var slot = iw / n, gap = 2, bw = Math.max(2, slot - gap);
+  var lblStep = Math.max(1, Math.ceil(26 / slot));
+  for (i = 0; i < n; i++){
+    var v = by[i] || 0;
+    var bh = (v/top)*ih;
+    var x = padL + i*slot + (slot-bw)/2, y = padT + ih - bh;
+    if (v) s += '<path d="' + barPath(x, y, bw, Math.max(bh, 2), Math.min(4, bw/2))
+      + '" fill="var(--series)" data-w="' + i + '"/>';
+    s += '<rect x="' + (padL + i*slot) + '" y="' + padT + '" width="' + slot + '" height="' + ih
+      + '" fill="transparent" data-w="' + i + '"/>';
+    if (i % lblStep === 0)
+      s += '<text x="' + (x + bw/2) + '" y="' + (H-6) + '" text-anchor="middle">' + i + '</text>';
+  }
+  s += '<line x1="' + padL + '" y1="' + (padT+ih) + '" x2="' + (W-padR) + '" y2="' + (padT+ih)
+    + '" stroke="var(--axis)" stroke-width="1"/>';
+  svg.innerHTML = s;
+  svg.onmousemove = function(e){
+    var t = e.target.getAttribute && e.target.getAttribute('data-w');
+    if (t == null) return hideTip();
+    var v = by[+t] || 0;
+    showTip(e, '<b>Wave ' + t + '</b><br>' + fmt(v) + (v === 1 ? ' run ended here' : ' runs ended here'));
+  };
+  svg.onmouseleave = hideTip;
+}
+
+function drawPops(p){
+  $('pops').innerHTML =
+      '<div><div class="k">Registered</div><div class="v">' + fmt(p.reg)
+    + '</div><div class="d">completed name entry</div></div>'
+    + '<div><div class="k">Banked a score</div><div class="v">' + fmt(p.scored)
+    + '</div><div class="d">registered and finished a run</div></div>'
+    + '<div><div class="k">Sending telemetry</div><div class="v">' + fmt(p.telem)
+    + '</div><div class="d">ANALYTICS on · can exceed registered (ESC skips name entry, not stats)</div></div>';
+}
+
+function drawDb(db){
+  var tables = ['players','scores','runs','feedback','subscribers'];
+  var s = '', i;
+  for (i = 0; i < tables.length; i++)
+    s += '<tr><td class="lead"><code>' + tables[i] + '</code></td><td>'
+      + fmt(db[tables[i]]) + '</td></tr>';
+  $('dtab').querySelector('tbody').innerHTML = s;
+  var LIMIT = 100000;
+  var pct = Math.min(100, db.writes_today / LIMIT * 100);
+  $('wpct').textContent = fmt(db.writes_today) + ' · ' + (pct < 1 ? '<1' : pct.toFixed(0)) + '%';
+  var m = $('wmeter');
+  m.className = 'meter' + (pct >= 80 ? ' bad' : pct >= 50 ? ' warn' : '');
+  m.firstElementChild.style.width = Math.max(pct, db.writes_today ? 2 : 0) + '%';
 }
 
 var sortK = 'best', sortD = -1, players = [];
@@ -325,6 +526,13 @@ function render(data){
   drawRecent(data.recent);
   drawFeedback(data.feedback || []);
   drawSubs(data.subs || []);
+  var hasTelem = (data.waves || []).length > 0;
+  $('tempty').hidden = hasTelem;
+  drawOutcomes(data.outcomes || []);
+  waves = data.waves || [];
+  drawWaves();
+  if (data.pops) drawPops(data.pops);
+  if (data.db) drawDb(data.db);
 }
 
 var lastOk = 0;
@@ -351,7 +559,10 @@ $('refresh').onclick = load;
 var rz;
 addEventListener('resize', function(){
   clearTimeout(rz);
-  rz = setTimeout(function(){ if (daily.length) drawActivity(); }, 120);
+  rz = setTimeout(function(){
+    if (daily.length) drawActivity();
+    if (waves.length) drawWaves();
+  }, 120);
 });
 setInterval(function(){
   $('upd').textContent = lastOk ? 'updated ' + ago(Math.floor(lastOk/1000)) : 'no data';

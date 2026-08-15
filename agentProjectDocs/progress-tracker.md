@@ -5,6 +5,18 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
 
 ## Current Phase
 
+- **`feature/distribution` (2026-08-15, slice 2): telemetry, DB status and
+  tech center on the dashboard** (`specs/dashboard-telemetry-and-status.md`).
+  Outcome split (stacked bar, palette-validated both modes — segment order IS
+  the validated adjacency, re-validate if reordered), wave histogram, the
+  three-populations trio, per-table row counts + writes-today meter vs the
+  100K/day tier, and a route/schema reference kept honest by a
+  `verify_branch.sh` check that every worker.js route appears in the page.
+  Two-column layout ≥960px. Still riding the one authenticated `/stats`
+  batch. Remaining from the idea doc: heatmaps, UI funnel,
+  feedback↔telemetry session links; `analytics/report.py` deferred until
+  someone misses it. Deploy owed: `npx wrangler deploy` (secret already set
+  if slice 1 was deployed).
 - **`feature/distribution` (2026-08-15): dashboard inbox + mailing list panels**
   (`specs/dashboard-inbox-and-list.md`, proposed D203). `/dashboard` and
   `/stats` are now **authenticated** — Basic auth against a `DASH_PASS` secret,

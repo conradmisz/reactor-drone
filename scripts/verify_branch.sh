@@ -105,6 +105,14 @@ if curl -s -m 3 http://127.0.0.1:8787/version >/dev/null 2>&1; then
     && BASE=http://127.0.0.1:8787 KEY="$(cat GAME_KEY.local)" DASH="$DASH_PASS" bash ./test.sh ) >"$WORK/api.log" 2>&1 \
     && ok "test.sh ALL PASS (register/score/top/version/telemetry/feedback/dashboard/stats)" \
     || { bad "test.sh failed"; tail -5 "$WORK/api.log" | sed 's/^/      /'; }
+  # tech-center route table must list every route worker.js actually serves —
+  # the reference half of the dashboard is only allowed to exist because this
+  # check stops it rotting (specs/dashboard-telemetry-and-status.md).
+  ROUTES_OK=1
+  for rt in $(grep -oE "url\.pathname === '[^']+'" backend/src/worker.js | grep -oE "/[a-z]+" | sort -u); do
+    grep -q "$rt</code>" backend/src/dashboard.js || { ROUTES_OK=0; bad "route $rt missing from tech center"; }
+  done
+  [ "$ROUTES_OK" = 1 ] && ok "tech-center route table matches worker.js"
   for t in players scores runs feedback subscribers; do
     ( cd backend && npx wrangler d1 execute reactor-drone-db --local --command "SELECT 1 FROM $t LIMIT 1" ) >/dev/null 2>&1 \
       && ok "table $t exists" || bad "table $t missing"

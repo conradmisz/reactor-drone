@@ -51,6 +51,12 @@ echo "$S" | grep -q '"feedback"'
 echo "$S" | grep -q '"subs"'
 echo "$S" | grep -q '"subs_24h"'
 echo "$S" | grep -q '"fb_24h"'
+echo "$S" | grep -q '"outcomes"'
+echo "$S" | grep -q '"waves"'
+echo "$S" | grep -q '"reg"'
+echo "$S" | grep -q '"writes_today"'
+# the telemetry POSTs earlier in this file must be visible in the aggregates
+echo "$S" | grep -q '"outcome":"death"'
 # the activity series is always a full 14 days, quiet days included
 [ "$(echo "$S" | grep -o '"d":"' | wc -l)" = 14 ]
 # /stats must never leak a player_id
