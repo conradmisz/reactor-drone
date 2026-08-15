@@ -70,6 +70,17 @@ td.bar span{position:relative}
   border-radius:8px;padding:6px 9px;font-size:12px;line-height:1.4;
   box-shadow:0 4px 16px rgba(0,0,0,.16);z-index:9;white-space:nowrap}
 .empty{color:var(--muted);font-size:13px;padding:12px 0}
+/* Feedback entries are prose, not figures — a list, not a table row. */
+.fb{border-bottom:1px solid var(--grid);padding:12px 0}
+.fb:last-child{border-bottom:0;padding-bottom:0}
+.fb .h{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;justify-content:space-between}
+.fb .s{font-weight:600}
+.fb .m{color:var(--muted);font-size:12px}
+.fb .b{white-space:pre-wrap;margin-top:6px;color:var(--ink-2);font-size:14px;
+  overflow-wrap:anywhere}
+.tag{display:inline-block;background:var(--wash);color:var(--ink-2);border-radius:5px;
+  padding:1px 6px;font-size:11px;margin-right:4px}
+#stab{min-width:420px}
 .err{color:#d03b3b;font-size:13px}
 </style></head><body>
 <div class="wrap">
@@ -84,6 +95,12 @@ td.bar span{position:relative}
 <section class="card">
   <h2>Runs per day</h2><div class="sub" id="actsub">last 14 days</div>
   <svg class="chart" id="act" role="img" aria-label="Runs per day, last 14 days"></svg>
+</section>
+
+<section class="card">
+  <h2>Feedback</h2><div class="sub">newest first · last 30 reports</div>
+  <div id="flist"></div>
+  <div class="empty" id="fempty" hidden>No feedback yet.</div>
 </section>
 
 <section class="card">
@@ -105,12 +122,22 @@ td.bar span{position:relative}
   <div class="empty" id="rempty" hidden>No runs banked yet.</div>
 </section>
 
+<section class="card">
+  <h2>Mailing list</h2><div class="sub">newest first · last 50 signups</div>
+  <div class="scroll"><table id="stab">
+    <thead><tr><th class="lead">Address</th><th>Source</th><th>When</th></tr></thead><tbody></tbody>
+  </table></div>
+  <div class="empty" id="sempty" hidden>No subscribers yet.</div>
+</section>
+
 <div class="sub" id="err"></div>
 </div>
 <div class="tip" id="tip"></div>
 
 <script>
-var POLL_MS = 15000;
+// 30 s, not 15: the poll now runs six D1 queries instead of four and the
+// inbox does not need second-level freshness.
+var POLL_MS = 30000;
 var $ = function(id){ return document.getElementById(id); };
 var fmt = function(n){ return (n == null ? 0 : n).toLocaleString(); };
 
@@ -225,6 +252,48 @@ function drawRecent(recent){
   tb.innerHTML = s;
 }
 
+// Tags arrive comma-separated. Split on ',' rather than a regex: this whole
+// page lives in a template literal, where a \s would be eaten as an escape.
+function tagPills(t){
+  var a = String(t == null ? '' : t).split(','), s = '', i, v;
+  for (i = 0; i < a.length; i++) {
+    v = a[i].trim();
+    if (v) s += '<span class="tag">' + esc(v) + '</span>';
+  }
+  return s;
+}
+
+function drawFeedback(rows){
+  $('fempty').hidden = rows.length > 0;
+  var s = '', i, r, ctx;
+  for (i = 0; i < rows.length; i++) {
+    r = rows[i];
+    ctx = [];
+    if (r.pilot) ctx.push(esc(r.pilot));
+    ctx.push(esc(r.platform || '?') + ' · ' + esc(r.version || '?'));
+    // in_run is why the feedback table carries run columns at all — they are
+    // NULL for a report sent from the main menu, so only read them when set.
+    if (r.in_run) ctx.push('wave ' + fmt(r.wave) + ' · ' + fmt(r.score) + ' pts'
+      + (r.difficulty ? ' · ' + esc(r.difficulty) : ''));
+    if (r.from_name) ctx.push('from ' + esc(r.from_name));
+    s += '<div class="fb"><div class="h"><span class="s">'
+      + (esc(r.subject) || '(no subject)') + '</span><span class="m">' + ago(r.ts)
+      + '</span></div><div class="m">' + tagPills(r.tags) + ctx.join(' · ')
+      + '</div><div class="b">' + esc(r.body) + '</div></div>';
+  }
+  $('flist').innerHTML = s;
+}
+
+function drawSubs(rows){
+  var tb = $('stab').querySelector('tbody');
+  $('sempty').hidden = rows.length > 0;
+  var s = '', i;
+  for (i = 0; i < rows.length; i++)
+    s += '<tr><td class="lead">' + esc(rows[i].email) + '</td><td>'
+      + esc(rows[i].source) + '</td><td>' + ago(rows[i].ts) + '</td></tr>';
+  tb.innerHTML = s;
+}
+
 function esc(x){
   return String(x == null ? '' : x).replace(/[&<>"]/g, function(c){
     return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' })[c];
@@ -244,7 +313,9 @@ function render(data){
     + tile('Best score', fmt(t.best), t.best_name ? 'by ' + esc(t.best_name) : '')
     + tile('Runs / pilot', t.players ? (t.runs / t.players).toFixed(1) : '0', 'mean')
     + tile('Avg score', fmt(t.avg), 'across all runs')
-    + tile('Score banked', fmt(t.total_score), 'cumulative');
+    + tile('Score banked', fmt(t.total_score), 'cumulative')
+    + tile('Subscribers', fmt(t.subs), fmt(t.subs_24h) + ' in last 24h')
+    + tile('Feedback', fmt(t.fb), fmt(t.fb_24h) + ' in last 24h');
   $('rel').textContent = 'release ' + (data.version || '—')
     + ' · api ' + location.host;
   daily = data.daily;
@@ -252,6 +323,8 @@ function render(data){
   players = data.players;
   drawPlayers();
   drawRecent(data.recent);
+  drawFeedback(data.feedback || []);
+  drawSubs(data.subs || []);
 }
 
 var lastOk = 0;

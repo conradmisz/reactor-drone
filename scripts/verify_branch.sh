@@ -101,10 +101,11 @@ hdr "5. Backend against a LOCAL wrangler dev + local D1 (never production)"
 for _ in $(seq 1 40); do curl -s -m 2 http://127.0.0.1:8787/version >/dev/null 2>&1 && break; sleep 1; done
 if curl -s -m 3 http://127.0.0.1:8787/version >/dev/null 2>&1; then
   ok "local worker up"
-  ( cd backend && BASE=http://127.0.0.1:8787 KEY="$(cat GAME_KEY.local)" bash ./test.sh ) >"$WORK/api.log" 2>&1 \
+  ( cd backend && set -a && . ./.dev.vars && set +a \
+    && BASE=http://127.0.0.1:8787 KEY="$(cat GAME_KEY.local)" DASH="$DASH_PASS" bash ./test.sh ) >"$WORK/api.log" 2>&1 \
     && ok "test.sh ALL PASS (register/score/top/version/telemetry/feedback/dashboard/stats)" \
     || { bad "test.sh failed"; tail -5 "$WORK/api.log" | sed 's/^/      /'; }
-  for t in players scores runs feedback; do
+  for t in players scores runs feedback subscribers; do
     ( cd backend && npx wrangler d1 execute reactor-drone-db --local --command "SELECT 1 FROM $t LIMIT 1" ) >/dev/null 2>&1 \
       && ok "table $t exists" || bad "table $t missing"
   done

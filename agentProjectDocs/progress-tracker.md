@@ -5,6 +5,28 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
 
 ## Current Phase
 
+- **`feature/distribution` (2026-08-15): dashboard inbox + mailing list panels**
+  (`specs/dashboard-inbox-and-list.md`, proposed D203). `/dashboard` and
+  `/stats` are now **authenticated** — Basic auth against a `DASH_PASS` secret,
+  failing closed if the secret is unset — because the page now shows subscriber
+  addresses and untrusted player-written feedback bodies. Two new panels
+  (Feedback, Mailing list), two new tiles, poll relaxed 15 s -> 30 s.
+  `/stats` still never emits a `player_id`.
+- **Deploy owed for the above:** `npx wrangler secret put DASH_PASS` then
+  `npx wrangler deploy`. Until that runs, production `/dashboard` is the old
+  public page. The rest of `ideas/dev-dashboard-prompt.md` (telemetry explorer,
+  DB status, tech-center half) is still unbuilt and still wanted.
+- **Production is live as of 2026-08-15**: remote D1 migrated (all five
+  tables), Worker deployed with telemetry + feedback + mailing list, and the
+  junk pilots deleted — `/top` is empty and honest. Website deployed to
+  `brainstormlabs.pages.dev` with the signup form. `thebrainstormlabs.com` is
+  still on Squarespace nameservers; the plan is Connect (not Transfer — the
+  domain is inside its 60-day ICANN lock until ~2026-09-03).
+- **Still unplayed in a window.** The name-entry email field has never been
+  seen rendered. The dashboard's new panels HAVE been screenshotted headlessly
+  (chromium, seeded local D1) — feedback escaping verified against a
+  `<script>` subject — but the ops page has never been opened by a human.
+
 - **`feature/distribution` (2026-08-12): live-ops dashboard shipped and
   deployed** as D198 — `GET /dashboard` + `GET /stats` on the existing Worker.
   Verified against seeded local D1 and live production; four headless bot

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-BASE="${BASE:?}" KEY="${KEY:?}"
+BASE="${BASE:?}" KEY="${KEY:?}" DASH="${DASH:?}"
 c() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 J='content-type: application/json'
 U1=11111111-aaaa-bbbb-cccc-000000000001 U2=11111111-aaaa-bbbb-cccc-000000000002
@@ -33,13 +33,24 @@ FB="{\"subject\":\"Boss too hard\",\"body\":\"wave 9 boss\\nmelts me\",\"tags\":
 [ "$(c -XPOST "$BASE/feedback" -H "$J" -H "X-Game-Key: $KEY" -d "{\"subject\":\"s\",\"body\":\"x\",\"player_id\":\"$U1\",\"version\":\"2.0.0\",\"platform\":\"win\",\"session_id\":\"s\",\"in_run\":true}")" = 400 ]  # in_run without run state
 
 # dashboard + stats (read-only, no game key)
-[ "$(c "$BASE/dashboard")" = 200 ]
-curl -s "$BASE/dashboard" | grep -q 'Reactor Drone — Live Ops'
-S=$(curl -s "$BASE/stats")
+# the ops page is the one authenticated surface here: it shows subscriber
+# addresses and player-written feedback bodies
+[ "$(c "$BASE/dashboard")" = 401 ]
+[ "$(c "$BASE/stats")" = 401 ]
+curl -s -D- -o /dev/null "$BASE/stats" | grep -qi 'www-authenticate: Basic'
+[ "$(c -u "dev:wrong$DASH" "$BASE/stats")" = 401 ]
+! curl -s "$BASE/stats" | grep -q '"totals"'
+[ "$(c -u "dev:$DASH" "$BASE/dashboard")" = 200 ]
+curl -s -u "dev:$DASH" "$BASE/dashboard" | grep -q 'Reactor Drone — Live Ops'
+S=$(curl -s -u "dev:$DASH" "$BASE/stats")
 echo "$S" | grep -q '"totals"'
 echo "$S" | grep -q '"players"'
 echo "$S" | grep -q '"recent"'
 echo "$S" | grep -q '"best_name"'
+echo "$S" | grep -q '"feedback"'
+echo "$S" | grep -q '"subs"'
+echo "$S" | grep -q '"subs_24h"'
+echo "$S" | grep -q '"fb_24h"'
 # the activity series is always a full 14 days, quiet days included
 [ "$(echo "$S" | grep -o '"d":"' | wc -l)" = 14 ]
 # /stats must never leak a player_id

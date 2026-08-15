@@ -85,6 +85,20 @@ export default {
           'access-control-max-age': '86400'
         }});
 
+      // /dashboard and /stats are the only non-public routes here: they show
+      // subscriber addresses and untrusted player-written feedback bodies.
+      // Basic auth rather than a token — the browser holds the credential and
+      // replays it on the page's own fetch('/stats') polls with no client code,
+      // and it never lands in history or a Referer header the way ?k= would.
+      // Fails closed: an unset DASH_PASS must not mean an open door.
+      if (url.pathname === '/dashboard' || url.pathname === '/stats') {
+        const want = env.DASH_PASS ? 'Basic ' + btoa('dev:' + env.DASH_PASS) : null;
+        if (!want || !safeEqual(req.headers.get('authorization'), want))
+          return new Response('Authentication required\n', { status: 401, headers: {
+            'www-authenticate': 'Basic realm="reactor-drone-ops", charset="UTF-8"'
+          }});
+      }
+
       if (req.method === 'GET' && url.pathname === '/version')
         return json({ version: env.RELEASE_VERSION, installer_url: env.INSTALLER_URL });
 
@@ -108,7 +122,7 @@ export default {
       // Read-only aggregates behind /dashboard. Exposes nothing /top doesn't
       // already make public (names + scores); no player_id ever leaves here.
       if (req.method === 'GET' && url.pathname === '/stats') {
-        const [totals, daily, players, recent] = await env.DB.batch([
+        const [totals, daily, players, recent, feedback, subs] = await env.DB.batch([
           env.DB.prepare(`SELECT
             (SELECT COUNT(*) FROM players) AS players,
             (SELECT COUNT(*) FROM scores)  AS runs,
@@ -118,7 +132,11 @@ export default {
             (SELECT COUNT(*) FROM scores WHERE ts >= unixepoch() - 86400) AS runs_24h,
             (SELECT COUNT(DISTINCT player_id) FROM scores WHERE ts >= unixepoch() - 86400) AS players_24h,
             (SELECT p.name FROM scores s JOIN players p ON p.id = s.player_id
-             ORDER BY s.score DESC LIMIT 1) AS best_name`),
+             ORDER BY s.score DESC LIMIT 1) AS best_name,
+            (SELECT COUNT(*) FROM subscribers) AS subs,
+            (SELECT COUNT(*) FROM subscribers WHERE ts >= unixepoch() - 86400) AS subs_24h,
+            (SELECT COUNT(*) FROM feedback)    AS fb,
+            (SELECT COUNT(*) FROM feedback WHERE ts >= unixepoch() - 86400) AS fb_24h`),
           env.DB.prepare(
             `SELECT date(s.ts, 'unixepoch') AS d, COUNT(*) AS n, MAX(s.score) AS best
              FROM scores s WHERE s.ts >= unixepoch(date('now', ?1)) GROUP BY d ORDER BY d`
@@ -134,14 +152,24 @@ export default {
           env.DB.prepare(
             `SELECT p.name AS name, s.score AS score, s.ts AS ts
              FROM scores s JOIN players p ON p.id = s.player_id
-             ORDER BY s.ts DESC LIMIT 25`)
+             ORDER BY s.ts DESC LIMIT 25`),
+          // Feedback inbox and mailing list. Both are why this route is now
+          // authenticated; neither may ever be echoed by a public route.
+          env.DB.prepare(
+            `SELECT ts, subject, body, tags, from_name, pilot, version, platform,
+                    in_run, wave, score, difficulty
+             FROM feedback ORDER BY ts DESC LIMIT 30`),
+          env.DB.prepare(
+            `SELECT email, source, ts FROM subscribers ORDER BY ts DESC LIMIT 50`)
         ]);
         return new Response(JSON.stringify({
           version: env.RELEASE_VERSION,
           totals: totals.results[0],
           daily: fillDays(daily.results),
           players: players.results,
-          recent: recent.results
+          recent: recent.results,
+          feedback: feedback.results,
+          subs: subs.results
         }), { headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
       }
 
