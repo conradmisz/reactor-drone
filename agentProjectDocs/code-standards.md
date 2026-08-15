@@ -82,6 +82,13 @@
 - `CPP/*/tests/unit`, `CPP/*/tests/property` — mirror the source name.
 - `assets/generator/v2/` — offline Python. `assets/images/v2/`, `assets/Audio/`
   — its committed output.
+- `backend/src/` — the Cloudflare Worker. `worker.js` is routes only;
+  `dashboard.js` is the ops page as **one template literal**, which has a trap:
+  a backslash escape inside it is eaten by the template literal before the
+  browser ever sees it, so a regex like `/[\s,]+/` silently becomes `/[s,]+/`.
+  Write `\\s`, or avoid the regex (the tag splitter uses `split(',')` for
+  exactly this reason). Same rule for `${` — the file's own header comment
+  says the page is written without it so the literal stays unbroken.
 
 ## Never Do
 

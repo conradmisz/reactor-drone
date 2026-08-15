@@ -1,6 +1,6 @@
 ---
 id: 003
-title: Verification traps — four ways this repo's checks lie to you
+title: Verification traps — six ways this repo's checks lie to you
 status: resolved
 severity: high
 resolved: 2026-08-13
@@ -8,10 +8,11 @@ resolved: 2026-08-13
 
 ## Summary
 
-Not a game bug. A ledger of four ways a *verification step* in this repo
-reported the wrong answer during the 2026-08-12/13 distribution session. Each
-one cost 20-60 minutes and each will recur. Three produced **false passes**,
-which is the dangerous direction.
+Not a game bug. A ledger of ways a *verification step* in this repo reported the wrong answer.
+Traps 1-4 are from the 2026-08-12/13 distribution session; 5-6 were added
+2026-08-15 during the dashboard work. Each one cost 20-60 minutes and each will
+recur. Traps 1-3 produced **false passes**, which is the dangerous direction;
+5 produced a false *failure*, which wastes time on a non-existent bug.
 
 ## 1. A reverted header does not change an already-built binary
 
@@ -57,6 +58,40 @@ paused.
 **Rule:** scripted UI runs write a registered `meta.json` first and restore the
 original after. See `scripts/drive_ui.py`.
 
+## 5. A stale `wrangler dev` holds the port and serves the OLD env
+
+`backend/test.sh` failed every authenticated case with 401 immediately after
+Basic auth was added. The code was correct. A `wrangler dev` process from an
+earlier run still held **port 8787**, and it had been started *before*
+`DASH_PASS` was added to `.dev.vars`, so its `env` had no such key and the
+gate correctly failed closed. A second `wrangler dev` started fine but bound a
+different port, and its startup log — which *did* list `DASH_PASS` — was the
+log being read. Everything looked consistent and was not.
+
+**Rule:** a 401/404/stale-shape response from a local worker is a *process*
+question before it is a code question. Confirm what is actually answering:
+
+    pgrep -af wrangler                 # more than one? that is the bug
+    curl -s localhost:8787/stats?dbg   # or make the worker say what env it has
+
+Kill by pid list, never `pkill -f wrangler` — the pattern matches the agent's
+own shell command line and kills the session (exit 144).
+
+## 6. A page behind Basic auth cannot be screenshotted with credentials in the URL
+
+Chrome refuses `fetch()` from a document whose URL carries credentials
+("Request cannot be constructed from a URL that includes credentials"), so
+`http://user:pass@host/dashboard` renders the shell and every panel stays
+empty. Nothing is wrong with the page.
+
+**Rule:** to render `/dashboard` headlessly, temporarily replace the auth
+condition in `worker.js` with `if (false)`, screenshot, then restore from a
+backup copy and assert the restore:
+
+    grep -c 'if (false)' backend/src/worker.js   # must be 0 before committing
+
+The auth handshake itself is covered by `backend/test.sh`, not by the render.
+
 ## Ruled out
 
 - Not a determinism problem: the replay canary was byte-identical to the
@@ -72,5 +107,8 @@ original after. See `scripts/drive_ui.py`.
 ## Resolution
 
 Traps 1, 2 and 4 are now pinned by `scripts/verify_branch.sh` and documented in
-`scripts/drive_ui.py`'s module docstring. Trap 3 has no automated guard — it is
-a habit, recorded here.
+`scripts/drive_ui.py`'s module docstring. Traps 3, 5 and 6 have no automated
+guard — they are habits, recorded here. (Trap 5 is partly mitigated: the
+verifier now sources `.dev.vars` rather than taking secrets from the
+environment, so a *correctly* started local worker and the test script can no
+longer disagree about which secrets exist.)
