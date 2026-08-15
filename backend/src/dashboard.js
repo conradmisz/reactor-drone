@@ -53,6 +53,8 @@ h2{font-size:14px;margin:0 0 2px;letter-spacing:-.01em}
 button{font:inherit;font-size:13px;color:var(--ink-2);background:var(--surface);
   border:1px solid var(--border);border-radius:8px;padding:4px 10px;cursor:pointer}
 button:hover{color:var(--ink)}
+button.danger{color:#d03b3b;border-color:#d03b3b55}
+button.danger:hover{color:#fff;background:#d03b3b;border-color:#d03b3b}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px}
 .tiles{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
 .tile .k{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
@@ -125,7 +127,9 @@ td.bar span{position:relative}
 <header>
   <div><h1>Reactor Drone — Live Ops</h1><div class="sub" id="rel">&nbsp;</div></div>
   <div class="live"><span class="dot" id="dot"></span><span id="upd">connecting…</span>
-    <button id="refresh">Refresh</button></div>
+    <button id="refresh">Refresh</button>
+    <button id="clr-stats" class="danger" title="Delete all scores, runs and feedback. Pilot names are kept.">Clear stats</button>
+    <button id="clr-subs" class="danger" title="Delete every mailing-list subscriber.">Clear mailing list</button></div>
 </header>
 
 <div class="tiles" id="tiles"></div>
@@ -198,6 +202,7 @@ this page ----------Basic auth----> Worker /stats (6-query batch) --------------
   <div class="scroll"><table id="routes">
     <thead><tr><th>Route</th><th>Auth</th><th>Writes</th><th>Notes</th></tr></thead>
     <tbody>
+    <tr><td><code>POST /clear</code></td><td>dash</td><td>scores, runs, feedback <em>or</em> subscribers</td><td>?what=stats|subscribers; needs X-Confirm: CLEAR. players are never touched</td></tr>
     <tr><td><code>GET /version</code></td><td>public</td><td>—</td><td>update check; version + installer URL from Worker vars</td></tr>
     <tr><td><code>POST /register</code></td><td>public</td><td>players</td><td>UUID + pilot name; 409 on a taken name (NOCASE)</td></tr>
     <tr><td><code>POST /score</code></td><td>X-Game-Key</td><td>scores</td><td>score 0–10M; player must exist</td></tr>
@@ -556,6 +561,35 @@ $('ptab').querySelector('thead').onclick = function(e){
   drawPlayers();
 };
 $('refresh').onclick = load;
+
+// Two-step confirmation on both wipes: a yes/no, then the word typed out. There
+// is no undo and no backup step anywhere in this stack, and both buttons sit one
+// misclick away from Refresh.
+function clearTarget(what, label) {
+  if (!confirm('Are you sure you want to do this?\n\n' + label +
+               '\n\nThis cannot be undone.')) return;
+  if (prompt('Type CLEAR to confirm.') !== 'CLEAR') return;
+  fetch('/clear?what=' + what, {
+    method: 'POST',
+    cache: 'no-store',
+    headers: { 'x-confirm': 'CLEAR' }
+  })
+    .then(function(r){ return r.json().then(function(d){
+      if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
+    .then(function(d){
+      $('err').innerHTML = 'Cleared ' + d.cleared + ' row' + (d.cleared === 1 ? '' : 's') + '.';
+      load();
+    })
+    .catch(function(e){
+      $('err').innerHTML = '<span class="err">Clear failed: ' + esc(e.message) + '</span>';
+    });
+}
+$('clr-stats').onclick = function(){
+  clearTarget('stats', 'This deletes every score, run and feedback entry. Pilot names are kept.');
+};
+$('clr-subs').onclick = function(){
+  clearTarget('subscribers', 'This deletes every mailing-list subscriber.');
+};
 var rz;
 addEventListener('resize', function(){
   clearTimeout(rz);

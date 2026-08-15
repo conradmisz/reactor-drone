@@ -91,12 +91,41 @@ export default {
       // replays it on the page's own fetch('/stats') polls with no client code,
       // and it never lands in history or a Referer header the way ?k= would.
       // Fails closed: an unset DASH_PASS must not mean an open door.
-      if (url.pathname === '/dashboard' || url.pathname === '/stats') {
+      if (url.pathname === '/dashboard' || url.pathname === '/stats' ||
+          url.pathname === '/clear') {
         const want = env.DASH_PASS ? 'Basic ' + btoa('dev:' + env.DASH_PASS) : null;
         if (!want || !safeEqual(req.headers.get('authorization'), want))
           return new Response('Authentication required\n', { status: 401, headers: {
             'www-authenticate': 'Basic realm="reactor-drone-ops", charset="UTF-8"'
           }});
+      }
+
+      // Destructive ops, behind the same Basic auth as /dashboard (see the guard
+      // above — this path is listed there, and adding a route under /admin
+      // WITHOUT listing it there would publish a public delete button).
+      //
+      // The X-Confirm header is the CSRF guard: a cross-site <form> POST can
+      // carry the browser's Basic credential, but it cannot set a custom header
+      // without a preflight this Worker never approves. The typed confirmation
+      // in the page is for the human; this is for the browser.
+      if (req.method === 'POST' && url.pathname === '/clear') {
+        if (!safeEqual(req.headers.get('x-confirm'), 'CLEAR'))
+          return json({ error: 'confirmation required' }, 400);
+        const what = url.searchParams.get('what');
+        // Fixed statement lists keyed off a literal — `what` never reaches SQL.
+        // 'stats' deliberately does NOT touch `players`: pilot names are the one
+        // thing an installed game holds a reference to (meta.json carries the
+        // player_id), so dropping them would strand every client that ever
+        // registered.
+        const sets = {
+          stats: ['DELETE FROM scores', 'DELETE FROM runs', 'DELETE FROM feedback'],
+          subscribers: ['DELETE FROM subscribers']
+        };
+        const stmts = sets[what];
+        if (!stmts) return json({ error: 'unknown target' }, 400);
+        const res = await env.DB.batch(stmts.map(q => env.DB.prepare(q)));
+        const cleared = res.reduce((n, r) => n + (r.meta ? r.meta.changes || 0 : 0), 0);
+        return json({ ok: true, what, cleared });
       }
 
       if (req.method === 'GET' && url.pathname === '/version')
