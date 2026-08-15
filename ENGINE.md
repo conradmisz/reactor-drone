@@ -328,6 +328,21 @@ render:
 
 ## 5. Known discrepancies and traps
 
+- **A baked sprite halo is a BOX unless its tail is cut.** `add_halo` blurs the
+  silhouette with a Gaussian whose radius is `frame * spread` (0.18 -> ~92px on
+  the 512 working canvas). That tail reached the frame edge, where it was CUT —
+  a soft glow with a hard rectangular boundary, plus a flat alpha ~8 wash over
+  the entire frame. At gameplay size every entity therefore sat in a faint BOX,
+  which is most of what "everything radiates a square" meant. v3 Tier 12 remaps
+  the halo's alpha (`floor = 30`, gradient preserved) so it reaches true zero
+  inside the frame. **Regenerating art after touching `add_halo` means
+  `make_sprites.py` AND `make_backdrops.py --props-only`** — props have their own
+  generator and were missed on the first pass.
+- **The bloom chain's kernel was a BOX too.** A half-size linear blit is a 2x2
+  box average, and a chain of them spreads light into an axis-aligned box. Tier
+  12 makes each step (from level 1 down) a four-tap Kawase downsample. Level 0
+  keeps its single blit deliberately: it is the largest target in the chain, and
+  paying 4x there cost ~10% of frame time for no visible gain.
 - **The renderer's DRAW blend mode is global state, and until v3 Tier 9 only
   particles ever set it.** `SDL_SetRenderDrawBlendMode` is renderer-wide, and
   SDL's default is `SDL_BLENDMODE_NONE`, under which an alpha-0 fill writes

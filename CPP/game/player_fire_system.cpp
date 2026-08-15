@@ -150,7 +150,13 @@ void PlayerFireSystem::update(ComponentStorage& storage,
             trail.end_a = 0;
             trail.start_size = 7.0f; trail.end_size = 0.0f;
             trail.offset_x = PR;  trail.offset_y = PR;
-            storage.add_component<ParticleEmitter>(shot, trail);
+            // v3 Tier 12: the emitter is BUILT above but deliberately not
+            // attached. The Tier 7 ribbon is the shot's whole visual now — a
+            // particle trail riding the same path just fuzzes the tracer's
+            // edge and doubles its cost. Kept (unattached) because the tuning
+            // above is the only record of what the trail used to look like;
+            // delete it if the ribbon is ever judged final.
+            (void)trail;
         }
     }
 }

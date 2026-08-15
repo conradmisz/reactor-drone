@@ -47,7 +47,8 @@ Entity spawn_shot(ComponentStorage& storage, EntityManager& entity_manager,
     trail.end_r = 60; trail.end_g = 20; trail.end_b = 70; trail.end_a = 0;
     trail.start_size = r; trail.end_size = 0.0f;
     trail.offset_x = r; trail.offset_y = r;
-    storage.add_component<ParticleEmitter>(shot, trail);
+    // v3 Tier 12: not attached — the ribbon is the shot. See player_fire_system.
+    (void)trail;
 
     return shot;
 }

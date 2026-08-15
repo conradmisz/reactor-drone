@@ -60,6 +60,18 @@ def add_halo(sprite: Image.Image, color, spread=0.18, strength=200) -> Image.Ima
     halo.putalpha(a.point(lambda v: strength if v > 20 else 0))
     blur = max(1.0, sprite.size[0] * spread)
     halo = halo.filter(ImageFilter.GaussianBlur(blur))
+    # v3 Tier 12: cut the Gaussian's tail so the halo reaches TRUE zero inside
+    # the frame. At spread 0.18 on a 512 canvas the blur radius is ~92px, so the
+    # tail ran all the way into the corners and was then CUT by the frame edge —
+    # a soft glow with a hard rectangular boundary, plus a flat alpha ~8 wash
+    # over the whole frame. Drawn at gameplay size that reads as a faint BOX
+    # around every entity, which is most of what "everything radiates a square"
+    # was pointing at (bugs/004 fixed the particles; this is the sprites).
+    # Remap rather than threshold, so the halo keeps its gradient.
+    floor = 30
+    ha = halo.split()[3].point(
+        lambda v: 0 if v <= floor else int((v - floor) * 255 / (255 - floor)))
+    halo.putalpha(ha)
     out = Image.alpha_composite(halo, sprite)
     return out
 

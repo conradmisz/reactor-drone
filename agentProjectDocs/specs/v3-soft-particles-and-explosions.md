@@ -93,6 +93,36 @@ arena looks polished rather than like lit rectangles.
   immediately after a screenshot capture. Not reproduced in 14 subsequent runs
   (2 full ctest + 12 direct); no failure output was retained. Watch for it.
 
+## Tier 12 — playtest #2 response (2026-08-15)
+
+Owner's second judgement: shots still had rectangles, the tracer should be the
+shot's ONLY visual, explosions too big (and should scale with the unit, with a
+special boss blast), glow too strong, and "something gives the whole game a
+blurry, offset 3d-ish look".
+
+- **The squares were never one bug.** Tier 9 fixed the particles; Tier 12 found
+  the other two sources: every sprite's baked halo carried a hard rectangular
+  boundary and a flat alpha wash (see ENGINE.md section 5), and the bloom chain's
+  own kernel was an axis-aligned box average. Both fixed at the source.
+- **The "offset 3d" look is chromatic aberration** — `postfx.aberration` was
+  0.0028, nearly 2x the shader's own documented ~0.0015, and it splits every edge
+  into red/blue copies. Now 0.0006.
+- Glow pulled back to .34/.28/.22/.17 (default .24) from full strength.
+- Shots are ribbon-only: both fire systems still BUILD their particle emitter but
+  no longer attach it.
+- Blast is sized off the dead unit's edge (`reach = unit * 0.62`, boss 0.95).
+  Boss (>= 150, i.e. the 260 boss vs enemies at 62-82) adds a second trailing
+  ring and 14 shards instead of 6.
+
+Cost: canary timing 139.5s -> 141.9s (+1.7%) for the rounder bloom kernel, after
+restricting the 4-tap to levels 1+ (a full 4-tap chain was 154s, +10.5%).
+
+**Still open, owner's call:** the magenta rectangle around each obstacle is the
+Tier 5 neon obstacle outline (`main.cpp`, arena enemy tint at alpha 90). It
+traces the COLLIDER, so it sits proud of the prop art and reads as a stray box.
+Tighten it to the sprite, or drop it. Backdrop parallax tiles are also visibly
+rectangular — that is authored art, not an artifact.
+
 ## Merge Notes
 
 - **D202:** additive particles are batched into one `SDL_RenderGeometry` mesh

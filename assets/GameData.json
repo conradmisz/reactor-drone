@@ -2518,7 +2518,7 @@
   "//postfx": "v3 Tier 4 (D197) - SPIR-V full-screen post-process, GPU renderer only (classic renderer and headless runs never see it). aberration is chromatic fringe in UV units; vignette darkens edges; saturation/gain grade the frame; shock_* shape the boss-death / arena-shift ripple. All presentation.",
   "postfx": {
     "enabled": true,
-    "aberration": 0.0028,
+    "aberration": 0.0006,
     "vignette": 0.44,
     "saturation": 1.26,
     "gain": 1.05,
@@ -2539,8 +2539,8 @@
   "bloom": {
     "enabled": true,
     "levels": 4,
-    "intensities": [0.55, 0.47, 0.39, 0.31],
-    "default_intensity": 0.45
+    "intensities": [0.34, 0.28, 0.22, 0.17],
+    "default_intensity": 0.24
   },
   "//specialty": "Lane D / notes #3 + #9 (D67). Two cadences over the spawn counter, not RNG: every_n_spawns injects the live arena's specialty unit, moon_every_n_spawns injects one unlocked shooter (a type with first_wave > 0). by_arena maps an arena NAME to an enemy_types NAME - names, not indices, because the two lists are authored by different lanes. tier2_* is what makes the second pass over the same four themes (waves 26-50) harder. PROVISIONAL: unplayed.",
   "specialty": {

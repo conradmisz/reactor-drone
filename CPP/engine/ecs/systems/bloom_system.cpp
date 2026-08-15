@@ -77,12 +77,50 @@ void BloomSystem::resolve() {
     // and HUD text stay out of the halo. Each RenderTexture into a half-size
     // target is one linearly-filtered box blur; by the last level the halo is
     // wide and soft.
+    // v3 Tier 12: each step is a FOUR-TAP downsample, not one straight blit.
+    // A plain half-size linear blit is a 2x2 box average, and a chain of box
+    // averages spreads light into an axis-aligned BOX — that is why every
+    // entity radiated a square halo even after the particles themselves stopped
+    // being squares (bugs/004 fixed the source; this fixes the kernel). Four
+    // half-texel diagonal taps, averaged, is the Kawase trick: the same cost
+    // class, a far rounder falloff.
+    //
+    // The alphas are progressive equal-weight averaging: writing tap i over the
+    // running mean of i taps with alpha 255/(i+1) leaves the mean of i+1 taps.
+    // ...but only from level 1 down. The boxiness comes from the DEEP levels,
+    // where one texel covers 8-16 screen pixels; level 0 is half-res and is by
+    // far the most expensive target in the chain, so paying 4x there bought
+    // nothing visible and cost ~10% of frame time (139.5s -> 154s on the
+    // canary). Level 0 keeps its single blit.
+    auto blur_step = [&](SDL_Texture* from, SDL_Texture* to, bool multi) {
+        float dw = 0.0f, dh = 0.0f;
+        SDL_GetTextureSize(to, &dw, &dh);
+        constexpr float O = 0.5f;   // half a DESTINATION texel = one source texel
+        const float tx[4] = {-O, +O, -O, +O};
+        const float ty[4] = {-O, -O, +O, +O};
+        const Uint8 alpha[4] = {255, 128, 85, 64};
+        SDL_SetRenderTarget(renderer_, to);
+        if (!multi) {
+            SDL_SetTextureBlendMode(from, SDL_BLENDMODE_NONE);
+            SDL_RenderTexture(renderer_, from, nullptr, nullptr);
+            return;
+        }
+        for (int i = 0; i < 4; ++i) {
+            SDL_FRect r{tx[i], ty[i], dw, dh};
+            SDL_SetTextureBlendMode(from, i == 0 ? SDL_BLENDMODE_NONE
+                                                 : SDL_BLENDMODE_BLEND);
+            SDL_SetTextureAlphaMod(from, alpha[i]);
+            SDL_RenderTexture(renderer_, from, nullptr, &r);
+        }
+        SDL_SetTextureAlphaMod(from, 255);
+        SDL_SetTextureBlendMode(from, SDL_BLENDMODE_NONE);
+    };
+
     SDL_SetTextureBlendMode(emissive_, SDL_BLENDMODE_NONE);
     SDL_Texture* src = emissive_;
-    for (SDL_Texture* dst : chain_) {
-        SDL_SetRenderTarget(renderer_, dst);
-        SDL_RenderTexture(renderer_, src, nullptr, nullptr);
-        src = dst;
+    for (std::size_t i = 0; i < chain_.size(); ++i) {
+        blur_step(src, chain_[i], i > 0);
+        src = chain_[i];
     }
 
     // Back to the destination captured at begin(): scene 1:1, then the chain

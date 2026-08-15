@@ -2549,17 +2549,28 @@ int main(int argc, char* argv[]) {
                     const float a = explosion_fx::ring_alpha(t);
                     if (a <= 0.01f) continue;
 
+                    // v3 Tier 12: the blast is sized off the DEAD UNIT, not a
+                    // constant. `unit` is its edge (enemies 62-82, boss 260), so
+                    // a spark pops and a boss detonates without a second code
+                    // path for the common case.
                     auto sz = component_storage.get_component<Size>(e);
-                    const float scale = sz.has_value()
-                        ? std::max(sz->get().width, sz->get().height) / 40.0f : 1.0f;
+                    const float unit = sz.has_value()
+                        ? std::max(sz->get().width, sz->get().height) : 64.0f;
+                    // ponytail: size IS the boss test. Every enemy is <= 82 and
+                    // the boss is 260, so no marker component, no death-side
+                    // flag — if something in between ever spawns, the blast
+                    // scales through the gap smoothly anyway.
+                    const bool boss = unit >= 150.0f;
+                    const float scale = unit / 70.0f;        // width scale
+                    const float reach = unit * (boss ? 0.95f : 0.62f);
 
                     // Layer 2: the shockwave ring.
-                    const float rad = explosion_fx::ring_radius(t, 6.0f * scale,
-                                                                62.0f * scale);
+                    const float rad = explosion_fx::ring_radius(t, unit * 0.10f,
+                                                                reach);
                     RenderSystem::GlowLine ring;
                     ring.points = explosion_fx::ring_points(cx, cy, rad, 24);
                     if (ring.points.size() >= 2 && verts_left >= ring.points.size() * 2) {
-                        ring.width = std::max(2.5f, 11.0f * scale * (0.45f + 0.55f * a));
+                        ring.width = std::max(2.0f, 8.0f * scale * (0.45f + 0.55f * a));
                         ring.color = Color{255, 170, 80,
                                            static_cast<Uint8>(255.0f * std::min(1.0f, a * 1.6f))};
                         // No white core on the blast layers: a white-lifted
@@ -2571,11 +2582,32 @@ int main(int argc, char* argv[]) {
                         glow_lines.push_back(std::move(ring));
                     }
 
+                    // Boss only: a second ring running behind the first, and a
+                    // white-hot rim on the leading one. Two rings read as a
+                    // detonation with depth rather than one bigger pop.
+                    if (boss) {
+                        const float t2 = std::max(0.0f, t - 0.22f) / 0.78f;
+                        const float a2 = explosion_fx::ring_alpha(t2) * 0.8f;
+                        const float rad2 = explosion_fx::ring_radius(
+                            t2, unit * 0.08f, reach * 0.66f);
+                        RenderSystem::GlowLine r2;
+                        r2.points = explosion_fx::ring_points(cx, cy, rad2, 28);
+                        if (a2 > 0.02f && r2.points.size() >= 2 &&
+                            verts_left >= r2.points.size() * 2) {
+                            r2.width = std::max(2.0f, 10.0f * scale * a2);
+                            r2.color = Color{255, 235, 190,
+                                             static_cast<Uint8>(255.0f * a2)};
+                            r2.core = false;
+                            verts_left -= r2.points.size() * 2;
+                            glow_lines.push_back(std::move(r2));
+                        }
+                    }
+
                     // Layer 3: debris shards, seeded off the entity id so a
                     // replay throws the same debris.
-                    const auto span = explosion_fx::shard_span(t, 70.0f * scale);
+                    const auto span = explosion_fx::shard_span(t, reach * 1.15f);
                     if (span.outer > span.inner) {
-                        constexpr std::size_t SHARDS = 7;
+                        const std::size_t SHARDS = boss ? 14u : 6u;
                         for (std::size_t k = 0; k < SHARDS; ++k) {
                             if (verts_left < 4) break;
                             const float ang = explosion_fx::shard_angle(
@@ -2584,7 +2616,7 @@ int main(int argc, char* argv[]) {
                             RenderSystem::GlowLine sh;
                             sh.points = {{cx + dx * span.inner, cy + dy * span.inner},
                                          {cx + dx * span.outer, cy + dy * span.outer}};
-                            sh.width = std::max(2.0f, 7.0f * scale * (0.4f + 0.6f * a));
+                            sh.width = std::max(1.5f, 5.5f * scale * (0.4f + 0.6f * a));
                             sh.color = Color{255, 120, 45,
                                              static_cast<Uint8>(255.0f * std::min(1.0f, a * 1.5f))};
                             sh.core = false;
