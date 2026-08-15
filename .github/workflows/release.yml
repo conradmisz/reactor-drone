@@ -69,12 +69,15 @@ jobs:
           unzip -o butler.zip && chmod +x butler
           ./butler push installer/stage-linux brainstormlabs/reactor-drone:linux --userversion "${GITHUB_REF_NAME#v}"
 
+  # Apple silicon only: GitHub retired the macos-13 image, so there is no Intel
+  # macOS runner left to build x86_64 on, and Homebrew on an arm64 runner ships
+  # arm64-only SDL3. Restore the matrix if an Intel (or universal) runner ever
+  # comes back.
   build-mac:
     strategy:
       matrix:
         include:
           - { runner: macos-latest, arch: arm64 }
-          - { runner: macos-13, arch: x86_64 }
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -112,8 +115,6 @@ jobs:
         with: { name: linux-tarball }
       - uses: actions/download-artifact@v4
         with: { name: mac-arm64 }
-      - uses: actions/download-artifact@v4
-        with: { name: mac-x86_64 }
       - name: Version from tag
         shell: bash
         run: echo "VER=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
@@ -136,7 +137,6 @@ jobs:
             ReactorDrone-win64.zip
             ReactorDrone-linux-x86_64.tar.gz
             ReactorDrone-mac-arm64.zip
-            ReactorDrone-mac-x86_64.zip
       - name: Push to itch.io
         continue-on-error: true
         shell: bash
