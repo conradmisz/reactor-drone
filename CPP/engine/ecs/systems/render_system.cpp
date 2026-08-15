@@ -105,6 +105,25 @@ void RenderSystem::render_layers(const std::vector<TiledLayer>& layers) {
 }
 
 void RenderSystem::render(const ComponentStorage& storage, const Blackboard& blackboard) {
+    render_walk(storage, blackboard, false);
+}
+
+void RenderSystem::render_emissive(const ComponentStorage& storage,
+                                   const Blackboard& blackboard) {
+    render_walk(storage, blackboard, true);
+}
+
+namespace {
+/// "v2/enemy_spark.png" -> "v2/enemy_spark_glow.png"; no extension -> append.
+std::string glow_name(const std::string& name) {
+    auto dot = name.rfind('.');
+    if (dot == std::string::npos) return name + "_glow";
+    return name.substr(0, dot) + "_glow" + name.substr(dot);
+}
+}  // namespace
+
+void RenderSystem::render_walk(const ComponentStorage& storage,
+                               const Blackboard& blackboard, bool emissive) {
     float zoom = blackboard.get_or<float>("camera.zoom", 1.0f);
 
     auto all = storage.entities_with_component<Position>();
@@ -180,7 +199,16 @@ void RenderSystem::render(const ComponentStorage& storage, const Blackboard& bla
             auto ss_opt = storage.get_component<SpriteSheet>(entity);
             if (ss_opt.has_value()) {
                 const auto& ss = ss_opt->get();
-                SDL_Texture* texture = resource_manager_.load_texture(ss.atlas_filename);
+                SDL_Texture* texture;
+                if (emissive) {
+                    texture = resource_manager_.try_load_texture(glow_name(ss.atlas_filename));
+                    if (!texture) {
+                        if (!(tint && tint->additive)) continue;
+                        texture = resource_manager_.load_texture(ss.atlas_filename);
+                    }
+                } else {
+                    texture = resource_manager_.load_texture(ss.atlas_filename);
+                }
                 SDL_FRect src_rect = compute_source_rect(
                     ss.current_frame, ss.columns, ss.frame_width, ss.frame_height);
                 draw_entity(x, y, render_width, render_height,
@@ -190,19 +218,195 @@ void RenderSystem::render(const ComponentStorage& storage, const Blackboard& bla
         } else if (storage.has_component<Images>(entity)) {
             auto img_opt = storage.get_component<Images>(entity);
             if (img_opt.has_value()) {
-                SDL_Texture* texture = resource_manager_.load_texture(
-                    img_opt->get().active_filename());
+                SDL_Texture* texture;
+                if (emissive) {
+                    texture = resource_manager_.try_load_texture(
+                        glow_name(img_opt->get().active_filename()));
+                    if (!texture) {
+                        if (!(tint && tint->additive)) continue;
+                        texture = resource_manager_.load_texture(
+                            img_opt->get().active_filename());
+                    }
+                } else {
+                    texture = resource_manager_.load_texture(
+                        img_opt->get().active_filename());
+                }
                 draw_entity(x, y, render_width, render_height, Color{0, 0, 0, 255},
                             texture, rotation_angle, nullptr, tint, flip_when_left);
             }
         } else if (storage.has_component<Color>(entity)) {
             auto color_opt = storage.get_component<Color>(entity);
             if (color_opt.has_value()) {
+                if (emissive && !(tint && tint->additive)) continue;
+                // v3 Tier 9 (D202): an additive, textureless Color entity is a
+                // particle. render_particles draws it as a soft batched disc;
+                // drawing it here too would put the hard square back (bugs/004)
+                // AND double its brightness. Both passes skip it.
+                if (tint && tint->additive) continue;
                 draw_entity(x, y, render_width, render_height, color_opt->get(),
                             nullptr, 0.0f, nullptr, tint, flip_when_left);
             }
         }
         // else: has Position+Size but neither Images nor Color → skip
+    }
+}
+
+void RenderSystem::render_particles(const ComponentStorage& storage,
+                                    const Blackboard& blackboard) {
+    // Gather first: entities the render walk deliberately skips — additive
+    // Tint, a Color, and no sprite of their own.
+    std::vector<particle_mesh::Quad> quads;
+    const float zoom = std::max(blackboard.get_or<float>("camera.zoom", 1.0f), 0.01f);
+    for (Entity e : storage.entities_with_component<Color>()) {
+        if (!storage.has_component<Size>(e)) continue;
+        auto tint = storage.get_component<Tint>(e);
+        if (!tint.has_value() || !tint->get().additive) continue;
+        if (storage.has_component<SpriteSheet>(e) || storage.has_component<Images>(e)) continue;
+        auto color = storage.get_component<Color>(e);
+        if (!color.has_value()) continue;
+
+        // Same coordinate choice as render_walk: ScreenPosition (already
+        // camera-transformed) when present, raw Position otherwise. x,y is the
+        // rect's bottom-left there, so the quad centres on x + w/2, y + h/2.
+        float x, y;
+        if (storage.has_component<ScreenPosition>(e)) {
+            auto sp = storage.get_component<ScreenPosition>(e);
+            if (!sp.has_value()) continue;
+            x = sp->get().x; y = sp->get().y;
+        } else {
+            auto pos = storage.get_component<Position>(e);
+            if (!pos.has_value()) continue;
+            x = pos->get().x; y = pos->get().y;
+        }
+        const auto& size = storage.get_component<Size>(e)->get();
+        const float w = size.width * zoom;
+        const float h = size.height * zoom;
+        const auto& c = color->get();
+        // ponytail: calibration knob. glow_disc_64's alpha is 243 at the centre
+        // but only 59 at quarter-radius, so the disc's SOLID core is roughly a
+        // third of the quad. Drawn at 1:1 a particle reads as a ~2px dot — much
+        // dimmer than the fill-rect it replaces. Scaling the quad puts the core
+        // back on the old footprint and lets the soft halo spill outside it.
+        // Tune by eye against a real playtest; there is no formula for "reads
+        // like light".
+        constexpr float DISC_SCALE = 2.5f;
+        quads.push_back(particle_mesh::Quad{
+            x + w * 0.5f, y + h * 0.5f, std::max(w, h) * DISC_SCALE,
+            particle_mesh::Rgba{c.r, c.g, c.b, c.a}});
+    }
+    if (quads.empty()) return;
+
+    const auto verts = particle_mesh::build_mesh(quads);
+    const auto idx = particle_mesh::quad_indices(quads.size());
+
+    SDL_Texture* disc = resource_manager_.try_load_texture("v2/glow_disc_64.png");
+    if (disc) SDL_SetTextureBlendMode(disc, SDL_BLENDMODE_ADD);
+
+    int win_w, win_h;
+    draw_surface_size(renderer_, &win_w, &win_h);
+    (void)win_w;
+
+    std::vector<SDL_Vertex> sdl_verts;
+    sdl_verts.reserve(verts.size());
+    for (const auto& v : verts) {
+        SDL_Vertex sv;
+        sv.position.x = v.x;
+        // The world Y-flip, which lives in this file and nowhere else.
+        sv.position.y = static_cast<float>(win_h) - v.y;
+        sv.color = SDL_FColor{static_cast<float>(v.r) / 255.0f,
+                              static_cast<float>(v.g) / 255.0f,
+                              static_cast<float>(v.b) / 255.0f,
+                              static_cast<float>(v.a) / 255.0f};
+        sv.tex_coord.x = v.u;
+        sv.tex_coord.y = v.v;
+        sdl_verts.push_back(sv);
+    }
+
+    // No texture on disk -> additive draw-blend keeps the batch (still one
+    // call); the discs degrade to flat quads rather than vanishing.
+    if (!disc) SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_ADD);
+    SDL_RenderGeometry(renderer_, disc, sdl_verts.data(),
+                       static_cast<int>(sdl_verts.size()), idx.data(),
+                       static_cast<int>(idx.size()));
+    if (!disc) SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+}
+
+void RenderSystem::render_glow_lines(const std::vector<GlowLine>& lines,
+                                     const Blackboard& blackboard) {
+    if (lines.empty()) return;
+
+    // Same affine transform CameraSystem applies to entities (world -> screen),
+    // then the world Y-flip — which lives in this file and nowhere else.
+    float lookat_x = blackboard.get_or<float>("camera.lookat.x", 0.0f);
+    float lookat_y = blackboard.get_or<float>("camera.lookat.y", 0.0f);
+    float zoom = std::max(blackboard.get_or<float>("camera.zoom", 1.0f), 0.01f);
+    int win_w, win_h;
+    draw_surface_size(renderer_, &win_w, &win_h);
+    const float cam_left = lookat_x - static_cast<float>(win_w) / zoom / 2.0f;
+    const float cam_bottom = lookat_y - static_cast<float>(win_h) / zoom / 2.0f;
+
+    SDL_Texture* falloff = resource_manager_.try_load_texture("v2/line_falloff.png");
+    if (falloff) SDL_SetTextureBlendMode(falloff, SDL_BLENDMODE_ADD);
+
+    // widths empty -> uniform `width`; otherwise per-point (v3 Tier 7 taper).
+    // `fade` ramps alpha with the ribbon's arc-length u so the tail dissolves.
+    auto draw_ribbon = [&](const std::vector<line_mesh::P2>& pts, float width,
+                           const std::vector<float>& widths, bool fade,
+                           Uint8 r, Uint8 g, Uint8 b, Uint8 a) {
+        const auto ribbon = widths.empty()
+                                ? line_mesh::build_ribbon(pts, width)
+                                : line_mesh::build_ribbon(pts, widths);
+        if (ribbon.size() < 4) return;
+        const auto idx = line_mesh::strip_indices(ribbon.size());
+        std::vector<SDL_Vertex> verts;
+        verts.reserve(ribbon.size());
+        const SDL_FColor col{static_cast<float>(r) / 255.0f,
+                             static_cast<float>(g) / 255.0f,
+                             static_cast<float>(b) / 255.0f,
+                             static_cast<float>(a) / 255.0f};
+        for (const auto& v : ribbon) {
+            SDL_Vertex sv;
+            sv.position.x = (v.x - cam_left) * zoom;
+            sv.position.y = static_cast<float>(win_h) - (v.y - cam_bottom) * zoom;
+            sv.color = col;
+            if (fade) sv.color.a = col.a * v.u;   // u: 0 oldest -> 1 head
+            // Cross-section drives the falloff texture's vertical gradient.
+            sv.tex_coord.x = 0.5f;
+            sv.tex_coord.y = v.v;
+            verts.push_back(sv);
+        }
+        if (!falloff) SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_ADD);
+        SDL_RenderGeometry(renderer_, falloff, verts.data(),
+                           static_cast<int>(verts.size()), idx.data(),
+                           static_cast<int>(idx.size()));
+        if (!falloff) SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+    };
+
+    for (const auto& line : lines) {
+        if (line.points.size() < 2) continue;
+        const float w = line.width * zoom;
+        // Per-point widths are authored in world units too, so they take the
+        // same zoom as the scalar path.
+        std::vector<float> zoomed;
+        if (!line.widths.empty() && line.widths.size() == line.points.size()) {
+            zoomed.reserve(line.widths.size());
+            for (float pw : line.widths) zoomed.push_back(pw * zoom);
+        }
+        draw_ribbon(line.points, w, zoomed, line.fade_tail, line.color.r,
+                    line.color.g, line.color.b, line.color.a);
+        if (line.core) {
+            // The hot center: narrower, lifted toward white.
+            auto lift = [](Uint8 c) {
+                int v = static_cast<int>(c) + 140;
+                return static_cast<Uint8>(v > 255 ? 255 : v);
+            };
+            std::vector<float> core_w;
+            core_w.reserve(zoomed.size());
+            for (float pw : zoomed) core_w.push_back(pw * line.core_scale);
+            draw_ribbon(line.points, w * 0.35f, core_w, line.fade_tail,
+                        lift(line.color.r), lift(line.color.g),
+                        lift(line.color.b), line.color.a);
+        }
     }
 }
 

@@ -32,6 +32,10 @@ struct SettingsSave {
     /// first-launch name screen. Read only by main.cpp's POST guard — deliberately
     /// NOT published to the Blackboard, because it has no apply site in the sim.
     bool analytics = true;
+    // v3 Tier 8: defaults FALSE. Same reasoning as the other two defaults —
+    // an absent settings.json must reproduce pre-settings behaviour, so
+    // headless runs and the replay canary launch windowed as they always did.
+    bool fullscreen = false;
 };
 
 inline std::string settings_save_path() {
@@ -51,6 +55,8 @@ inline SettingsSave settings_load(const std::string& path) {
             s.minimap = j["minimap"].get<bool>();
         if (j.contains("analytics") && j["analytics"].is_boolean())
             s.analytics = j["analytics"].get<bool>();
+        if (j.contains("fullscreen") && j["fullscreen"].is_boolean())
+            s.fullscreen = j["fullscreen"].get<bool>();
     } catch (...) {
         return SettingsSave{};
     }
@@ -64,7 +70,8 @@ inline bool settings_write(const std::string& path, const SettingsSave& s) {
         if (!out.is_open()) return false;
         out << nlohmann::json{{"screen_shake", s.screen_shake},
                               {"minimap", s.minimap},
-                              {"analytics", s.analytics}}.dump(2) << "\n";
+                              {"analytics", s.analytics},
+                              {"fullscreen", s.fullscreen}}.dump(2) << "\n";
         return out.good();
     } catch (...) {
         return false;   // a read-only disk must not take the settings screen down

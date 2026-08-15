@@ -29,6 +29,8 @@
 #include <vector>
 #include "engine/ecs/component_storage.hpp"
 #include "engine/ecs/blackboard.hpp"
+#include "engine/ecs/systems/line_mesh_math.hpp"
+#include "engine/ecs/systems/particle_mesh.hpp"
 
 // Forward declaration — no #include needed in the header
 class ResourceManager;
@@ -104,6 +106,72 @@ public:
     void render(const ComponentStorage& storage, const Blackboard& blackboard);
 
     /**
+     * v3 Tier 5 (D198): one glowing polyline, immediate-mode. World-space
+     * points; the camera transform and the world Y-flip are applied HERE (the
+     * flip stays in this file, per the invariant). Game code pushes a list
+     * each frame and calls render_glow_lines once into the scene and once
+     * into the emissive target.
+     */
+    struct GlowLine {
+        std::vector<line_mesh::P2> points;   // world space, >= 2
+        float width = 6.0f;                  // world units (zoom-scaled)
+        Color color{255, 255, 255, 255};
+        bool core = true;                    // also draw a narrow white core
+        // v3 Tier 7: per-point widths for a tapered trail. Empty = uniform
+        // `width` (every pre-Tier-7 caller). Size must match `points`.
+        std::vector<float> widths;
+        // v3 Tier 7: ramp alpha with arc length so the tail dissolves. Uses
+        // the u build_ribbon already computes — 0 at the oldest point, 1 at
+        // the head — so it costs nothing extra to compute.
+        bool fade_tail = false;
+        // v3 Tier 10: how wide the hot core rides relative to the ribbon.
+        // Narrower reads hotter — the same total light through less width.
+        float core_scale = 0.35f;
+    };
+
+    /**
+     * Draw glowing ribbons with SDL_RenderGeometry: each line becomes a
+     * miter-joined triangle strip whose cross-section samples the 1D falloff
+     * texture (v2/line_falloff.png), drawn additively. When `core` is set a
+     * second strip at 0.35x width and white-lifted color rides on top — the
+     * hot center every neon line needs. Lines with < 2 points are skipped.
+     */
+    void render_glow_lines(const std::vector<GlowLine>& lines,
+                           const Blackboard& blackboard);
+
+    /**
+     * v3 Tier 9 (D202): every additive particle in ONE SDL_RenderGeometry call,
+     * UV-mapped across v2/glow_disc_64.png so each one is a soft round disc.
+     *
+     * This exists because the alternative shapes are both wrong. Drawn with no
+     * texture, a particle takes draw_entity's fill-rect path and is a hard
+     * SQUARE that seeds the bloom chain and smears into a box halo (bugs/004).
+     * Given a texture per particle, draw_entity makes six batch-flushing SDL
+     * state calls EACH, measured at ~27x. One mesh makes six per frame.
+     *
+     * render_walk skips additive-tinted Color entities for exactly this reason
+     * — this pass owns them. Call it wherever render()/render_emissive() are
+     * called: once into the scene, once into the emissive target.
+     */
+    void render_particles(const ComponentStorage& storage,
+                          const Blackboard& blackboard);
+
+    /**
+     * v3 Tier 2: the emissive pass. Walks the same entities in the same order
+     * as render(), but draws ONLY what should feed the bloom chain, into the
+     * currently bound render target (the BloomSystem's emissive target):
+     *  - a sprite whose atlas/image has a `_glow` sibling texture (probed via
+     *    ResourceManager::try_load_texture, misses cached) draws that sibling
+     *    with identical geometry/rotation/tint;
+     *  - otherwise an entity with an additive Tint draws its normal visual —
+     *    its sharp copy is already in the scene, so this contributes halo only;
+     *  - everything else is skipped.
+     * Call between BloomSystem::begin_emissive() and resolve(); never call it
+     * when bloom is inactive (the draws would land on the backbuffer).
+     */
+    void render_emissive(const ComponentStorage& storage, const Blackboard& blackboard);
+
+    /**
      * Present the rendered frame to the screen
      */
     void present();
@@ -151,6 +219,10 @@ private:
                      const SDL_FRect* src_rect = nullptr,
                      const Tint* tint = nullptr,
                      bool flip_when_left = true);
+
+    /** Shared body of render()/render_emissive() — one walk, two draw policies. */
+    void render_walk(const ComponentStorage& storage, const Blackboard& blackboard,
+                     bool emissive);
 
     SDL_Renderer* renderer_;
     ResourceManager& resource_manager_;

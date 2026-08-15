@@ -24,6 +24,8 @@ set(ENGINE_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/movement_system.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/player_control_system.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/quadtree_strategy.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/bloom_system.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/postfx_system.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/particle_system.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/render_system.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../engine/ecs/systems/rotation_system.cpp"

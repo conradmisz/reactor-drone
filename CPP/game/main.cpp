@@ -23,6 +23,9 @@
 #include <random>
 #include <stdexcept>
 #include <vector>
+#include <unordered_map>
+#include <unordered_set>
+#include <iterator>
 
 #include "engine/ecs/entity_manager.hpp"
 #include "engine/ecs/component_storage.hpp"
@@ -46,6 +49,7 @@
 #include "engine/ecs/systems/render_system.hpp"
 #include "engine/ecs/systems/hud_system.hpp"
 #include "engine/ecs/systems/screenshot_system.hpp"
+#include "engine/ecs/systems/trail_math.hpp"   // v3 Tier 7 (D200)
 
 #include <nlohmann/json.hpp>
 
@@ -56,6 +60,7 @@
 #include "debug_state.hpp"
 #include "arena_config.hpp"
 #include "arena_vfx.hpp"
+#include "explosion_fx.hpp"      // v3 Tier 11 (D203)
 #include "player_components.hpp"
 #include "enemy_components.hpp"
 #include "collision_layers.hpp"
@@ -88,6 +93,8 @@
 #include "engine/lua_manager.hpp"
 #include "engine/ecs/systems/screen_stack_system.hpp"
 #include "engine/ecs/systems/ui_render_system.hpp"
+#include "engine/ecs/systems/bloom_system.hpp"
+#include "engine/ecs/systems/postfx_system.hpp"
 #include "engine/ecs/systems/ui_render_math.hpp"   // ui_canvas_transform (#11 dash face)
 #include "engine/ecs/systems/ui_system.hpp"
 #include "shield_system.hpp"
@@ -178,8 +185,40 @@ int main(int argc, char* argv[]) {
 
     SDL_WindowPtr window(SDL_CreateWindow("Reactor Drone v2", 980, 660, SDL_WINDOW_RESIZABLE));
     if (!window) { std::cerr << "Window: " << SDL_GetError() << std::endl; SDL_Quit(); return 1; }
-    SDL_RendererPtr renderer(SDL_CreateRenderer(window.get(), nullptr));
+    // v3 Tier 4 (D197): prefer the SDL GPU renderer so PostFxSystem can attach
+    // SPIR-V fragment shaders to ordinary draws. Created via properties with
+    // the SPIRV capability declared. Anything can refuse it — --classic-renderer,
+    // a headless driver, no Vulkan — and the classic renderer is byte-for-byte
+    // the pre-Tier-4 pipeline (PostFx self-disables off a non-GPU renderer).
+    SDL_RendererPtr renderer;
+    // D199 (v3 Tier 6a): the GPU renderer is now the DEFAULT, as the v3 plan
+    // always specified; --classic-renderer is the escape hatch. The opt-in was a
+    // bugs/003 stability hold, resolved by the 2026-08-11 system SDL update and
+    // signed off by the 2026-08-13 windowed playtest. --gpu-renderer is kept as
+    // an accepted no-op so existing scripts and the run.py forwarder still work.
+    // Headless is unaffected without an explicit guard: the dummy/offscreen
+    // drivers refuse a "gpu" renderer, so creation fails and the fallback below
+    // lands on the classic path the canary baseline was built on.
+    if (!opts.classic_renderer) {
+        SDL_PropertiesID rp = SDL_CreateProperties();
+        SDL_SetStringProperty(rp, SDL_PROP_RENDERER_CREATE_NAME_STRING, "gpu");
+        SDL_SetPointerProperty(rp, SDL_PROP_RENDERER_CREATE_WINDOW_POINTER, window.get());
+        SDL_SetBooleanProperty(rp, SDL_PROP_RENDERER_CREATE_GPU_SHADERS_SPIRV_BOOLEAN, true);
+        renderer.reset(SDL_CreateRendererWithProperties(rp));
+        SDL_DestroyProperties(rp);
+    }
+    if (!renderer) {
+        renderer.reset(SDL_CreateRenderer(window.get(), nullptr));
+    }
     if (!renderer) { std::cerr << "Renderer: " << SDL_GetError() << std::endl; SDL_Quit(); return 1; }
+    if (opts.verbose) {
+        std::cout << "Renderer: " << SDL_GetRendererName(renderer.get()) << std::endl;
+    }
+    // v3 Tier 0: vsync for tear-free presentation. The Timer's busy-wait stays as a
+    // pacing floor; measured delta_time drives windowed play, and --seed runs force
+    // set_deterministic(true), so replay determinism is untouched. Best-effort: the
+    // dummy/offscreen drivers reject vsync and that is fine.
+    SDL_SetRenderVSync(renderer.get(), 1);
 
     // === ECS + config ===
     EntityManager entity_manager;
@@ -242,6 +281,14 @@ int main(int argc, char* argv[]) {
         return 0;
     };
     int run_difficulty = 0;   // which difficulty the live run was started at
+
+    // v3 Tier 3 (D196): pending hit-stop frames. Set by the kill/boss sites,
+    // consumed after timer.update_blackboard each frame: while positive, the
+    // published delta_time is overridden to 0 so every system integrates zero
+    // motion — draw/RNG counts are unchanged (systems still run), frames still
+    // advance (end_frame is untouched), so --stopframe and the canary cannot
+    // hang. Declared this early because the enemy-death lambda captures it.
+    int hitstop_left = 0;
 
     const int win_w = blackboard.get_or<int>("window_width", 980);
     const int win_h = blackboard.get_or<int>("window_height", 660);
@@ -323,6 +370,15 @@ int main(int argc, char* argv[]) {
     ResourceManager& resource_manager = *resource_manager_ptr;
     RenderSystem render_system(renderer.get(), resource_manager);
     HUDSystem hud_system(renderer.get(), resource_manager, win_w, win_h);
+    // v3 Tier 1: render-target bloom. Constructed after the renderer at the
+    // logical surface size; self-disables (begin/resolve become no-ops) when
+    // the driver has no render-target support or GameData turns it off.
+    BloomSystem bloom_system(renderer.get(), win_w, win_h, config.bloom);
+    // v3 Tier 4 (D197): SPIR-V post-process, GPU renderer only. Self-disables
+    // everywhere else (classic renderer, headless, missing .spv).
+    PostFxSystem postfx(renderer.get(),
+                        project_paths::assets_dir() + "/shaders/postfx.frag.spv",
+                        config.postfx);
 
     // === UI & menu layer (Option-040 port) ===
     // ScreenStackSystem is the single writer of the stack and of every
@@ -572,6 +628,8 @@ int main(int argc, char* argv[]) {
         // #13: the player named it. "arena shift" was engine vocabulary.
         blackboard.set<std::string>("hud_message", def.name + " — REACTOR SHIFT");
         blackboard.set<float>("hud_message_timer", SHIFT_SECONDS + 1.4f);
+        // v3 Tier 4 (D197): the shift also ripples the whole frame.
+        postfx.trigger_shock(0.5f, 0.5f);
 
         // Shockwave: a one-shot emitter host, the same pattern
         // EnemyDeathSystem and PickupSystem already use. Sited on
@@ -607,6 +665,9 @@ int main(int argc, char* argv[]) {
         blackboard.set<float>("feedback.trauma",
             feedback::add_trauma(blackboard.get_or<float>("feedback.trauma", 0.0f),
                                  config.feedback.trauma_enemy_death));
+        // v3 Tier 3 (D196): a kill freezes sim time for a beat. Saturating,
+        // not additive — a multi-kill frame reads as one hit, not a slideshow.
+        hitstop_left = std::max(hitstop_left, config.feedback.hitstop_frames_kill);
         return true;
     };
 
@@ -1241,9 +1302,15 @@ int main(int argc, char* argv[]) {
 
     // (settings itself is loaded earlier, beside the telemetry state, because
     // bank_run_score's POST guard reads settings.analytics.)
-    Entity shake_w = 0, mini_w = 0, analytics_w = 0, rec_w[4] = {};
+    // v3 Tier 8: apply the saved display mode once, at boot. Logical
+    // presentation already scales the 980x660 surface to whatever the window
+    // is, so nothing else in the pipeline cares. Best-effort: a driver that
+    // refuses fullscreen just stays windowed. Sited HERE rather than at the
+    // load site above because that one runs before `window` exists.
+    SDL_SetWindowFullscreen(window.get(), settings.fullscreen);
+    Entity shake_w = 0, mini_w = 0, analytics_w = 0, fs_w = 0, rec_w[4] = {};
     bool shake_w_resolved = false, mini_w_resolved = false, analytics_w_resolved = false,
-         rec_w_resolved[4] = {};
+         fs_w_resolved = false, rec_w_resolved[4] = {};
     // Feedback screen widget caches: the four field value labels + status line,
     // plus the pause button whose caption is blanked when offline.
     Entity fb_w[5] = {};
@@ -1254,12 +1321,15 @@ int main(int argc, char* argv[]) {
         const Entity sw = widget_by_name("settings_shake", shake_w, shake_w_resolved);
         const Entity mw = widget_by_name("settings_minimap", mini_w, mini_w_resolved);
         const Entity aw = widget_by_name("settings_analytics", analytics_w, analytics_w_resolved);
+        const Entity fw = widget_by_name("settings_fullscreen", fs_w, fs_w_resolved);
         if (auto st = component_storage.get_component<UIState>(sw); st.has_value())
             st->get().value = settings.screen_shake ? 1.0f : 0.0f;
         if (auto st = component_storage.get_component<UIState>(mw); st.has_value())
             st->get().value = settings.minimap ? 1.0f : 0.0f;
         if (auto st = component_storage.get_component<UIState>(aw); st.has_value())
             st->get().value = settings.analytics ? 1.0f : 0.0f;
+        if (auto st = component_storage.get_component<UIState>(fw); st.has_value())
+            st->get().value = settings.fullscreen ? 1.0f : 0.0f;
     };
     auto refresh_records = [&]() {
         const std::string rows[4] = {
@@ -1358,6 +1428,14 @@ int main(int argc, char* argv[]) {
     if (opts.paused) debug_paused = true;
 
     std::cout << "Reactor Drone v2 initialized. Arrows move, mouse aims, hold fire. ESC quits.\n";
+
+    // v3 Tier 7 (D200): position-history trails. The history lives HERE, in a
+    // render-side map keyed by entity — deliberately NOT a component. Nothing
+    // in component_storage means no gameplay system can read it, so it cannot
+    // feed the sim, touch the RNG, or move the replay canary. That is the
+    // whole invariant the tier rests on, enforced by construction rather than
+    // by a comment asking people to be careful.
+    std::unordered_map<Entity, std::vector<line_mesh::P2>> trail_history;
 
     bool running = true;
     bool menu_paused = false;   // true while the pause screen is the top screen
@@ -2161,6 +2239,14 @@ int main(int argc, char* argv[]) {
                 // frame, then plays the destruction/entry animation across the
                 // 5s crossfade. Lane E verified it is callable mid-wave with
                 // enemies alive; it has no dependency on wave_cleared.
+                // v3 Tier 3 (D196): boss deaths hit harder than kills.
+                // Tier 4 (D197): and fire a screen-space shockwave from centre.
+                if (blackboard.get_or<bool>("boss.just_died", false)) {
+                    blackboard.set<bool>("boss.just_died", false);
+                    hitstop_left = std::max(hitstop_left,
+                                            config.feedback.hitstop_frames_boss);
+                    postfx.trigger_shock(0.5f, 0.5f);
+                }
                 if (boss_system.wants_arena_shift()) {
                     boss_system.clear_arena_shift_request();
                     // By name, not a magic index: the void is the 9th entry today
@@ -2606,31 +2692,41 @@ int main(int argc, char* argv[]) {
                                                 std::string(SCREEN_HOW));
                 } else if (menu_click == "on_toggle_shake" ||
                            menu_click == "on_toggle_minimap" ||
-                           menu_click == "on_toggle_analytics") {
+                           menu_click == "on_toggle_analytics" ||
+                           menu_click == "on_toggle_fullscreen") {
                     // UISystem already flipped the checkbox's UIState.value — read
                     // it back as the truth, persist, and publish to the apply sites.
-                    // Analytics has no apply site: the telemetry POST guard reads
-                    // the settings struct directly, so it publishes no Blackboard key.
+                    // MERGE 2026-08-15: four rows now, from both branches. They do
+                    // not share a shape — screen_shake and minimap publish a
+                    // Blackboard key, analytics has no apply site (the telemetry
+                    // POST guard reads the settings struct directly), and
+                    // fullscreen applies straight to the window — so each row
+                    // names what it needs and the common tail does the rest.
                     blackboard.remove(UISystem::UI_CLICK_KEY);
                     Entity w = 0;
                     bool* target = nullptr;
                     const char* bb_key = nullptr;
+                    bool apply_fullscreen = false;
                     if (menu_click == "on_toggle_shake") {
                         w = widget_by_name("settings_shake", shake_w, shake_w_resolved);
                         target = &settings.screen_shake; bb_key = "settings.screen_shake";
                     } else if (menu_click == "on_toggle_minimap") {
                         w = widget_by_name("settings_minimap", mini_w, mini_w_resolved);
                         target = &settings.minimap; bb_key = "settings.minimap";
-                    } else {
+                    } else if (menu_click == "on_toggle_analytics") {
                         w = widget_by_name("settings_analytics", analytics_w,
                                            analytics_w_resolved);
                         target = &settings.analytics;
+                    } else {
+                        w = widget_by_name("settings_fullscreen", fs_w, fs_w_resolved);
+                        target = &settings.fullscreen; apply_fullscreen = true;
                     }
                     if (auto st = component_storage.get_component<UIState>(w);
                         st.has_value()) {
                         const bool on = st->get().value >= 0.5f;
                         *target = on;
                         if (bb_key != nullptr) blackboard.set<bool>(bb_key, on);
+                        if (apply_fullscreen) SDL_SetWindowFullscreen(window.get(), on);
                         settings_write(settings_save_path(), settings);
                     }
                 } else if (menu_click.rfind("on_slot_load_", 0) == 0) {
@@ -2981,10 +3077,26 @@ int main(int argc, char* argv[]) {
         // every simulated phase so a lingering shake keeps decaying into the
         // game-over/victory transition.
         if (sim) {
+            postfx.update(static_cast<float>(
+                blackboard.get_or<double>("delta_time", 0.0)));
             float trauma = feedback::decay_trauma(
                 blackboard.get_or<float>("feedback.trauma", 0.0f), dt,
                 config.feedback.trauma_decay_per_sec);
             blackboard.set<float>("feedback.trauma", trauma);
+
+            // v3 Tier 3 (D196): trauma also punches the camera in. Same
+            // trauma^2 curve as the shake; nothing else writes camera.zoom
+            // (CameraControlSystem is not instantiated in this game), so a
+            // plain per-frame recompute needs no restore step. Presentation
+            // only: zoom feeds ScreenPosition/draw scale, never the sim.
+            // Gated with the shake setting — it is the same "camera moves on
+            // impact" preference.
+            if (blackboard.get_or<bool>("settings.screen_shake", true)) {
+                blackboard.set<float>("camera.zoom",
+                    1.0f + config.feedback.zoom_punch * trauma * trauma);
+            } else {
+                blackboard.set<float>("camera.zoom", 1.0f);
+            }
 
             float amp = feedback::shake_amplitude(trauma, config.feedback.max_shake_px);
             float ox = 0.0f, oy = 0.0f;
@@ -3106,11 +3218,312 @@ int main(int argc, char* argv[]) {
                               ? arena_vfx::smoothstep(shift_timer / SHIFT_SECONDS)
                               : 1.0f);
         }
+        // v3 Tier 1: everything between begin() and resolve() renders into the
+        // bloom scene target; resolve() composites scene + blur chain onto the
+        // backbuffer. UI is inside the pass on purpose — menus glow too. When
+        // bloom is disabled (config or target-less driver) both are no-ops and
+        // this block is byte-for-byte the old pipeline.
+        // v3 Tier 5 (D198): the frame's neon lines, world-space, immediate
+        // mode — rebuilt every frame from live state, so there is nothing to
+        // invalidate on an arena shift. Drawn into the scene after the world
+        // (below) and again into the emissive target so they bloom.
+        std::vector<RenderSystem::GlowLine> glow_lines;
+        if (phase == PHASE_PLAYING || phase == PHASE_INTERMISSION ||
+            phase == PHASE_SHOP) {
+            // Arena boundary ring — the rink line. Soft blue-white, like the
+            // Laser Hockey rink; the clamp circle finally has a visible edge.
+            RenderSystem::GlowLine ring;
+            ring.points = line_mesh::circle_points(
+                config.arena.center_x, config.arena.center_y,
+                config.arena.radius, 96);
+            ring.width = 7.0f;
+            ring.color = Color{150, 210, 255, 190};
+            glow_lines.push_back(std::move(ring));
+            // Obstacle outlines in the live arena's enemy tint, dimmed.
+            if (active_arena >= 0 &&
+                active_arena < static_cast<int>(config.arenas.size())) {
+                const ArenaDef& adef =
+                    config.arenas[static_cast<size_t>(active_arena)];
+                for (const auto& ob : adef.obstacles) {
+                    RenderSystem::GlowLine box;
+                    box.points = {{ob.x, ob.y}, {ob.x + ob.w, ob.y},
+                                  {ob.x + ob.w, ob.y + ob.h}, {ob.x, ob.y + ob.h},
+                                  {ob.x, ob.y}};
+                    box.width = 4.0f;
+                    box.color = Color{adef.enemy_r, adef.enemy_g, adef.enemy_b, 90};
+                    box.core = false;   // outline only; the prop art is the body
+                    glow_lines.push_back(std::move(box));
+                }
+            }
+            // Laser beams: a hot ribbon over each recycled beam quad.
+            for (Entity b : component_storage.entities_with_component<BeamTag>()) {
+                auto bp = component_storage.get_component<Position>(b);
+                auto bs = component_storage.get_component<Size>(b);
+                auto br = component_storage.get_component<Rotation>(b);
+                if (!bp.has_value() || !bs.has_value() || !br.has_value()) continue;
+                const float cx = bp->get().x + bs->get().width * 0.5f;
+                const float cy = bp->get().y + bs->get().height * 0.5f;
+                const float half = bs->get().width * 0.5f;
+                const float ca = std::cos(br->get().angle);
+                const float sa = std::sin(br->get().angle);
+                RenderSystem::GlowLine beam;
+                beam.points = {{cx - ca * half, cy - sa * half},
+                               {cx + ca * half, cy + sa * half}};
+                beam.width = 10.0f;
+                beam.color = Color{160, 230, 255, 230};
+                glow_lines.push_back(std::move(beam));
+            }
+
+            // v3 Tier 7 (D200): position-history trails. Sampled here, in the
+            // render pass, from live Positions — a pure observer. A trail IS a
+            // glow line whose points are where the entity has been, so this
+            // reuses Tier 5's ribbon end to end and adds no draw path.
+            if (config.trails.enabled) {
+                const std::size_t max_pts =
+                    static_cast<std::size_t>(std::max(0, config.trails.max_points));
+                std::unordered_set<Entity> alive;
+
+                auto center_of = [&](Entity e, float* cx, float* cy) {
+                    auto pp = component_storage.get_component<Position>(e);
+                    auto ps = component_storage.get_component<Size>(e);
+                    if (!pp.has_value() || !ps.has_value()) return false;
+                    *cx = pp->get().x + ps->get().width * 0.5f;
+                    *cy = pp->get().y + ps->get().height * 0.5f;
+                    return true;
+                };
+                auto sample = [&](Entity e) {
+                    float cx, cy;
+                    if (!center_of(e, &cx, &cy)) return;
+                    alive.insert(e);
+                    trail::push_sample(trail_history[e], {cx, cy},
+                                       config.trails.min_spacing, max_pts);
+                };
+
+                for (Entity e : component_storage.entities_with_component<PlayerTag>())
+                    sample(e);
+                for (Entity e : component_storage.entities_with_component<ProjectileTag>())
+                    sample(e);
+                for (Entity e : component_storage.entities_with_component<EnemyShot>())
+                    sample(e);
+
+                // Drop history for anything that died this frame, or the map
+                // grows for the whole run.
+                for (auto it = trail_history.begin(); it != trail_history.end();)
+                    it = (alive.count(it->first) == 0) ? trail_history.erase(it)
+                                                       : std::next(it);
+
+                // Emit within the per-frame vertex budget, most important
+                // first: the hull, then your shots, then incoming fire. What
+                // runs out of budget is enemy trails in a heavy wave — the
+                // least load-bearing of the three.
+                std::size_t verts_left =
+                    static_cast<std::size_t>(std::max(0, config.trails.vertex_budget));
+                const int shot_r = blackboard.get_or<int>("ship.shot_r", 120);
+                const int shot_g = blackboard.get_or<int>("ship.shot_g", 240);
+                const int shot_b = blackboard.get_or<int>("ship.shot_b", 255);
+
+                // Shots carry NO Color component, so the ribbon is their ONLY
+                // visual and must never fail to draw. When history is too
+                // short (a shot fired this frame) or the budget is spent, they
+                // fall back to a minimum-length dash along the velocity, which
+                // is what makes a fresh shot read as a laser rather than pop in.
+                auto emit = [&](Entity e, float head_w, Color col, bool is_shot) {
+                    std::vector<line_mesh::P2> pts;
+                    auto it = trail_history.find(e);
+                    const std::size_t have = it == trail_history.end() ? 0 : it->second.size();
+                    const std::size_t keep =
+                        trail::points_within_budget(have, verts_left);
+                    if (keep >= 2) {
+                        // Budget trims from the TAIL: the head is the projectile.
+                        pts.assign(it->second.end() - static_cast<long>(keep),
+                                   it->second.end());
+                    } else if (is_shot) {
+                        float cx, cy;
+                        if (!center_of(e, &cx, &cy)) return;
+                        auto v = component_storage.get_component<Velocity>(e);
+                        float dx = v.has_value() ? v->get().dx : 0.0f;
+                        float dy = v.has_value() ? v->get().dy : 1.0f;
+                        const float len = std::sqrt(dx * dx + dy * dy);
+                        if (len < 1e-3f) { dx = 0.0f; dy = 1.0f; }
+                        else { dx /= len; dy /= len; }
+                        const float dash = head_w * 2.0f;   // a short bolt, not a dot
+                        pts = {{cx - dx * dash, cy - dy * dash}, {cx, cy}};
+                    } else {
+                        return;
+                    }
+                    RenderSystem::GlowLine t;
+                    const std::size_t n = pts.size();
+                    t.points = std::move(pts);
+                    // v3 Tier 10: shots taper head-heavy (exponent 2) so the
+                    // streak reads as a tracer with a bright nose; hull and
+                    // dash trails keep the straight taper they were tuned on.
+                    t.widths = trail::taper_widths(n, head_w, 0.0f,
+                                                   is_shot ? 2.0f : 1.0f);
+                    t.width = head_w;
+                    t.color = col;
+                    t.fade_tail = true;
+                    // Shots keep the hot white core — that is what reads as a
+                    // laser rather than a smear. Hull/dash trails do not.
+                    t.core = is_shot;
+                    if (is_shot) t.core_scale = 0.26f;   // v3 Tier 10: hotter nose
+                    verts_left -= n * 2;
+                    glow_lines.push_back(std::move(t));
+                };
+
+                // v3 Tier 11 (D203): the layered explosion. The effect entity
+                // enemy_death_system already spawns IS the clock — its sprite
+                // clip gives progress, so the ring and the shards need no
+                // component, no event and no state of their own. Emitted
+                // before the trails so a heavy wave spends its vertex budget on
+                // blasts rather than on the tail of every enemy shot.
+                for (Entity e : component_storage.entities_with_component<SpriteSheet>()) {
+                    auto ss = component_storage.get_component<SpriteSheet>(e);
+                    if (!ss.has_value()) continue;
+                    if (ss->get().atlas_filename.find("effect_explosion") ==
+                        std::string::npos) continue;
+                    float cx, cy;
+                    if (!center_of(e, &cx, &cy)) continue;
+                    const int last = std::max(1, ss->get().total_frames - 1);
+                    const float t = std::min(1.0f,
+                        static_cast<float>(ss->get().current_frame) /
+                        static_cast<float>(last));
+                    const float a = explosion_fx::ring_alpha(t);
+                    if (a <= 0.01f) continue;
+
+                    // v3 Tier 12: the blast is sized off the DEAD UNIT, not a
+                    // constant. `unit` is its edge (enemies 62-82, boss 260), so
+                    // a spark pops and a boss detonates without a second code
+                    // path for the common case.
+                    auto sz = component_storage.get_component<Size>(e);
+                    const float unit = sz.has_value()
+                        ? std::max(sz->get().width, sz->get().height) : 64.0f;
+                    // ponytail: size IS the boss test. Every enemy is <= 82 and
+                    // the boss is 260, so no marker component, no death-side
+                    // flag — if something in between ever spawns, the blast
+                    // scales through the gap smoothly anyway.
+                    const bool boss = unit >= 150.0f;
+                    const float scale = unit / 70.0f;        // width scale
+                    const float reach = unit * (boss ? 0.95f : 0.62f);
+
+                    // Layer 2: the shockwave ring.
+                    const float rad = explosion_fx::ring_radius(t, unit * 0.10f,
+                                                                reach);
+                    RenderSystem::GlowLine ring;
+                    ring.points = explosion_fx::ring_points(cx, cy, rad, 24);
+                    if (ring.points.size() >= 2 && verts_left >= ring.points.size() * 2) {
+                        ring.width = std::max(2.0f, 8.0f * scale * (0.45f + 0.55f * a));
+                        ring.color = Color{255, 170, 80,
+                                           static_cast<Uint8>(255.0f * std::min(1.0f, a * 1.6f))};
+                        // No white core on the blast layers: a white-lifted
+                        // ring is what the bloom chain smears into the flat
+                        // grey ball that filled the blast. Warm ring, warm
+                        // bloom.
+                        ring.core = false;
+                        verts_left -= ring.points.size() * 2;
+                        glow_lines.push_back(std::move(ring));
+                    }
+
+                    // Boss only: a second ring running behind the first, and a
+                    // white-hot rim on the leading one. Two rings read as a
+                    // detonation with depth rather than one bigger pop.
+                    if (boss) {
+                        const float t2 = std::max(0.0f, t - 0.22f) / 0.78f;
+                        const float a2 = explosion_fx::ring_alpha(t2) * 0.8f;
+                        const float rad2 = explosion_fx::ring_radius(
+                            t2, unit * 0.08f, reach * 0.66f);
+                        RenderSystem::GlowLine r2;
+                        r2.points = explosion_fx::ring_points(cx, cy, rad2, 28);
+                        if (a2 > 0.02f && r2.points.size() >= 2 &&
+                            verts_left >= r2.points.size() * 2) {
+                            r2.width = std::max(2.0f, 10.0f * scale * a2);
+                            r2.color = Color{255, 235, 190,
+                                             static_cast<Uint8>(255.0f * a2)};
+                            r2.core = false;
+                            verts_left -= r2.points.size() * 2;
+                            glow_lines.push_back(std::move(r2));
+                        }
+                    }
+
+                    // Layer 3: debris shards, seeded off the entity id so a
+                    // replay throws the same debris.
+                    const auto span = explosion_fx::shard_span(t, reach * 1.15f);
+                    if (span.outer > span.inner) {
+                        const std::size_t SHARDS = boss ? 14u : 6u;
+                        for (std::size_t k = 0; k < SHARDS; ++k) {
+                            if (verts_left < 4) break;
+                            const float ang = explosion_fx::shard_angle(
+                                k, SHARDS, static_cast<std::uint32_t>(e));
+                            const float dx = std::cos(ang), dy = std::sin(ang);
+                            RenderSystem::GlowLine sh;
+                            sh.points = {{cx + dx * span.inner, cy + dy * span.inner},
+                                         {cx + dx * span.outer, cy + dy * span.outer}};
+                            sh.width = std::max(1.5f, 5.5f * scale * (0.4f + 0.6f * a));
+                            sh.color = Color{255, 120, 45,
+                                             static_cast<Uint8>(255.0f * std::min(1.0f, a * 1.5f))};
+                            sh.core = false;
+                            sh.fade_tail = true;
+                            verts_left -= 4;
+                            glow_lines.push_back(std::move(sh));
+                        }
+                    }
+                }
+
+                // A shot's colour rides on its own tag: enemy types carry
+                // per-spec colours, and the player's hue already bakes in
+                // D184's complement at spawn.
+
+                for (Entity e : component_storage.entities_with_component<PlayerTag>()) {
+                    auto pd = component_storage.get_component<ShipState>(e);
+                    const bool dashing = pd.has_value() && pd->get().dash_timer > 0.0f;
+                    emit(e, dashing ? config.trails.dash_width
+                                    : config.trails.drone_width,
+                         dashing ? Color{200, 245, 255, 235}
+                                 : Color{150, 210, 255, 170},
+                         false);
+                }
+                for (Entity e : component_storage.entities_with_component<ProjectileTag>()) {
+                    auto pt = component_storage.get_component<ProjectileTag>(e);
+                    const Color c = pt.has_value()
+                        ? Color{pt->get().r, pt->get().g, pt->get().b, 235}
+                        : Color{static_cast<Uint8>(shot_r), static_cast<Uint8>(shot_g),
+                                static_cast<Uint8>(shot_b), 235};
+                    emit(e, config.trails.shot_width, c, true);
+                }
+                for (Entity e : component_storage.entities_with_component<EnemyShot>()) {
+                    auto es = component_storage.get_component<EnemyShot>(e);
+                    const Color c = es.has_value()
+                        ? Color{es->get().r, es->get().g, es->get().b, 235}
+                        : Color{255, 80, 80, 235};   // D185: enemy fire is red
+                    emit(e, config.trails.shot_width, c, true);
+                }
+            }
+        }
+
+        // v3 Tier 4: when post-fx is live the whole composite lands in its
+        // frame target (bloom captures it at begin and resolves back to it),
+        // then apply() draws that through the SPIR-V shader to the backbuffer.
+        SDL_SetRenderTarget(renderer.get(), postfx.frame_target());
+        bloom_system.begin();
         render_system.render_layers(bg_layers);
         render_system.render(component_storage, blackboard);
+        render_system.render_glow_lines(glow_lines, blackboard);   // v3 Tier 5
+        render_system.render_particles(component_storage, blackboard);  // v3 Tier 9
         hud_system.render(component_storage, blackboard);
         // Menus composite last, on top of the world and the gameplay HUD.
         ui_render_system.render(component_storage, blackboard);
+        // v3 Tier 2: the glow-only pass. Draws each entity's `_glow` sibling
+        // (plus additive-tinted visuals) into the emissive target; the bloom
+        // chain reads that target, so hulls/backdrop/HUD no longer bleed.
+        // Guarded: when bloom is inactive these draws would land on the
+        // backbuffer and double every glow sprite.
+        if (bloom_system.active()) {
+            bloom_system.begin_emissive();
+            render_system.render_emissive(component_storage, blackboard);
+            render_system.render_glow_lines(glow_lines, blackboard);   // lines bloom too
+            render_system.render_particles(component_storage, blackboard);  // discs bloom too
+        }
+        bloom_system.resolve();
+        postfx.apply();
 
         if (!opts.screenshot_frames.empty()) {
             for (uint64_t sf : opts.screenshot_frames) if (sf == frame) blackboard.set("screenshot_frame", frame);
@@ -3120,6 +3533,13 @@ int main(int argc, char* argv[]) {
 
         if (sim) timer.end_frame(); else timer.end_frame_no_advance();
         timer.update_blackboard(blackboard);
+        // v3 Tier 3 (D196): apply pending hit-stop to the NEXT frame's dt.
+        // After update_blackboard so the override is the last writer; only
+        // while simulating, so pause cannot eat the budget invisibly.
+        if (hitstop_left > 0 && sim) {
+            blackboard.set("delta_time", 0.0);
+            --hitstop_left;
+        }
 
         if (opts.stop_frame.has_value() && timer.get_frame_count() >= opts.stop_frame.value()) {
             running = false;

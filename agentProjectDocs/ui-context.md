@@ -69,6 +69,13 @@ SDL3_ttf renders it; there is no second face and no icon font.
   `save_slots`, `settings`, `records`, `how_to_play`, `shop`, `boss_reward`
   and `prestige_offer`. Title screens replace each other via CLEAR_TO (D137);
   hidden buttons use the `ghost` style. Planned: `game_over`, `victory`.
+- **The `settings` screen rows (v3 Tier 8).** Three checkbox rows, 56px apart,
+  label at x=204 and checkbox at x=500: SCREEN SHAKE (y=320), MINIMAP (y=264),
+  FULLSCREEN (y=208), then the caption at y=164 and BACK at y=112. Adding a
+  fourth row means moving the caption again, not squeezing the spacing.
+  `SettingsSave` defaults are all chosen so an ABSENT `saves/settings.json`
+  reproduces pre-settings behaviour — that is what keeps headless runs and the
+  replay canary honest, so a new setting defaults to its old-behaviour value.
 - **The layout grid (D88)**: 4px grid, one left-aligned content column inset 24px
   from its panel edge, buttons ≥44px tall, headings followed by a `rule`, one
   `pulse_hz` widget per screen. Labels are flush-left; only button captions

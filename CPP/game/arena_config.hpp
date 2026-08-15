@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include "engine/ecs/systems/bloom_system.hpp"  // BloomConfig (v3 Tier 1)
+#include "engine/ecs/systems/postfx_system.hpp" // PostFxConfig (v3 Tier 4)
 
 /**
  * Typed, data-driven configuration for the "Reactor Drone" arena, parsed from
@@ -179,6 +181,12 @@ struct FeedbackConfig {
     float trauma_player_hit = 0.6f;     // trauma added when the player is hit
     float trauma_enemy_death = 0.25f;   // trauma added when an enemy dies
     float flash_duration = 0.12f;       // hit-flash lifetime (seconds)
+    // v3 Tier 3 (D196): impact feel. Hit-stop freezes SIMULATION TIME (dt=0)
+    // for N frames while frames keep advancing; the zoom punch scales the
+    // camera by 1 + zoom_punch * trauma^2 (same curve as shake).
+    int   hitstop_frames_kill = 2;      // per ordinary enemy death
+    int   hitstop_frames_boss = 6;      // when a boss dies
+    float zoom_punch = 0.045f;          // camera zoom gain at full trauma
     uint8_t player_flash_r = 255, player_flash_g = 70,  player_flash_b = 70;   // red
     uint8_t enemy_flash_r  = 255, enemy_flash_g  = 255, enemy_flash_b  = 255;  // white
 };
@@ -343,6 +351,28 @@ struct ActiveItemDef {
 };
 
 /**
+ * TrailConfig — v3 Tier 7 position-history trails. Presentation only: the
+ * history is sampled by the render pass and never read by a gameplay system.
+ *
+ * `min_spacing` is world units between retained samples. It doubles as the
+ * hit-stop guard — with delta_time at 0 nothing moves, so no sample is taken
+ * and no trail eats itself (see trail_math::push_sample).
+ *
+ * `vertex_budget` caps TOTAL ribbon verts per frame across all trails.
+ * build_ribbon emits 2 per point, so the default 4000 is ~2000 points, and
+ * trails degrade (tail-first, then dropped whole) before the framerate does.
+ */
+struct TrailConfig {
+    bool  enabled       = true;
+    int   max_points    = 14;     // history length per entity
+    float min_spacing   = 3.0f;   // world units between retained samples
+    float shot_width    = 7.0f;   // head width, player + enemy shots
+    float drone_width   = 9.0f;   // head width, the player hull
+    float dash_width    = 16.0f;  // head width while dash_timer > 0
+    int   vertex_budget = 4000;
+};
+
+/**
  * DifficultyDef — one selectable run difficulty (Gameplay Phase B, D50).
  *
  * A difficulty is *only* a set of multipliers over the one authored wave table;
@@ -396,8 +426,12 @@ struct GameConfig {
     BossConfig boss;               // #4 boss every 10 waves
     SpecialtyConfig specialty;     // #3/#9 spawn-stream injections
     std::vector<ActiveItemDef> actives;  // boss-reward active items
+    BloomConfig bloom;             // v3 Tier 1: render-target bloom
+    PostFxConfig postfx;           // v3 Tier 4: SPIR-V post-process (GPU renderer only)
+    TrailConfig trails;            // v3 Tier 7: position-history neon trails
     unsigned int seed = 1234u;     // RNG seed for spread/spawn/drops
 };
+
 
 /**
  * Index of the active arena for a given 1-based `wave`: the last arena whose

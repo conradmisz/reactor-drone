@@ -69,31 +69,35 @@ def far_layer(pal, rng):
         for x in range(0, T):
             img.putpixel((x, y), (c[0], c[1], c[2], 255))
     d = ImageDraw.Draw(img)
-    # stars / distant motes
-    for _ in range(140):
+    # stars / distant motes — v3 Tier 0: sparser and dimmer. The field is a hint
+    # of depth, not a subject; the Laser Hockey read needs a near-empty ground so
+    # the neon foreground owns the frame.
+    for _ in range(55):
         x, y = rng.randint(0, T), rng.randint(0, T)
         r = rng.choice([1, 1, 1, 2])
         b = rng.uniform(0.4, 1.0)
         col = pal.accent if rng.random() < 0.3 else (200, 200, 220)
-        wrap_dot(d, x, y, r, col, int(200 * b))
+        wrap_dot(d, x, y, r, col, int(120 * b))
     return img
 
 
 def mid_layer(pal, rng):
     img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # machinery silhouettes: dim rectangles + glowing seams, sparse
-    for _ in range(14):
+    # machinery silhouettes: dim rectangles + glowing seams — v3 Tier 0: far
+    # fewer and far darker. At 14 rects / alpha 130 this layer competed with the
+    # enemies for visual density; it is now a whisper of structure.
+    for _ in range(5):
         w, h = rng.randint(40, 130), rng.randint(40, 160)
         x, y = rng.randint(0, T), rng.randint(0, T)
         base = lerp(pal.clear, pal.obstacle, 0.6)
         for ox in (-T, 0, T):
             for oy in (-T, 0, T):
                 d.rectangle([x+ox, y+oy, x+ox+w, y+oy+h],
-                            fill=(base[0], base[1], base[2], 130))
+                            fill=(base[0], base[1], base[2], 55))
                 # glowing seam line
                 d.line([x+ox, y+oy+h//2, x+ox+w, y+oy+h//2],
-                       fill=(pal.primary[0], pal.primary[1], pal.primary[2], 90), width=2)
+                       fill=(pal.primary[0], pal.primary[1], pal.primary[2], 45), width=2)
     img = img.filter(ImageFilter.GaussianBlur(1.5))
     return img
 
@@ -102,15 +106,17 @@ def near_layer(pal, rng):
     img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     # a faint neon grid (divides 512 evenly -> tiles) with occasional bright nodes
-    step = 64
+    # v3 Tier 0: wider cells, fainter lines, rarer nodes — one crisp line reads
+    # better than many faint ones.
+    step = 128
     col = pal.primary
     for i in range(0, T, step):
-        d.line([i, 0, i, T], fill=(col[0], col[1], col[2], 40), width=1)
-        d.line([0, i, T, i], fill=(col[0], col[1], col[2], 40), width=1)
+        d.line([i, 0, i, T], fill=(col[0], col[1], col[2], 26), width=1)
+        d.line([0, i, T, i], fill=(col[0], col[1], col[2], 26), width=1)
     for gx in range(0, T, step):
         for gy in range(0, T, step):
-            if rng.random() < 0.12:
-                wrap_dot(d, gx, gy, 3, pal.accent, 120)
+            if rng.random() < 0.08:
+                wrap_dot(d, gx, gy, 3, pal.accent, 90)
     return img
 
 
@@ -498,9 +504,9 @@ def main():
             save_png(f"bg_{pal.name}_far", far(pal, rng))
             save_png(f"bg_{pal.name}_mid", mid(pal, rng))
             save_png(f"bg_{pal.name}_near", near(pal, rng))
-        save_png(f"wall_{pal.name}", WALL_FNS[pal.name](pal))
-        save_png(f"pillar_{pal.name}", PILLAR_FNS[pal.name](pal))
-        save_png(f"vent_{pal.name}", VENT_FNS[pal.name](pal))
+        save_png(f"wall_{pal.name}", WALL_FNS[pal.name](pal), glow=True)
+        save_png(f"pillar_{pal.name}", PILLAR_FNS[pal.name](pal), glow=True)
+        save_png(f"vent_{pal.name}", VENT_FNS[pal.name](pal), glow=True)
 
 
 if __name__ == "__main__":

@@ -88,6 +88,14 @@ Current measured state: **150 identical · 31 modified · 27 new** (208 source f
 | `ecs/systems/particle_system.{hpp,cpp}` | The whole particle simulation: emitters, per-particle lerp, `DEFAULT_MAX_PARTICLES` budget, and the `emit` flag that separates ageing from spawning (see §5) |
 | `tests/unit/test_particle_system.cpp`, `tests/property/test_particle_properties.cpp` | Its tests |
 | `tests/unit/test_tint.cpp` | `modulate_color` / Tint semantics |
+| `ecs/systems/bloom_math.hpp`, `ecs/systems/bloom_system.{hpp,cpp}` | v3 Tier 1+2 render-target bloom: scene target + **emissive target** + halving linear-filtered downsample chain composited back additively. The chain reads the emissive target only (D195), so hulls/backdrop/HUD never bleed. Self-disables without render-target support (headless = old pipeline). `BloomConfig` lives here; parsed from GameData's optional `"bloom"` block (D207) |
+| `tests/unit/test_bloom_math.cpp` | Chain geometry + intensity clamp |
+| `ecs/systems/line_mesh_math.hpp` | v3 Tier 5 (D198): pure ribbon geometry — miter joins (width-preserving, hairpin-clamped), strip triangulation, arc-length UVs. v3 Tier 7 (D200) adds a **per-point-width** `build_ribbon` overload for tapered trails; the scalar form delegates to it, so pre-Tier-7 callers are unchanged |
+| `tests/unit/test_line_mesh_math.cpp` | Its tests, including the taper overload and scalar/per-point equivalence |
+| `ecs/systems/particle_mesh.hpp` | v3 Tier 9 (D202): pure quad geometry for the batched particle renderer — four corner verts per particle with full [0,1] UVs over the glow disc, and `quad_indices` winding two triangles each at a 4-vert stride. Takes ALREADY camera-transformed positions (unlike `line_mesh_math.hpp`, which takes world space): particles are read off entities the CameraSystem has already transformed, so only the Y-flip is left for the render system |
+| `ecs/systems/trail_math.hpp` | v3 Tier 7 (D200): pure position-history math — `push_sample` (with the `min_spacing` guard that stops a stationary or hit-stopped entity packing the buffer with duplicates), `taper_widths` (v3 Tier 10 adds an `exponent`: > 1 concentrates width at the head so a shot reads as a tracer, default 1.0 keeps every earlier caller on the straight taper), `points_within_budget`. Points are stored oldest-first so they feed `build_ribbon` directly and its `u` doubles as head-ness |
+| `tests/unit/test_trail_math.cpp` | Its tests (10 cases) |
+| `ecs/systems/postfx_system.{hpp,cpp}` | v3 Tier 4 (D197): one SPIR-V fragment shader (offline-compiled `assets/shaders/postfx.frag.spv`) on a full-screen draw via `SDL_CreateGPURenderState` — aberration, vignette, grade, shockwave. GPU renderer only, which is OPT-IN (`--gpu-renderer`, see bugs/003); self-disables everywhere else. Destructor deliberately leaks the GPU state/shader (bugs/003 teardown wedge) |
 | `ui_style.{hpp,cpp}` | `StyleTable`, `WidgetState`, `parse_ui_styles` — widget colours as pure data (Option-040 port) |
 | `ui_focus_math.hpp`, `ui_fade_math.hpp` | Tab-order and fade-curve helpers (Option-040 port) |
 | `ecs/systems/ui_render_math.hpp` | Widget-state precedence, the design→window canvas transform, inclusive hit-test, z-order sort — **plus the v2-only `pulse_alpha_scale` / `apply_alpha_scale` and `fit_text_in_rect` (D85)** |
@@ -109,7 +117,7 @@ Current measured state: **150 identical · 31 modified · 27 new** (208 source f
 | `gamedata_loader.cpp` | Parses the optional top-level `ui_styles` and `screens` blocks. Both are gated on the key being present, so a data file without them creates zero UI entities and raises no error |
 | `lua_bindings.cpp` | The `ui.*` global table (`push_screen`, `pop_screen`, `set_label`, `get_value`, `set_disabled`, `widget_id`). Unused by this game — see §5 |
 | `ecs/systems/player_control_system.{hpp,cpp}` | `set_speed()` (so a shop purchase applies mid-run) and diagonal normalisation |
-| `ecs/systems/render_system.{hpp,cpp}` | Colour-mod / alpha-mod from `Tint`, additive blend mode, `RenderLayer` bucketing, rotation with `flip_when_left`, and `render_layers()` + `TiledLayer` (tiled parallax backdrops, with `alpha` for the v2 Phase 5b arena crossfade) |
+| `ecs/systems/render_system.{hpp,cpp}` | Colour-mod / alpha-mod from `Tint`, additive blend mode, `RenderLayer` bucketing, rotation with `flip_when_left`, `render_layers()` + `TiledLayer` (tiled parallax backdrops, with `alpha` for the v2 Phase 5b arena crossfade), the v3 Tier 2 `render_emissive()` — the same walk drawing only `_glow` siblings + additive-tinted visuals into the bloom emissive target (D195) — and the v3 Tier 5 `render_glow_lines()` (D198): immediate-mode world-space neon ribbons via `SDL_RenderGeometry`, camera transform + Y-flip applied in this file (the one world-space flip site), drawn into scene AND emissive. v3 Tier 7 (D200/D201) adds `GlowLine::widths` (empty = uniform, every pre-Tier-7 caller) and `GlowLine::fade_tail`, which ramps per-vertex alpha with the arc-length `u` the ribbon already computes. Projectiles carry NO `Color` component, so this walk skips them and the ribbon is their only visual (D201). v3 Tier 9 (D202) adds `render_particles()`: every additive particle in ONE `SDL_RenderGeometry` call UV-mapped over `v2/glow_disc_64.png`, drawn into scene AND emissive. The walk itself now SKIPS additive-tinted `Color` entities — drawing them there is the SDL fill-rect path, i.e. the hard square that seeded the box halos (bugs/004). Note the disc's steep falloff: the quad is scaled by `DISC_SCALE` so the solid core lands on the particle's real footprint. v3 Tier 10 adds `GlowLine::core_scale` (default 0.35, the pre-Tier-10 constant) — shots ride 0.26 for a hotter nose, and the Tier 11 blast layers set `core = false` outright, because a white-lifted core is what the bloom chain smears into a flat grey ball |
 | `project_paths.hpp` | Task 2b + D199: `assets_dir()` gained a `_WIN32`/`RD_PORTABLE` branch resolving relative to `SDL_GetBasePath()` instead of the baked `CLASS_ROOT_DIR`, and a new `user_data_dir()` — `class_root()` on Linux (unchanged on-disk saves), `SDL_GetPrefPath("conradm", "ReactorDrone")` on Windows and on any `RD_PORTABLE` release build. Dev behaviour is byte-identical. See §5 |
 
 ### Engine — byte-identical class originals (~150 files)
@@ -122,6 +130,12 @@ camera, resource manager, timer, sidecar loader, and the entire inherited test s
 `enemy_path.hpp` · `feedback.hpp` · `flash_system.{hpp,cpp}` · `item_system.hpp` ·
 `obstacles.hpp` · `parallax.hpp` · `pickup_system.{hpp,cpp}` · `shield_system.hpp` ·
 `shop_system.{hpp,cpp}` — plus 10 new test files.
+
+`explosion_fx.hpp` (v3 Tier 11, D203): pure staged geometry for the layered enemy
+explosion — ring radius/alpha curves, circle points, shard spans and seeded shard
+angles. The effect entity's own sprite clip is the clock (`current_frame /
+(total_frames - 1)`), so the ring and shards need no component, no event and no
+state; angles are seeded off the entity id, so a replay throws the same debris.
 
 `debug_adapters.{hpp,cpp}` additionally register the four UI components, so a `J`/`T`
 frame dump shows the live menu instead of an apparently empty screen.
@@ -228,6 +242,12 @@ else if sim:                animation.update, destroy_marked_entities, title/res
                               temporary — see §5), rewrites the name_entry screen's
                               two dynamic labels by name (the menu_continue pattern)
 
+(v3 Tier 3, D196: after end_frame + update_blackboard, a pending hit-stop
+overrides the published delta_time to 0 for its remaining frames — systems
+still run and draw/RNG counts are unchanged, but they integrate zero motion.
+The camera block also writes camera.zoom = 1 + zoom_punch·trauma² each
+simulated frame; legal because CameraControlSystem is not instantiated here.)
+
 every phase, if sim:
   particles.update(emit = PLAYING || INTERMISSION) + destroy_marked_entities
                                             — ages everywhere so trails finish animating on
@@ -246,10 +266,32 @@ every phase, if sim:
 
 render:
   camera.update
+  bloom.begin()                             — v3 Tier 1: redirect into the scene target
+                                              (no-op when bloom is off/unsupported)
   render_system.render_layers(bg_layers)    — outgoing arena at alpha 1, incoming fading in
   render_system.render
+  render_system.render_glow_lines           — v3 Tier 5: arena ring, obstacle
+                                              outlines, beam ribbons (list rebuilt
+                                              each frame above the render block)
+  render_system.render_particles            — v3 Tier 9: every additive particle
+                                              as one batched mesh of soft discs
   hud_system.render
   ui_render_system.render                   — menus composite last, over world AND HUD
+  (v3 Tier 4: when postfx is live, the whole composite above landed in its
+  frame target — main sets it before bloom.begin(), and bloom's resolve
+  restores the target captured at begin(). postfx.apply() then draws that
+  target through the shader to the backbuffer. --screenshot forces the
+  classic renderer, so captures never traverse this path.)
+  if bloom.active():
+    bloom.begin_emissive()                  — v3 Tier 2: switch to the emissive target
+    render_system.render_emissive           — `_glow` siblings + additive Tints only
+    render_system.render_glow_lines         — v3 Tier 5: lines bloom too
+    render_system.render_particles          — v3 Tier 9: discs bloom too
+  bloom.resolve()                           — back to the backbuffer: scene 1:1 + blur
+                                              chain additive. The chain reads the
+                                              EMISSIVE target, not the scene, so only
+                                              authored glow bleeds; screenshot captures
+                                              the bloomed frame
   screenshot_system.update
   render_system.present
 ```
@@ -316,6 +358,41 @@ render:
   Linux/macOS: without it a non-Windows binary looks for the *build machine's* source tree on
   the player's computer and fails instantly. Verified by running a staged build from an alien
   cwd under a scratch `HOME` (`scripts/verify_branch.sh` section 6 pins it).
+- **A baked sprite halo is a BOX unless its tail is cut.** `add_halo` blurs the
+  silhouette with a Gaussian whose radius is `frame * spread` (0.18 -> ~92px on
+  the 512 working canvas). That tail reached the frame edge, where it was CUT —
+  a soft glow with a hard rectangular boundary, plus a flat alpha ~8 wash over
+  the entire frame. At gameplay size every entity therefore sat in a faint BOX,
+  which is most of what "everything radiates a square" meant. v3 Tier 12 remaps
+  the halo's alpha (`floor = 30`, gradient preserved) so it reaches true zero
+  inside the frame. **Regenerating art after touching `add_halo` means
+  `make_sprites.py` AND `make_backdrops.py --props-only`** — props have their own
+  generator and were missed on the first pass.
+- **The bloom chain's kernel was a BOX too.** A half-size linear blit is a 2x2
+  box average, and a chain of them spreads light into an axis-aligned box. Tier
+  12 makes each step (from level 1 down) a four-tap Kawase downsample. Level 0
+  keeps its single blit deliberately: it is the largest target in the chain, and
+  paying 4x there cost ~10% of frame time for no visible gain.
+- **The renderer's DRAW blend mode is global state, and until v3 Tier 9 only
+  particles ever set it.** `SDL_SetRenderDrawBlendMode` is renderer-wide, and
+  SDL's default is `SDL_BLENDMODE_NONE`, under which an alpha-0 fill writes
+  SOLID BLACK rather than nothing. `UIRenderSystem` fills every panel/button
+  background with `SDL_RenderFillRect` and never set the mode — it worked only
+  because `draw_entity`'s additive-colour path (i.e. every additive PARTICLE)
+  set `BLENDMODE_BLEND` on its way past each frame. Tier 9 moved particles to a
+  batched `SDL_RenderGeometry` pass, that incidental setter disappeared, and the
+  dash button's "rim, no fill" frame immediately painted an opaque black square
+  over its own icon. `UIRenderSystem::render` now sets `BLENDMODE_BLEND` itself
+  at entry. **Any new system that draws filled rects must set the draw blend
+  mode it needs — never inherit it.**
+- **A death still played the CLASS-ORIGINAL explosion until v3 Tier 11.**
+  `EnemyDeathSystem::effect_sprite()` loaded `assets/images/effect_explosion.json`
+  — a placeholder of a grey sphere growing into a rounded SQUARE — straight
+  through the v2 art overhaul and every v3 tier. The v2 replacement
+  (`assets/images/v2/effect_explosion.json`) existed the whole time and nothing
+  referenced it. **When judging how something looks, confirm which asset is
+  actually loaded before touching the art**; `v2/` art is not automatically what
+  runs.
 - **`--dump` and `--trace` are parsed but never consumed.** `CliOptions::dump_frames` /
   `trace_frames` are populated by `cli_parser.cpp` and `main.cpp` never reads them. There is
   no state dump. `--screenshot` *does* work.

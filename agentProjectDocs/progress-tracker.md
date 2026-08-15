@@ -86,6 +86,21 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   locally (alien dir, scratch HOME, bundled libs, windowed gameplay); mac
   authored but only CI-tested — **first tag push is the real mac test, check
   the build-mac jobs**. Windows path unchanged.
+- **`visual-overhaul` (2026-08-11): v3 neon-polish branch started** — plan in
+  `plans/v3-neon-polish-plan.md` (5 tiers). Tier 0 (vsync + backdrop restraint)
+  Tier 1 (render-target bloom, D207) and Tier 2 (emissive separation, D195,
+  38 generated `_glow` siblings) are committed. Verified per tier: clean build,
+  ctest 8/8, canary byte-identical twice, headless screenshots read back
+  (Tier 2's confirms the Tier 1 full-scene wash is gone). Tier 3 (hit-stop + camera zoom punch, D196 — trails already existed) is
+  committed; its canary byte-identical (mouseless canary lands no kills, so hit-stop
+  never fires in it; kill-bearing runs shift by design). Tier 4 (SPIR-V postfx via SDL_CreateGPURenderState, D197) is committed —
+  OPT-IN via --gpu-renderer because the installed SDL prerelease wedges under
+  it (bugs/003: mid-run segfault with bloom, readback segfault, teardown hang;
+  all verified gone under SDL origin/main built in a scratch worktree).
+  Tier 5 (immediate-mode neon line ribbons via SDL_RenderGeometry, D198:
+  arena rink ring, obstacle outlines, laser-beam ribbons) is committed. ALL
+  FIVE TIERS DONE. **Unplayed in a window** — a windowed playtest of the whole
+  branch is the next real gate; then the pre-merge branch (user's plan).
 
 - **`feature/gameplay-polish` (2026-08-11): the THIRD playtest batch is
   implemented** as D193 (one decisions.md entry, numbered by feedback item) —

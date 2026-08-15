@@ -204,6 +204,14 @@ CommandLineOptions parse_command_line(int argc, char* argv[]) {
             opts.dev = true;
             ++i;
 
+        } else if (arg == "--classic-renderer") {
+            opts.classic_renderer = true;
+            ++i;
+
+        } else if (arg == "--gpu-renderer") {
+            opts.gpu_renderer = true;
+            ++i;
+
         } else if (arg == "--fps") {
             ++i;
             if (i >= argc) {
@@ -647,6 +655,16 @@ std::vector<std::string> options_to_argv(const CommandLineOptions& opts) {
     // --dev (emitted only when on: a normal run's argv is unchanged)
     if (opts.dev) {
         argv.push_back("--dev");
+    }
+
+    // --classic-renderer (emitted only when on)
+    if (opts.classic_renderer) {
+        argv.push_back("--classic-renderer");
+    }
+
+    // --gpu-renderer (emitted only when on)
+    if (opts.gpu_renderer) {
+        argv.push_back("--gpu-renderer");
     }
 
     return argv;

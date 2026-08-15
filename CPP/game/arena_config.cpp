@@ -209,6 +209,34 @@ GameConfig load_arena_config(const std::string& file_path) {
         cfg.battery.fire_time     = b.value("fire_time", cfg.battery.fire_time);
         cfg.battery.recharge_time = b.value("recharge_time", cfg.battery.recharge_time);
     }
+    if (data.contains("bloom")) {
+        const auto& b = data["bloom"];
+        cfg.bloom.enabled           = b.value("enabled", cfg.bloom.enabled);
+        cfg.bloom.levels            = b.value("levels", cfg.bloom.levels);
+        cfg.bloom.default_intensity = b.value("default_intensity", cfg.bloom.default_intensity);
+        if (b.contains("intensities"))
+            cfg.bloom.intensities = b["intensities"].get<std::vector<float>>();
+    }
+    if (data.contains("trails")) {
+        const auto& tr = data["trails"];
+        cfg.trails.enabled       = tr.value("enabled", cfg.trails.enabled);
+        cfg.trails.max_points    = tr.value("max_points", cfg.trails.max_points);
+        cfg.trails.min_spacing   = tr.value("min_spacing", cfg.trails.min_spacing);
+        cfg.trails.shot_width    = tr.value("shot_width", cfg.trails.shot_width);
+        cfg.trails.drone_width   = tr.value("drone_width", cfg.trails.drone_width);
+        cfg.trails.dash_width    = tr.value("dash_width", cfg.trails.dash_width);
+        cfg.trails.vertex_budget = tr.value("vertex_budget", cfg.trails.vertex_budget);
+    }
+    if (data.contains("postfx")) {
+        const auto& px = data["postfx"];
+        cfg.postfx.enabled        = px.value("enabled", cfg.postfx.enabled);
+        cfg.postfx.aberration     = px.value("aberration", cfg.postfx.aberration);
+        cfg.postfx.vignette       = px.value("vignette", cfg.postfx.vignette);
+        cfg.postfx.saturation     = px.value("saturation", cfg.postfx.saturation);
+        cfg.postfx.gain           = px.value("gain", cfg.postfx.gain);
+        cfg.postfx.shock_duration = px.value("shock_duration", cfg.postfx.shock_duration);
+        cfg.postfx.shock_amp      = px.value("shock_amp", cfg.postfx.shock_amp);
+    }
     if (data.contains("minimap")) {
         const auto& m = data["minimap"];
         cfg.minimap.enabled   = m.value("enabled", cfg.minimap.enabled);
@@ -301,6 +329,9 @@ GameConfig load_arena_config(const std::string& file_path) {
         fb.trauma_player_hit   = f.value("trauma_player_hit", fb.trauma_player_hit);
         fb.trauma_enemy_death  = f.value("trauma_enemy_death", fb.trauma_enemy_death);
         fb.flash_duration      = f.value("flash_duration", fb.flash_duration);
+        fb.hitstop_frames_kill = f.value("hitstop_frames_kill", fb.hitstop_frames_kill);
+        fb.hitstop_frames_boss = f.value("hitstop_frames_boss", fb.hitstop_frames_boss);
+        fb.zoom_punch          = f.value("zoom_punch", fb.zoom_punch);
         if (f.contains("player_flash")) {
             const auto& c = f["player_flash"];
             fb.player_flash_r = u8(c, "r", fb.player_flash_r);

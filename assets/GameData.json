@@ -1736,6 +1736,9 @@
     "trauma_player_hit": 0.6,
     "trauma_enemy_death": 0.25,
     "flash_duration": 0.12,
+    "hitstop_frames_kill": 2,
+    "hitstop_frames_boss": 6,
+    "zoom_punch": 0.045,
     "player_flash": {
       "r": 255,
       "g": 70,
@@ -2511,6 +2514,33 @@
     "y": 486.0,
     "size": 96.0,
     "max_blips": 120
+  },
+  "//postfx": "v3 Tier 4 (D197) - SPIR-V full-screen post-process, GPU renderer only (classic renderer and headless runs never see it). aberration is chromatic fringe in UV units; vignette darkens edges; saturation/gain grade the frame; shock_* shape the boss-death / arena-shift ripple. All presentation.",
+  "postfx": {
+    "enabled": true,
+    "aberration": 0.0006,
+    "vignette": 0.44,
+    "saturation": 1.26,
+    "gain": 1.05,
+    "shock_duration": 0.9,
+    "shock_amp": 0.055
+  },
+  "//bloom": "v3 Tier 1 (D207) - render-target bloom. levels is the downsample-chain depth (each level halves, so 4 from 980x660 bottoms out at 62x42); intensities[i] is level i's additive composite weight in [0,1] (clamped), default_intensity covers any level past the list's end. Purely presentation: the system self-disables on drivers without render targets and no game system reads anything it writes.",
+  "//trails": "v3 Tier 7 (D200). Position-history neon ribbons on the hull, player shots and enemy shots. Presentation only: history lives in a render-side map, never in component_storage, so no gameplay system can read it. min_spacing doubles as the hit-stop guard (delta_time 0 = no movement = no sample). vertex_budget caps TOTAL ribbon verts per frame; 2 verts per point, so 4000 is ~2000 points, and trails degrade tail-first before the framerate does.",
+  "trails": {
+    "enabled": true,
+    "max_points": 20,
+    "min_spacing": 3.6,
+    "shot_width": 7.0,
+    "drone_width": 9.0,
+    "dash_width": 16.0,
+    "vertex_budget": 6000
+  },
+  "bloom": {
+    "enabled": true,
+    "levels": 4,
+    "intensities": [0.34, 0.28, 0.22, 0.17],
+    "default_intensity": 0.24
   },
   "//specialty": "Lane D / notes #3 + #9 (D67). Two cadences over the spawn counter, not RNG: every_n_spawns injects the live arena's specialty unit, moon_every_n_spawns injects one unlocked shooter (a type with first_wave > 0). by_arena maps an arena NAME to an enemy_types NAME - names, not indices, because the two lists are authored by different lanes. tier2_* is what makes the second pass over the same four themes (waves 26-50) harder. PROVISIONAL: unplayed.",
   "specialty": {
@@ -4678,14 +4708,14 @@
         {
           "//": "The checkbox draw path renders box + check only, never label_text - so each toggle is a label beside a narrow checkbox.",
           "element_type": "label",
-          "rect": { "x": 204, "y": 320, "w": 280, "h": 44 },
+          "rect": { "x": 204, "y": 340, "w": 280, "h": 44 },
           "label_text": "SCREEN SHAKE",
           "style_id": "subtitle",
           "z_order": 10
         },
         {
           "element_type": "checkbox",
-          "rect": { "x": 500, "y": 320, "w": 96, "h": 44 },
+          "rect": { "x": 500, "y": 340, "w": 96, "h": 44 },
           "label_text": "",
           "style_id": "default_button",
           "z_order": 10,
@@ -4695,14 +4725,14 @@
         },
         {
           "element_type": "label",
-          "rect": { "x": 204, "y": 264, "w": 280, "h": 44 },
+          "rect": { "x": 204, "y": 288, "w": 280, "h": 44 },
           "label_text": "MINIMAP",
           "style_id": "subtitle",
           "z_order": 10
         },
         {
           "element_type": "checkbox",
-          "rect": { "x": 500, "y": 264, "w": 96, "h": 44 },
+          "rect": { "x": 500, "y": 288, "w": 96, "h": 44 },
           "label_text": "",
           "style_id": "default_button",
           "z_order": 10,
@@ -4711,15 +4741,16 @@
           "name": "settings_minimap"
         },
         {
+          "//": "MERGE 2026-08-15: distribution added ANALYTICS and visual-overhaul added FULLSCREEN, both as the third row at y=208. Four rows do not fit the old 56 spacing between the rule (400) and BACK (112), so the whole stack is re-pitched to 52 and the caption moved with it. Order is unchanged.",
           "element_type": "label",
-          "rect": { "x": 204, "y": 208, "w": 280, "h": 44 },
+          "rect": { "x": 204, "y": 236, "w": 280, "h": 44 },
           "label_text": "ANALYTICS",
           "style_id": "subtitle",
           "z_order": 10
         },
         {
           "element_type": "checkbox",
-          "rect": { "x": 500, "y": 208, "w": 96, "h": 44 },
+          "rect": { "x": 500, "y": 236, "w": 96, "h": 44 },
           "label_text": "",
           "style_id": "default_button",
           "z_order": 10,
@@ -4729,14 +4760,31 @@
         },
         {
           "element_type": "label",
-          "rect": { "x": 204, "y": 160, "w": 392, "h": 24 },
+          "rect": { "x": 204, "y": 184, "w": 280, "h": 44 },
+          "label_text": "FULLSCREEN",
+          "style_id": "subtitle",
+          "z_order": 10
+        },
+        {
+          "element_type": "checkbox",
+          "rect": { "x": 500, "y": 184, "w": 96, "h": 44 },
+          "label_text": "",
+          "style_id": "default_button",
+          "z_order": 10,
+          "value": 0,
+          "on_click_fn": "on_toggle_fullscreen",
+          "name": "settings_fullscreen"
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 156, "w": 392, "h": 24 },
           "label_text": "Applies immediately. Stored between sessions.",
           "style_id": "caption",
           "z_order": 10
         },
         {
           "element_type": "button",
-          "rect": { "x": 204, "y": 112, "w": 188, "h": 44 },
+          "rect": { "x": 204, "y": 106, "w": 188, "h": 44 },
           "label_text": "BACK",
           "style_id": "default_button",
           "z_order": 10,

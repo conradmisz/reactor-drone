@@ -2226,3 +2226,133 @@ game should *show* its state, not make you infer it.
   in_run=1, wave=1, difficulty Normal, tags and from_name intact while frames
   stayed at 347; ESC returned to the pause screen (Phase 1) and RESUME
   unfroze — frames 347 -> 539. ctest 8/8, canary byte-identical.
+
+- **MERGE 2026-08-15 — `visual-overhaul` renumbering.** Both branches allocated
+  **D194** independently: distribution's read-only-assets/user-data split (above,
+  already shipped in v2.0.0) and the visual branch's vsync+bloom decision. The
+  shipped one keeps the number; the visual one became **D207**. D195-D198 did not
+  collide — distribution's log stops at D194 — so they are unchanged.
+
+
+## v3 — the neon polish branch (visual-overhaul)
+
+- **D207 (was D194 on `visual-overhaul`) — Tier 0+1: vsync and render-target bloom.** The branch's goal is the
+  Wii Play *Laser Hockey* read: near-black ground, few crisp lines, real halos.
+  - *Vsync on* (`SDL_SetRenderVSync(1)`): tear-free presentation. The Timer's
+    busy-wait stays as a pacing floor; `--seed` still forces deterministic dt,
+    so the canary is untouched. **Rejected:** vsync-off + higher target FPS
+    (still tears) and adaptive vsync (`-1`, not universally supported).
+  - *Backdrop restraint*: far stars 55@120a (was 140@200a), mid machinery
+    5@55a (was 14@130a), near grid 128px@26a (was 64px@40a). The backdrop was
+    competing with the enemies for density; the foreground owns the frame now.
+  - *Bloom is a render-target chain, not a shader* (`bloom_system.{hpp,cpp}` +
+    pure `bloom_math.hpp`): world+UI render into a scene target, which is
+    walked down 4 halving linearly-filtered targets (each halving is a free
+    box blur) and composited back additively with per-level GameData weights.
+    **No bright-pass**: on a near-black field the emissives are the only
+    bright content — Tier 2 will move bloom onto a dedicated emissive target
+    instead of thresholding. **Self-disabling**: any target-creation failure
+    (dummy/offscreen drivers) turns begin()/resolve() into no-ops, so headless
+    runs and the screenshot path render the exact pre-bloom pipeline.
+    **Rejected:** SDL_GPU shaders now (Tier 4's job, needs a toolchain) and
+    per-sprite baked halos as the only glow (they cannot bleed or saturate).
+
+- **D195 — Tier 2: emissive separation is a naming convention, not a component.**
+  Every generated atlas/prop now ships a `_glow` sibling PNG whose alpha is the
+  source's alpha × per-pixel luminance^1.2 (`emissive_of` in `common.py`) — the
+  emissive layer is *derived*, never re-authored, so it can never drift from the
+  art and the same sidecar frame rects apply. At render time a second walk
+  (`RenderSystem::render_emissive`) draws each entity's sibling — probed via the
+  new `ResourceManager::try_load_texture`, which returns nullptr on a miss and
+  caches it silently (the magenta missing-texture and per-frame disk probes are
+  both wrong here) — plus any additive-Tint visual (particles: their sharp copy
+  is already in the scene, so this contributes halo only) into the bloom
+  emissive target; the blur chain reads that target alone. Result: the Tier 1
+  full-scene wash is gone — the floor is near-black again while emissives bloom.
+  **Rejected:** a `GlowSprite` component (invariant 6 makes a new component the
+  expensive edit, and the convention needs zero data changes); a luminance
+  bright-pass at composite time (Tier 4's shader job, meaningless on a chain
+  seeded full-scene); kit-part siblings (they composite over a chassis whose
+  glow already blooms). HUD widgets keep no siblings on purpose — menus stay
+  crisp. Trap for new art: any sprite that should glow must be born through the
+  generators; hand-dropped PNGs bloom only if additive-tinted.
+- **D196 — Tier 3: impact feel is dt-shaping, not new systems.** Audit first:
+  projectile trails (player_fire_system) and enemy-shot trails
+  (enemy_fire_system) already existed, as did kill trauma + seeded shake — so
+  Tier 3 shipped only the two genuine gaps.
+  - *Hit-stop*: a `hitstop_left` frame counter in main; kills saturate it to
+    `feedback.hitstop_frames_kill` (2), a boss death to `hitstop_frames_boss`
+    (6) via a `boss.just_died` Blackboard edge. Applied after
+    `timer.update_blackboard`: the published `delta_time` is overridden to 0,
+    so every system still RUNS (draw/RNG counts unchanged — the determinism
+    invariant is untouched) but integrates zero motion; `end_frame` still
+    advances, so `--stopframe` cannot hang. Saturating, not additive: a
+    multi-kill frame is one beat, not a slideshow. **Rejected:** freezing the
+    frame counter (breaks scripted `--keys` indexing, the pause trap) and a
+    wall-clock freeze (non-deterministic).
+  - *Zoom punch*: the camera block writes `camera.zoom = 1 + zoom_punch *
+    trauma²` each simulated frame (same curve as shake, same
+    `settings.screen_shake` gate). Legal because CameraControlSystem is not
+    instantiated in this game — nothing else writes the key, so no restore
+    step. NOTE: the standard canary cannot fire hit-stop at all (a
+    mouseless dummy-driver run lands no kills), so it stayed byte-identical to
+    the pre-Tier-3 baseline too; a kill-bearing scripted run WOULD legitimately
+    shift sim timing vs older builds — that is the feature.
+  - *Squash on hit*: **skipped.** `Size` is collision-coupled, so a geometric
+    squash needs either a new component (invariant-6 expensive) or draw-path
+    plumbing — for feedback the Flash + hit-stop + punch stack already covers.
+    Revisit only if a windowed playtest asks for it.
+- **D197 — Tier 4: SPIR-V post-processing rides SDL_Renderer, behind an opt-in.**
+  `PostFxSystem` attaches one precompiled fragment shader
+  (`assets/shaders/postfx.frag.spv`, built OFFLINE by `assets/shaders/make.sh`
+  with glslc or standalone glslang — a build never compiles shaders, same
+  discipline as the PNG generators) to a full-screen draw via
+  `SDL_CreateGPURenderState`. One pass: chromatic aberration, vignette,
+  saturation/gain grade, and a radial shockwave triggered by boss deaths and
+  arena shifts (`trigger_shock`). The whole composite routes into the postfx
+  frame target (bloom's `resolve()` restores to the target captured at
+  `begin()` instead of hard-coding the backbuffer — the one bloom change this
+  tier needed), then `apply()` draws it back through the shader.
+  - **Opt-in, not default** (`--gpu-renderer`): the installed SDL prerelease
+    wedges — see `bugs/003`. The classic renderer carries the full Tier 0-3
+    look; Tier 4 adds grade/aberration/shockwave only. Flip the default after
+    a system SDL update passes the bug-003 re-test.
+  - **Uniforms are 8 tightly-packed floats** matching the GLSL block; the
+    binding model is SDL's render-state contract (texture set 2/0, uniforms
+    set 3/0, vertex color loc 0 + uv loc 1).
+  - **Rejected:** SDL_shadercross (HLSL source — GLSL + glslang is one less
+    toolchain); per-arena LUT textures (a second sampler binding + a LUT
+    generator for what saturation/gain uniforms deliver today — revisit if an
+    arena needs a real look, not a grade); rewriting rendering on raw SDL_GPU
+    (the render-state API exists precisely so SDL_Renderer code keeps working).
+- **D198 — Tier 5: neon lines are immediate-mode geometry, not entities.**
+  `line_mesh_math.hpp` (pure, tested: miter joins with width preservation +
+  hairpin clamp, strip triangulation, arc-length UVs, circle sampling) feeds
+  `RenderSystem::render_glow_lines`: world-space polylines → miter-joined
+  triangle-strip ribbons via `SDL_RenderGeometry`, cross-section sampling the
+  new 1D `line_falloff.png` additively, with an optional 0.35x-width
+  white-lifted core strip — resolution-independent at any zoom, no sprite
+  minification ever. The camera transform + world Y-flip are applied inside
+  `render_system.cpp`, keeping the one-flip-per-space invariant literally
+  one-file true. main.cpp rebuilds the line list every frame from live state
+  (nothing to invalidate on an arena shift) and draws it twice: into the scene
+  and into the bloom emissive target, so every line halos.
+  Consumers: the arena boundary ring (the clamp circle finally has a visible
+  rink line), obstacle outlines in the live arena's enemy tint, and a hot
+  ribbon over each recycled laser-beam quad.
+  **Rejected:** a `LineGlow` component (invariant 6 — and an immediate-mode
+  list has no destruction/recycling story to get wrong); replacing the beam
+  quads (the ribbon rides on top; removing the quad would touch the damage
+  path for a visual); enemy-shot tracers (their particle trails already read
+  well — add if a playtest disagrees).
+
+- **D197 addendum (post-SDL-update re-test, same day).** With the system SDL
+  rebuilt from origin/main: the mid-run and readback crashes are gone, so
+  `--gpu-renderer --screenshot` is now allowed (default runs still capture on
+  classic — it stays the verification baseline). Teardown localized one call
+  further: `SDL_DestroyGPURenderState` + texture destroy are clean;
+  `SDL_ReleaseGPUShader` still wedges under a live renderer, so exactly one
+  shader object (~4KB) is leaked to process exit. GPU stays opt-in pending a
+  windowed playtest — a product call now, not a stability one. bugs/003
+  updated with the full re-test matrix.
+

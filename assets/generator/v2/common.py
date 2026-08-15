@@ -12,7 +12,7 @@ import math
 import os
 from typing import Callable
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 IMAGES_DIR = os.path.normpath(
     os.path.join(os.path.dirname(__file__), "..", "..", "images", "v2")
@@ -60,12 +60,39 @@ def add_halo(sprite: Image.Image, color, spread=0.18, strength=200) -> Image.Ima
     halo.putalpha(a.point(lambda v: strength if v > 20 else 0))
     blur = max(1.0, sprite.size[0] * spread)
     halo = halo.filter(ImageFilter.GaussianBlur(blur))
+    # v3 Tier 12: cut the Gaussian's tail so the halo reaches TRUE zero inside
+    # the frame. At spread 0.18 on a 512 canvas the blur radius is ~92px, so the
+    # tail ran all the way into the corners and was then CUT by the frame edge —
+    # a soft glow with a hard rectangular boundary, plus a flat alpha ~8 wash
+    # over the whole frame. Drawn at gameplay size that reads as a faint BOX
+    # around every entity, which is most of what "everything radiates a square"
+    # was pointing at (bugs/004 fixed the particles; this is the sprites).
+    # Remap rather than threshold, so the halo keeps its gradient.
+    floor = 30
+    ha = halo.split()[3].point(
+        lambda v: 0 if v <= floor else int((v - floor) * 255 / (255 - floor)))
+    halo.putalpha(ha)
     out = Image.alpha_composite(halo, sprite)
     return out
 
 
 def glow_line(draw: ImageDraw.ImageDraw, p0, p1, color, width):
     draw.line([p0, p1], fill=(color[0], color[1], color[2], 255), width=width)
+
+
+def emissive_of(img: Image.Image, gamma: float = 1.2) -> Image.Image:
+    """v3 Tier 2: the sprite's emissive layer, derived not re-authored.
+
+    Alpha is scaled by per-pixel luminance**gamma, so dark hull pixels vanish
+    and the neon lines/halos survive. The result is what the engine's emissive
+    render pass feeds the bloom chain — geometry identical to the source, so
+    the same sidecar frame rects apply."""
+    a = img.split()[3]
+    lum = img.convert("L")
+    lut = [int(round(255 * ((v / 255.0) ** gamma))) for v in range(256)]
+    out = img.copy()
+    out.putalpha(ImageChops.multiply(a, lum.point(lut)))
+    return out
 
 
 def build_atlas(frames, columns: int) -> Image.Image:
@@ -87,6 +114,8 @@ def write_sprite(name: str, frames, columns: int, animations: dict) -> None:
     atlas = build_atlas(frames, columns)
     png = os.path.join(IMAGES_DIR, f"{name}.png")
     atlas.save(png)
+    # v3 Tier 2: the `_glow` sibling the emissive render pass probes for.
+    emissive_of(atlas).save(os.path.join(IMAGES_DIR, f"{name}_glow.png"))
     sidecar = {
         # Relative to assets/images/ — ResourceManager::load_texture prepends that
         # dir, so an "images/" prefix here resolves to assets/images/images/...
@@ -102,8 +131,12 @@ def write_sprite(name: str, frames, columns: int, animations: dict) -> None:
     print(f"  wrote {name}: {len(frames)} frames {fw}x{fh} cols={columns} -> {png}")
 
 
-def save_png(name: str, img: Image.Image) -> None:
+def save_png(name: str, img: Image.Image, glow: bool = False) -> None:
+    """glow=True also writes the `_glow` emissive sibling (v3 Tier 2) — used by
+    props/pickups drawn via Images; backdrops and pure-glow discs skip it."""
     ensure_dirs()
     path = os.path.join(IMAGES_DIR, f"{name}.png")
     img.save(path)
+    if glow:
+        emissive_of(img).save(os.path.join(IMAGES_DIR, f"{name}_glow.png"))
     print(f"  wrote {name}.png {img.size}")

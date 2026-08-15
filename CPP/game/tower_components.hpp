@@ -84,7 +84,19 @@ struct DamageEvent {
 /**
  * ProjectileTag — empty marker component identifying projectile entities.
  */
-struct ProjectileTag {};
+/**
+ * ProjectileTag — marks a shot, and carries the colour its neon ribbon draws
+ * in (v3 Tier 7).
+ *
+ * The colour lives HERE rather than in a Color component because a shot with a
+ * Color renders as the solid square it used to be: RenderSystem's walk draws
+ * Images, else Color, else nothing. Dropping Color is what makes the ribbon the
+ * only visual. Fields on an already-registered tag also avoid the ~30 lines of
+ * ComponentStorage boilerplate a brand-new component needs.
+ */
+struct ProjectileTag {
+    uint8_t r = 255, g = 200, b = 120;
+};
 
 /**
  * ProjectileData — stores projectile movement and damage parameters.

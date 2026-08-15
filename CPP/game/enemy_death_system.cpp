@@ -119,7 +119,12 @@ const sidecar_loader::LoadedSprite* EnemyDeathSystem::effect_sprite() {
     if (effect_.has_value()) return &effect_.value();
     if (effect_failed_) return nullptr;
     try {
-        std::string path = project_paths::assets_dir() + "/images/effect_explosion.json";
+        // v3 Tier 11: the v2 atlas, not the class original. This loaded
+        // "/images/effect_explosion.json" — a placeholder of a grey sphere that
+        // grows into a ROUNDED SQUARE — right through the v2 art overhaul and
+        // all of v3. It is the "very simple explosion" and a good share of the
+        // "rectangular looking shading" in the arena.
+        std::string path = project_paths::assets_dir() + "/images/v2/effect_explosion.json";
         effect_ = sidecar_loader::load(path, "expand");
         return &effect_.value();
     } catch (...) {
@@ -297,13 +302,17 @@ void EnemyDeathSystem::update(ComponentStorage& component_storage,
             ParticleEmitter e;
             e.shape = EmitterShape::Point;
             e.additive = true;
-            e.emission_rate = 500.0f;
-            e.particle_lifetime = 0.45f;
-            e.min_speed = 60.0f; e.max_speed = 240.0f;
+            // v3 Tier 11: fewer, faster, smaller embers. Tier 9 turned every
+            // particle into a soft 2.5x disc, so the old 500/s point burst
+            // stacked ~50 of them on one spot and saturated to a flat white
+            // blob. Thrown wider and thinner, they read as debris sparks.
+            e.emission_rate = 200.0f;
+            e.particle_lifetime = 0.55f;
+            e.min_speed = 110.0f; e.max_speed = 330.0f;
             e.cone_half_angle = 180.0f;
             e.start_r = 255; e.start_g = 200; e.start_b = 120; e.start_a = 255;
             e.end_r = 255;   e.end_g = 60;    e.end_b = 30;    e.end_a = 0;
-            e.start_size = 7.0f; e.end_size = 0.0f;
+            e.start_size = 5.0f; e.end_size = 0.0f;
             component_storage.add_component<ParticleEmitter>(burst, e);
             component_storage.add_component<Lifetime>(burst, Lifetime{0.10f});
         }

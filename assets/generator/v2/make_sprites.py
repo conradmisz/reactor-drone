@@ -945,30 +945,77 @@ def rocket_sprite():
 # ---------------------------------------------------------------------------
 # Effects
 # ---------------------------------------------------------------------------
-def explosion_frames(n=8):
-    pal = FOUNDRY
+def explosion_frames(n=12):
+    """v3 Tier 11: the FLASH layer, not the whole explosion.
+
+    The shockwave ring and the debris shards are drawn live by the neon line
+    renderer now (explosion_fx.hpp), so this clip only has to do what geometry
+    cannot: a blinding core that collapses, and a lumpy fireball that burns
+    down through white -> amber -> ember red.
+
+    The old 8-frame version drew a flat khaki disc that held its size and alpha
+    for half the clip, which is what read as "a very simple explosion" — a grey
+    ball sitting under the effect. The fireball is now GONE by a third of the
+    clip: whatever survives past that gets drawn again by the emissive pass and
+    bloomed, and a lingering disc plus its own halo is exactly the flat grey
+    ball we were trying to delete. Fire is brief; the ring carries the rest.
+    """
     frames = []
     cx, cy = S/2, S/2
+    WHITE = (255, 255, 255)
+    AMBER = (255, 196, 96)
+    EMBER = (255, 96, 40)
+
+    def mix(c0, c1, u):
+        return tuple(int(c0[i] + (c1[i] - c0[i]) * u) for i in range(3))
+
     for i in range(n):
         f = frame()
         t = i / (n - 1)
-        r = 10 + t * 54
-        a = int(255 * (1 - t) ** 1.3)
-        # expanding ring
-        d = draw(f)
-        col = pal.accent if t < 0.4 else pal.primary
-        d.ellipse([cx-r, cy-r, cx+r, cy+r], outline=(col[0], col[1], col[2], a),
-                  width=max(2, int(10*(1-t))))
-        # hot core early
-        if t < 0.6:
-            dot(f, (cx, cy), int(20*(1-t)+6), pal.accent, int(220*(1-t)))
-        # sparks
-        for k in range(8):
-            ang = math.pi*2*k/8 + i*0.3
-            rr = r*0.9
-            dot(f, (cx+math.cos(ang)*rr, cy+math.sin(ang)*rr), max(1,int(5*(1-t))),
-                pal.secondary, a)
-        f = shrink(f.filter(ImageFilter.GaussianBlur(1.2 * SS)))
+
+        # Fireball: a few offset lobes rather than one circle, so the silhouette
+        # is irregular the way fire is. Burns down in colour and size.
+        # ponytail: the fade is steep on purpose. This clip is composited with
+        # NORMAL alpha, so a half-transparent amber disc over the near-black
+        # arena is literally brown — mud, not fire. Better to burn out fast and
+        # let the neon ring carry the late half of the effect.
+        if t < 0.32:
+            u = t / 0.32
+            body_r = 28 * (1.0 - u * 0.75)
+            body_a = int(240 * (1.0 - u) ** 2.0)
+            body_c = mix(AMBER, EMBER, u)
+            for k in range(5):
+                ang = math.pi * 2 * k / 5 + i * 0.22
+                off = body_r * 0.38
+                dot(f, (cx + math.cos(ang) * off, cy + math.sin(ang) * off),
+                    body_r * 0.62, body_c, body_a)
+
+        # Core: the flash. Blinding for two frames, gone by a third of the clip.
+        if t < 0.22:
+            u = t / 0.22
+            core_r = 24 * (1.0 - u) ** 1.4
+            core_a = int(255 * (1.0 - u) ** 0.8)
+            dot(f, (cx, cy), max(core_r, 0.5), mix(WHITE, AMBER, u), core_a)
+
+        # A thin leading edge, bright early, thinning as it goes.
+        r = 12 + t * 50
+        edge_a = int(230 * (1 - t) ** 1.5)
+        if edge_a > 4:
+            d = draw(f)
+            d.ellipse([cx-r, cy-r, cx+r, cy+r],
+                      outline=mix(WHITE, EMBER, t) + (edge_a,),
+                      width=max(1, int(7 * (1 - t))))
+
+        # Sparks thrown outward, shrinking as they fly.
+        for k in range(10):
+            ang = math.pi * 2 * k / 10 + 0.4
+            rr = (14 + t * 56) * (0.8 + 0.35 * ((k * 7) % 5) / 5.0)
+            sa = int(255 * (1 - t) ** 1.2)
+            if sa > 4:
+                dot(f, (cx + math.cos(ang) * rr, cy + math.sin(ang) * rr),
+                    max(0.8, 4.5 * (1 - t)), mix(AMBER, EMBER, t), sa)
+
+        f = shrink(f.filter(ImageFilter.GaussianBlur(0.9 * SS)))
         frames.append(f)
     return frames
 
@@ -1103,24 +1150,24 @@ def main():
                             "frame_duration": 0.06, "looping": True}})
     # The active item's missile. Single frame worn as Images by actives::
     # launch_missiles, so no sidecar — see save_png block below.
-    save_png("projectile_rocket", rocket_sprite())
+    save_png("projectile_rocket", rocket_sprite(), glow=True)
     # Effects
-    write_sprite("effect_explosion", explosion_frames(8), 4,
-                 {"expand": {"start_frame": 0, "frame_count": 8,
-                             "frame_duration": 0.06, "looping": False}})
+    write_sprite("effect_explosion", explosion_frames(12), 4,
+                 {"expand": {"start_frame": 0, "frame_count": 12,
+                             "frame_duration": 0.04, "looping": False}})
     write_sprite("effect_impact", impact_frames(4), 4,
                  {"expand": {"start_frame": 0, "frame_count": 4,
                              "frame_duration": 0.05, "looping": False}})
     # Single-frame pickups/hazards (D94-D96). No sidecar: these are worn by an
     # `Images` component, which takes a bare PNG path relative to assets/images/.
-    save_png("pickup_health", health_pickup())
-    save_png("pickup_shield", shield_pickup())
-    save_png("pickup_coin", coin_sprite())
-    save_png("hazard_mine", mine_sprite())
-    save_png("hazard_poison", poison_cloud())
-    save_png("hazard_blast", blast_cloud())
+    save_png("pickup_health", health_pickup(), glow=True)
+    save_png("pickup_shield", shield_pickup(), glow=True)
+    save_png("pickup_coin", coin_sprite(), glow=True)
+    save_png("hazard_mine", mine_sprite(), glow=True)
+    save_png("hazard_poison", poison_cloud(), glow=True)
+    save_png("hazard_blast", blast_cloud(), glow=True)
     # D105: the boss's carrier. Single frame, worn as Images by BossSystem.
-    save_png("enemy_boss_carrier", carrier_sprite())
+    save_png("enemy_boss_carrier", carrier_sprite(), glow=True)
     # D133: the upgrade kit. Single-frame overlays worn as Images by the kit
     # followers, authored in the chassis's own 128-space so they composite 1:1.
     # No halo on a kit part: it is composited ON TOP of a chassis that already

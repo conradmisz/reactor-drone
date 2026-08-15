@@ -117,15 +117,17 @@ void PlayerFireSystem::update(ComponentStorage& storage,
             storage.add_component<Position>(shot, Position{cx - PR, cy - PR});
             storage.add_component<Velocity>(shot, vel);
             storage.add_component<Size>(shot, Size{PR * 2.0f, PR * 2.0f});
-            storage.add_component<Color>(shot,
-                Color{static_cast<uint8_t>(std::min(255, sr + 90)),
-                      static_cast<uint8_t>(std::min(255, sg + 35)),
-                      static_cast<uint8_t>(std::min(255, sb + 60)), 255});
+            // v3 Tier 7: NO Color component — a shot with one renders as the
+            // old solid square underneath its ribbon. The same brightened hue
+            // now rides on ProjectileTag and drives the neon ribbon instead.
             storage.add_component<Collider>(shot,
                 Collider{PR * 2.0f, PR * 2.0f, layers::PROJECTILE, layers::PROJECTILE_MASK});
             storage.add_component<CircleCollider>(shot, CircleCollider{PR, 0.0f, 0.0f});
             storage.add_component<Lifetime>(shot, Lifetime{wpn.projectile_lifetime});
-            storage.add_component<ProjectileTag>(shot, ProjectileTag{});
+            storage.add_component<ProjectileTag>(shot, ProjectileTag{
+                static_cast<uint8_t>(std::min(255, sr + 90)),
+                static_cast<uint8_t>(std::min(255, sg + 35)),
+                static_cast<uint8_t>(std::min(255, sb + 60))});
             storage.add_component<ProjectileData>(shot,
                 ProjectileData{NO_TARGET, wpn.projectile_speed, wpn.damage, bounces});
             storage.add_component<RenderLayer>(shot, RenderLayer{5});
@@ -152,7 +154,13 @@ void PlayerFireSystem::update(ComponentStorage& storage,
             trail.end_a = 0;
             trail.start_size = 7.0f; trail.end_size = 0.0f;
             trail.offset_x = PR;  trail.offset_y = PR;
-            storage.add_component<ParticleEmitter>(shot, trail);
+            // v3 Tier 12: the emitter is BUILT above but deliberately not
+            // attached. The Tier 7 ribbon is the shot's whole visual now — a
+            // particle trail riding the same path just fuzzes the tracer's
+            // edge and doubles its cost. Kept (unattached) because the tuning
+            // above is the only record of what the trail used to look like;
+            // delete it if the ribbon is ever judged final.
+            (void)trail;
         }
     }
 }
