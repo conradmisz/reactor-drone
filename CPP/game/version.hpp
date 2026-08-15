@@ -1,2 +1,2 @@
 #pragma once
-#define GAME_VERSION "2.0.0"
+#define GAME_VERSION "2.1.0"
