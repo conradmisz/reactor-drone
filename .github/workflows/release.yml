@@ -33,7 +33,7 @@ jobs:
           sudo apt-get update && sudo apt-get install -y \
             libcurl4-openssl-dev libfreetype-dev libharfbuzz-dev \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
-            libxfixes-dev libxkbcommon-dev libwayland-dev wayland-protocols \
+            libxfixes-dev libxss-dev libxkbcommon-dev libwayland-dev wayland-protocols \
             libdecor-0-dev libasound2-dev libpulse-dev
       - uses: actions/cache@v4
         with:
@@ -54,6 +54,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: linux-tarball, path: ReactorDrone-linux-x86_64.tar.gz }
       - name: Push to itch.io
+        continue-on-error: true
         env: { BUTLER_API_KEY: '${{ secrets.BUTLER_API_KEY }}' }
         run: |
           curl -fL https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default -o butler.zip
@@ -85,6 +86,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: 'mac-${{ matrix.arch }}', path: 'ReactorDrone-mac-${{ matrix.arch }}.zip' }
       - name: Push to itch.io
+        continue-on-error: true
         env: { BUTLER_API_KEY: '${{ secrets.BUTLER_API_KEY }}' }
         run: |
           curl -fL https://broth.itch.zone/butler/darwin-amd64/LATEST/archive/default -o butler.zip
@@ -128,6 +130,7 @@ jobs:
             ReactorDrone-mac-arm64.zip
             ReactorDrone-mac-x86_64.zip
       - name: Push to itch.io
+        continue-on-error: true
         shell: bash
         env: { BUTLER_API_KEY: '${{ secrets.BUTLER_API_KEY }}' }
         run: |
