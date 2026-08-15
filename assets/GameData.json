@@ -4229,6 +4229,16 @@
           "//": "Main-menu-suite Phase A: the hub. D88 grid - 24px inset column, 44px+ buttons, one pulse_hz. Rects reserve rows at y=276 and y=228 for the SAVE SLOTS / RECORDS / HOW TO PLAY / SETTINGS buttons Phases B and C add, so later phases insert widgets without moving these."
         },
         {
+          "//": "In-game updater. Ghosted (empty label, ghost style) unless /version reports a NEWER build at a trusted URL; main.cpp's refresh_update_widget owns the text. Sited in the gap above the title so adding it moved no existing widget.",
+          "element_type": "button",
+          "rect": { "x": 204, "y": 498, "w": 392, "h": 32 },
+          "label_text": "",
+          "style_id": "ghost",
+          "z_order": 10,
+          "on_click_fn": "on_update_click",
+          "name": "menu_update"
+        },
+        {
           "element_type": "label",
           "rect": { "x": 204, "y": 452, "w": 392, "h": 44 },
           "label_text": "REACTOR DRONE",

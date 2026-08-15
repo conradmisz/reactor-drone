@@ -1,5 +1,7 @@
 #include "http_client.hpp"
 #include <atomic>
+#include <cstdio>
+#include <filesystem>
 #include <curl/curl.h>
 
 namespace net {
@@ -38,6 +40,43 @@ Response run(const std::string& url, const std::string* body, const std::string&
     return r;
 }
 
+size_t write_file_cb(char* p, size_t sz, size_t nm, void* out) {
+    return std::fwrite(p, sz, nm, static_cast<std::FILE*>(out)) * sz;
+}
+
+Response run_download(const std::string& url, const std::string& dest) {
+    Response r;
+    // Download beside the destination, rename only on success: the caller
+    // EXECUTES this file, and a truncated installer must never be reachable
+    // under the final name.
+    const std::string part = dest + ".part";
+    std::FILE* f = std::fopen(part.c_str(), "wb");
+    if (!f) return r;
+    CURL* c = curl_easy_init();
+    if (!c) { std::fclose(f); return r; }
+    curl_easy_setopt(c, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, write_file_cb);
+    curl_easy_setopt(c, CURLOPT_WRITEDATA, f);
+    curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1L);
+    // No overall timeout (installers are tens of MB); abort only if the
+    // transfer sits under 1 KB/s for 30s straight.
+    curl_easy_setopt(c, CURLOPT_LOW_SPEED_LIMIT, 1024L);
+    curl_easy_setopt(c, CURLOPT_LOW_SPEED_TIME, 30L);
+    const CURLcode rc = curl_easy_perform(c);
+    if (rc == CURLE_OK) curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &r.status);
+    curl_easy_cleanup(c);
+    std::fclose(f);
+    std::error_code ec;
+    if (rc == CURLE_OK && r.ok()) {
+        std::filesystem::rename(part, dest, ec);
+        if (ec) r.status = 0;              // could not publish it -> not ok
+    } else {
+        std::filesystem::remove(part, ec);
+    }
+    return r;
+}
+
 }  // namespace
 
 bool enabled() { return g_enabled.load(); }
@@ -67,6 +106,17 @@ std::future<Response> post_json(const std::string& url, const std::string& body,
         return p.get_future();
     }
     return std::async(std::launch::async, [url, body, key] { return run(url, &body, key); });
+}
+
+
+std::future<Response> download(const std::string& url, const std::string& dest_path) {
+    if (!enabled()) {
+        std::promise<Response> p;
+        p.set_value({});
+        return p.get_future();
+    }
+    return std::async(std::launch::async,
+                      [url, dest_path] { return run_download(url, dest_path); });
 }
 
 }  // namespace net

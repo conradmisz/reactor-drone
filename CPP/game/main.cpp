@@ -111,6 +111,7 @@
 #include "settings_save.hpp"
 #include "telemetry.hpp"
 #include "version.hpp"   // GAME_VERSION, stamped into every run report
+#include "update_check.hpp"  // in-game updater: is_newer + trusted_installer_url
 
 struct SDL_WindowDeleter { void operator()(SDL_Window* w) const { if (w) SDL_DestroyWindow(w); } };
 struct SDL_RendererDeleter { void operator()(SDL_Renderer* r) const { if (r) SDL_DestroyRenderer(r); } };
@@ -1001,6 +1002,21 @@ int main(int argc, char* argv[]) {
     // than letting a reassignment's implicit destructor block.
     std::future<net::Response> pending_score;
 
+    // In-game updater. One /version GET at boot; the title button stays ghosted
+    // unless the answer is BOTH newer than this build and a URL we are willing
+    // to execute (update_check.hpp decides both, and fails closed on either).
+    // Same single-future discipline as the futures above.
+    std::future<net::Response> pending_version;
+    std::future<net::Response> pending_download;
+    std::string update_version, update_url, update_file;
+    bool update_ready = false;    // a newer, trusted build exists
+    bool update_busy = false;     // installer download in flight
+    std::string update_note;      // one line of status under the button
+    Entity update_w = 0;
+    bool update_w_resolved = false;
+    if (net::enabled())
+        pending_version = net::get(std::string(net::NET_BASE) + "/version");
+
     // Task 9: leaderboard fetch. Same single-future discipline as
     // pending_register/pending_score above (net/http_client.hpp): declared
     // outside the loop, polled with wait_for(0s), never a discarded temporary.
@@ -1279,6 +1295,24 @@ int main(int argc, char* argv[]) {
     // CONTINUE is one widget that is either an offer or nothing at all: UIElement
     // has no visibility flag (D82 hit the same wall), so with no save it renders
     // as an empty flat label and its click is ignored below.
+    auto refresh_update_widget = [&]() {
+        const Entity w = widget_by_name("menu_update", update_w, update_w_resolved);
+        if (w == 0) return;
+        auto el = component_storage.get_component<UIElement>(w);
+        if (!el.has_value()) return;
+        if (!update_note.empty()) {
+            el->get().style_id = "default_button";
+            el->get().label_text = update_note;
+        } else if (update_ready) {
+            // shop_button is the one loud style on this screen (PLAY wears it):
+            // an update the player never notices is the same as no update.
+            el->get().style_id = "shop_button";
+            el->get().label_text = "UPDATE AVAILABLE  -  v" + update_version;
+        } else {
+            el->get().style_id = "ghost";
+            el->get().label_text.clear();
+        }
+    };
     auto refresh_continue_widget = [&]() {
         const Entity w = widget_by_name("menu_continue", continue_w, continue_w_resolved);
         if (w == 0) return;
@@ -1443,6 +1477,57 @@ int main(int argc, char* argv[]) {
         timer.start_frame();
         input_system.process_events(component_storage, running, blackboard, renderer.get());
         uint64_t frame = timer.get_frame_count();
+
+        // Updater poll 1: the /version answer. Applied once; a failure
+        // (offline, 404, junk body) simply leaves the button ghosted —
+        // there is no retry and no message, because a player who cannot
+        // reach the API cannot download an installer either.
+        if (pending_version.valid() &&
+            pending_version.wait_for(std::chrono::seconds(0)) ==
+                std::future_status::ready) {
+            const net::Response resp = pending_version.get();
+            if (resp.status == 200) {
+                const nlohmann::json j =
+                    nlohmann::json::parse(resp.body, nullptr, false);
+                if (j.is_object()) {
+                    const std::string v = j.value("version", std::string());
+                    const std::string u = j.value("installer_url", std::string());
+                    if (update_check::is_newer(v, GAME_VERSION) &&
+                        update_check::trusted_installer_url(u)) {
+                        update_version = v;
+                        update_url = u;
+                        update_ready = true;
+                        refresh_update_widget();
+                    }
+                }
+            }
+        }
+        // Updater poll 2: the installer download. On success the game
+        // hands off to the installer and QUITS — Windows cannot replace
+        // files that are open, and the .iss relaunches the game itself
+        // on a silent install (Flags: nowait; Check: WizardSilent).
+        if (pending_download.valid() &&
+            pending_download.wait_for(std::chrono::seconds(0)) ==
+                std::future_status::ready) {
+            const net::Response resp = pending_download.get();
+            update_busy = false;
+            if (resp.ok()) {
+                const char* argv_[] = { update_file.c_str(), "/SILENT", nullptr };
+                SDL_Process* proc = SDL_CreateProcess(argv_, false);
+                if (proc != nullptr) {
+                    // Destroying the handle does NOT stop the child
+                    // (SDL_process.h) — that is the whole trick: the
+                    // installer outlives us and puts the game back up.
+                    SDL_DestroyProcess(proc);
+                    running = false;
+                } else {
+                    update_note = "Update failed to start - try the website";
+                }
+            } else {
+                update_note = "Download failed - try the website";
+            }
+            refresh_update_widget();
+        }
 
         // Task 8: poll the score submission every frame, regardless of phase —
         // it can still be in flight after the player has already backed out to
@@ -2686,6 +2771,33 @@ int main(int argc, char* argv[]) {
                     refresh_records();
                     blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
                                                 std::string(SCREEN_RECORDS));
+                } else if (menu_click == "on_update_click") {
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    if (update_ready && !update_busy) {
+#ifdef _WIN32
+                        // Windows is the only platform that can genuinely
+                        // self-update: the installer replaces {app} while the
+                        // game is closed, and user data lives in prefpath, so
+                        // saves are untouched by design (project_paths, D194).
+                        update_file = project_paths::user_data_dir() +
+                                      "/ReactorDrone-Setup-" + update_version + ".exe";
+                        pending_download = net::download(update_url, update_file);
+                        update_busy = true;
+                        update_note = "Downloading update...";
+#else
+                        // A running ELF/.app cannot safely overwrite itself, and
+                        // itch already updates those channels — so off Windows
+                        // the button just points the player at the download.
+                        // The WEBSITE, not the raw GitHub release: the site is
+                        // the front door people are meant to see. (GitHub is
+                        // still where the bytes live — the site hosts no files —
+                        // so the Windows installer fetch below pins the release
+                        // asset host, not this page.)
+                        SDL_OpenURL("https://thebrainstormlabs.com/reactor-drone/");
+                        update_note = "Opened the download page";
+#endif
+                        refresh_update_widget();
+                    }
                 } else if (menu_click == "on_how_click") {
                     blackboard.remove(UISystem::UI_CLICK_KEY);
                     blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,

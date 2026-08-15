@@ -22,6 +22,14 @@ std::future<Response> get(const std::string& url);
 std::future<Response> post_json(const std::string& url, const std::string& json_body,
                                  const std::string& game_key = "");  // sets X-Game-Key when non-empty
 
+// Download a URL straight to `dest_path` (the in-game updater's installer
+// fetch). Same fire-and-poll contract as get(): store the future and poll it.
+// An installer is tens of MB, so this one gets no 8s timeout — it gets a
+// low-speed abort instead, which kills a stalled transfer without killing a
+// slow-but-progressing one. Writes to a temp name and renames on success, so a
+// half-downloaded file is never left at dest_path for the caller to execute.
+std::future<Response> download(const std::string& url, const std::string& dest_path);
+
 bool enabled();           // false in headless mode -> get/post return status 0 instantly
 void set_enabled(bool on);
 
