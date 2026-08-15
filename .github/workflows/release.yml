@@ -26,15 +26,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # SDL3's cmake refuses to configure with no video backend, so the X11 and
-      # Wayland dev headers are build-time requirements even though SDL dlopens
-      # both at runtime.
+      # SDL3's cmake refuses to configure with no video backend, and once it
+      # finds X11 it hard-errors on any missing X11 sub-dependency (XScrnSaver,
+      # XTest, ...) rather than disabling that feature. Install the whole
+      # documented set at once — adding them one failure at a time costs a full
+      # CI round trip per package. SDL dlopens all of this at runtime, so none
+      # of it becomes a requirement on the player's machine.
+      # https://wiki.libsdl.org/SDL3/README-linux#build-dependencies
       - run: |
           sudo apt-get update && sudo apt-get install -y \
             libcurl4-openssl-dev libfreetype-dev libharfbuzz-dev \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
-            libxfixes-dev libxss-dev libxkbcommon-dev libwayland-dev wayland-protocols \
-            libdecor-0-dev libasound2-dev libpulse-dev
+            libxfixes-dev libxss-dev libxtst-dev libxrender-dev \
+            libxinerama-dev libxxf86vm-dev libxkbcommon-dev \
+            libwayland-dev wayland-protocols libdecor-0-dev \
+            libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev \
+            libdrm-dev libgbm-dev libudev-dev libdbus-1-dev \
+            libasound2-dev libpulse-dev
       - uses: actions/cache@v4
         with:
           path: CPP/linux-deps
