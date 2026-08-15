@@ -33,8 +33,9 @@ cat > "$APP/Contents/Info.plist" <<EOF
 EOF
 
 # Pull every non-system dylib (SDL3 stack from brew) into Contents/Frameworks
-# and rewrite the load commands. -f: also fix inter-dylib references.
-dylibbundler -od -b -f \
+# and rewrite the load commands. -b already recurses into inter-dylib refs;
+# there is no -f flag (dylibbundler 1.0.x rejects it with "Unknown flag -f").
+dylibbundler -od -b \
   -x "$APP/Contents/MacOS/ReactorDrone" \
   -d "$APP/Contents/Frameworks" \
   -p '@executable_path/../Frameworks' > /dev/null

@@ -26,7 +26,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev libfreetype-dev libharfbuzz-dev
+      # SDL3's cmake refuses to configure with no video backend, so the X11 and
+      # Wayland dev headers are build-time requirements even though SDL dlopens
+      # both at runtime.
+      - run: |
+          sudo apt-get update && sudo apt-get install -y \
+            libcurl4-openssl-dev libfreetype-dev libharfbuzz-dev \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
+            libxfixes-dev libxkbcommon-dev libwayland-dev wayland-protocols \
+            libdecor-0-dev libasound2-dev libpulse-dev
       - uses: actions/cache@v4
         with:
           path: CPP/linux-deps
