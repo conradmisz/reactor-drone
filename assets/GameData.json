@@ -4344,17 +4344,33 @@
           "z_order": 10
         },
         {
+          "//": "Mailing list (specs/mailing-list.md). Optional second field on this screen rather than a screen of its own - TAB moves the caret, main.cpp rewrites both buffers.",
           "element_type": "label",
-          "name": "name_entry_msg",
-          "rect": { "x": 204, "y": 300, "w": 392, "h": 24 },
-          "label_text": "Type a name, then press ENTER  (ESC to skip)",
+          "rect": { "x": 204, "y": 316, "w": 392, "h": 20 },
+          "label_text": "EMAIL FOR RELEASE NEWS  (optional)",
           "style_id": "caption",
           "z_order": 10
         },
         {
           "element_type": "label",
-          "rect": { "x": 204, "y": 244, "w": 392, "h": 24 },
-          "label_text": "Anonymous gameplay stats are sent to improve the game (SETTINGS to opt out)",
+          "name": "name_entry_email",
+          "rect": { "x": 204, "y": 288, "w": 392, "h": 24 },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "name": "name_entry_msg",
+          "rect": { "x": 204, "y": 252, "w": 392, "h": 24 },
+          "label_text": "TAB next field  \u00b7  ENTER confirm  \u00b7  ESC to skip",
+          "style_id": "caption",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 204, "y": 216, "w": 392, "h": 20 },
+          "label_text": "Release mail only, unsubscribe any time. Anonymous stats improve the game (SETTINGS to opt out)",
           "style_id": "caption",
           "z_order": 10
         }

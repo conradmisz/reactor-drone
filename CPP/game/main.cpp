@@ -882,6 +882,15 @@ int main(int argc, char* argv[]) {
     std::string name_buf;
     std::string name_entry_error;
     std::future<net::Response> pending_register;
+    // Mailing list (specs/mailing-list.md): an optional second field on the same
+    // screen. TAB moves `name_entry_email_focus` between the two buffers.
+    // `pending_subscribe` is fired once, on a confirmed registration, and never
+    // polled — signup failure must not block the player at this screen — but it
+    // still lives out here so its destructor can't block the loop (same rule as
+    // `pending_register`; abandoned at shutdown alongside it).
+    std::string email_buf;
+    bool email_focus = false;
+    std::future<net::Response> pending_subscribe;
     // Feedback form (specs/feedback-reports.md). One live future, name_entry's
     // plumbing. fb_fields: 0=subject 1=body 2=tags 3=from.
     std::string fb_fields[4];
@@ -1187,8 +1196,9 @@ int main(int argc, char* argv[]) {
     auto save_widget = [&]() { return widget_by_name("pause_save", save_w, save_w_resolved); };
 
     // Task 7: name_entry's two dynamic labels, resolved the same by-name way.
-    Entity name_buf_w = 0, name_msg_w = 0;
-    bool name_buf_w_resolved = false, name_msg_w_resolved = false;
+    Entity name_buf_w = 0, name_msg_w = 0, name_email_w = 0;
+    bool name_buf_w_resolved = false, name_msg_w_resolved = false,
+         name_email_w_resolved = false;
 
     // Task 9: the leaderboard's row labels + title, resolved the same way.
     // net::enabled() never changes after boot, so the hint is settled once.
@@ -2520,6 +2530,8 @@ int main(int argc, char* argv[]) {
                     // blocks this thread either (Critical 2).
                     abandon_future(std::move(pending_register));
                     pending_name.clear();
+                    email_buf.clear();
+                    email_focus = false;
                     phase = PHASE_NAME_ENTRY;
                     SDL_StartTextInput(window.get());
                     blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
@@ -2664,14 +2676,20 @@ int main(int argc, char* argv[]) {
                 // frame by InputSystem between SDL_StartTextInput/StopTextInput.
                 const std::string typed =
                     blackboard.get_or<std::string>("ui.text_input", std::string());
+                // TAB moves the caret between pilot name and email; both share
+                // one text-input stream, so the focus flag alone decides where
+                // this frame's characters land.
+                if (tab_edge) email_focus = !email_focus;
+                std::string& field = email_focus ? email_buf : name_buf;
+                const size_t field_max = email_focus ? 64u : 24u;
                 for (char c : typed) {
-                    if (name_buf.size() >= 24) break;
+                    if (field.size() >= field_max) break;
                     // Printable ASCII only (space..~) — filters control bytes and
                     // any non-ASCII UTF-8 lead/continuation bytes from an IME.
-                    if (c >= 0x20 && c < 0x7F) name_buf.push_back(c);
+                    if (c >= 0x20 && c < 0x7F) field.push_back(c);
                 }
-                if (blackboard.get_or<bool>("ui.backspace_pressed", false) && !name_buf.empty())
-                    name_buf.pop_back();
+                if (blackboard.get_or<bool>("ui.backspace_pressed", false) && !field.empty())
+                    field.pop_back();
 
                 // Poll last frame's submit before reading escape/enter this frame,
                 // so a response that lands the same frame as ENTER never races it.
@@ -2686,6 +2704,20 @@ int main(int argc, char* argv[]) {
                         meta.player_name = pending_name;
                         meta.registered = true;
                         meta_write(meta_save_path(), meta);
+                        // Mailing list: signup rides the confirmed registration,
+                        // so a player who ESCs out never gets subscribed. The
+                        // reply is deliberately never read — the server dedupes
+                        // by address, and a failed signup must not hold up the
+                        // title screen. Only the '@' is checked here; real
+                        // validation is the server's job.
+                        if (email_buf.find('@') != std::string::npos) {
+                            abandon_future(std::move(pending_subscribe));
+                            pending_subscribe = net::post_json(
+                                std::string(net::NET_BASE) + "/subscribe",
+                                nlohmann::json{{"email", email_buf},
+                                               {"source", "game"}}.dump());
+                            email_buf.clear();
+                        }
                         SDL_StopTextInput(window.get());
                         phase = PHASE_TITLE;
                         blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
@@ -2736,7 +2768,14 @@ int main(int argc, char* argv[]) {
                         w != 0) {
                         if (auto el = component_storage.get_component<UIElement>(w);
                             el.has_value())
-                            el->get().label_text = name_buf + "_";
+                            el->get().label_text = name_buf + (email_focus ? "" : "_");
+                    }
+                    if (Entity w = widget_by_name("name_entry_email", name_email_w,
+                                                  name_email_w_resolved);
+                        w != 0) {
+                        if (auto el = component_storage.get_component<UIElement>(w);
+                            el.has_value())
+                            el->get().label_text = email_buf + (email_focus ? "_" : "");
                     }
                     if (Entity w = widget_by_name("name_entry_msg", name_msg_w,
                                                   name_msg_w_resolved);
@@ -2747,7 +2786,7 @@ int main(int argc, char* argv[]) {
                                 !name_entry_error.empty() ? name_entry_error
                                 : pending_register.valid()
                                     ? "Submitting..."
-                                    : "Type a name, then press ENTER  (ESC to skip)";
+                                    : "TAB next field  \xc2\xb7  ENTER confirm  \xc2\xb7  ESC to skip";
                             // Minor 2: an error reuses the existing red-toned
                             // `pip_loss` style (shop stat-loss preview) rather
                             // than a new literal colour — house rule against
@@ -3121,6 +3160,7 @@ int main(int argc, char* argv[]) {
     // always blocks there, regardless of wait_for polling). Hand it to the
     // graveyard instead — quit is no longer bounded by network latency at all.
     abandon_future(std::move(pending_register));
+    abandon_future(std::move(pending_subscribe));
     // Task 8: same reasoning — a score submit from bank_run_score just above
     // may still be in flight at shutdown; never block the process exit on it.
     abandon_future(std::move(pending_score));

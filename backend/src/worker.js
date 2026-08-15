@@ -1,7 +1,17 @@
 import { DASHBOARD_HTML } from './dashboard.js';
 
+// `access-control-allow-origin: *` on every JSON reply: the signup form on the
+// website is a cross-origin caller, and nothing here returns anything a browser
+// couldn't already fetch server-side. The one keyed route (/score, /telemetry,
+// /feedback) is protected by X-Game-Key, not by origin.
 const json = (obj, status = 200) =>
-  new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
+  new Response(JSON.stringify(obj), {
+    status,
+    headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' }
+  });
+
+const html = (body, status = 200) =>
+  new Response(PAGE(body), { status, headers: { 'content-type': 'text/html;charset=utf-8' } });
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NAME_RE = /^[\x20-\x7e]+$/;
@@ -10,6 +20,22 @@ const MAX_TELEMETRY_BYTES = 16384; // one run report; ~3-5 KB typical
 const OUTCOMES = new Set(['death', 'victory', 'quit', 'close']);
 const MAX_FEEDBACK_BYTES = 8192;
 const PLATFORMS = new Set(['win', 'linux', 'mac']);
+// Deliberately loose: the only address check that actually proves anything is a
+// confirmation mail, and this list is single-opt-in for now. This just catches
+// typos and obvious junk before they take a row.
+const EMAIL_RE = /^[^@\s,;]+@[^@\s,;]+\.[a-z]{2,}$/i;
+const SOURCES = new Set(['web', 'game']);
+
+// Unsubscribe pages. Plain, self-contained, no assets to 404.
+const PAGE = (body) => `<!doctype html><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>Reactor Drone mailing list</title>
+<style>body{background:#0d1117;color:#c9d1d9;font:16px/1.6 system-ui,sans-serif;
+display:grid;place-items:center;min-height:100vh;margin:0;text-align:center}
+main{max-width:34rem;padding:2rem}h1{font-size:1.4rem;letter-spacing:.08em;color:#e6edf3}
+button{background:#f0883e;color:#0d1117;border:0;border-radius:4px;padding:.7rem 1.6rem;
+font:inherit;font-weight:600;cursor:pointer}p{color:#8b949e}</style>
+<main>${body}</main>`;
 
 // Reads and JSON-parses the body, refusing to buffer an oversized payload.
 async function readJson(req) {
@@ -49,6 +75,16 @@ export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     try {
+      // Preflight for the website signup form (content-type: application/json
+      // makes it a non-simple request).
+      if (req.method === 'OPTIONS')
+        return new Response(null, { status: 204, headers: {
+          'access-control-allow-origin': '*',
+          'access-control-allow-methods': 'POST, GET, OPTIONS',
+          'access-control-allow-headers': 'content-type',
+          'access-control-max-age': '86400'
+        }});
+
       if (req.method === 'GET' && url.pathname === '/version')
         return json({ version: env.RELEASE_VERSION, installer_url: env.INSTALLER_URL });
 
@@ -199,6 +235,44 @@ export default {
                 b.in_run ? b.wave : null, b.in_run ? b.score : null, b.in_run ? b.ship : null,
                 b.in_run ? b.prestige : null, b.in_run ? b.difficulty : null).run();
         return json({ ok: true });
+      }
+
+      // Mailing list signup. Unkeyed like /register: the website form is a
+      // browser caller and can't hold a secret. Always answers ok, whether the
+      // row was new or already there — the response must not tell a stranger
+      // whether an address is on the list.
+      if (req.method === 'POST' && url.pathname === '/subscribe') {
+        const { email, source } = await readJson(req);
+        if (typeof email !== 'string') return json({ error: 'bad_request' }, 400);
+        const addr = email.trim();
+        if (addr.length > 254 || !EMAIL_RE.test(addr)) return json({ error: 'bad_email' }, 400);
+        const src = SOURCES.has(source) ? source : 'web';
+        await env.DB.prepare(
+          `INSERT INTO subscribers (email, token, source) VALUES (?1, ?2, ?3)
+           ON CONFLICT(email) DO NOTHING`).bind(addr, crypto.randomUUID(), src).run();
+        return json({ ok: true });
+      }
+
+      // GET only *offers* to unsubscribe; the POST does it. Mail clients and
+      // link scanners prefetch every URL in a message, so a GET that deleted
+      // the row would unsubscribe people who never clicked.
+      if (url.pathname === '/unsubscribe' && (req.method === 'GET' || req.method === 'POST')) {
+        const token = req.method === 'POST'
+          ? (await req.formData()).get('t')
+          : url.searchParams.get('t');
+        if (typeof token !== 'string' || !UUID_RE.test(token))
+          return html('<h1>Bad unsubscribe link</h1><p>That link is not valid. ' +
+                      'Reply to any of the mail and I will take you off by hand.</p>', 400);
+        if (req.method === 'GET')
+          return html('<h1>Leave the Reactor Drone list?</h1>' +
+                      '<p>You will stop getting release and update mail.</p>' +
+                      `<form method=post><input type=hidden name=t value="${token}">` +
+                      '<button type=submit>Unsubscribe</button></form>');
+        await env.DB.prepare('DELETE FROM subscribers WHERE token = ?1').bind(token).run();
+        // Unconditional confirmation: an already-removed token must read the
+        // same as a live one, or this page becomes an address oracle.
+        return html('<h1>Done — you are off the list</h1>' +
+                    '<p>No more mail. Thanks for playing.</p>');
       }
 
       return json({ error: 'not_found' }, 404);

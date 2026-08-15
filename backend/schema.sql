@@ -40,3 +40,13 @@ CREATE TABLE IF NOT EXISTS feedback (
   wave INTEGER, score INTEGER, ship INTEGER, prestige INTEGER, difficulty TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_feedback_ts ON feedback(ts);
+
+-- Mailing list. `token` is the unsubscribe credential mailed out with every
+-- send: one per address, never reused, so a leaked link unsubscribes exactly
+-- one person. `source` records where the signup came from ('web' | 'game').
+CREATE TABLE IF NOT EXISTS subscribers (
+  email  TEXT PRIMARY KEY COLLATE NOCASE,
+  token  TEXT NOT NULL UNIQUE,
+  source TEXT NOT NULL DEFAULT 'web',
+  ts     INTEGER NOT NULL DEFAULT (unixepoch())
+);

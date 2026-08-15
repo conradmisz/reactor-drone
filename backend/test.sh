@@ -44,4 +44,19 @@ echo "$S" | grep -q '"best_name"'
 [ "$(echo "$S" | grep -o '"d":"' | wc -l)" = 14 ]
 # /stats must never leak a player_id
 ! echo "$S" | grep -q 'player_id'
+
+# mailing list
+E1="drone.tester+$$@example.com"
+[ "$(c -XPOST "$BASE/subscribe" -H "$J" -d "{\"email\":\"$E1\",\"source\":\"web\"}")" = 200 ]
+[ "$(c -XPOST "$BASE/subscribe" -H "$J" -d "{\"email\":\"$E1\",\"source\":\"game\"}")" = 200 ]   # duplicate is still ok
+[ "$(c -XPOST "$BASE/subscribe" -H "$J" -d '{"email":"nope"}')" = 400 ]
+[ "$(c -XPOST "$BASE/subscribe" -H "$J" -d '{"email":"a b@example.com"}')" = 400 ]
+[ "$(c -XPOST "$BASE/subscribe" -H "$J" -d '{"nope":1}')" = 400 ]
+[ "$(c -XOPTIONS "$BASE/subscribe")" = 204 ]
+curl -s -D- -o /dev/null -XPOST "$BASE/subscribe" -H "$J" -d "{\"email\":\"$E1\"}" | grep -qi 'access-control-allow-origin: \*'
+# unsubscribe: GET only offers, POST performs; a bad token is a page, not a 500
+TOK=00000000-1111-2222-3333-444444444444
+curl -s "$BASE/unsubscribe?t=$TOK" | grep -q '<form method=post'
+[ "$(c "$BASE/unsubscribe?t=garbage")" = 400 ]
+curl -s -XPOST "$BASE/unsubscribe" -d "t=$TOK" | grep -q 'off the list'
 echo ALL PASS
