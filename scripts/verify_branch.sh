@@ -27,6 +27,14 @@ restore_saves() {
   [ -f "$WORK/meta.bak" ] && cp "$WORK/meta.bak" saves/meta.json
   rm -f saves/settings.json
 }
+# bugs/006: the canary is NOT seed-deterministic on its own — meta.json and
+# settings.json are read at boot and steer the scripted presses. Every canary
+# run must start from this exact stub, the same one gate.sh writes.
+reset_saves() {
+  mkdir -p saves
+  rm -f saves/settings.json
+  printf '{"best_wave":5,"lifetime_score":1305,"prestige":0,"runs_played":4}\n' > saves/meta.json
+}
 cleanup() {
   restore_saves
   [ -f "$WORK/wrangler.pid" ] && kill "$(cat "$WORK/wrangler.pid")" 2>/dev/null
@@ -59,13 +67,25 @@ fi
 # ------------------------------------------------------- 3. determinism
 if want 3; then
 hdr "3. Replay canary (determinism invariant #4)"
+# bugs/006: this gate ran the IDLE canary (`--keys 5:SPACE`) for all of v2.x —
+# one press starts the run and nothing ever fires, so the shipping gate reported
+# green while never exercising the firing path. It also never compared against
+# the baseline, only run-vs-run. Both fixed here: the FIRING form from CLAUDE.md,
+# and a diff against .canary-baseline.txt.
 for i in 1 2; do
-  SDL_VIDEODRIVER=dummy ./CPP/build/game/game --seed 42 --keys 5:SPACE --stopframe 3000 >"$WORK/canary$i.txt" 2>&1
+  reset_saves
+  SDL_VIDEODRIVER=dummy ./CPP/build/game/game --seed 42 \
+    --keys $(seq -f '%g:SPACE' 10 4 2990) --stopframe 3000 >"$WORK/canary$i.txt" 2>&1
 done
 restore_saves
 if diff -q "$WORK/canary1.txt" "$WORK/canary2.txt" >/dev/null; then ok "byte-identical across two runs"
 else bad "DIVERGED"; diff "$WORK/canary1.txt" "$WORK/canary2.txt" | head -10 | sed 's/^/      /'; fi
 grep -q "Frames: 3000" "$WORK/canary1.txt" && ok "reached stopframe 3000" || bad "did not reach stopframe"
+if [ -f .canary-baseline.txt ]; then
+  if grep -qFf .canary-baseline.txt "$WORK/canary1.txt"; then ok "canary matches .canary-baseline.txt"
+  else bad "canary DIFFERS from .canary-baseline.txt"
+       diff .canary-baseline.txt <(grep "Frames:" "$WORK/canary1.txt") | sed 's/^/      /'; fi
+else skip ".canary-baseline.txt absent"; fi
 fi
 
 # ---------------------------------------------------------------- 4. data

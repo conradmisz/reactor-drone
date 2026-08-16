@@ -88,3 +88,13 @@ The replacement is the form CLAUDE.md already documents:
 
 Note sections 6 and 7 (portable Linux, wine smoke) also use `5:SPACE`, but
 those only assert "reaches frame N", so the weak form is adequate there.
+
+## Follow-up closed 2026-08-16
+
+`scripts/verify_branch.sh` section 3 — the SHIPPING gate — was still running the
+idle canary (`--keys 5:SPACE`) long after `gate.sh` was fixed, and it only
+compared run-vs-run, never against `.canary-baseline.txt`. It has now been
+switched to the firing form, given a `reset_saves` helper that writes the
+canonical stub before each run (this bug's whole point), and made to diff
+against the baseline. Verified: section 3 reports 3/3 with the baseline check
+present.
