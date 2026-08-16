@@ -1219,6 +1219,17 @@ int main(int argc, char* argv[]) {
             wave_spawner.resume_at_wave(opts.level - 1);
             std::cout << "[dev] start wave " << opts.level << "\n";
         }
+        // --dev: start fully kitted. Every stacked upgrade goes to its
+        // max_stacks through ShopSystem's own purchase path, so the stats land
+        // exactly as a real shopping trip would leave them. The item and
+        // consumable slots are deliberately left empty — those are one-of
+        // choices, and B + unlimited UNITS picks them in-game.
+        if (opts.dev && resume == nullptr) {
+            for (Entity p : component_storage.entities_with_component<PlayerTag>())
+                if (auto s = component_storage.get_component<ShipState>(p); s.has_value())
+                    shop.dev_max_upgrades(p, component_storage, blackboard, s->get());
+            std::cout << "[dev] upgrades maxed\n";
+        }
         phase = PHASE_PLAYING;
     };
 

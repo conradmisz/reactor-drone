@@ -88,6 +88,19 @@ public:
     bool upgrade_gear(int index, ComponentStorage& storage, Blackboard& blackboard,
                       ShipState& ship);
 
+    /**
+     * --dev / --god: buy every stacked upgrade up to its max_stacks.
+     *
+     * Routed through the real buy_upgrade path — prices are charged against the
+     * dev balance and apply() does the stat writes — so there is no second
+     * place that knows how an upgrade lands. Called once at run start.
+     *
+     * ponytail: rows with max_stacks == 0 (unlimited) are skipped; the shipped
+     * catalogue has none. Give them a dev cap here if one ever appears.
+     */
+    void dev_max_upgrades(Entity player, ComponentStorage& storage,
+                          Blackboard& blackboard, ShipState& ship);
+
     /// Last tooltip text written, for tests. Empty when nothing is hovered.
     const std::string& tooltip_name() const { return tip_name_text_; }
     const std::string& tooltip_detail() const { return tip_detail_text_; }

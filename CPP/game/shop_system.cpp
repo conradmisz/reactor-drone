@@ -2,6 +2,7 @@
 #include "upgrade_visuals.hpp"   // Lane N (D123): the drone's upgrade look
 #include "enemy_components.hpp"    // Health
 #include "item_system.hpp"         // items::item_id_for / consumable_id_for
+#include "debug_state.hpp"         // DEV_UNITS
 #include "engine/ecs/systems/screen_stack_system.hpp"
 #include "engine/ecs/systems/ui_render_math.hpp"   // ui_canvas_transform
 #include "engine/ecs/systems/ui_system.hpp"        // UI_CLICK_KEY
@@ -429,6 +430,17 @@ void place_on_screen(ComponentStorage& storage, const Blackboard& blackboard,
 }
 
 }  // namespace
+
+void ShopSystem::dev_max_upgrades(Entity player, ComponentStorage& storage,
+                                  Blackboard& blackboard, ShipState& ship) {
+    if (!cfg_) return;
+    ship.currency = DEV_UNITS;   // buy_upgrade still charges the escalating price
+    const int rows = std::min(static_cast<int>(cfg_->upgrades.size()), 8);
+    for (int i = 0; i < rows; ++i)
+        for (int n = ship.upg_counts[i]; n < cfg_->upgrades[static_cast<size_t>(i)].max_stacks; ++n)
+            buy_upgrade(i, player, storage, blackboard, ship);
+    ship.currency = DEV_UNITS;
+}
 
 int ShopSystem::gear_price(int index, int level) const {
     if (!cfg_ || index < 0 || index >= static_cast<int>(cfg_->items.size())) return 0;

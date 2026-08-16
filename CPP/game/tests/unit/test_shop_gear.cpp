@@ -19,6 +19,7 @@
 #include "engine/ecs/systems/ui_system.hpp"
 #include "engine/gamedata_loader.hpp"
 #include "engine/project_paths.hpp"
+#include "game/enemy_components.hpp"
 #include "game/player_components.hpp"
 #include "game/shop_system.hpp"
 
@@ -241,4 +242,30 @@ TEST_CASE("A card buys on a held press, not a click, and the click key is consum
     // LAUNCH ends the shop frame.
     w.bb.set<std::string>(UISystem::UI_CLICK_KEY, std::string("on_shop_leave"));
     REQUIRE(shop.menu_tick(w.cs, w.em, w.bb));
+}
+
+// --dev: dev_max_upgrades leaves every stacked row at its max_stacks, and the
+// stats those rows write actually landed (hull raised Health, damage raised
+// WeaponStats) — a maxed counter with an untouched ship would be the bug.
+TEST_CASE("dev_max_upgrades maxes every upgrade row", "[shop][dev]") {
+    ShopWorld w;
+    w.cs.add_component<Health>(w.player, Health{100.0f, 100.0f});
+    w.cs.add_component<WeaponStats>(w.player, WeaponStats{});
+    ShopConfig cfg = make_catalogue();
+    ShopSystem shop;
+    shop.set_config(&cfg);
+
+    const float dmg0 = w.cs.get_component<WeaponStats>(w.player)->get().damage;
+    shop.dev_max_upgrades(w.player, w.cs, w.bb, w.ship());
+
+    REQUIRE(w.ship().upg_counts[0] == cfg.upgrades[0].max_stacks);
+    REQUIRE(w.ship().upg_counts[1] == cfg.upgrades[1].max_stacks);
+    REQUIRE(w.cs.get_component<Health>(w.player)->get().max_hp ==
+            100.0f + cfg.upgrades[0].amount * static_cast<float>(cfg.upgrades[0].max_stacks));
+    REQUIRE(w.cs.get_component<WeaponStats>(w.player)->get().damage ==
+            dmg0 + cfg.upgrades[1].amount * static_cast<float>(cfg.upgrades[1].max_stacks));
+
+    // Idempotent: a second call cannot push a row past its cap.
+    shop.dev_max_upgrades(w.player, w.cs, w.bb, w.ship());
+    REQUIRE(w.ship().upg_counts[0] == cfg.upgrades[0].max_stacks);
 }
