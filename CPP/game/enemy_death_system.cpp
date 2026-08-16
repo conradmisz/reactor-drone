@@ -139,7 +139,8 @@ void EnemyDeathSystem::drop_loot(ComponentStorage& component_storage,
                                  float cx, float cy, int currency_value,
                                  float drop_chance, bool big) {
     const EconomyConfig& ec = economy_;
-    const int lo = std::max(0, ec.min_drops);
+    int lo = std::max(0, ec.min_drops);
+    if (wave_ < ec.early_bonus_wave) lo = std::max(lo, ec.early_min_drops);   // bb "wave" is 1-based
     const int hi = std::max(lo, ec.max_drops);
 
     // R2: every draw below happens on every kill, in the same order, whatever the
@@ -214,6 +215,9 @@ void EnemyDeathSystem::update(ComponentStorage& component_storage,
                               EntityManager& entity_manager,
                               Blackboard& blackboard) {
     int score = blackboard.get_or<int>("score", 0);
+    // Gameplay pack (D221) spec: richer floor before the first boss. Stashed
+    // for drop_loot, which has no blackboard parameter.
+    wave_ = blackboard.get_or<int>("wave", 0);
 
     // D193 #12: pre-pass over this frame's dead, so the loot loop below can ask
     // "how many of them died next to this one?". Reads only Position/Size and

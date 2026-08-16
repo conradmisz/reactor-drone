@@ -2545,3 +2545,28 @@ store-choices-derive-consequences discipline.
 **Rejected:** storing an owned-weapons list (derivable until standalone weapon
 purchases exist); persisting per-run scrap increments anywhere but the
 exactly-once `bank_run_score` edge (D3).
+
+
+## D223 — The one deliberate canary re-baseline (gameplay pack tier 4)  *(2026-08-16)*
+
+**Decision.** The replay canary's expected line changed from
+`Frames: 3000  Final score: 100  Units: 24  Wave: 1  Phase: 1` to
+`Frames: 3000  Final score: 170  Units: 20  Wave: 2  Phase: 1`, exactly once,
+in the tier that landed the seeded arena shuffle (D221 call #6). `.canary-
+baseline.txt` and CLAUDE.md were rewritten in the same commit; `gate.sh`
+re-proves the new line x2. Any OTHER tier of the pack moving this line is a
+regression, not a tune.
+
+**Why.** The shuffle changes what seed 42 plays (the run now opens on Core II),
+and the same tier's early-drop floor, player-enemy solidity and sustain retune
+all sit inside the sim. One tier, one re-baseline, instead of four tiers each
+quietly moving the line.
+
+**Determinism preserved:** the shuffle draws from `std::mt19937(seed *
+2654435761 + 97)` — a distinct stream constant, the surges pattern — so the
+canary is byte-identical across runs and resumes reproduce their run's order.
+The rules (no Prism opener, Singularity pinned at wave 30, ladder fixed) are
+property-tested across 200 seeds in `test_arena_shuffle.cpp`.
+
+**Rejected:** shuffling in `load_arena_config` (would shuffle the menu/test
+config too); re-baselining per tier (hides real regressions between tiers).

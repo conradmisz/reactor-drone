@@ -87,7 +87,10 @@ TEST_CASE("the scaffolded config blocks parse from the shipped GameData",
     GameConfig cfg = load_arena_config(project_paths::assets_dir() + "/GameData.json");
 
     // Present and parsed...
-    CHECK(cfg.sustain.max_live == 3);
+    // Gameplay pack (D221) tier 4 retuned the sustain cap: 1 early, growing to
+    // late_max_live at late_wave. The scaffold check now pins the new shape.
+    CHECK(cfg.sustain.max_live == 1);
+    CHECK(cfg.sustain.late_max_live == 4);
     CHECK_THAT(cfg.dash.duration, WithinAbs(0.15f, 1e-5f));
     CHECK(cfg.minimap.max_blips == 120);
     CHECK_THAT(cfg.boss.health_growth, WithinAbs(1.6f, 1e-5f));

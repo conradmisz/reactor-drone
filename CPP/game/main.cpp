@@ -1256,6 +1256,17 @@ int main(int argc, char* argv[]) {
             if (resume->ship_id >= 0 && resume->ship_id < static_cast<int>(config.ships.size()))
                 selected_ship = resume->ship_id;
         }
+        // Gameplay pack (D221 call #6): shuffle the arena rotation for THIS run,
+        // seeded from the run seed (a distinct stream constant, the surges
+        // pattern) so replays and resumes reproduce the same order. This is the
+        // ONE deliberate canary-line change of the pack — re-baselined here.
+        {
+            std::mt19937 arena_rng(config.seed * 2654435761u + 97u);
+            shuffle_arena_order(config.arenas, arena_rng);
+            std::cout << "Arena order:";
+            for (const ArenaDef& a : config.arenas) std::cout << " " << a.name << ";";
+            std::cout << "\n";
+        }
         // Lane F (D82): the ship overlay lands here, in the one place the pristine
         // base_config is re-copied — apply_ship is no more idempotent than
         // apply_difficulty, so there must never be a second application site.
@@ -2747,6 +2758,43 @@ int main(int argc, char* argv[]) {
             for (Entity e : component_storage.entities_with_component<EnemyTag>()) clamp_to_arena(e);
             for (Entity p : component_storage.entities_with_component<PlayerTag>()) push_out_of_solids(p);
             for (Entity e : component_storage.entities_with_component<EnemyTag>()) push_out_of_solids(e);
+            // Gameplay pack (D221) spec #5: the drone no longer phases through
+            // enemies. A dash is the exception (tick_dash owns that contact and
+            // the burst must plow through); the Owl's veil phases through by
+            // design. Resolution is positional — push the drone out along the
+            // radial with a small extra shove so ending a dash on top of an
+            // enemy reads as a bounce, not a pin. Contact damage is unchanged
+            // (CollidedWith still fires).
+            for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+                auto ship = component_storage.get_component<ShipState>(p);
+                if (ship.has_value() && ship->get().dash_timer > 0.0f) break;
+                if (blackboard.get_or<std::string>("ship.special", std::string()) == "phoenix_veil"
+                    && blackboard.get_or<float>("ship.no_fire", 0.0f) > 0.0f) break;
+                auto ppos = component_storage.get_component<Position>(p);
+                auto psz  = component_storage.get_component<Size>(p);
+                if (!ppos.has_value() || !psz.has_value()) break;
+                const float pr = psz->get().width * 0.5f;
+                for (Entity e : component_storage.entities_with_component<EnemyTag>()) {
+                    if (component_storage.has_component<DestroyRequest>(e)) continue;
+                    auto epos = component_storage.get_component<Position>(e);
+                    auto esz  = component_storage.get_component<Size>(e);
+                    if (!epos.has_value() || !esz.has_value()) continue;
+                    const float er = esz->get().width * 0.5f;
+                    const float pcx = ppos->get().x + pr, pcy = ppos->get().y + psz->get().height * 0.5f;
+                    const float ecx = epos->get().x + er, ecy = epos->get().y + esz->get().height * 0.5f;
+                    float dx = pcx - ecx, dy = pcy - ecy;
+                    const float dist = std::sqrt(dx * dx + dy * dy);
+                    const float min_d = pr + er;
+                    if (dist >= min_d) continue;
+                    if (dist < 0.001f) { dx = 1.0f; dy = 0.0f; }
+                    else { dx /= dist; dy /= dist; }
+                    // ponytail: overlap + 2px shove = the "small bounce"; spring it if playtests want more
+                    const float push = (min_d - dist) + 2.0f;
+                    ppos->get().x += dx * push;
+                    ppos->get().y += dy * push;
+                }
+                break;   // one player
+            }
             update_equipment_visuals();
 
             // Gameplay Phase 4: the Repulsor Field runs after the arena clamp and

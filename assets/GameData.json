@@ -2784,6 +2784,8 @@
   "economy": {
     "min_drops": 0,
     "max_drops": 3,
+    "early_bonus_wave": 10,
+    "early_min_drops": 1,
     "key_drop_chance": 0.005,
     "pickup_lifetime": 14.0,
     "pickup_size": 16.0,
@@ -2914,7 +2916,10 @@
   "//sustain": "Lane B / note #10 - periodic health & shield pickups (D56). interval 0 = feature off. Placement walks a golden-angle spiral, not an RNG stream, so a run replays identically.",
   "sustain": {
     "interval": 14.0,
-    "max_live": 3,
+    "max_live": 1,
+    "late_wave": 16,
+    "late_max_live": 4,
+    "pickup_scale": 1.5,
     "health_amount": 25.0,
     "shield_amount": 20.0,
     "shield_weight": 0.35,

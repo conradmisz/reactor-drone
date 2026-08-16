@@ -90,7 +90,10 @@ void sustain_spawn(ComponentStorage& component_storage,
     // the moment the player collects one.
     blackboard.set<float>(sustain_keys::TIMER, cfg.interval);
 
-    if (live_sustain_pickups(component_storage) >= cfg.max_live) return;
+    // Gameplay pack (D221) spec #7: later waves hold more pickups at once (the
+    // interval is the "recharge" — unchanged).
+    const int cap = wave >= cfg.late_wave ? cfg.late_max_live : cfg.max_live;   // "wave" is 1-based
+    if (live_sustain_pickups(component_storage) >= cap) return;
 
     // The player, for the keep-away test and for the "shields are useless without
     // a capacitor" substitution below.
@@ -125,7 +128,8 @@ void sustain_spawn(ComponentStorage& component_storage,
     const bool shield = has_shield_bank && sustain_is_shield(n, cfg.shield_weight);
     const float amount = shield ? cfg.shield_amount : cfg.health_amount;
 
-    const float sz = economy.pickup_size;
+    // Gameplay pack (D221) spec #9: sustain pickups draw (and collect) bigger.
+    const float sz = economy.pickup_size * (cfg.pickup_scale > 0.0f ? cfg.pickup_scale : 1.0f);
     Entity e = entity_manager.create_entity();
     component_storage.add_component<Position>(e, Position{x - sz * 0.5f, y - sz * 0.5f});
     component_storage.add_component<Size>(e, Size{sz, sz});

@@ -69,6 +69,7 @@ public:
 
 private:
     EconomyConfig economy_;
+    int wave_ = 0;   // 1-based bb "wave", stashed by update() for drop_loot (D221)
     std::mt19937 rng_{1234u};
 
     /// Spawn this kill's loot at (cx, cy). `drop_chance` is P(this kill drops

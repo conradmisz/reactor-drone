@@ -223,6 +223,9 @@ GameConfig load_arena_config(const std::string& file_path) {
         sc.shield_amount   = s.value("shield_amount", sc.shield_amount);
         sc.shield_weight   = s.value("shield_weight", sc.shield_weight);
         sc.min_player_dist = s.value("min_player_dist", sc.min_player_dist);
+        sc.late_wave       = s.value("late_wave", sc.late_wave);
+        sc.late_max_live   = s.value("late_max_live", sc.late_max_live);
+        sc.pickup_scale    = s.value("pickup_scale", sc.pickup_scale);
     }
     if (data.contains("dash")) {
         const auto& d = data["dash"];
@@ -527,6 +530,8 @@ GameConfig load_arena_config(const std::string& file_path) {
         ec.pickup_scatter       = e.value("pickup_scatter", ec.pickup_scatter);
         ec.pickup_magnet_speed  = e.value("pickup_magnet_speed", ec.pickup_magnet_speed);
         ec.pickup_magnet_radius = e.value("pickup_magnet_radius", ec.pickup_magnet_radius);
+        ec.early_bonus_wave     = e.value("early_bonus_wave", ec.early_bonus_wave);
+        ec.early_min_drops      = e.value("early_min_drops", ec.early_min_drops);
     }
 
     if (data.contains("shop")) {

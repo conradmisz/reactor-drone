@@ -287,6 +287,9 @@ struct EconomyConfig {
     float pickup_scatter = 26.0f;       // max offset from the corpse (px)
     float pickup_magnet_speed = 420.0f; // Magnet Core pull speed (Phase 4)
     float pickup_magnet_radius = 220.0f;// Magnet Core pull range (Phase 4)
+    // Gameplay pack (D221) spec: slightly richer drops before the first boss.
+    int early_bonus_wave = 10;          // waves BELOW this get the floor below
+    int early_min_drops = 1;            // min_drops floor in those waves
 };
 
 /**
@@ -347,6 +350,10 @@ struct SustainConfig {
     float shield_amount = 20.0f;  // shield restored by one cell
     float shield_weight = 0.35f;  // P(a placement is a shield rather than health)
     float min_player_dist = 220.0f;  // never place one in the player's lap
+    // Gameplay pack (D221) spec: more pickups late, all of them bigger.
+    int   late_wave = 16;            // 1-based wave at which the cap grows
+    int   late_max_live = 4;         // cap from late_wave on
+    float pickup_scale = 1.5f;       // draw/collection scale vs economy pickup_size
 };
 
 /// DashConfig — the thruster dash (#5, Lane B).
@@ -382,6 +389,29 @@ inline int scrap_for_run(int waves_cleared, bool victory, const ScrapConfig& c,
     int bosses = boss_every > 0 ? waves_cleared / boss_every : 0;
     return waves_cleared * c.per_wave + bosses * c.boss_bonus
          + (victory ? c.victory_bonus : 0);
+}
+
+/**
+ * Shuffle the run's arena rotation (gameplay pack, D221 call #6). The authored
+ * `first_wave` ladder is FIXED — only the occupants shuffle. Two rules from the
+ * owner: the last slot (Singularity, wave 30) is pinned, and no "Prism*" arena
+ * may open the run. Assumes `arenas` is authored in ascending first_wave order,
+ * which the data test pins. Deterministic for a given rng state — the caller
+ * seeds from the run seed, so replays and resumes reproduce the same order.
+ */
+template <class URNG>
+inline void shuffle_arena_order(std::vector<ArenaDef>& arenas, URNG& rng) {
+    if (arenas.size() < 3) return;
+    std::vector<int> ladder;
+    ladder.reserve(arenas.size());
+    for (const ArenaDef& a : arenas) ladder.push_back(a.first_wave);
+    std::shuffle(arenas.begin(), arenas.end() - 1, rng);   // finale pinned
+    if (arenas.front().name.rfind("Prism", 0) == 0) {
+        for (size_t i = 1; i + 1 < arenas.size(); ++i) {
+            if (arenas[i].name.rfind("Prism", 0) != 0) { std::swap(arenas[0], arenas[i]); break; }
+        }
+    }
+    for (size_t i = 0; i < arenas.size(); ++i) arenas[i].first_wave = ladder[i];
 }
 
 /// MinimapConfig — the arena minimap (#7, Lane B).

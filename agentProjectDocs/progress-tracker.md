@@ -19,9 +19,14 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   + Chill slow) in secondary_fire.{hpp,cpp}; Burn/Chill/BlizzardTag registered
   in the ECS (ENGINE.md updated); hud_sec gauge on the gameplay screen; "RMB"
   scriptable via --keys. 399 unit cases + 8/8 ctest, canary byte-identical on
-  baseline; headless RMB probe fires (score diverges as expected). Next: Tier 4
-  (arena shuffle + collision — THE canary re-baseline tier). NOT playtested in
-  a window — feel of all four secondaries unjudged.
+  baseline; headless RMB probe fires (score diverges as expected). Tier 4 DONE: seeded
+  arena shuffle (no Prism opener, Singularity pinned; 200-seed property test),
+  player-enemy solidity (dash + Owl veil excepted, bounce-out), early-wave
+  drop floor, sustain cap 1->4 at wave 16 + 1.5x pickup size. **Canary
+  re-baselined ONCE (D223): the expected line is now Frames: 3000 Final
+  score: 170 Units: 20 Wave: 2 Phase: 1** — CLAUDE.md + .canary-baseline.txt
+  updated, gate.sh green. 401 unit cases + 8/8 ctest. Next: Tier 5 (boss
+  rework). NOT playtested in a window — solidity bounce feel unjudged.
 
 - v2.2.0 shipped 2026-08-16; release notes collapsed below.
 
