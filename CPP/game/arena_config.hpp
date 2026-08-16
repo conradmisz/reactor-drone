@@ -458,6 +458,14 @@ struct BossConfig {
     // Fraction of max HP at which the wave-50 boss asks for the arena shift.
     // See the SEAM comment in boss_system.cpp — nothing consumes it yet.
     float shift_hp_frac = 0.5f;
+    // Gameplay pack (D221 call #7): the 2-phase enrage. Below enrage_frac the
+    // boss attacks faster (cadence multiplied), denser (bonus shots/patches)
+    // and hunts harder (speed multiplied). First-pass tuning table.
+    float enrage_frac = 0.5f;
+    float enrage_cadence_mult = 0.6f;
+    float enrage_speed_mult = 2.0f;
+    int   enrage_volley_bonus = 6;
+    int   enrage_patch_bonus = 2;
 };
 
 /// ActiveItemDef — one boss-reward active (#4/new-feature note, Lane D).

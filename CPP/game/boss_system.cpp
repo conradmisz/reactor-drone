@@ -53,6 +53,9 @@ bool centre_of(ComponentStorage& s, Entity e, float& cx, float& cy) {
 
 void BossSystem::reset() {
     spawned_wave_ = -1;
+    enraged_ = false;
+    pending_reward_ = false;
+    still_timer_ = slide_timer_ = 0.0f;
     boss_ = 0;
     boss_alive_ = false;
     reward_open_ = false;
@@ -238,6 +241,9 @@ void BossSystem::update(ComponentStorage& storage, EntityManager& entity_manager
         const int ordinal = boss_ordinal(cfg_->waves, wave, is_final);
         spawn_boss(storage, entity_manager, blackboard, wave, ordinal, is_final);
         spawned_wave_ = wave;
+        enraged_ = false;
+        pending_reward_ = false;
+        still_timer_ = slide_timer_ = 0.0f;
         spawner.set_clear_hold(true);
     }
 
@@ -263,8 +269,9 @@ void BossSystem::update(ComponentStorage& storage, EntityManager& entity_manager
                 }
                 break;
             }
-            open_reward(storage, blackboard);
-            if (!reward_open_) spawner.set_clear_hold(false);   // no actives authored
+            // Spec (D221): the reward menu waits until the boss's summoned adds
+            // are dead too — the fight is not over while the swarm is live.
+            pending_reward_ = true;
         } else {
             // === SEAM: wave-50 mid-fight arena shift ===
             // The user's wave-50 boss "shifts the arena" into the Singularity map
@@ -281,6 +288,72 @@ void BossSystem::update(ComponentStorage& storage, EntityManager& entity_manager
                 shift_requested_ = true;
             }
             // === END SEAM ===
+
+            // --- 2-phase enrage (D221 call #7) ---
+            const BossConfig& bcfg = cfg_->boss;
+            if (!enraged_ && hp.has_value() && hp->get().max_hp > 0.0f &&
+                hp->get().current <= hp->get().max_hp * bcfg.enrage_frac) {
+                enraged_ = true;
+                if (auto beh2 = storage.get_component<EnemyBehavior>(boss_); beh2.has_value()) {
+                    beh2->get().cooldown *= bcfg.enrage_cadence_mult;
+                    beh2->get().timer = std::min(beh2->get().timer, beh2->get().cooldown);
+                }
+                if (auto pf = storage.get_component<PathFollower>(boss_); pf.has_value())
+                    pf->get().speed *= bcfg.enrage_speed_mult;
+                storage.add_component<Flash>(boss_, Flash{0.6f, 0.6f, 255, 60, 60});
+                blackboard.set<std::string>("hud_message", boss_name_ + " IS ENRAGED");
+                blackboard.set<float>("hud_message_timer", 3.0f);
+                float ex, ey;
+                if (centre_of(storage, boss_, ex, ey))
+                    fx_events::push_impulse(blackboard, ex, ey, 8.0f);
+            }
+
+            // --- unstick slide: a boss parked behind a structure slides
+            // tangentially until it has a clean line again (spec: "Boss AI
+            // gets stuck behind structures"). Positional, so the seek system
+            // cannot cancel it; deterministic (no draws). ---
+            {
+                float bx2, by2;
+                if (centre_of(storage, boss_, bx2, by2)) {
+                    const float moved = std::sqrt((bx2 - last_bx_) * (bx2 - last_bx_) +
+                                                  (by2 - last_by_) * (by2 - last_by_));
+                    auto pf = storage.get_component<PathFollower>(boss_);
+                    const float expect = (pf.has_value() ? pf->get().speed : 34.0f) * dt;
+                    if (slide_timer_ > 0.0f) {
+                        slide_timer_ -= dt;
+                        if (auto bp = storage.get_component<Position>(boss_); bp.has_value()) {
+                            const float v = (pf.has_value() ? pf->get().speed : 34.0f) * 2.5f;
+                            bp->get().x += slide_dx_ * v * dt;
+                            bp->get().y += slide_dy_ * v * dt;
+                        }
+                    } else if (moved < expect * 0.25f) {
+                        still_timer_ += dt;
+                        if (still_timer_ > 1.2f) {
+                            still_timer_ = 0.0f;
+                            // Slide perpendicular to the player bearing; the
+                            // side alternates with the volley aim so repeated
+                            // sticks try both ways. ponytail: replace with real
+                            // pathing if playtests still see camping.
+                            float tx = 0.0f, ty = 0.0f;
+                            for (Entity pl : storage.entities_with_component<PlayerTag>()) {
+                                if (auto pp = storage.get_component<Position>(pl); pp.has_value()) {
+                                    tx = pp->get().x - bx2; ty = pp->get().y - by2;
+                                }
+                                break;
+                            }
+                            const float len = std::max(0.001f, std::sqrt(tx * tx + ty * ty));
+                            const bool flip = storage.get_component<EnemyBehavior>(boss_).has_value() &&
+                                std::fmod(storage.get_component<EnemyBehavior>(boss_)->get().aim, 0.62f) > 0.31f;
+                            slide_dx_ = (flip ? ty : -ty) / len;
+                            slide_dy_ = (flip ? -tx : tx) / len;
+                            slide_timer_ = 0.9f;
+                        }
+                    } else {
+                        still_timer_ = 0.0f;
+                    }
+                    last_bx_ = bx2; last_by_ = by2;
+                }
+            }
 
             auto beh = storage.get_component<EnemyBehavior>(boss_);
             if (beh.has_value()) {
@@ -365,8 +438,9 @@ void BossSystem::update(ComponentStorage& storage, EntityManager& entity_manager
                             // D187 missed, so the fight still threw flat green
                             // squares while the spitters themselves had clouds.
                             p.image = "v2/hazard_poison.png";
-                            for (int i = 0; i < 3; ++i) {
-                                const float a = TAU * static_cast<float>(i) / 3.0f;
+                            const int np = 3 + (enraged_ ? cfg_->boss.enrage_patch_bonus : 0);
+                            for (int i = 0; i < np; ++i) {
+                                const float a = TAU * static_cast<float>(i) / static_cast<float>(np);
                                 hazard::spawn_patch(storage, entity_manager,
                                     bx + std::cos(a) * cfg_->boss.size * 0.6f,
                                     by + std::sin(a) * cfg_->boss.size * 0.6f, p);
@@ -379,8 +453,9 @@ void BossSystem::update(ComponentStorage& storage, EntityManager& entity_manager
                             p.r = 255; p.g = 150; p.b = 50;
                             p.emission_rate = 20.0f;
                             p.image = "v2/hazard_blast.png";   // #5, same as the mine
-                            for (int i = 0; i < 4; ++i) {
-                                const float a = TAU * static_cast<float>(i) / 4.0f + 0.4f;
+                            const int nm = 4 + (enraged_ ? cfg_->boss.enrage_patch_bonus : 0);
+                            for (int i = 0; i < nm; ++i) {
+                                const float a = TAU * static_cast<float>(i) / static_cast<float>(nm) + 0.4f;
                                 hazard::spawn_patch(storage, entity_manager,
                                     bx + std::cos(a) * cfg_->boss.size * 0.8f,
                                     by + std::sin(a) * cfg_->boss.size * 0.8f, p);
@@ -388,8 +463,9 @@ void BossSystem::update(ComponentStorage& storage, EntityManager& entity_manager
                         } else {
                             // Bulwark, splitter and the default all fall through to
                             // a radial volley — the one attack every arena can read.
-                            for (int i = 0; i < 10; ++i) {
-                                const float a = TAU * static_cast<float>(i) / 10.0f +
+                            const int nv = 10 + (enraged_ ? cfg_->boss.enrage_volley_bonus : 0);
+                            for (int i = 0; i < nv; ++i) {
+                                const float a = TAU * static_cast<float>(i) / static_cast<float>(nv) +
                                                 beh->get().aim;
                                 enemy_fire::spawn_shot(storage, entity_manager, bx, by, a,
                                                        240.0f,
@@ -411,6 +487,26 @@ void BossSystem::update(ComponentStorage& storage, EntityManager& entity_manager
             blackboard.set<float>("boss.hp_frac",
                 std::max(0.0f, std::min(1.0f, hp->get().current / hp->get().max_hp)));
             blackboard.set<std::string>("boss.name", boss_name_);
+        }
+    }
+
+    if (pending_reward_ && !reward_open_) {
+        bool swarm_alive = false;
+        for (Entity e : storage.entities_with_component<EnemyTag>()) {
+            if (e == boss_) continue;   // the corpse itself is not the swarm
+            if (storage.has_component<DestroyRequest>(e)) continue;
+            if (!entity_manager.is_alive(e)) continue;
+            // Dead-but-not-yet-destroyed (EnemyDeathSystem runs later in the
+            // frame — and not at all in the unit fixture): already beaten.
+            if (auto hp2 = storage.get_component<Health>(e);
+                hp2.has_value() && hp2->get().current <= 0.0f) continue;
+            swarm_alive = true;
+            break;
+        }
+        if (!swarm_alive) {
+            pending_reward_ = false;
+            open_reward(storage, blackboard);
+            if (!reward_open_) spawner.set_clear_hold(false);   // no actives authored
         }
     }
 

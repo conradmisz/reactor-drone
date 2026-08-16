@@ -25,8 +25,14 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   drop floor, sustain cap 1->4 at wave 16 + 1.5x pickup size. **Canary
   re-baselined ONCE (D223): the expected line is now Frames: 3000 Final
   score: 170 Units: 20 Wave: 2 Phase: 1** — CLAUDE.md + .canary-baseline.txt
-  updated, gate.sh green. 401 unit cases + 8/8 ctest. Next: Tier 5 (boss
-  rework). NOT playtested in a window — solidity bounce feel unjudged.
+  updated, gate.sh green. 401 unit cases + 8/8 ctest. Tier 5 DONE: 2-phase
+  enrage below 50% (cadence x0.6, speed x2, +6 volley shots / +2 patches,
+  Flash+HUD cue, knobs in the boss JSON block), positional unstick slide for
+  the stuck-behind-structures bug, reward menu deferred until the boss's adds
+  are dead, actives trimmed to Heat-Seeking Missiles (reward_choices 1; more
+  items TODO in spec). 401 unit + 8/8 ctest, gate.sh on the new baseline.
+  Next: Tier 6 (hangar + run stats screen). NOT playtested in a window —
+  enrage feel/difficulty unjudged.
 
 - v2.2.0 shipped 2026-08-16; release notes collapsed below.
 

@@ -319,6 +319,11 @@ GameConfig load_arena_config(const std::string& file_path) {
         bc.final_mult         = b.value("final_mult", bc.final_mult);
         bc.final_summon_bonus = b.value("final_summon_bonus", bc.final_summon_bonus);
         bc.shift_hp_frac      = b.value("shift_hp_frac", bc.shift_hp_frac);
+        bc.enrage_frac         = b.value("enrage_frac", bc.enrage_frac);
+        bc.enrage_cadence_mult = b.value("enrage_cadence_mult", bc.enrage_cadence_mult);
+        bc.enrage_speed_mult   = b.value("enrage_speed_mult", bc.enrage_speed_mult);
+        bc.enrage_volley_bonus = b.value("enrage_volley_bonus", bc.enrage_volley_bonus);
+        bc.enrage_patch_bonus  = b.value("enrage_patch_bonus", bc.enrage_patch_bonus);
     }
     // Iteration 3 (D67): the specialty/moon injection cadences, plus the arena ->
     // specialty-unit map. Resolved to an enemy_types index here, once, so no

@@ -56,6 +56,9 @@ public:
     /// GameConfig::actives). Exposed for the contract test.
     const std::vector<int>& offer() const { return offer_; }
 
+    /// True once the live boss has crossed BossConfig::enrage_frac (D221 #7).
+    bool enraged() const { return enraged_; }
+
     void reset();
 
 private:
@@ -63,6 +66,15 @@ private:
                     Blackboard& blackboard, int wave, int boss_index, bool final_boss);
     void open_reward(ComponentStorage& storage, Blackboard& blackboard);
     bool handle_reward_click(ComponentStorage& storage, Blackboard& blackboard);
+
+    // Gameplay pack (D221 call #7): 2-phase enrage + reward-after-adds + the
+    // unstick slide (spec: "Boss AI gets stuck behind structures").
+    bool enraged_ = false;
+    bool pending_reward_ = false;   // boss dead, waiting for its adds to die
+    float last_bx_ = 0.0f, last_by_ = 0.0f;
+    float still_timer_ = 0.0f;      // seconds the boss has barely moved
+    float slide_timer_ = 0.0f;      // seconds of unstick slide remaining
+    float slide_dx_ = 0.0f, slide_dy_ = 0.0f;
 
     const GameConfig* cfg_ = nullptr;
     int spawned_wave_ = -1;        // the boss wave this system has already spawned

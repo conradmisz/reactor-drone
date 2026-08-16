@@ -3030,10 +3030,15 @@
     "contact_damage": 30.0,
     "summon_interval": 6.0,
     "summon_count": 4,
-    "reward_choices": 3,
+    "reward_choices": 1,
     "final_mult": 1.8,
     "final_summon_bonus": 4,
-    "shift_hp_frac": 0.5
+    "shift_hp_frac": 0.5,
+    "enrage_frac": 0.5,
+    "enrage_cadence_mult": 0.6,
+    "enrage_speed_mult": 2.0,
+    "enrage_volley_bonus": 6,
+    "enrage_patch_bonus": 2
   },
   "//actives": "Lane D - boss-reward active items, offered on the boss_reward screen and fired with E. All three sit on the 30s cooldown the design note fixes. `effect` is the dispatch key (D26): never a row index. repulsor_field auto-fires below 20% hull instead of on the key. PROVISIONAL: unplayed.",
   "actives": [
@@ -3043,20 +3048,6 @@
       "cooldown": 30.0,
       "amount": 45.0,
       "duration": 4.0
-    },
-    {
-      "name": "Laser Cannon",
-      "effect": "laser",
-      "cooldown": 30.0,
-      "amount": 30.0,
-      "duration": 1.6
-    },
-    {
-      "name": "Repulsion Device",
-      "effect": "repulsor_field",
-      "cooldown": 30.0,
-      "amount": 420.0,
-      "duration": 5.0
     }
   ],
   "//engine-suite": "Engine-suite Phase 0 scaffolding (D138, specs/engine-feature-suite.md). Each block below is OWNED BY ONE LANE and every value is an inert default: enabled false (or an empty list) leaves the sim byte-identical. The owning lane fills its block in and deletes its 'still inert' line in test_scaffolding.cpp.",

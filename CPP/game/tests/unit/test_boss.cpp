@@ -313,7 +313,9 @@ TEST_CASE("every reward button carries the callback name boss_system.cpp compare
     // One button per offered choice, or a boss kill hands out fewer actives than
     // the config promises.
     REQUIRE(static_cast<int>(cfg.actives.size()) >= cfg.boss.reward_choices);
-    REQUIRE(cfg.boss.reward_choices == 3);
+    // Gameplay pack (D221): the catalog is trimmed to Heat-Seeking Missiles
+    // (more boss items are a logged TODO), so one choice is the shipped shape.
+    REQUIRE(cfg.boss.reward_choices >= 1);
 
     auto table = w.bb.get_or<std::shared_ptr<StyleTable>>("ui_styles", nullptr);
     REQUIRE(table != nullptr);
@@ -433,17 +435,21 @@ TEST_CASE("the laser's hit test is a forward ray", "[Game][actives]") {
     CHECK(actives::ray_distance(0, 0, 0.0f, 600.0f, 700.0f, 0.0f) > 1e6f);
 }
 
-TEST_CASE("the shipped actives catalogue maps onto the three ids", "[Game][actives][config]") {
+TEST_CASE("every shipped active maps onto a known id", "[Game][actives][config]") {
+    // Gameplay pack (D221): the catalogue is trimmed to Heat-Seeking Missiles
+    // (more boss items are a logged TODO). The laser/repulsor PLUMBING stays —
+    // their ids and effects keep their own unit tests above — so this test now
+    // pins "everything authored maps", not a fixed count of three.
     GameConfig cfg = load_arena_config(project_paths::assets_dir() + "/GameData.json");
-    REQUIRE(cfg.actives.size() == 3);
-    bool seen[3] = {false, false, false};
+    REQUIRE(cfg.actives.size() >= 1);
+    bool missiles_seen = false;
     for (const ActiveItemDef& d : cfg.actives) {
         const int id = actives::active_id_for(d.effect);
         INFO("effect: " << d.effect);
         REQUIRE(id >= 0);
-        seen[id] = true;
+        if (id == actives::ids::MISSILES) missiles_seen = true;
         CHECK_THAT(d.cooldown, WithinAbs(30.0f, 1e-3f));   // the note fixes this
         CHECK(actives::active_def(cfg.actives, id) != nullptr);
     }
-    CHECK((seen[0] && seen[1] && seen[2]));
+    CHECK(missiles_seen);
 }
