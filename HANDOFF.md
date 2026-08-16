@@ -42,9 +42,21 @@ bash gate.sh .canary-baseline.txt
 | 7 | Paints: 3 ship-granted + Gold/Crimson/Arctic (own atlases); per-item slots on meta.json; cosmetic shop + inventory screens. **Engine: `entities_with_component` SORTED (D224)** |
 | 8 | GEAR/LEVELS retired (D225); ESC-in-shop fix; rear tracer trail; main-menu LEADERBOARD button; site disclaimers (docs/features.html) |
 
+## Playtest #1 happened (2026-08-16) — batch D227
+
+Nine items, all fixed and committed. It found two bugs no gate had: contact
+damage had been DEAD since tier 4 (separation ran before collision), and the
+separation's 2px bonus shove was a repulsion field. Full account in
+`agentProjectDocs/bugs/012`. The canary was re-baselined a THIRD time and now
+ends in a death run at wave 1.
+
 ## What tier 9 still needs (in order)
 
-1. **WINDOWED PLAYTEST — nothing above has been played by a human.** Judge:
+0. **PLAYTEST #2** — the D227 fixes are unjudged: bolts vs tracers, the charge
+   bar and its 76px slug, the pause pip column, the hangar preview, and whether
+   solid enemies make the game too punishing (a standing bot now dies in wave 1).
+
+1. **The rest of the original list — still not played by a human.** Judge:
    weapon feel (all 4 primaries + 4 secondaries), collision bounce, veil/ram
    specials, boss enrage difficulty, scrap pacing (5/wave, +25 boss, +100 win;
    Owl 400 / Gryphon 800 / paints 150-250), hangar/shop/inventory click-through
