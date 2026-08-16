@@ -190,6 +190,11 @@ if PHASE_PLAYING && sim:
   [HOOK: enemy-fire]                        — iteration 3 (D51); see §6
   [HOOK: specialty]                         — iteration 3 (D51); see §6
   movement.update
+  [HOOK: arena mechanics]                   — The Drift's current (§6d). AFTER movement,
+                                              BEFORE the clamp: it displaces Position, not
+                                              Velocity (seek + control overwrite Velocity
+                                              every frame), and the clamp still gets the
+                                              last word on where anything ends up
   arena circle clamp  (player + enemies)
   obstacle push-out   (player + enemies)    — solid walls get the last word on position
   update_equipment_visuals()                — [Phase 5c] thruster cone, kit parts, shield
@@ -559,6 +564,23 @@ in `main.cpp`:
 | `shop-menu` | in the `PHASE_SHOP` block | clickable shop + gear upgrades (#1, #11) |
 | `minimap` | after `game_hud.update`, every phase | minimap (#7) |
 | `prestige` | after `ui_system.update`, above the phase machine | 30-wave arc + prestige (#14, iteration 5) |
+
+### 6d. Arena mechanics — The Shroud and The Drift  *(cherry-picked 2026-08-16)*
+
+Both live in `game/arena_mechanics.hpp`, are resolved off the live `ArenaDef`,
+and are read in **exactly one place each** — the Foundry-mines shape. Absent on
+the nine original arenas, whose zero values are exactly the "off" value, so
+neither costs anything on an arena that does not use it.
+
+| Mechanic | Config | Hook | Why there |
+| --- | --- | --- | --- |
+| The Drift (wave 19) | `drift_x`, `drift_y` | after `movement.update`, before the arena clamp | Displaces **Position**, not Velocity — the seek and control systems overwrite Velocity every frame. Running before the clamp keeps the boundary wall the final authority, so no current can push anything through it. The current is deliberately slower than the slowest enemy, so it can never pin one and stall the wave-clear gate (pinned by a test). |
+| The Shroud (wave 10) | `light_radius` | beside the tie-dye cycle, immediately before `flash_system.update` | Writes **Tint**, never Color — Color is the resting tint `FlashSystem` restores, so dimming it would leave every hit enemy permanently darker. `tick_shroud` skips a flashing enemy outright: being lit up when you hit it is the one thing darkness must not eat. |
+
+The 30-wave ladder re-bands to 11 arenas on these two landing:
+1/4/7/10/13/16/19/22/25/28/30.
+
+**Unplayed.** Neither arena has been seen by a human at its own band.
 
 ### 6b. Engine-suite hooks (D138)
 

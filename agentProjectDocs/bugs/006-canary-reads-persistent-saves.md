@@ -58,3 +58,33 @@ played-in `saves/` is explicitly not evidence.
 Every tier from 6a to 8 passed this canary honestly, but only because nobody
 had played in the worktree yet. The gate had a silent precondition that was
 true by luck. Verification that depends on ambient state is not verification.
+
+---
+
+## Follow-up (2026-08-16): the gate itself runs the WEAK canary — still open
+
+Two scripts run the replay canary, and both used `--keys 5:SPACE`:
+
+- `gate.sh` (arrived with the engine-suite merge) — **fixed this session** to
+  the firing form, and it now resets `saves/` between the two runs. Its
+  `.canary-baseline.txt` was also holding the idle summary line
+  (`score 0 / units 0 / phase 2`) and now holds the firing one
+  (`score 100 / units 24 / wave 1 / phase 1`).
+- `scripts/verify_branch.sh` **section 3 — STILL THE IDLE FORM, NOT FIXED.**
+
+SPACE is both the title-screen start key and the fire key, so a single
+`--keys 5:SPACE` presses start and nothing else: the run ends `score 0 /
+units 0`, never reaches hit-stop, and passes without exercising the one path
+that could break. The branch gate has therefore reported **30/30 across the
+whole v2.x line while never once firing a shot.**
+
+Left unfixed deliberately — verify_branch is the shipping gate and changing it
+is a release-risk call, not a wrap-up edit. It is the highest-value cleanup
+before the gameplay.md rewrite, because that rewrite touches firing directly.
+The replacement is the form CLAUDE.md already documents:
+
+    SDL_VIDEODRIVER=dummy ./CPP/build/game/game --seed 42 \
+      --keys $(seq -f '%g:SPACE' 10 4 2990) --stopframe 3000
+
+Note sections 6 and 7 (portable Linux, wine smoke) also use `5:SPACE`, but
+those only assert "reaches frame N", so the weak form is adequate there.

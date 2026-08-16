@@ -5,8 +5,25 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
 
 ## Current Phase
 
-- **Engine suite + two arenas merged in (2026-08-15). The branch is staged for
-  the gameplay.md rewrite and nothing else is in flight.**
+- **v2.2.0 SHIPPED 2026-08-16. The branch is staged for the gameplay.md
+  rewrite and nothing else is in flight.**
+
+  Released off `feature/distribution`: engine suite (all flags off), The Shroud,
+  The Drift, and `--dev` starting fully kitted. All five gates verified in the
+  bugs/008 order — four assets 200 anonymously, Latest moved, Worker `/version`
+  2.2.0 with a resolving installer_url, live site links 200. CI green on all
+  four jobs. Worker and Pages both redeployed; both repos pushed.
+
+  **Both bugs/008 CI fixes survived their first real run** (`draft: false`,
+  `make_latest: true`) — proven now, not just written down. New trap recorded:
+  `/version` lagged the deploy ~10 s while still reporting the old version.
+
+  **The in-game updater is finally live for real.** Anyone on 2.1.0 now sees
+  UPDATE AVAILABLE, so the Windows silent-install handoff
+  (`SDL_CreateProcess(setup, "/SILENT")` -> installer -> relaunch) has a genuine
+  2.1.0 -> 2.2.0 jump to exercise. That path has never run on any machine.
+
+  **What merged (D220):**
 
   `engine-suite-build` merged (D138-D151): force fields, resonance grid,
   timescale/bullet time, adaptive director, surges, bullet patterns,
@@ -35,14 +52,18 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   `scripts/verify_branch.sh` **30/30**, and the firing replay canary unchanged
   (`Frames: 3000  Final score: 100  Units: 24  Wave: 1  Phase: 1`).
 
-  **Unplayed:** neither new arena has been seen by a human, and no suite
-  feature has ever been enabled outside a scripted run.
+  **Unplayed:** the owner played the merged build once at `--dev --level 8`
+  before release — real coverage of the merge, but neither new arena has been
+  seen at its own band (Shroud wave 10, Drift wave 19) and no suite feature has
+  ever been enabled outside a scripted run. `--suite` turns them all on.
 
-  **Known gap, pre-existing:** `scripts/verify_branch.sh` section 3 still runs
-  the IDLE canary (`--keys 5:SPACE`), which ends score 0 / units 0 and never
-  reaches hit-stop — the exact false pass CLAUDE.md and bugs/006 warn about.
-  `gate.sh` was fixed to the firing form this session; verify_branch was left
-  alone because it is the shipping gate and changing it is a separate call.
+  **OPEN, highest-value cleanup before the rewrite:**
+  `scripts/verify_branch.sh` section 3 still runs the IDLE canary
+  (`--keys 5:SPACE`) — the branch gate has reported 30/30 across the whole v2.x
+  line while never firing a shot. `gate.sh` was fixed this session;
+  verify_branch was left alone because it is the shipping gate. Full write-up
+  and the replacement command in `bugs/006`. The gameplay.md rewrite touches
+  firing directly, so fix this before it starts.
 
 - **v2.1.0 SHIPPED (2026-08-15) — the v3 visual overhaul is live on
   `feature/distribution`.** `visual-overhaul` merged in (tiers 0-12) and is

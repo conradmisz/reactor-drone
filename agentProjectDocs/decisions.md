@@ -4,7 +4,7 @@ Append-only. Never rewrite or delete an entry — if a decision is reversed, add
 a new one that supersedes it.
 
 **Numbering:** decisions carry stable ids (`D1`…) because code comments,
-handoffs and plans cite them. The next free id is **D220** (D152-D179 are also free — see the
+handoffs and plans cite them. The next free id is **D221** (D152-D179 are also free — see the
 D138-D151 heading below). Continue the
 sequence; do not renumber.
 
@@ -1687,7 +1687,7 @@ is inert by shape (no registered sources, so the pass iterates nothing).
 replay canary byte-identical to pre-suite master — proven by `gate.sh`.
 
 **D152-D179 are still free.** D180+ is the gameplay-polish/distribution range
-below; next free there is D220.
+below; next free there is D221.
 
 ### D181-D191 — Gameplay-polish batch: readability, shop UX, boss waves  *(2026-08-10)*
 
@@ -2443,3 +2443,42 @@ Hoist to `decisions.md` / `progress-tracker.md` on `master` at merge, then empty
   branch's other spec holds D212-D214 unhoisted; `experimental` and
   `distribution` are reported to also claim numbers in this range. Reconcile at
   merge — do not assume D215-D217 are free on `master`.
+
+
+## D220 — Merge the engine suite, leave the roguelite gameplay on `experimental`  *(2026-08-16)*
+
+**Decision.** `feature/distribution` takes `engine-suite-build` (D138-D151) as a
+merge and `545e12f` (The Shroud + The Drift) as a cherry-pick. It takes **none**
+of `experimental`'s roguelite gameplay: upgrade tracks, rolled shop cards with
+reroll/lock, ability slots on keys 1-4, fusion capstones, the three rule-warp
+hulls, ship installs.
+
+**Why.** `gameplay.md` (the owner's spec, `~/Downloads/# Gameplay.md`) supersedes
+all of it, and in one place directly contradicts it: the spec says *keep the
+original in-game upgrade method and delete the gear/levels tabs*, while
+`experimental` demotes `ShipState.upg_counts` to a legacy save field and moves
+purchase truth to `track_levels`. Merging it would mean merging code in order to
+revert it.
+
+**Cost, measured before deciding** (`git merge-tree`, not guessed):
+
+| Merge | Files | Hunks | Conflicted lines |
+| --- | --- | --- | --- |
+| all of `experimental` | 13 | 17 | ~430 code + ~1100 doc |
+| `engine-suite-build` only | 5 | 7 | 225 |
+
+**The trap that actually drove the call — and the thing to re-read before ANY
+future `experimental` merge.** The conflict count is misleading. `shop_system.*`,
+`player_components.hpp` and `run_save.cpp` have **zero churn on this branch since
+master**, so a merge takes `experimental`'s roguelite versions **cleanly, with no
+conflict marker to warn anyone**. The dangerous files are the quiet ones.
+
+**Rejected:** merging `experimental` and reverting the gameplay afterward — the
+revert surface is four systems and a save format, and a partially-reverted track
+system is worse than either whole one.
+
+**Kept from `experimental` anyway:** the A* blocked-cell fix (`3dc24d5`), which
+rode in with the suite.
+
+Suite features all ship inert (`enabled: false`; `forces` inert by shape).
+`--suite` flips them on. `gate.sh .canary-baseline.txt` re-proves inertness.

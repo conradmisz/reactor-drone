@@ -52,3 +52,44 @@ were unnecessary, and the merge silently corrupted the decision log.
 Tag, then verify in this order before announcing: assets return 200
 anonymously -> release is Latest -> Worker `/version` -> the site page. Do not
 trust "CI green" as "shipped".
+
+---
+
+## v2.2.0 (2026-08-16) — what the fixes actually did, plus one new trap
+
+**Both CI fixes survived their first real run.** `draft: false` and
+`make_latest: true` had never been exercised when they were written down above.
+On v2.2.0 the release published outright and Latest moved on its own — no
+hand-publishing, no manual badge. They are now proven, not merely committed.
+
+**NEW TRAP — `/version` lags a successful `wrangler deploy` by ~10 s.** After a
+deploy whose own output listed `env.RELEASE_VERSION ("2.2.0")`, the endpoint
+still served `2.1.0`. It was propagation, not a failed deploy. Re-read before
+debugging; a cache-buster query is not needed, only patience.
+
+**Ruled out** for that one: not edge caching (a `?cb=` buster and a
+`Cache-Control: no-cache` header returned the *same* stale value while it was
+stale, then all three flipped together), and not a wrong binding (the deploy
+output showed the new value).
+
+## The release order that worked, end to end
+
+1. Bump `GAME_VERSION` in `CPP/game/version.hpp` and **push it before the tag** —
+   CI greps version.hpp against the tag (`release.yml`, "Tag matches version.hpp").
+2. Push the `v*` tag. Watch all four jobs, not the run status.
+3. Verify assets 200 **anonymously** -> Latest -> `/version` -> the live site.
+4. Bump `backend/wrangler.jsonc` `RELEASE_VERSION` + `INSTALLER_URL`, then
+   `npx wrangler deploy`. **After** the release exists, or `installer_url` 404s.
+5. Update the three hardcoded filenames in
+   `~/Documents/projects/brainstormlabs/site/reactor-drone/index.html`, then
+   `npx wrangler pages deploy site --project-name brainstormlabs`. Pages does
+   not deploy on push.
+
+Both `wrangler deploy` and `wrangler pages deploy` ran fine under the agent's
+auto mode — they are not blocked.
+
+**Bug-id collision, third occurrence.** The engine-suite merge brought its own
+`bugs/003-path-property-test-flake.md` against this branch's
+`003-verification-traps.md`; renumbered to `bugs/010`. Check `ls
+agentProjectDocs/bugs/` after every merge — the id is in the filename AND the
+frontmatter, and both need moving.
