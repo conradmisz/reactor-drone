@@ -43,9 +43,10 @@ read all of them for every task.
       SDL_VIDEODRIVER=dummy ./CPP/build/game/game --seed 42 \
         --keys $(seq -f '%g:SPACE' 10 4 2990) --stopframe 3000
 
-  Expected: `Frames: 3000  Final score: 170  Units: 20  Wave: 2  Phase: 1`.
-  (Re-baselined ONCE by the gameplay pack tier 4 arena shuffle — D223. The
-  seed-42 run now opens on Core II.)
+  Expected: `Frames: 3000  Final score: 160  Units: 20  Wave: 2  Phase: 1`.
+  (Re-baselined by the pack twice, each with a decision: D223 — tier 4's arena
+  shuffle changed what seed 42 plays (opens on Core II); D224 — tier 7 made
+  entity iteration SORTED, so UI authoring can never move the sim again.)
   Run twice — identical. For presentation-only work, also diff against the same
   command on `master`; that summary must match too.
 - **Clear `saves/` before any canary run.** The seed does NOT make the run
@@ -84,7 +85,7 @@ read all of them for every task.
 
 - Update `progress-tracker.md` after every meaningful change.
 - Append design calls (with the *why* and what was rejected) to `decisions.md`.
-  Ids are stable and cited from code — next free id is **D224**.
+  Ids are stable and cited from code — next free id is **D225**.
   (D207-D219 are the `visual-overhaul` v3 block, renumbered at the 2026-08-15
   merge — see the note in `decisions.md`. Do NOT allocate below D220.)
   (`feature/engine-suite` reserves D138-D180; the gameplay-polish batch is

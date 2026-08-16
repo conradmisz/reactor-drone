@@ -1280,7 +1280,31 @@ int main(int argc, char* argv[]) {
             // speed*duration, so scaling speed here (on the fresh copy, D50
             // discipline) changes reach without touching any duration rule.
             config.dash.speed *= sd.dash_mult;
+            // Tier 7 (D221): the equipped ship paint swaps the body atlas
+            // BEFORE the sprite loads. Presentation only — no stat touches.
+            {
+                const int sci = equipped_color(meta, meta.ship_colors, config.ships,
+                                               config.cosmetic_colors, sd.name);
+                if (sci >= 0 && !config.cosmetic_colors[static_cast<size_t>(sci)].sidecar.empty())
+                    config.player.sidecar = config.cosmetic_colors[static_cast<size_t>(sci)].sidecar;
+            }
             load_player_sprite();
+            // Tier 7 (D221): trail paint, published for the render pass (which
+            // holds the old hardcoded hue as its default).
+            {
+                const int tci = equipped_color(meta, meta.trail_colors, config.ships,
+                                               config.cosmetic_colors, sd.name);
+                if (tci >= 0) {
+                    const CosmeticColorDef& c = config.cosmetic_colors[static_cast<size_t>(tci)];
+                    blackboard.set<int>("trail.r", c.r);
+                    blackboard.set<int>("trail.g", c.g);
+                    blackboard.set<int>("trail.b", c.b);
+                } else {
+                    blackboard.remove("trail.r");
+                    blackboard.remove("trail.g");
+                    blackboard.remove("trail.b");
+                }
+            }
             // Gameplay pack (D221): the equipped weapon overlays after the ship.
             // Falls back to the ship's default when nothing valid is equipped;
             // the weapon's own colour supersedes D184's ship-complement rule.
@@ -1311,6 +1335,15 @@ int main(int argc, char* argv[]) {
                 blackboard.set<int>("ship.shot_r", wd.color_r);
                 blackboard.set<int>("ship.shot_g", wd.color_g);
                 blackboard.set<int>("ship.shot_b", wd.color_b);
+                // Tier 7 (D221): a projectile paint on THIS weapon wins.
+                const int pci = equipped_color(meta, meta.proj_colors, config.ships,
+                                               config.cosmetic_colors, wd.name);
+                if (pci >= 0) {
+                    const CosmeticColorDef& c = config.cosmetic_colors[static_cast<size_t>(pci)];
+                    blackboard.set<int>("ship.shot_r", c.r);
+                    blackboard.set<int>("ship.shot_g", c.g);
+                    blackboard.set<int>("ship.shot_b", c.b);
+                }
             } else {
                 // No weapons catalogue authored — D184's complement rule stands.
                 blackboard.set<int>("ship.shot_r", 255 - sd.color_r);
@@ -1460,6 +1493,11 @@ int main(int argc, char* argv[]) {
                 config.player.sidecar = sd.sidecar;
                 if (!sd.idle_clip.empty()) config.player.idle_clip = sd.idle_clip;
             }
+            // Tier 7 (D221): the equipped paint's atlas wins, in the hangar too.
+            const int sci = equipped_color(meta, meta.ship_colors, config.ships,
+                                           config.cosmetic_colors, sd.name);
+            if (sci >= 0 && !config.cosmetic_colors[static_cast<size_t>(sci)].sidecar.empty())
+                config.player.sidecar = config.cosmetic_colors[static_cast<size_t>(sci)].sidecar;
         }
         load_player_sprite();
         if (!player_sprite.has_value()) return;
@@ -1560,6 +1598,95 @@ int main(int argc, char* argv[]) {
         for (int i = 0; i < 5; ++i)
             set_label(widget_by_name(("rs_line_" + std::to_string(i)).c_str(),
                                      w_line[i], r_line[i]), lines[i]);
+    };
+
+    // Tier 7 (D221): a paint-slot cycle. Cycles "" (item's own paint) -> each
+    // OWNED colour -> back to "". Writes the per-item slot map and persists.
+    auto cycle_color_slot = [&](std::map<std::string, std::string>& slot,
+                                const std::string& item) {
+        if (item.empty() || config.cosmetic_colors.empty()) return;
+        auto it = slot.find(item);
+        int cur = it == slot.end() ? -1 : find_color(config.cosmetic_colors, it->second);
+        const int n = static_cast<int>(config.cosmetic_colors.size());
+        for (int step = 1; step <= n + 1; ++step) {
+            const int i = cur + step;
+            if (i >= n) { slot.erase(item); break; }   // wrapped: back to default
+            if (!color_owned(meta, config.ships,
+                             config.cosmetic_colors[static_cast<size_t>(i)])) continue;
+            slot[item] = config.cosmetic_colors[static_cast<size_t>(i)].name;
+            break;
+        }
+        meta_write(meta_save_path(), meta);
+    };
+
+    // Tier 7 (D221): the cosmetic shop's rows + the inventory's labels, the
+    // refresh_hangar idiom.
+    auto refresh_cosmetic_shop = [&]() {
+        static Entity w_scrap = 0, w_hint = 0, w_row[6] = {0};
+        static bool r_scrap = false, r_hint = false, r_row[6] = {false};
+        auto set_label = [&](Entity w, const std::string& text) {
+            if (w == 0) return;
+            if (auto el = component_storage.get_component<UIElement>(w); el.has_value())
+                el->get().label_text = text;
+        };
+        set_label(widget_by_name("cs_scrap", w_scrap, r_scrap),
+                  std::to_string(meta.scrap) + " SCRAP");
+        int row = 0;
+        for (const CosmeticColorDef& c : config.cosmetic_colors) {
+            if (row >= 6) break;
+            std::string text;
+            if (color_owned(meta, config.ships, c)) text = c.name + "  —  OWNED";
+            else if (!c.granted_by.empty()) text = c.name + "  —  comes with " + c.granted_by;
+            else text = c.name + "  —  " + std::to_string(c.price) + " SCRAP";
+            set_label(widget_by_name(("cs_row_" + std::to_string(row)).c_str(),
+                                     w_row[row], r_row[row]), text);
+            ++row;
+        }
+        set_label(widget_by_name("cs_hint", w_hint, r_hint),
+                  "One purchase paints hull, trail or shots. Equip in INVENTORY.");
+    };
+
+    auto refresh_inventory = [&]() {
+        static Entity w_weap[4] = {0}, w_ship = 0, w_trail = 0, w_proj = 0;
+        static bool r_weap[4] = {false}, r_ship = false, r_trail = false, r_proj = false;
+        auto set_label = [&](Entity w, const std::string& text) {
+            if (w == 0) return;
+            if (auto el = component_storage.get_component<UIElement>(w); el.has_value())
+                el->get().label_text = text;
+        };
+        int row = 0;
+        for (const WeaponDef& wd : config.weapons) {
+            if (row >= 4) break;
+            if (!weapon_owned(meta, config.ships, wd.name)) continue;
+            set_label(widget_by_name(("inv_weap_" + std::to_string(row)).c_str(),
+                                     w_weap[row], r_weap[row]),
+                      wd.name + (current_weapon_index() >= 0 &&
+                                 config.weapons[static_cast<size_t>(current_weapon_index())].name == wd.name
+                                     ? "   [equipped]" : ""));
+            ++row;
+        }
+        for (; row < 4; ++row)
+            set_label(widget_by_name(("inv_weap_" + std::to_string(row)).c_str(),
+                                     w_weap[row], r_weap[row]), "");
+        const std::string ship_name =
+            (selected_ship >= 0 && selected_ship < static_cast<int>(config.ships.size()))
+                ? config.ships[static_cast<size_t>(selected_ship)].name : std::string();
+        const int wi2 = current_weapon_index();
+        const std::string weap_name = wi2 >= 0 ? config.weapons[static_cast<size_t>(wi2)].name
+                                               : std::string();
+        auto slot_text = [&](const std::map<std::string, std::string>& slot,
+                             const std::string& item, const char* label) {
+            const int i = equipped_color(meta, slot, config.ships, config.cosmetic_colors, item);
+            return std::string(label) + ": "
+                 + (i >= 0 ? config.cosmetic_colors[static_cast<size_t>(i)].name
+                           : std::string("default")) + "   (click to cycle)";
+        };
+        set_label(widget_by_name("inv_ship_color", w_ship, r_ship),
+                  slot_text(meta.ship_colors, ship_name, "SHIP COLOR"));
+        set_label(widget_by_name("inv_trail_color", w_trail, r_trail),
+                  slot_text(meta.trail_colors, ship_name, "TRAIL COLOR"));
+        set_label(widget_by_name("inv_proj_color", w_proj, r_proj),
+                  slot_text(meta.proj_colors, weap_name, "PROJECTILE COLOR"));
     };
 
     // Lane K (D100): the two widgets this lane owns, resolved by name through
@@ -3294,6 +3421,42 @@ int main(int argc, char* argv[]) {
                         reskin_player();
                     }
                     blackboard.remove(UISystem::UI_CLICK_KEY);
+                } else if (menu_click == "on_open_cosmetics" || menu_click == "on_open_inventory") {
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH,
+                        std::string(menu_click == "on_open_cosmetics" ? "cosmetic_shop" : "inventory"));
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                } else if (menu_click == "on_overlay_back") {
+                    blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                } else if (menu_click.rfind("on_cosmetic_buy_", 0) == 0) {
+                    const int row = menu_click.back() - '0';
+                    if (row >= 0 && row < static_cast<int>(config.cosmetic_colors.size())) {
+                        const CosmeticColorDef& c =
+                            config.cosmetic_colors[static_cast<size_t>(row)];
+                        if (c.granted_by.empty() && !color_owned(meta, config.ships, c)
+                            && meta.scrap >= c.price) {
+                            meta.scrap -= c.price;
+                            meta.owned_cosmetics.push_back(c.name);
+                            meta_write(meta_save_path(), meta);
+                        }
+                    }
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                } else if (menu_click == "on_inv_ship_color" || menu_click == "on_inv_trail_color") {
+                    if (selected_ship >= 0 && selected_ship < static_cast<int>(config.ships.size())) {
+                        const std::string ship_name =
+                            config.ships[static_cast<size_t>(selected_ship)].name;
+                        cycle_color_slot(menu_click == "on_inv_ship_color" ? meta.ship_colors
+                                                                           : meta.trail_colors,
+                                         ship_name);
+                        if (menu_click == "on_inv_ship_color") reskin_player();
+                    }
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                } else if (menu_click == "on_inv_proj_color") {
+                    const int wi3 = current_weapon_index();
+                    if (wi3 >= 0)
+                        cycle_color_slot(meta.proj_colors,
+                                         config.weapons[static_cast<size_t>(wi3)].name);
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
                 } else if (menu_click == "on_continue_run_click" && newest_slot() >= 0) {
                     // Lane K (D100): CONTINUE resumes the newest saved run. Handled
                     // apart from the fresh-start branch so the two can never both fire.
@@ -3411,6 +3574,8 @@ int main(int argc, char* argv[]) {
                 }
                 refresh_ship_widget();
                 refresh_hangar();
+                refresh_cosmetic_shop();
+                refresh_inventory();
                 refresh_continue_widget();
                 refresh_difficulty_tabs();
                 refresh_save_slots();
@@ -4175,10 +4340,17 @@ int main(int argc, char* argv[]) {
                 for (Entity e : component_storage.entities_with_component<PlayerTag>()) {
                     auto pd = component_storage.get_component<ShipState>(e);
                     const bool dashing = pd.has_value() && pd->get().dash_timer > 0.0f;
+                    // Tier 7 (D221): trail paint — published by start_run when a
+                    // cosmetic is equipped; the defaults are the pre-pack hue.
+                    const int tr = blackboard.get_or<int>("trail.r", 150);
+                    const int tg = blackboard.get_or<int>("trail.g", 210);
+                    const int tb = blackboard.get_or<int>("trail.b", 255);
+                    auto lift = [](int v) { return static_cast<Uint8>(std::min(255, v + 45)); };
                     emit(e, dashing ? config.trails.dash_width
                                     : config.trails.drone_width,
-                         dashing ? Color{200, 245, 255, 235}
-                                 : Color{150, 210, 255, 170},
+                         dashing ? Color{lift(tr), lift(tg), lift(tb), 235}
+                                 : Color{static_cast<Uint8>(tr), static_cast<Uint8>(tg),
+                                         static_cast<Uint8>(tb), 170},
                          false);
                 }
                 for (Entity e : component_storage.entities_with_component<ProjectileTag>()) {

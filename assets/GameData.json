@@ -2780,6 +2780,15 @@
     "boss_bonus": 25,
     "victory_bonus": 100
   },
+  "//cosmetic_colors": "Tier 7 (D221): paints. One purchase = usable in every slot (body atlas, trail tint, projectile tint). granted_by paints derive from ship ownership; the rest sell for scrap in the cosmetic shop.",
+  "cosmetic_colors": [
+    { "name": "Cyan",    "color": [90, 220, 255],  "price": 0,   "sidecar": "images/v2/player_drone.json",         "granted_by": "Falcon" },
+    { "name": "Violet",  "color": [180, 110, 255], "price": 0,   "sidecar": "images/v2/player_drone_violet.json",  "granted_by": "Owl" },
+    { "name": "Forest",  "color": [70, 170, 90],   "price": 0,   "sidecar": "images/v2/player_drone_forest.json",  "granted_by": "Gryphon" },
+    { "name": "Gold",    "color": [235, 185, 60],  "price": 150, "sidecar": "images/v2/player_drone_gold.json" },
+    { "name": "Crimson", "color": [220, 60, 70],   "price": 150, "sidecar": "images/v2/player_drone_crimson.json" },
+    { "name": "Arctic",  "color": [230, 240, 255], "price": 250, "sidecar": "images/v2/player_drone_arctic.json" }
+  ],
   "//economy": "Currency/key drop tuning (Gameplay Phase 2). Drop counts are inclusive bounds on a uniform roll; pickup_size doubles as the collection-radius basis.",
   "economy": {
     "min_drops": 0,
@@ -5359,6 +5368,34 @@
           "name": "menu_launch",
           "on_click_fn": "on_launch_click",
           "pulse_hz": 1.1
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 40,
+            "y": 318,
+            "w": 120,
+            "h": 44
+          },
+          "label_text": "SHOP",
+          "style_id": "default_button",
+          "z_order": 10,
+          "name": "menu_cosmetics",
+          "on_click_fn": "on_open_cosmetics"
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 168,
+            "y": 318,
+            "w": 120,
+            "h": 44
+          },
+          "label_text": "INVENTORY",
+          "style_id": "default_button",
+          "z_order": 10,
+          "name": "menu_inventory",
+          "on_click_fn": "on_open_inventory"
         }
       ]
     },
@@ -5481,6 +5518,358 @@
           "z_order": 10,
           "name": "rs_continue",
           "on_click_fn": "on_run_stats_continue"
+        }
+      ]
+    },
+    "cosmetic_shop": {
+      "//": "Tier 7 (D221): the cosmetic shop \u2014 paints for scrap. Rows rewritten every frame by main.cpp refresh_cosmetic_shop.",
+      "active": false,
+      "widgets": [
+        {
+          "element_type": "panel",
+          "rect": {
+            "x": 200,
+            "y": 80,
+            "w": 400,
+            "h": 420
+          },
+          "label_text": "",
+          "style_id": "panel",
+          "z_order": 0
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 224,
+            "y": 452,
+            "w": 240,
+            "h": 34
+          },
+          "label_text": "COSMETIC SHOP",
+          "style_id": "title",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 470,
+            "y": 456,
+            "w": 110,
+            "h": 26
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "cs_scrap"
+        },
+        {
+          "element_type": "panel",
+          "rect": {
+            "x": 224,
+            "y": 444,
+            "w": 352,
+            "h": 2
+          },
+          "label_text": "",
+          "style_id": "rule",
+          "z_order": 10
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 224,
+            "y": 392,
+            "w": 352,
+            "h": 38
+          },
+          "label_text": "",
+          "style_id": "default_button",
+          "z_order": 10,
+          "name": "cs_row_0",
+          "on_click_fn": "on_cosmetic_buy_0"
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 224,
+            "y": 348,
+            "w": 352,
+            "h": 38
+          },
+          "label_text": "",
+          "style_id": "default_button",
+          "z_order": 10,
+          "name": "cs_row_1",
+          "on_click_fn": "on_cosmetic_buy_1"
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 224,
+            "y": 304,
+            "w": 352,
+            "h": 38
+          },
+          "label_text": "",
+          "style_id": "default_button",
+          "z_order": 10,
+          "name": "cs_row_2",
+          "on_click_fn": "on_cosmetic_buy_2"
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 224,
+            "y": 260,
+            "w": 352,
+            "h": 38
+          },
+          "label_text": "",
+          "style_id": "default_button",
+          "z_order": 10,
+          "name": "cs_row_3",
+          "on_click_fn": "on_cosmetic_buy_3"
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 224,
+            "y": 216,
+            "w": 352,
+            "h": 38
+          },
+          "label_text": "",
+          "style_id": "default_button",
+          "z_order": 10,
+          "name": "cs_row_4",
+          "on_click_fn": "on_cosmetic_buy_4"
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 224,
+            "y": 172,
+            "w": 352,
+            "h": 38
+          },
+          "label_text": "",
+          "style_id": "default_button",
+          "z_order": 10,
+          "name": "cs_row_5",
+          "on_click_fn": "on_cosmetic_buy_5"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 224,
+            "y": 136,
+            "w": 352,
+            "h": 26
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "cs_hint"
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 224,
+            "y": 92,
+            "w": 120,
+            "h": 36
+          },
+          "label_text": "BACK",
+          "style_id": "default_button",
+          "z_order": 10,
+          "name": "cs_back",
+          "on_click_fn": "on_overlay_back"
+        }
+      ]
+    },
+    "inventory": {
+      "//": "Tier 7 (D221): the inventory \u2014 owned weapons + the three cosmetic slots for the CURRENT loadout (click a slot to cycle owned paints). Labels rewritten every frame by main.cpp refresh_inventory.",
+      "active": false,
+      "widgets": [
+        {
+          "element_type": "panel",
+          "rect": {
+            "x": 200,
+            "y": 80,
+            "w": 400,
+            "h": 420
+          },
+          "label_text": "",
+          "style_id": "panel",
+          "z_order": 0
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 224,
+            "y": 452,
+            "w": 240,
+            "h": 34
+          },
+          "label_text": "INVENTORY",
+          "style_id": "title",
+          "z_order": 10
+        },
+        {
+          "element_type": "panel",
+          "rect": {
+            "x": 224,
+            "y": 444,
+            "w": 352,
+            "h": 2
+          },
+          "label_text": "",
+          "style_id": "rule",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 224,
+            "y": 408,
+            "w": 352,
+            "h": 24
+          },
+          "label_text": "WEAPONS",
+          "style_id": "subtitle",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 244,
+            "y": 382,
+            "w": 332,
+            "h": 20
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "inv_weap_0"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 244,
+            "y": 358,
+            "w": 332,
+            "h": 20
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "inv_weap_1"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 244,
+            "y": 334,
+            "w": 332,
+            "h": 20
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "inv_weap_2"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 244,
+            "y": 310,
+            "w": 332,
+            "h": 20
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "inv_weap_3"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 224,
+            "y": 258,
+            "w": 352,
+            "h": 24
+          },
+          "label_text": "COSMETICS \u2014 SHIP",
+          "style_id": "subtitle",
+          "z_order": 10
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 224,
+            "y": 214,
+            "w": 352,
+            "h": 38
+          },
+          "label_text": "",
+          "style_id": "default_button",
+          "z_order": 10,
+          "name": "inv_ship_color",
+          "on_click_fn": "on_inv_ship_color"
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 224,
+            "y": 170,
+            "w": 352,
+            "h": 38
+          },
+          "label_text": "",
+          "style_id": "default_button",
+          "z_order": 10,
+          "name": "inv_trail_color",
+          "on_click_fn": "on_inv_trail_color"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 224,
+            "y": 142,
+            "w": 352,
+            "h": 22
+          },
+          "label_text": "COSMETICS \u2014 PROJECTILE",
+          "style_id": "subtitle",
+          "z_order": 10
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 224,
+            "y": 100,
+            "w": 352,
+            "h": 38
+          },
+          "label_text": "",
+          "style_id": "default_button",
+          "z_order": 10,
+          "name": "inv_proj_color",
+          "on_click_fn": "on_inv_proj_color"
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 480,
+            "y": 92,
+            "w": 96,
+            "h": 36
+          },
+          "label_text": "BACK",
+          "style_id": "default_button",
+          "z_order": 10,
+          "name": "inv_back",
+          "on_click_fn": "on_overlay_back"
         }
       ]
     },

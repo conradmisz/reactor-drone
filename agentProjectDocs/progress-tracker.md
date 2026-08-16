@@ -40,7 +40,15 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   Contract-tested in test_hangar_screen.cpp (the intermission-test pattern).
   NOTE: drive_ui XTest CLICKS do not register under the current COSMIC
   desktop (hover works, click lost) — real-mouse click-through is OUTSTANDING
-  and folds into the windowed playtest. Next: Tier 7 (cosmetics).
+  and folds into the windowed playtest. Tier 7 DONE: paint catalogue (3
+  ship-granted + Gold/Crimson/Arctic for scrap, each with its own baked
+  atlas), per-item slot maps on meta.json (ship/trail/projectile), cosmetic
+  shop + inventory screens off the hangar, trail hue + shot hue overrides.
+  **Found + fixed a latent engine trap (D224): entity iteration was
+  unordered_map bucket order, so adding menu widgets moved the replay canary
+  (170->160 from two new screens). entities_with_component is now SORTED and
+  the canary re-baselined a second, final time to 160 — UI authoring can
+  never move the sim again.** Next: Tier 8 (cleanup batch).
 
 - v2.2.0 shipped 2026-08-16; release notes collapsed below.
 

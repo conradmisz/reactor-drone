@@ -151,6 +151,27 @@ struct WeaponDef {
     float secondary_cd = 10.0f;
 };
 
+/**
+ * CosmeticColorDef — one paint (gameplay pack v2.3 tier 7, D221). A color is
+ * ONE purchase usable in every slot type (ship body via its own baked atlas,
+ * trail tint, projectile tint). `granted_by` names the ship that grants it
+ * free (ownership derives, D81); "" = shop-only, bought with scrap.
+ */
+struct CosmeticColorDef {
+    std::string name = "Cyan";
+    uint8_t r = 90, g = 220, b = 255;
+    int price = 0;
+    std::string sidecar;         // body atlas for this paint (relative to assets/)
+    std::string granted_by;      // ship whose purchase grants it; "" = shop-only
+};
+
+/// Index of `name` in `colors`, or -1. Pure.
+inline int find_color(const std::vector<CosmeticColorDef>& colors, const std::string& name) {
+    for (size_t i = 0; i < colors.size(); ++i)
+        if (colors[i].name == name) return static_cast<int>(i);
+    return -1;
+}
+
 /// Index of `name` in `weapons`, or -1. Pure — unit-tested.
 inline int find_weapon(const std::vector<WeaponDef>& weapons, const std::string& name) {
     for (size_t i = 0; i < weapons.size(); ++i)
@@ -655,6 +676,7 @@ struct GameConfig {
     std::vector<DifficultyDef> difficulties;  // Phase B: run difficulties, index 0 = default
     std::vector<ShipDef> ships;    // Lane F: selectable ships, index 0 = the default hull
     std::vector<WeaponDef> weapons; // gameplay pack (D221): installable weapons
+    std::vector<CosmeticColorDef> cosmetic_colors; // tier 7: paints
     ScrapConfig scrap;              // gameplay pack (D221): persistent-currency awards
     // Iteration 3 (D51) — parsed now, consumed by the lane that owns each.
     SustainConfig sustain;         // #10 health/shield pickups

@@ -161,6 +161,23 @@ GameConfig load_arena_config(const std::string& file_path) {
         }
     }
 
+    // Gameplay pack (D221) tier 7: the paint catalogue.
+    if (data.contains("cosmetic_colors")) {
+        for (const auto& c : data["cosmetic_colors"]) {
+            CosmeticColorDef cd;
+            cd.name       = c.value("name", cd.name);
+            cd.price      = c.value("price", cd.price);
+            cd.sidecar    = c.value("sidecar", std::string());
+            cd.granted_by = c.value("granted_by", std::string());
+            if (c.contains("color") && c["color"].is_array() && c["color"].size() >= 3) {
+                cd.r = static_cast<uint8_t>(c["color"][0].get<int>());
+                cd.g = static_cast<uint8_t>(c["color"][1].get<int>());
+                cd.b = static_cast<uint8_t>(c["color"][2].get<int>());
+            }
+            cfg.cosmetic_colors.push_back(std::move(cd));
+        }
+    }
+
     // Gameplay pack (D221 call #5): the scrap tuning table.
     if (data.contains("scrap")) {
         const auto& sc = data["scrap"];

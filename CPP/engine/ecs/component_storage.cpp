@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "component_storage.hpp"
 
 // Template specializations for get_storage() - maps component types to storage maps
@@ -465,6 +466,15 @@ std::vector<Entity> ComponentStorage::entities_with_component() const {
     for (const auto& [entity, component] : storage) {
         entities.push_back(entity);
     }
+    
+    // Gameplay pack tier 7 (D224): SORTED, so iteration order is a property of
+    // which entities exist, never of unordered_map bucket geometry. Unsorted,
+    // the order shifted whenever the boot-time entity COUNT crossed a rehash
+    // threshold — authoring one more menu widget moved every RNG draw ordered
+    // by a sim loop and silently broke the replay canary (found when tier 7's
+    // two new screens turned seed 42's score from 170 to 160). n is hundreds;
+    // the sort is noise next to the map walk it stabilizes.
+    std::sort(entities.begin(), entities.end());
     
     return entities;
 }

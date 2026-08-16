@@ -48,6 +48,17 @@ MetaSave meta_load(const std::string& path) {
             if (j.contains("owned_ships") && j["owned_ships"].is_array())
                 for (const auto& n : j["owned_ships"])
                     if (n.is_string()) m.owned_ships.push_back(n.get<std::string>());
+            if (j.contains("owned_cosmetics") && j["owned_cosmetics"].is_array())
+                for (const auto& n : j["owned_cosmetics"])
+                    if (n.is_string()) m.owned_cosmetics.push_back(n.get<std::string>());
+            auto read_map = [&](const char* key, std::map<std::string, std::string>& out) {
+                if (!j.contains(key) || !j[key].is_object()) return;
+                for (const auto& [k, v] : j[key].items())
+                    if (v.is_string()) out[k] = v.get<std::string>();
+            };
+            read_map("ship_colors", m.ship_colors);
+            read_map("trail_colors", m.trail_colors);
+            read_map("proj_colors", m.proj_colors);
         }
     } catch (...) {
         return MetaSave{};
@@ -75,7 +86,11 @@ bool meta_write(const std::string& path, const MetaSave& m) {
                               {"scrap", m.scrap},
                               {"owned_ships", m.owned_ships},
                               {"equipped_ship", m.equipped_ship},
-                              {"equipped_weapon", m.equipped_weapon}}.dump(2) << "\n";
+                              {"equipped_weapon", m.equipped_weapon},
+                              {"owned_cosmetics", m.owned_cosmetics},
+                              {"ship_colors", m.ship_colors},
+                              {"trail_colors", m.trail_colors},
+                              {"proj_colors", m.proj_colors}}.dump(2) << "\n";
         return out.good();
     } catch (...) {
         return false;  // ponytail: a lost save is a lost unlock, never a crashed game

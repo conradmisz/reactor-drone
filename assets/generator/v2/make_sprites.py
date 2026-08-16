@@ -1120,6 +1120,16 @@ def main():
     write_sprite("player_drone_forest",
                  player_frames(6, hull=(70, 170, 90), accent=(180, 255, 190),
                                trim=(235, 220, 120)), 3, march_clip)
+    # Tier 7 (D221): the three shop paints — same chassis, baked hue each.
+    write_sprite("player_drone_gold",
+                 player_frames(6, hull=(235, 185, 60), accent=(255, 240, 180),
+                               trim=(120, 90, 40)), 3, march_clip)
+    write_sprite("player_drone_crimson",
+                 player_frames(6, hull=(220, 60, 70), accent=(255, 180, 180),
+                               trim=(90, 220, 255)), 3, march_clip)
+    write_sprite("player_drone_arctic",
+                 player_frames(6, hull=(230, 240, 255), accent=(160, 220, 255),
+                               trim=(90, 130, 200)), 3, march_clip)
     # Enemies: march (loop) + death (oneshot) concatenated.
     # v2 Phase 5a: drawn against MONO, i.e. pure luminance. These used to bake an
     # arena's own primary (runner=BIOLAB green, hulk=FOUNDRY orange), which made

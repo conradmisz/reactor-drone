@@ -2570,3 +2570,26 @@ property-tested across 200 seeds in `test_arena_shuffle.cpp`.
 
 **Rejected:** shuffling in `load_arena_config` (would shuffle the menu/test
 config too); re-baselining per tier (hides real regressions between tiers).
+
+
+## D224 — Sorted entity iteration; the second and final canary re-baseline  *(2026-08-16)*
+
+**Decision.** `ComponentStorage::entities_with_component<T>()` now returns ids
+sorted ascending. The canary line moves once more, 170 -> 160 (hash order ->
+sorted order), and `.canary-baseline.txt`/CLAUDE.md are rewritten in the same
+commit. After this, the canary is invariant to UI authoring.
+
+**Why.** Tier 7's two new screens (~35 boot widgets) moved seed 42's score from
+170 to 160 with ZERO sim-code changes. Bisected to the data (tier-7 binary +
+tier-6 data = 170; +screens only = 160): boot entity count crossed an
+unordered_map rehash threshold, changing iteration order for the sim loops
+that draw loot RNG per kill. That made the replay canary sensitive to menu
+authoring — a false-alarm generator pointed at whoever edits a screen next.
+
+**Verified:** with the sort, the canary reads 160 with BOTH tier-6 and tier-7
+GameData (UI count no longer matters); 409 unit cases + 8/8 ctest green;
+canary x2 byte-identical.
+
+**Rejected:** re-baselining without the fix (leaves the trap armed);
+per-call-site sorting (misses the next site); ordered std::map storage (bigger
+constant on every lookup, not just enumeration).

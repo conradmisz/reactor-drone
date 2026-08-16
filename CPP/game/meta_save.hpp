@@ -1,6 +1,7 @@
 #ifndef META_SAVE_HPP
 #define META_SAVE_HPP
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -59,6 +60,15 @@ struct MetaSave {
     std::vector<std::string> owned_ships;    // bought ships, by ShipDef::name
     std::string equipped_ship;               // "" = first non-locked cost-0 ship
     std::string equipped_weapon;             // "" = equipped ship's default weapon
+
+    /// Tier 7 (D221): cosmetics. `owned_cosmetics` records shop purchases only
+    /// (ship-granted paints derive). The three maps are per-item slots — the
+    /// spec's "each drone has 2 cosmetic slots, each weapon 1": key = ship or
+    /// weapon name, value = color name; an absent key = the item's own paint.
+    std::vector<std::string> owned_cosmetics;
+    std::map<std::string, std::string> ship_colors;
+    std::map<std::string, std::string> trail_colors;
+    std::map<std::string, std::string> proj_colors;
 };
 
 /// Absolute path of the meta-save (`<project root>/saves/meta.json`).
@@ -114,6 +124,33 @@ inline bool weapon_owned(const MetaSave& m, const std::vector<ShipDef>& ships,
     for (const ShipDef& s : ships)
         if (ship_owned(m, s) && s.default_weapon == weapon_name) return true;
     return false;
+}
+
+/// Tier 7 (D221): a paint is owned when its granting ship is owned or it was
+/// bought in the cosmetic shop (derive-what-you-can, D81).
+inline bool color_owned(const MetaSave& m, const std::vector<ShipDef>& ships,
+                        const CosmeticColorDef& c) {
+    if (!c.granted_by.empty()) {
+        for (const ShipDef& s : ships)
+            if (s.name == c.granted_by) return ship_owned(m, s);
+        return false;
+    }
+    if (c.price <= 0) return true;
+    for (const std::string& n : m.owned_cosmetics) if (n == c.name) return true;
+    return false;
+}
+
+/// The equipped color for `item` in one slot map, or -1 (item's own paint).
+inline int equipped_color(const MetaSave& m,
+                          const std::map<std::string, std::string>& slot,
+                          const std::vector<ShipDef>& ships,
+                          const std::vector<CosmeticColorDef>& colors,
+                          const std::string& item) {
+    auto it = slot.find(item);
+    if (it == slot.end()) return -1;
+    const int i = find_color(colors, it->second);
+    if (i < 0 || !color_owned(m, ships, colors[static_cast<size_t>(i)])) return -1;
+    return i;
 }
 
 #endif  // META_SAVE_HPP

@@ -308,6 +308,17 @@ render:
 
 ## 4. Invariants and gates
 
+**Iteration order is sorted (D224, gameplay pack tier 7).**
+`ComponentStorage::entities_with_component<T>()` returns entity ids **sorted
+ascending**, not in `unordered_map` bucket order. Before this, iteration order
+depended on the map's bucket geometry, which shifts when the boot-time entity
+COUNT crosses a rehash threshold — so authoring one more menu widget renumbered
+the sim entities, reordered every order-sensitive loop (loot RNG draws, damage
+application), and silently moved the replay canary (found when two new tier-7
+screens turned seed 42's score from 170 to 160). Sorted, the order is a
+property of which entities exist. Do not "optimize" the sort away without an
+equally deterministic replacement.
+
 - **Y-flip lives in exactly one place *for world space***: `RenderSystem::draw_entity()`.
   World space is bottom-left origin (0,0 bottom-left, +X right, +Y up). Nothing else flips
   world coordinates. The UI layer is a **second, separate coordinate space** with its own
