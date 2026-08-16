@@ -4,6 +4,7 @@
 #include "player_components.hpp"  // Flash
 #include "collision_layers.hpp"   // OBSTACLE
 #include "bullet_bounce.hpp"      // bounce::off_aabb / inside_circle
+#include "secondary_fire.hpp"     // Burn (Flak slag, D221)
 #include <algorithm>          // std::find (pierce ledger, D221)
 
 namespace {
@@ -50,6 +51,15 @@ void ProjectileHitSystem::update(EntityManager& entity_manager,
     const uint8_t fg = static_cast<uint8_t>(blackboard.get_or<int>("fb.enemy_flash_g", 255));
     const uint8_t fb = static_cast<uint8_t>(blackboard.get_or<int>("fb.enemy_flash_b", 255));
 
+    // Gameplay pack (D221): incendiary hits set/refresh a Burn on the enemy.
+auto apply_burn = [&](Entity enemy) {
+        if (auto b = component_storage.get_component<Burn>(enemy); b.has_value()) {
+            b->get().time_left = secondary::BURN_LINGER_S;   // re-exposure refreshes
+        } else {
+            component_storage.add_component<Burn>(enemy, Burn{});
+        }
+    };
+
     auto projectiles = component_storage.entities_with_component<ProjectileTag>();
 
     for (Entity proj : projectiles) {
@@ -78,6 +88,7 @@ void ProjectileHitSystem::update(EntityManager& entity_manager,
                         component_storage.add_component<DamageEvent>(
                             ev, DamageEvent{other, data.damage});
                         component_storage.add_component<Flash>(other, Flash{fdur, fdur, fr, fg, fb});
+                        if (data.incendiary) apply_burn(other);
                         blackboard.set<double>("tm.hits",
                             blackboard.get_or<double>("tm.hits", 0.0) + 1.0);
                         continue;
@@ -104,6 +115,7 @@ void ProjectileHitSystem::update(EntityManager& entity_manager,
             // v2 Phase 4: flash the struck enemy (overwrites any in-flight flash,
             // resetting its clock — repeated hits keep it lit).
             component_storage.add_component<Flash>(hit_enemy, Flash{fdur, fdur, fr, fg, fb});
+            if (data.incendiary) apply_burn(hit_enemy);
 
             // v2: additive impact spark burst at the projectile's position.
             if (auto ppos = component_storage.get_component<Position>(proj); ppos.has_value()) {

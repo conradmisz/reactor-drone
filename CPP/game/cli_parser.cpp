@@ -37,7 +37,7 @@ const std::vector<std::string> VALID_KEY_NAMES = {
     // Gameplay Phase 4: TAB flips to the gear page, Q spends the consumable.
     "TAB", "Q",
     // Iteration 3 (D57): the thruster dash, so a headless script can fire one.
-    "LSHIFT"
+    "LSHIFT", "RMB",   // gameplay pack (D221) tier 3: scripted secondary fire
 };
 
 // ---------------------------------------------------------------------------

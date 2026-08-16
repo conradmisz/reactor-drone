@@ -698,7 +698,11 @@ renamed, because a lane whose hook has vanished has nowhere to land.
 
 - **`EnemyShot`** (tag) and **`EnemyBehavior`** (`kind`/`tier`/`timer`/`cooldown`/`aim`)
   in `game/enemy_components.hpp`, registered in `component_storage.{hpp,cpp}` and swept in
-  `destruction.cpp`. One behaviour struct covers the moon shooters, all four
+  `destruction.cpp`. Gameplay pack v2.3 tier 3 (D221) added **`Burn`**, **`Chill`**
+  and **`BlizzardTag`** (secondary-fire status effects, `game/enemy_components.hpp`)
+  through the same three files — they must live in a header
+  `component_storage.hpp` already includes, which is why they are NOT in
+  `secondary_fire.hpp` where their tick logic lives. One behaviour struct covers the moon shooters, all four
   specialty units and the boss — `behavior_kinds` is the enum, and a `kind` is a
   code constant mapped from a string, never a JSON row index (the D26 rule).
 - **`layers::ENEMY_SHOT` (0x20)**, with `PLAYER_MASK` and `OBSTACLE_MASK` widened

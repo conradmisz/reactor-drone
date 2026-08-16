@@ -130,4 +130,31 @@ enum : int {
  */
 struct HealthBarTag {};
 
+// ---------------------------------------------------------------------------
+// Gameplay pack v2.3 tier 3 (D221): secondary-fire status effects. Defined here
+// (not secondary_fire.hpp) because component_storage.hpp must see them to
+// register storage — the ShipState "five files" rule.
+// ---------------------------------------------------------------------------
+
+/// Enemy on fire (Flak). Refreshed to LINGER_S on every exposure; deals `dps`
+/// in DPS_TICK_S bites so the damage path stays the one DamageEvent road.
+struct Burn {
+    float time_left = 3.0f;
+    float dps = 4.0f;
+    float acc = 0.0f;
+};
+
+/// Enemy slowed by the blizzard. Restores the exact original speed on expiry.
+struct Chill {
+    float time_left = 0.0f;
+    float orig_speed = 0.0f;
+};
+
+/// The traveling blizzard ring itself (an entity with Position/Velocity/
+/// Lifetime/Size; this tag holds its slow factor).
+struct BlizzardTag {
+    float slow_mult = 0.45f;
+};
+
+
 #endif // ENEMY_COMPONENTS_HPP

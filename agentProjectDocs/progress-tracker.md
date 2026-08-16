@@ -13,9 +13,15 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   wide piercing crescent, Flak big slag), ship specials (Falcon equip_cd 0.75,
   Owl phoenix veil <10% -> 4s invuln+no-fire w/ 25% re-arm, Gryphon ram dash
   +15 shield & positional shove) in ship_specials.hpp + dash_system.
-  Build zero-warning, 395 unit cases + 8/8 ctest green, canary byte-identical
-  and matching baseline. Next: Tier 3 (right-mouse secondary fire). NOT
-  playtested in a window yet — feel of pierce/shove/veil unjudged.
+  Tier 3 DONE:
+  right-mouse secondaries (55 Iron hold-to-charge w/ scaled cd, Moonshot radial
+  crescent burst, Flak 3s lava stream + Burn DoT, Hailstorm traveling blizzard
+  + Chill slow) in secondary_fire.{hpp,cpp}; Burn/Chill/BlizzardTag registered
+  in the ECS (ENGINE.md updated); hud_sec gauge on the gameplay screen; "RMB"
+  scriptable via --keys. 399 unit cases + 8/8 ctest, canary byte-identical on
+  baseline; headless RMB probe fires (score diverges as expected). Next: Tier 4
+  (arena shuffle + collision — THE canary re-baseline tier). NOT playtested in
+  a window — feel of all four secondaries unjudged.
 
 - v2.2.0 shipped 2026-08-16; release notes collapsed below.
 

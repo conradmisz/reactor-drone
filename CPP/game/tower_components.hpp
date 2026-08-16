@@ -119,6 +119,7 @@ struct ProjectileData {
     // enemy it passes through exactly once — `hit` is this shot's ledger, the
     // dash_system state.hit idiom — and dies only on walls or lifetime.
     bool pierce = false;
+    bool incendiary = false;   // Flak slag: hits apply/refresh a Burn (secondary_fire.hpp)
     std::vector<Entity> hit;
 
     ProjectileData() = default;

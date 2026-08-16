@@ -67,6 +67,11 @@ void destroy_marked_entities(EntityManager& em, ComponentStorage& storage) {
         // reuse that id look like a live projectile.
         storage.remove_component<EnemyShot>(entity);
         storage.remove_component<EnemyBehavior>(entity);
+        // Gameplay pack v2.3 tier 3 (D221): status effects die with their host —
+        // a reused id must not wake up on fire, chilled, or as a blizzard.
+        storage.remove_component<Burn>(entity);
+        storage.remove_component<Chill>(entity);
+        storage.remove_component<BlizzardTag>(entity);
 
         // UI & menu layer (Option-040 port). Without these a destroyed widget
         // leaves its UIElement/UIState behind on a recycled entity id, and the

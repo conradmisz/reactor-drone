@@ -80,6 +80,7 @@
 #include "sustain_spawn_system.hpp"
 #include "dash_system.hpp"
 #include "ship_specials.hpp"   // gameplay pack (D221): veil + special ids
+#include "secondary_fire.hpp"   // gameplay pack (D221): right-mouse secondaries
 // Engine suite: Lane P (#1 Temporal Overload, D139).
 #include "timescale_system.hpp"
 // Engine suite: Lane Q (#8 Adaptive Director, D142).
@@ -1291,6 +1292,8 @@ int main(int argc, char* argv[]) {
                 const WeaponDef& wd = config.weapons[static_cast<size_t>(wi)];
                 apply_weapon(config.player, config.battery, wd);
                 blackboard.set<std::string>("weapon.name", wd.name);
+                blackboard.set<std::string>("weapon.secondary", wd.secondary);
+                blackboard.set<float>("weapon.secondary_cd_max", wd.secondary_cd);
                 blackboard.set<int>("ship.shot_r", wd.color_r);
                 blackboard.set<int>("ship.shot_g", wd.color_g);
                 blackboard.set<int>("ship.shot_b", wd.color_b);
@@ -1826,7 +1829,7 @@ int main(int argc, char* argv[]) {
             blackboard.set("mouse.x", static_cast<double>(hv.x));
             blackboard.set("mouse.y", static_cast<double>(hv.y));
         }
-        bool scripted_fire = false, scripted_advance = false;
+        bool scripted_fire = false, scripted_advance = false, scripted_fire2 = false;
         int scripted_digit = 0;
         bool scripted_shop = false, scripted_tab = false, scripted_use = false;
         for (const auto& ka : opts.keys) if (ka.frame == frame) {
@@ -1835,6 +1838,7 @@ int main(int argc, char* argv[]) {
             // would mean headless runs could never exercise the pause path at all.
             if (ka.key == "ESC") blackboard.set("ui.escape_pressed", true);
             else if (ka.key == "SPACE") { scripted_fire = true; scripted_advance = true; }
+            else if (ka.key == "RMB") scripted_fire2 = true;   // secondary fire (D221)
             else if (ka.key == "F1") debug_paused = !debug_paused;
             else if (ka.key == "B") scripted_shop = true;
             else if (ka.key == "TAB") scripted_tab = true;
@@ -1908,6 +1912,8 @@ int main(int argc, char* argv[]) {
         }
         float mx, my; Uint32 mbtn = SDL_GetMouseState(&mx, &my);
         blackboard.set("mouse.held", (mbtn & SDL_BUTTON_LMASK) != 0 || scripted_fire);
+        // Gameplay pack (D221): right mouse is the secondary-fire trigger.
+        blackboard.set("mouse2.held", (mbtn & SDL_BUTTON_RMASK) != 0 || scripted_fire2);
 
         bool clicked = blackboard.get_or<bool>("mouse.clicked", false);
         bool advance = clicked || space_edge;
@@ -2801,6 +2807,12 @@ int main(int argc, char* argv[]) {
             // shared no-fire countdown) tick just before shields/damage so a
             // sub-10% frame grants its i-frames before the hit resolves.
             tick_ship_specials(component_storage, blackboard,
+                static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)));
+            // Gameplay pack (D221) tier 3: the right-mouse secondary and its
+            // status effects, on the same pre-damage edge.
+            tick_secondary_fire(component_storage, entity_manager, blackboard,
+                static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)));
+            tick_burns_and_chills(component_storage, entity_manager,
                 static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)));
             // Shields regen *before* damage resolves, so a hit this frame restarts
             // the quiet timer with the last word (Phase 3).

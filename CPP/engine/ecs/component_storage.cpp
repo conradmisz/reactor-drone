@@ -787,6 +787,20 @@ std::unordered_map<Entity, EnemyBehavior>& ComponentStorage::get_storage<EnemyBe
 template<>
 const std::unordered_map<Entity, EnemyBehavior>& ComponentStorage::get_storage<EnemyBehavior>() const { return enemy_behaviors_; }
 
+// Gameplay pack v2.3 tier 3 (D221): secondary-fire status effects.
+template<>
+std::unordered_map<Entity, Burn>& ComponentStorage::get_storage<Burn>() { return burns_; }
+template<>
+const std::unordered_map<Entity, Burn>& ComponentStorage::get_storage<Burn>() const { return burns_; }
+template<>
+std::unordered_map<Entity, Chill>& ComponentStorage::get_storage<Chill>() { return chills_; }
+template<>
+const std::unordered_map<Entity, Chill>& ComponentStorage::get_storage<Chill>() const { return chills_; }
+template<>
+std::unordered_map<Entity, BlizzardTag>& ComponentStorage::get_storage<BlizzardTag>() { return blizzards_; }
+template<>
+const std::unordered_map<Entity, BlizzardTag>& ComponentStorage::get_storage<BlizzardTag>() const { return blizzards_; }
+
 #define CS110_INSTANTIATE(T) \
     template void ComponentStorage::add_component<T>(Entity, const T&); \
     template std::optional<std::reference_wrapper<T>> ComponentStorage::get_component<T>(Entity); \
@@ -805,4 +819,7 @@ CS110_INSTANTIATE(WeaponStats)
 CS110_INSTANTIATE(Flash)
 CS110_INSTANTIATE(EnemyShot)        // Iteration 3 (D51)
 CS110_INSTANTIATE(EnemyBehavior)
+CS110_INSTANTIATE(Burn)             // gameplay pack v2.3 tier 3 (D221)
+CS110_INSTANTIATE(Chill)
+CS110_INSTANTIATE(BlizzardTag)
 #undef CS110_INSTANTIATE

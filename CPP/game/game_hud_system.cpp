@@ -82,13 +82,15 @@ void GameHUDSystem::resolve_bars(ComponentStorage& cs, const Blackboard& blackbo
         "hud_hp_fill",  "hud_sh_bg", "hud_sh_fill",
         "hud_bat_bg",   "hud_bat_fill",
         "hud_boss_bg",  "hud_boss_fill", "hud_boss_label",
-        "hud_dash_frame", "hud_dash_key"
+        "hud_dash_frame", "hud_dash_key",
+        "hud_sec_bg",   "hud_sec_fill"
     };
     for (int i = 0; i < GAUGE_WIDGETS; ++i) gauge_[i] = id(kGaugeNames[i]);
     hp_chip_ = gauge_[2];
     hp_fill_ = gauge_[3];
     sh_fill_ = gauge_[5];
     bat_fill_ = gauge_[7];
+    sec_fill_ = gauge_[14];
     boss_bg_ = gauge_[8];
     boss_fill_ = gauge_[9];
     boss_label_ = gauge_[10];
@@ -236,6 +238,11 @@ void GameHUDSystem::update(ComponentStorage& component_storage, Blackboard& blac
     // only feedback the player gets for "you emptied it, wait for full".
     set_bar(component_storage, bat_fill_, BAR_FULL_W, battery,
             battery_locked ? "hud_battery_low" : "hud_battery");
+    // Gameplay pack (D221) tier 3: the secondary-fire cooldown. Fills toward
+    // ready and flips green at full, the battery-lockout feedback pattern.
+    const float sec_frac = blackboard.get_or<float>("ship.secondary_frac", 1.0f);
+    set_bar(component_storage, sec_fill_, BAR_FULL_W, sec_frac,
+            sec_frac >= 1.0f ? "hud_secondary_ready" : "hud_secondary");
 
     // #8: the boss bar. Collapsed to nothing unless BossSystem is publishing a
     // fraction — the same zero-rect hide the phase gate uses, so a boss that dies

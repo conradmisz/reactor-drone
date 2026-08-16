@@ -3761,6 +3761,18 @@
       "pressed":  { "bg": [255, 210, 90, 235], "text": [0, 0, 0, 0] },
       "disabled": { "bg": [255, 210, 90, 235], "text": [0, 0, 0, 0] }
     },
+    "hud_secondary": {
+      "normal":   { "bg": [140, 120, 255, 200], "text": [0, 0, 0, 0] },
+      "hovered":  { "bg": [140, 120, 255, 200], "text": [0, 0, 0, 0] },
+      "pressed":  { "bg": [140, 120, 255, 200], "text": [0, 0, 0, 0] },
+      "disabled": { "bg": [140, 120, 255, 200], "text": [0, 0, 0, 0] }
+    },
+    "hud_secondary_ready": {
+      "normal":   { "bg": [170, 255, 170, 245], "text": [0, 0, 0, 0] },
+      "hovered":  { "bg": [170, 255, 170, 245], "text": [0, 0, 0, 0] },
+      "pressed":  { "bg": [170, 255, 170, 245], "text": [0, 0, 0, 0] },
+      "disabled": { "bg": [170, 255, 170, 245], "text": [0, 0, 0, 0] }
+    },
     "hud_battery_low": {
       "normal":   { "bg": [255, 90, 60, 245], "text": [0, 0, 0, 0] },
       "hovered":  { "bg": [255, 90, 60, 245], "text": [0, 0, 0, 0] },
@@ -5615,6 +5627,23 @@
           "style_id": "hud_battery",
           "z_order": 12,
           "name": "hud_bat_fill"
+        },
+        {
+          "//": "Gameplay pack (D221) tier 3: secondary-fire cooldown, fourth in the gauge stack.",
+          "element_type": "panel",
+          "rect": { "x": 14, "y": 460, "w": 244, "h": 18 },
+          "label_text": "",
+          "style_id": "hud_bar_bg",
+          "z_order": 10,
+          "name": "hud_sec_bg"
+        },
+        {
+          "element_type": "panel",
+          "rect": { "x": 16, "y": 462, "w": 240, "h": 14 },
+          "label_text": "",
+          "style_id": "hud_secondary",
+          "z_order": 12,
+          "name": "hud_sec_fill"
         },
         {
           "//": "D192 #8: the boss health bar. Bottom-centre, because the top strip already carries HULL, the wave counter and the minimap, and the label needs a row of its own. Collapsed by GameHUDSystem whenever boss.hp_frac < 0.",

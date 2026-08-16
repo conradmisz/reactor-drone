@@ -84,10 +84,10 @@ private:
     // its frame and the SPACE prompt. The button's booster glyph and circular
     // cooldown dial are sprites, not widgets (UIElement has no texture path), so
     // main.cpp parks those two itself.
-    static constexpr int GAUGE_WIDGETS = 13;
+    static constexpr int GAUGE_WIDGETS = 15;   // +2: secondary-fire gauge (D221 tier 3)
     Entity gauge_[GAUGE_WIDGETS] = {0};
     UIRect gauge_rect_[GAUGE_WIDGETS] = {};   // authored geometry, cached once
-    Entity hp_chip_ = 0, hp_fill_ = 0, sh_fill_ = 0, bat_fill_ = 0;
+    Entity hp_chip_ = 0, hp_fill_ = 0, sh_fill_ = 0, bat_fill_ = 0, sec_fill_ = 0;
     Entity boss_bg_ = 0, boss_fill_ = 0, boss_label_ = 0;
     UIRect boss_bg_rect_{}, boss_label_rect_{};
     bool   bars_resolved_ = false;

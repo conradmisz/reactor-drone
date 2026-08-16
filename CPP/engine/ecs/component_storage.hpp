@@ -398,6 +398,10 @@ private:
     std::unordered_map<Entity, ContactDamage> contact_damages_;
     std::unordered_map<Entity, WeaponStats> weapon_stats_;
     std::unordered_map<Entity, Flash> flashes_;
+    // Gameplay pack v2.3 tier 3 (D221): secondary-fire status effects.
+    std::unordered_map<Entity, Burn> burns_;
+    std::unordered_map<Entity, Chill> chills_;
+    std::unordered_map<Entity, BlizzardTag> blizzards_;
     // Iteration 3 (D51): enemy projectiles and non-seeker enemy behaviour.
     std::unordered_map<Entity, EnemyShot> enemy_shots_;
     std::unordered_map<Entity, EnemyBehavior> enemy_behaviors_;
@@ -511,6 +515,12 @@ template<> std::unordered_map<Entity, WeaponStats>& ComponentStorage::get_storag
 template<> const std::unordered_map<Entity, WeaponStats>& ComponentStorage::get_storage<WeaponStats>() const;
 template<> std::unordered_map<Entity, Flash>& ComponentStorage::get_storage<Flash>();
 template<> const std::unordered_map<Entity, Flash>& ComponentStorage::get_storage<Flash>() const;
+template<> std::unordered_map<Entity, Burn>& ComponentStorage::get_storage<Burn>();
+template<> const std::unordered_map<Entity, Burn>& ComponentStorage::get_storage<Burn>() const;
+template<> std::unordered_map<Entity, Chill>& ComponentStorage::get_storage<Chill>();
+template<> const std::unordered_map<Entity, Chill>& ComponentStorage::get_storage<Chill>() const;
+template<> std::unordered_map<Entity, BlizzardTag>& ComponentStorage::get_storage<BlizzardTag>();
+template<> const std::unordered_map<Entity, BlizzardTag>& ComponentStorage::get_storage<BlizzardTag>() const;
 template<> std::unordered_map<Entity, EnemyShot>& ComponentStorage::get_storage<EnemyShot>();
 template<> const std::unordered_map<Entity, EnemyShot>& ComponentStorage::get_storage<EnemyShot>() const;
 template<> std::unordered_map<Entity, EnemyBehavior>& ComponentStorage::get_storage<EnemyBehavior>();
@@ -857,6 +867,9 @@ CS110_EXTERN(WeaponStats)
 CS110_EXTERN(Flash)
 CS110_EXTERN(EnemyShot)        // Iteration 3 (D51)
 CS110_EXTERN(EnemyBehavior)
+CS110_EXTERN(Burn)             // gameplay pack v2.3 tier 3 (D221)
+CS110_EXTERN(Chill)
+CS110_EXTERN(BlizzardTag)
 #undef CS110_EXTERN
 
 #endif // COMPONENT_STORAGE_HPP

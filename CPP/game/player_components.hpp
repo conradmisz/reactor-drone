@@ -38,6 +38,13 @@ struct ShipState {
     int consumable_id = -1;       // held consumable (Phase 4); -1 = none
     int buff_id = -1;             // active timed buff (Phase 4); -1 = none
     float buff_timer = 0.0f;
+    // Gameplay pack (D221): the one shared secondary-fire slot (tier 3).
+    float secondary_cd = 0.0f;          // seconds until ready
+    float secondary_charge = -1.0f;     // charge_shot held-seconds; -1 = not charging
+    bool  secondary_prev_held = false;  // edge detector for tap secondaries
+    float stream_timer = 0.0f;          // lava_stream seconds remaining
+    float stream_acc = 0.0f;            // droplet cadence accumulator
+    unsigned stream_seed = 1u;          // tiny LCG for droplet jitter (NOT the run RNG)
     int upg_counts[8] = {0};      // purchases per shop upgrade (escalating price)
 
     // --- Iteration 3 (D51). Declared in the scaffolding phase so the dash, the
