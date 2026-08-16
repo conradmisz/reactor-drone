@@ -118,6 +118,16 @@ void ProjectileHitSystem::update(EntityManager& entity_manager,
         // v2 Phase 6: a shot that meets a solid obstacle stops dead — unless it
         // has ricochets left (D98), in which case it reflects and spends one.
         if (hit_solid != NO_TARGET) {
+            // Engine suite (D146): a solid carrying Health is DESTRUCTIBLE, so the
+            // shot's damage is routed into it through the same DamageEvent ->
+            // DamageApplySystem path enemies use, rather than through a second
+            // damage path CrumbleSystem would own. An obstacle with no Health (the
+            // shipped default, `hp: 0`) is untouched and this is one failed lookup.
+            if (component_storage.has_component<Health>(hit_solid)) {
+                Entity ev = entity_manager.create_entity();
+                component_storage.add_component<DamageEvent>(ev,
+                    DamageEvent{hit_solid, data.damage});
+            }
             bounce::Result b;
             auto opos = component_storage.get_component<Position>(hit_solid);
             auto osz = component_storage.get_component<Size>(hit_solid);

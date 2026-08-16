@@ -75,6 +75,9 @@ void print_usage(std::ostream& out) {
         << "                             no shop key spent -> SHOP button\n"
         << "                           * F5 skips to the next wave\n"
         << "                           * --level N starts the run on wave N\n"
+        << "  --suite                Enable every engine-suite feature (bullet time,\n"
+        << "                           resonance grid, director, scars, ...). Off by\n"
+        << "                           default so the replay canary is unaffected.\n"
         << "  --script FILE          Load session from a JSON script file (exclusive)\n"
         << "  --help                 Show this help message\n";
 }
@@ -210,6 +213,10 @@ CommandLineOptions parse_command_line(int argc, char* argv[]) {
 
         } else if (arg == "--gpu-renderer") {
             opts.gpu_renderer = true;
+            ++i;
+
+        } else if (arg == "--suite") {
+            opts.suite = true;   // engine suite (D141)
             ++i;
 
         } else if (arg == "--fps") {
@@ -665,6 +672,11 @@ std::vector<std::string> options_to_argv(const CommandLineOptions& opts) {
     // --gpu-renderer (emitted only when on)
     if (opts.gpu_renderer) {
         argv.push_back("--gpu-renderer");
+    }
+
+    // --suite, same discipline (engine suite, D141).
+    if (opts.suite) {
+        argv.push_back("--suite");
     }
 
     return argv;

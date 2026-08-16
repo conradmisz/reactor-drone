@@ -88,6 +88,15 @@ struct EnemyBehavior {
     float timer = 0.0f;
     float cooldown = 2.0f;
     float aim = 0.0f;
+    // Engine suite (D148): the authored bullet pattern this emitter runs, as an
+    // index into GameConfig::patterns; -1 = none, which is every enemy shipped so
+    // far. `cursor` is the op it is on and `phase` the running spiral angle.
+    // THREE FIELDS ON AN EXISTING STRUCT, not a new component type: registering
+    // one is an edit in three shared files (Invariant 6), and this is exactly the
+    // "prefer a field on an existing struct" case the standards call out.
+    int pattern = -1;
+    int cursor = 0;
+    float phase = 0.0f;
 };
 
 /**

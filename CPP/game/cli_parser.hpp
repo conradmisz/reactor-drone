@@ -88,6 +88,10 @@ struct CommandLineOptions {
     bool dev          = false;             // --dev / --god (developer playtest mode; off by default)
     bool classic_renderer = false;         // --classic-renderer (v3 Tier 6a: force the classic renderer; the escape hatch)
     bool gpu_renderer = false;             // --gpu-renderer (v3 Tier 6a: now the default; flag kept as an accepted no-op for compat)
+    // Engine suite (D141): turn every suite feature on at once for a playtest.
+    // The shipped GameData leaves them all disabled so the replay canary stays
+    // byte-identical; this is the one switch that flips them without a data edit.
+    bool suite        = false;             // --suite
     bool parse_error  = false;             // set on any parse failure
     bool help_requested = false;           // --help
 };

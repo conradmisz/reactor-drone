@@ -79,7 +79,10 @@ while read -r f; do
 done | sort
 ```
 
-Current measured state: **150 identical · 31 modified · 27 new** (208 source files).
+Current measured state before the engine suite: **150 identical · 31 modified · 27
+new** (208 source files). The suite adds four engine file pairs (resonance grid,
+scars, palette, chip synth) and modifies none of the class baseline — re-run the
+sweep above after a merge rather than trusting this line.
 
 ### Engine — new in v2
 
@@ -556,6 +559,110 @@ in `main.cpp`:
 | `shop-menu` | in the `PHASE_SHOP` block | clickable shop + gear upgrades (#1, #11) |
 | `minimap` | after `game_hud.update`, every phase | minimap (#7) |
 | `prestige` | after `ui_system.update`, above the phase machine | 30-wave arc + prestige (#14, iteration 5) |
+
+### 6b. Engine-suite hooks (D138)
+
+The engine-feature suite (`agentProjectDocs/specs/engine-feature-suite.md`) uses the
+same convention: every shared-file edit made once, up front, inert, with one
+comment-delimited block per lane.
+
+| Hook | Frame-order slot | Owner |
+|---|---|---|
+| `timescale` | frame top, right after the frame counter | #1 Temporal Overload (P) |
+| `director` | after `player_aim`, before `wave_spawner.update` | #8 Adaptive Director (Q) |
+| `surge` | after the arena-shift tick | #7 Reactor Surges (X) |
+| `pattern` | after `enemy-fire` | #2 Bullet-Pattern Language (Y) |
+| `forces` | after `specialty`, before `movement.update` | #3 Force-Field Layer (T) |
+| `crumble` | after `projectile_hit.update` | #9 Destructible Arena (U) |
+| `telemetry` | after `game_hud.update`, every phase | #10 Flight Report (S) |
+| `audio` | beside `telemetry`, every phase | #4 Chip-Synth Audio (Z) |
+| `grid-render` | between `render_layers` and `render` | RG Resonance Grid (R) |
+| `scars-render` | after `grid-render` | #6 Battle-Scar Layer (V) |
+| `palette` | after `screenshot_system.update`, before `present` | #5 Palette Engine (W) |
+
+**The shared FX event vocabulary** is `CPP/engine/ecs/fx_events.hpp`: two per-frame
+Blackboard lists, `fx.grid_impulses` (`fx_events::Impulse`) and `fx.kill_marks`
+(`fx_events::Mark`). Sim-side code publishes; the resonance grid and the flight
+report consume while drawing. **D151:** impulses are BIG events only — a bomb, a
+collapsing pillar, a boss volley — because the grid became an event display rather
+than an ambient one; an ordinary kill publishes a mark and nothing else. The marks
+were `fx.scar_stamps` until the battle-scar layer was cut. `fx_events::clear_frame` runs unconditionally at the top of every
+frame — before the `timescale` hook — so a disabled consumer cannot leak. The
+contract is one-way: **nothing sim-side may ever read these lists back**, which is
+what keeps the two render-only lanes outside the determinism argument entirely.
+
+**What Phase 0 added to `GameConfig`** (`arena_config.hpp`, all parsed in
+`arena_config.cpp`, all inert by default): `TimescaleConfig`, `DirectorConfig`,
+`GridConfig`, `FlightReportConfig`, `ForceConfig`, `ScarConfig`, `PaletteConfig`
+(+`PaletteDef`), `std::vector<BulletPatternDef>` (+`BulletPatternOp`),
+`AudioConfig`; plus `ObstacleDef::hp` (0 = indestructible), `ArenaDef::surges`
+(`SurgeDef`) and `EnemyType::pattern`. No new component type — Invariant 6 held.
+
+⚠️ **Trap, hit during Phase 0: the top-level JSON key `"grid"` is already taken.**
+The class-baseline `gamedata_loader.cpp` §4.7 parses a match-3 tile grid from
+`data["grid"]` and reads `grid["rows"]` **unguarded**, so any `"grid"` block of ours
+aborts the loader (an nlohmann assert) before `main()` runs. The resonance grid's
+data block is therefore `"resonance"`. The engine loader claims `window`, `camera`,
+`world`, `debug`, `grid`, `atlas`, `scoring`, `physics`, `levels`,
+`animation_definitions`, `tilemap`, `game`, `entities`, `hud_entities`,
+`ui_styles` and `screens` — check that list before naming a new block.
+
+### 6c. What the engine-suite lanes landed (D139-D150)
+
+All eleven hooks are filled. Each lane's data flag defaults to OFF; `--suite`
+flips the whole set (and authors obstacle HP, a surge table and a boss pattern for
+the two lanes that are inert by data rather than by a flag).
+
+| Hook | System | Stance |
+|---|---|---|
+| `timescale` | `game/timescale_system.hpp` (free fn) | sim-side, pure fn of sim state |
+| `director` | `game/director_system.hpp` (free fn) | sim-side, no RNG |
+| `forces` | `game/force_field_system.*` | sim-side, no RNG, inert by shape |
+| `surge` | `game/surge_system.*` | sim-side, **private** RNG stream |
+| `crumble` | `game/crumble_system.*` | sim-side, no RNG |
+| `pattern` | `game/bullet_pattern.*` | sim-side, **no RNG at all** |
+| `telemetry` | `game/flight_report.*` | passive |
+| `audio` | **EMPTY** — `chip_synth_system.*` shelved (D151), still builds | — |
+| `grid-render` | `engine/ecs/systems/resonance_grid_system.*` | render-only |
+| `scars-render` | **EMPTY** — the scar layer was cut (D151) | — |
+| `palette` | `engine/ecs/systems/palette_system.*` | render-only, **two blocks** |
+
+Four new engine `.cpp` files (resonance grid, palette, chip synth — the scar
+layer was added and then cut, D151) went into the three explicit CMake lists
+(Invariant 7). `chip_synth_system.cpp` still builds although nothing constructs it,
+deliberately: shelved code that stops compiling is deleted code with extra steps. No new component type was
+needed (Invariant 6): `EnemyBehavior` gained `pattern`/`cursor`/`phase`,
+`ObstacleDef` gained `hp`, `ArenaDef` gained `surges`, `EnemyType` gained
+`pattern`.
+
+**Frame-order changes.** `delta_time` is now rewritten at the top of the frame
+when Temporal Overload is live, so **every consumer of `delta_time` downstream
+sees the dilated value** — that is the intent, and the audit is in D139. The
+render block gained three sites: the grid and scars draw between `render_layers`
+and `render`, and the palette arms a render target before `camera.update` and
+resolves it after `screenshot_system.update`. `forces.update` sits between the
+`specialty` hook and `movement.update`; the clamp and push-out after movement are
+unchanged and still get the last word on position.
+
+**New traps, each of which cost real debugging time:**
+
+- **An SDL resource in a function-local static is destroyed AFTER `SDL_Quit()`.**
+  `main.cpp` calls `SDL_Quit()` as a statement; statics die at process exit. The
+  chip synth's destructor was tearing down an audio stream against a dead SDL and
+  core-dumped a run that had otherwise completed. Guard on `SDL_WasInit(...)`.
+  Every `static XSystem` in a hook block that owns an SDL handle has this
+  exposure — the grid, scars and palette systems own textures and are guarded by
+  holding nothing that needs an SDL call to release, or by the same check.
+- **`Entity` 0 is a valid id, so it cannot be a sentinel.** `EntityManager` hands
+  out 0 first. A `carrier == 0` "none" check made the first entity of a run
+  invisible to the surge teardown.
+- **A new `else if` branch in `cli_parser` must carry its own `++i`.** Inserting
+  one above `--dev`'s took that branch's increment with it, and the parser span
+  forever on `--dev`. A hang, not an error, and it surfaced as an unrelated
+  unit-test timeout.
+- **The Blackboard stores `std::any` BY VALUE, so an append is O(n).** The
+  per-frame FX lists are capped at 64 (`fx_events::MAX_PER_FRAME`) for that reason
+  as much as for the MCU budget.
 
 Iteration 5 kept the same convention. `prestige` is **two** blocks by necessity:
 the frame-order one above, and one inside `start_run` — the single site where

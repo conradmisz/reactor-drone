@@ -2624,6 +2624,45 @@
       "duration": 5.0
     }
   ],
+  "//engine-suite": "Engine-suite Phase 0 scaffolding (D138, specs/engine-feature-suite.md). Each block below is OWNED BY ONE LANE and every value is an inert default: enabled false (or an empty list) leaves the sim byte-identical. The owning lane fills its block in and deletes its 'still inert' line in test_scaffolding.cpp.",
+  "timescale": { "enabled": false },
+  "director": { "enabled": false },
+  "resonance": { "enabled": false },
+  "flight_report": { "enabled": false },
+  "forces": { "max_sources": 32 },
+  "//palettes": "Lane W (D147) - the frame is resolved between two anchor colours per arena (duotone; see palette_system.hpp for why a true LUT is not available under SDL3's 2D renderer). colors[0] is the shadow anchor, colors[1] the highlight, as 0xRRGGBB. The rows are authored but INERT until enabled (or --suite). PROVISIONAL: unplayed.",
+  "palettes": {
+    "enabled": false,
+    "palettes": [
+      { "name": "Reactor Core", "colors": [1846131, 15330257] },
+      { "name": "Foundry",      "colors": [2361872, 16764057] },
+      { "name": "Bio-lab",      "colors": [663060, 13500365] },
+      { "name": "Prism",        "colors": [2100536, 15194879] }
+    ]
+  },
+  "//patterns": "Lane Y (D148) - authored bullet-hell choreography. An enemy_types row names one in its `pattern` field; nothing does today, which is what keeps this INERT (--suite assigns one to the boss). Ops run in order: a burst op (interval 0) falls through to the next op on the same frame, an op with an interval repeats on that cadence, and `wait` holds. angular_vel_deg spins the emitter's phase, which is what turns stacked rings into a flower. No RNG anywhere in the interpreter - variation is authored. PROVISIONAL: unplayed.",
+  "patterns": [
+    {
+      "name": "reactor_bloom",
+      "loop": true,
+      "ops": [
+        { "type": "ring",  "count": 14, "speed": 190, "angular_vel_deg": 40, "interval": 0.9 },
+        { "type": "wait",  "wait": 0.7 },
+        { "type": "aimed", "count": 5, "speed": 260, "spread_deg": 34, "interval": 0.35 },
+        { "type": "wait",  "wait": 1.1 }
+      ]
+    },
+    {
+      "name": "coolant_spiral",
+      "loop": true,
+      "ops": [
+        { "type": "spiral", "count": 3, "speed": 170, "angular_vel_deg": 150, "interval": 0.11 }
+      ]
+    }
+  ],
+  "//audio": "Lane Z (D150) - chip-synth audio: no samples, every SFX and the music synthesised live from a fixed voice pool. The eight committed WAVs under assets/Audio/ are NOT used by it and remain unplayed by anything. enabled false means no device is opened at all; --suite turns it on. PROVISIONAL: unheard.",
+  "audio": { "enabled": false, "master_volume": 0.8, "sample_rate": 48000, "voices": 8 },
+
   "//ui": "UI & menu layer (Option-040 port). Rects are authored in the 800x600 design canvas; ui_canvas_transform letterboxes them onto the live window.",
   "ui_styles": {
     "pip_gain": {

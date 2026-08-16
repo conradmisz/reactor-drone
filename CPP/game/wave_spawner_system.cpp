@@ -1,4 +1,5 @@
 #include "wave_spawner_system.hpp"
+#include "bullet_pattern.hpp"   // engine suite D148: pattern_index
 #include "enemy_fire_system.hpp"   // behavior_kind_for
 #include "enemy_components.hpp"    // EnemyTag, Health, PathFollower (seek speed)
 #include "player_components.hpp"   // ContactDamage
@@ -129,11 +130,18 @@ void WaveSpawnerSystem::spawn_enemy(const WaveDef& wave,
     component_storage.add_component<Health>(e, Health{hp, hp});
     // Iteration 3 (D66): whatever this type does beyond seeking. The timer starts
     // at a full cooldown, so nothing fires on the frame it spawns.
-    if (beh_kind != behavior_kinds::SEEKER) {
+    // Engine suite (D148): a type that names a bullet pattern gets an
+    // EnemyBehavior even if it is otherwise a plain seeker — the component is
+    // where the interpreter keeps its cursor. Resolved by NAME here, once at
+    // spawn, so a re-ordered `patterns` array cannot re-point a live emitter.
+    const int pattern_idx = type.pattern.empty()
+        ? -1 : bullet_pattern::pattern_index(cfg_->patterns, type.pattern);
+    if (beh_kind != behavior_kinds::SEEKER || pattern_idx >= 0) {
         const float interval = type.fire_interval > 0.0f ? type.fire_interval : 2.0f;
         const int tier = tier2 ? 2 : type.behavior_tier;
-        component_storage.add_component<EnemyBehavior>(e,
-            EnemyBehavior{beh_kind, tier, interval, interval, 0.0f});
+        EnemyBehavior beh{beh_kind, tier, interval, interval, 0.0f};
+        beh.pattern = pattern_idx;
+        component_storage.add_component<EnemyBehavior>(e, beh);
     }
     component_storage.add_component<EnemyTag>(e, EnemyTag{});
     // Enemies used to fall to layer 0 — behind the walls. At 64-78 px that reads
@@ -188,10 +196,16 @@ void WaveSpawnerSystem::update(Blackboard& blackboard,
     // empty-arena check below and skip the boss outright.
     if (wave.boss) quota_done = boss_engaged_;
 
+    // Engine suite (D142): the director's spacing multiplier. Read into a local so
+    // the compare and the subtract can never use different values — a mid-wave
+    // change would otherwise be able to leave spawn_timer_ above the threshold
+    // and fire twice. `count` and the roster are untouched by design.
+    const float interval = wave.spawn_interval * spacing_mult_;
+
     if (elapsed_time_ >= wave.delay && !quota_done) {
         spawn_timer_ += dt;
-        if (spawn_timer_ >= wave.spawn_interval) {
-            spawn_timer_ -= wave.spawn_interval;
+        if (interval <= 0.0f || spawn_timer_ >= interval) {
+            spawn_timer_ = interval > 0.0f ? spawn_timer_ - interval : 0.0f;
             spawn_enemy(wave, entity_manager, component_storage);
             if (wave.duration <= 0.0f && enemies_spawned_ >= wave.count) quota_done = true;
         }

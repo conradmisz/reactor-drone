@@ -3,6 +3,7 @@
 #include "player_components.hpp"  // ContactDamage, Pickup
 #include "collision_layers.hpp"
 #include "feedback.hpp"           // add_trauma
+#include "engine/ecs/fx_events.hpp"  // engine-suite D138: grid impulses / scar stamps
 #include "engine/project_paths.hpp"
 #include <algorithm>
 #include <cmath>
@@ -380,6 +381,27 @@ void EnemyDeathSystem::update(ComponentStorage& component_storage,
         blackboard.set<float>("feedback.trauma", feedback::add_trauma(
             blackboard.get_or<float>("feedback.trauma", 0.0f),
             blackboard.get_or<float>("fb.trauma_enemy_death", 0.25f)));
+
+        // Engine suite (D138/D139): a kill is one sim event with two consumers.
+        // `sim.kills` is a plain monotonic counter Temporal Overload reads to find
+        // a kill chain; the kill mark is the RENDER-ONLY half, read by the flight
+        // report and never read back by anything sim-side.
+        //
+        // D151: this no longer rings the resonance grid. An impulse per death made
+        // the lattice a permanent shimmer, which is exactly the clutter the
+        // playtest called out — the grid is now an EVENT display (bombs, pillars,
+        // bosses), so an ordinary kill publishes a mark and nothing else.
+        blackboard.set<int>("sim.kills", blackboard.get_or<int>("sim.kills", 0) + 1);
+        if (auto dpos = component_storage.get_component<Position>(enemy);
+            dpos.has_value()) {
+            float dw = 40.0f;
+            if (auto dsz = component_storage.get_component<Size>(enemy); dsz.has_value())
+                dw = dsz->get().width;
+            fx_events::push_mark(blackboard,
+                                 dpos->get().x + dw * 0.5f,
+                                 dpos->get().y + dw * 0.5f,
+                                 /*kind=*/0, dw / 40.0f);
+        }
 
         component_storage.add_component<DestroyRequest>(enemy, DestroyRequest{});
     }

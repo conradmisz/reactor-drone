@@ -1,4 +1,5 @@
 #include "specialty_system.hpp"
+#include "engine/ecs/fx_events.hpp"   // engine suite D151: explosions ring the grid
 
 #include "enemy_components.hpp"
 #include "enemy_fire_system.hpp"   // type_for, player_centre
@@ -96,6 +97,14 @@ void SpecialtySystem::update(ComponentStorage& storage, EntityManager& entity_ma
                 // as the load fallback, exactly like the mine's own sprite.
                 blast.image = "v2/hazard_blast.png";
                 hazard::spawn_patch(storage, entity_manager, cx, cy, blast);
+                // Engine suite (D151): an explosion is one of the three things
+                // that ring the resonance grid. Scaled by blast size so a bigger
+                // bomb throws a bigger ripple. Render-only (fx_events is one-way),
+                // so this cannot reach the sim. SEAM: every future explosion type
+                // wants this one line at its spawn site — that is the whole
+                // wiring, and the grid needs no knowledge of what exploded.
+                fx_events::push_impulse(blackboard, cx, cy,
+                                        specialty::MINE_BLAST_SIZE / 90.0f * 2.2f);
                 // #4: a bomb hurts whatever is standing next to it, including the
                 // swarm that dropped it. The patch itself can't do this — HAZARD
                 // only masks PLAYER — so the blast is applied here as one-shot
