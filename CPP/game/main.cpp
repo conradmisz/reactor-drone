@@ -81,6 +81,7 @@
 #include "dash_system.hpp"
 #include "ship_specials.hpp"   // gameplay pack (D221): veil + special ids
 #include "secondary_fire.hpp"   // gameplay pack (D221): right-mouse secondaries
+#include "hangar_stats.hpp"     // gameplay pack (D221): hangar stat rows + pips
 // Engine suite: Lane P (#1 Temporal Overload, D139).
 #include "timescale_system.hpp"
 // Engine suite: Lane Q (#8 Adaptive Director, D142).
@@ -153,6 +154,7 @@ constexpr const char* RD_PLATFORM = "linux";
 
 // Screen name of the between-waves prompt, authored in GameData.json's "screens".
 constexpr const char* SCREEN_INTERMISSION = "wave_intermission";
+constexpr const char* SCREEN_RUN_STATS    = "run_stats";        // gameplay pack tier 6 (D221)
 constexpr const char* SCREEN_PAUSE        = "pause";
 constexpr const char* SCREEN_MAIN_MENU    = "main_menu";
 constexpr const char* SCREEN_RUN_SETUP    = "run_setup";    // main-menu-suite Phase A
@@ -1161,6 +1163,7 @@ int main(int argc, char* argv[]) {
     // at run end — death, victory, or quitting out of the pause menu. `banked`
     // guards the double call (game over, then quit from the same screen).
     bool run_banked = true;   // no run in progress at the title
+    bool run_stats_up = false;   // tier 6 (D221): the flight report is on the stack
     auto bank_run_score = [&](const Blackboard& bb, const char* outcome) {
         if (run_banked) return;
         run_banked = true;
@@ -1438,10 +1441,6 @@ int main(int argc, char* argv[]) {
         }
     };
 
-    // Lane K (D100): the two widgets this lane owns, resolved by name through
-    // ui.widget_id.<name> — the same path the HUD gauges and the ship selector
-    // use, deliberately not a second lookup mechanism. Widget ids are load-time
-    // and survive spawn_world, so each is resolved once.
     auto widget_by_name = [&](const char* name, Entity& cache, bool& resolved) {
         if (!resolved) {
             const double v = blackboard.get_or<double>(std::string("ui.widget_id.") + name, -1.0);
@@ -1450,6 +1449,123 @@ int main(int argc, char* argv[]) {
         }
         return cache;
     };
+
+    // Gameplay pack (D221) tier 6: the world drone IS the hangar preview, so a
+    // ship cycle reskins the live entity immediately (start_run re-copies the
+    // pristine config, so this temporary sidecar overwrite cannot leak).
+    auto reskin_player = [&]() {
+        if (selected_ship >= 0 && selected_ship < static_cast<int>(config.ships.size())) {
+            const ShipDef& sd = config.ships[static_cast<size_t>(selected_ship)];
+            if (!sd.sidecar.empty()) {
+                config.player.sidecar = sd.sidecar;
+                if (!sd.idle_clip.empty()) config.player.idle_clip = sd.idle_clip;
+            }
+        }
+        load_player_sprite();
+        if (!player_sprite.has_value()) return;
+        for (Entity pl : component_storage.entities_with_component<PlayerTag>()) {
+            component_storage.add_component<SpriteSheet>(pl, player_sprite->sprite_sheet);
+            component_storage.add_component<Animation>(pl, player_sprite->animation);
+            break;
+        }
+    };
+
+    // The weapon the NEXT run will fly: the equipped one when owned, else the
+    // selected ship's default. -1 when no catalogue is authored.
+    auto current_weapon_index = [&]() -> int {
+        std::string wname = meta.equipped_weapon;
+        if (wname.empty() || !weapon_owned(meta, config.ships, wname)
+            || find_weapon(config.weapons, wname) < 0) {
+            if (selected_ship >= 0 && selected_ship < static_cast<int>(config.ships.size()))
+                wname = config.ships[static_cast<size_t>(selected_ship)].default_weapon;
+        }
+        return find_weapon(config.weapons, wname);
+    };
+
+    // The next ship the hangar can sell: first non-locked, non-owned entry.
+    auto next_purchasable_ship = [&]() -> int {
+        for (size_t i = 0; i < config.ships.size(); ++i)
+            if (!config.ships[i].locked && !ship_owned(meta, config.ships[i]))
+                return static_cast<int>(i);
+        return -1;
+    };
+
+    // Tier 6 (D221): the hangar's dynamic labels, rewritten every title frame —
+    // the refresh_ship_widget idiom, batched. Pips share one x column (the
+    // owner's "5 bubbles", aligned by authored geometry, not by text padding).
+    auto refresh_hangar = [&]() {
+        static Entity w_scrap = 0, w_weapon = 0, w_buy = 0, w_hint = 0;
+        static bool r_scrap = false, r_weapon = false, r_buy = false, r_hint = false;
+        static Entity w_name[8] = {0}, w_pips[8] = {0};
+        static bool r_name[8] = {false}, r_pips[8] = {false};
+        auto set_label = [&](Entity w, const std::string& text) {
+            if (w == 0) return;
+            if (auto el = component_storage.get_component<UIElement>(w); el.has_value())
+                el->get().label_text = text;
+        };
+        set_label(widget_by_name("hangar_scrap", w_scrap, r_scrap),
+                  "SCRAP: " + std::to_string(meta.scrap));
+        const int wi = current_weapon_index();
+        set_label(widget_by_name("menu_weapon", w_weapon, r_weapon),
+                  wi >= 0 ? "WEAPON: " + config.weapons[static_cast<size_t>(wi)].name
+                          : std::string("WEAPON: —"));
+        if (selected_ship >= 0 && selected_ship < static_cast<int>(config.ships.size()) && wi >= 0) {
+            const auto stat_rows = hangar::rows(
+                config.ships[static_cast<size_t>(selected_ship)],
+                config.weapons[static_cast<size_t>(wi)], config.dash);
+            for (int i = 0; i < 8 && i < static_cast<int>(stat_rows.size()); ++i) {
+                set_label(widget_by_name(("hs_name_" + std::to_string(i)).c_str(),
+                                         w_name[i], r_name[i]), stat_rows[static_cast<size_t>(i)].name);
+                set_label(widget_by_name(("hs_pips_" + std::to_string(i)).c_str(),
+                                         w_pips[i], r_pips[i]),
+                          hangar::pip_text(stat_rows[static_cast<size_t>(i)].pips));
+            }
+        }
+        const int buy = next_purchasable_ship();
+        set_label(widget_by_name("menu_buy", w_buy, r_buy),
+                  buy < 0 ? std::string("ALL DRONES OWNED")
+                          : "BUY " + config.ships[static_cast<size_t>(buy)].name + "  —  "
+                            + std::to_string(config.ships[static_cast<size_t>(buy)].scrap_cost)
+                            + " SCRAP");
+        const int gi = buy >= 0 ? buy : -1;
+        std::string hint;
+        if (gi >= 0 && meta.scrap < config.ships[static_cast<size_t>(gi)].scrap_cost)
+            hint = "Earn scrap by clearing waves and bosses.";
+        else if (gi >= 0)
+            hint = config.ships[static_cast<size_t>(gi)].name + " grants "
+                 + config.ships[static_cast<size_t>(gi)].default_weapon + ".";
+        set_label(widget_by_name("hangar_hint", w_hint, r_hint), hint);
+    };
+
+    // Tier 6 (D221): the flight report's lines, rewritten while it is up.
+    auto refresh_run_stats = [&](bool victory) {
+        static Entity w_title = 0, w_line[5] = {0};
+        static bool r_title = false, r_line[5] = {false};
+        auto set_label = [&](Entity w, const std::string& text) {
+            if (w == 0) return;
+            if (auto el = component_storage.get_component<UIElement>(w); el.has_value())
+                el->get().label_text = text;
+        };
+        set_label(widget_by_name("rs_title", w_title, r_title),
+                  victory ? "VICTORY" : "DRONE DOWN");
+        const int shots = static_cast<int>(blackboard.get_or<double>("tm.shots", 0.0));
+        const int hits  = static_cast<int>(blackboard.get_or<double>("tm.hits", 0.0));
+        const std::string lines[5] = {
+            "Wave reached: " + std::to_string(blackboard.get_or<int>("wave", 0)),
+            "Score: " + std::to_string(blackboard.get_or<int>("score", 0)),
+            "Scrap earned: +" + std::to_string(blackboard.get_or<int>("run.scrap", 0)),
+            "Scrap total: " + std::to_string(meta.scrap),
+            "Accuracy: " + (shots > 0 ? std::to_string(hits * 100 / shots) + "%" : std::string("—")),
+        };
+        for (int i = 0; i < 5; ++i)
+            set_label(widget_by_name(("rs_line_" + std::to_string(i)).c_str(),
+                                     w_line[i], r_line[i]), lines[i]);
+    };
+
+    // Lane K (D100): the two widgets this lane owns, resolved by name through
+    // ui.widget_id.<name> — the same path the HUD gauges and the ship selector
+    // use, deliberately not a second lookup mechanism. Widget ids are load-time
+    // and survive spawn_world, so each is resolved once.
     Entity save_w = 0, continue_w = 0;
     bool save_w_resolved = false, continue_w_resolved = false;
     auto save_widget = [&]() { return widget_by_name("pause_save", save_w, save_w_resolved); };
@@ -1972,7 +2088,7 @@ int main(int argc, char* argv[]) {
         // and the feedback form (specs/feedback-reports.md) likewise.
         if (blackboard.get_or<bool>("ui.escape_pressed", false) && phase != PHASE_TITLE &&
             phase != PHASE_NAME_ENTRY && phase != PHASE_LEADERBOARD &&
-            phase != PHASE_FEEDBACK) {
+            phase != PHASE_FEEDBACK && !run_stats_up) {
             if (ScreenStackSystem::depth(blackboard) <= 1) {
                 blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH, std::string(SCREEN_PAUSE));
                 // Lane K: the button says SAVE again each time the screen opens,
@@ -2216,12 +2332,26 @@ int main(int argc, char* argv[]) {
         // reads as "retry". Consuming both the click and `advance` in one place
         // is the only way the two can never fire on the same frame — the same
         // trap the title screen hit with SPACE vs `advance` (D50).
+        // Tier 6 (D221): the flight report — refresh while up; CONTINUE (or ESC)
+        // pops it and lets the end-screen flow (retry banner / prestige) resume.
+        if (run_stats_up) {
+            refresh_run_stats(phase == PHASE_VICTORY);
+            const std::string rs_click =
+                blackboard.get_or<std::string>(UISystem::UI_CLICK_KEY, std::string());
+            const bool esc = blackboard.get_or<bool>("ui.escape_pressed", false);
+            if (rs_click == "on_run_stats_continue" || esc) {
+                if (!rs_click.empty()) blackboard.remove(UISystem::UI_CLICK_KEY);
+                blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
+                run_stats_up = false;
+            }
+        }
+
         {
             static bool offer_up = false;
             static Entity prestige_line = 0;
             static bool prestige_line_resolved = false;
 
-            const bool want_offer = (phase == PHASE_VICTORY);
+            const bool want_offer = (phase == PHASE_VICTORY) && !run_stats_up;
             if (want_offer != offer_up) {
                 if (want_offer)
                     blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH,
@@ -2952,11 +3082,20 @@ int main(int argc, char* argv[]) {
                                                    config.arena.radius);
                 bank_run_score(blackboard, "death");   // Lane F: the run ended, so it counts
                 end_saved_run();              // Lane K: and a dead run is not resumable
+                // Tier 6 (D221): the flight report, over the end banner.
+                blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH,
+                                            std::string(SCREEN_RUN_STATS));
+                run_stats_up = true;
             } else if (wave_spawner.all_complete() &&
                        component_storage.entities_with_component<EnemyTag>().empty()) {
                 phase = PHASE_VICTORY;
                 bank_run_score(blackboard, "victory");
                 end_saved_run();
+                // Tier 6 (D221): the flight report first; the prestige offer
+                // waits for it (the want_offer gate below).
+                blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH,
+                                            std::string(SCREEN_RUN_STATS));
+                run_stats_up = true;
             } else if (shop_due || key_entry) {
                 // The shop no longer opens itself. The same trigger now raises the
                 // between-waves prompt, and the player picks: shop, or push on.
@@ -3122,8 +3261,37 @@ int main(int argc, char* argv[]) {
                     selected_ship = next_owned_ship(config.ships, selected_ship, meta);
                     if (selected_ship >= 0 && selected_ship < static_cast<int>(config.ships.size())) {
                         meta.equipped_ship = config.ships[static_cast<size_t>(selected_ship)].name;
-                        meta.equipped_weapon.clear();  // ship default until the hangar can pick
+                        meta.equipped_weapon.clear();  // ship default until a weapon is picked
                         meta_write(meta_save_path(), meta);
+                    }
+                    reskin_player();   // tier 6: the world drone is the preview
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                } else if (menu_click == "on_weapon_cycle") {
+                    // Tier 6 (D221): cycle through OWNED weapons only.
+                    const int cur = current_weapon_index();
+                    const int n = static_cast<int>(config.weapons.size());
+                    for (int step = 1; step <= n && n > 0; ++step) {
+                        const int i = (cur + step) % n;
+                        if (!weapon_owned(meta, config.ships, config.weapons[static_cast<size_t>(i)].name))
+                            continue;
+                        meta.equipped_weapon = config.weapons[static_cast<size_t>(i)].name;
+                        meta_write(meta_save_path(), meta);
+                        break;
+                    }
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                } else if (menu_click == "on_buy_ship") {
+                    // Tier 6 (D221): drones are bought with scrap, here and only
+                    // here. Equips on purchase; colors/weapon derive (D222).
+                    const int buy = next_purchasable_ship();
+                    if (buy >= 0 &&
+                        meta.scrap >= config.ships[static_cast<size_t>(buy)].scrap_cost) {
+                        meta.scrap -= config.ships[static_cast<size_t>(buy)].scrap_cost;
+                        meta.owned_ships.push_back(config.ships[static_cast<size_t>(buy)].name);
+                        meta.equipped_ship = config.ships[static_cast<size_t>(buy)].name;
+                        meta.equipped_weapon.clear();
+                        selected_ship = buy;
+                        meta_write(meta_save_path(), meta);
+                        reskin_player();
                     }
                     blackboard.remove(UISystem::UI_CLICK_KEY);
                 } else if (menu_click == "on_continue_run_click" && newest_slot() >= 0) {
@@ -3242,6 +3410,7 @@ int main(int argc, char* argv[]) {
                     }
                 }
                 refresh_ship_widget();
+                refresh_hangar();
                 refresh_continue_widget();
                 refresh_difficulty_tabs();
                 refresh_save_slots();
@@ -3472,7 +3641,8 @@ int main(int argc, char* argv[]) {
                         }
                     }
                 }
-            } else if (advance && (phase == PHASE_GAMEOVER || phase == PHASE_VICTORY)) {
+            } else if (advance && !run_stats_up &&
+                       (phase == PHASE_GAMEOVER || phase == PHASE_VICTORY)) {
                 // Restart keeps the difficulty the run was started at — `config`
                 // is already scaled, so only the world is rebuilt.
                 run_banked = false;   // Lane F: a new run to bank at its end

@@ -31,8 +31,16 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   the stuck-behind-structures bug, reward menu deferred until the boss's adds
   are dead, actives trimmed to Heat-Seeking Missiles (reward_choices 1; more
   items TODO in spec). 401 unit + 8/8 ctest, gate.sh on the new baseline.
-  Next: Tier 6 (hangar + run stats screen). NOT playtested in a window —
-  enrage feel/difficulty unjudged.
+  Tier 6 DONE: run_setup expanded
+  into the hangar (right-side panel; the LIVE world drone reskins on ship
+  cycle = the preview; CHANGE SHIP / CHANGE WEAPON / BUY-with-scrap rows;
+  8 stat rows with ONE aligned pip column via hangar_stats.hpp; big green
+  LAUNCH bottom-left) + run_stats flight report pushed on death/victory
+  before the prestige offer (CONTINUE/ESC pops; retry + prestige gated on it).
+  Contract-tested in test_hangar_screen.cpp (the intermission-test pattern).
+  NOTE: drive_ui XTest CLICKS do not register under the current COSMIC
+  desktop (hover works, click lost) — real-mouse click-through is OUTSTANDING
+  and folds into the windowed playtest. Next: Tier 7 (cosmetics).
 
 - v2.2.0 shipped 2026-08-16; release notes collapsed below.
 

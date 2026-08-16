@@ -3344,6 +3344,7 @@
         ]
       }
     },
+    "launch_green": {"normal": {"bg": [20, 120, 60, 235], "text": [210, 255, 220, 255]}, "hovered": {"bg": [40, 190, 95, 255], "text": [240, 255, 245, 255]}, "pressed": {"bg": [90, 255, 150, 255], "text": [10, 30, 15, 255]}, "disabled": {"bg": [40, 55, 45, 180], "text": [120, 130, 120, 200]}},
     "default_button": {
       "normal": {
         "bg": [
@@ -4976,82 +4977,510 @@
       ]
     },
     "run_setup": {
+      "//": "Gameplay pack (D221) tier 6: run_setup expanded into the hangar. Panel sits right so the LIVE world drone (sprite reloads on ship cycle) is the preview at screen-left. Stat values + pips rewritten every title frame by main.cpp refresh_hangar; pips share one x column (aligned, the '5 bubbles').",
       "widgets": [
         {
           "element_type": "panel",
-          "rect": { "x": 180, "y": 104, "w": 440, "h": 392 },
+          "rect": {
+            "x": 330,
+            "y": 70,
+            "w": 410,
+            "h": 470
+          },
           "label_text": "",
           "style_id": "panel",
-          "z_order": 0,
-          "//": "Main-menu-suite Phase A: PLAY opens this. Difficulty tabs use shop_tab (disabled state = selected look, the D88 tab convention, set from main.cpp like shop_system's set_disabled); menu_ship is the Lane F selector/lock-readout widget relocated from the old title screen."
+          "z_order": 0
         },
         {
           "element_type": "label",
-          "rect": { "x": 204, "y": 412, "w": 392, "h": 44 },
-          "label_text": "RUN SETUP",
+          "rect": {
+            "x": 354,
+            "y": 488,
+            "w": 220,
+            "h": 36
+          },
+          "label_text": "HANGAR",
           "style_id": "title",
           "z_order": 10
         },
         {
+          "element_type": "label",
+          "rect": {
+            "x": 550,
+            "y": 492,
+            "w": 166,
+            "h": 26
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "hangar_scrap"
+        },
+        {
           "element_type": "panel",
-          "rect": { "x": 204, "y": 400, "w": 392, "h": 2 },
+          "rect": {
+            "x": 354,
+            "y": 478,
+            "w": 362,
+            "h": 2
+          },
+          "label_text": "",
+          "style_id": "rule",
+          "z_order": 10
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 354,
+            "y": 424,
+            "w": 362,
+            "h": 44
+          },
+          "label_text": "",
+          "style_id": "default_button",
+          "z_order": 10,
+          "name": "menu_ship",
+          "on_click_fn": "on_ship_cycle"
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 354,
+            "y": 372,
+            "w": 362,
+            "h": 44
+          },
+          "label_text": "",
+          "style_id": "default_button",
+          "z_order": 10,
+          "name": "menu_weapon",
+          "on_click_fn": "on_weapon_cycle"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 354,
+            "y": 334,
+            "w": 240,
+            "h": 24
+          },
+          "label_text": "DRONE STATS",
+          "style_id": "subtitle",
+          "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 354,
+            "y": 306,
+            "w": 232,
+            "h": 16
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "hs_name_0"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 596,
+            "y": 306,
+            "w": 120,
+            "h": 16
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "hs_pips_0"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 354,
+            "y": 284,
+            "w": 232,
+            "h": 16
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "hs_name_1"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 596,
+            "y": 284,
+            "w": 120,
+            "h": 16
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "hs_pips_1"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 354,
+            "y": 262,
+            "w": 232,
+            "h": 16
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "hs_name_2"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 596,
+            "y": 262,
+            "w": 120,
+            "h": 16
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "hs_pips_2"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 354,
+            "y": 240,
+            "w": 232,
+            "h": 16
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "hs_name_3"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 596,
+            "y": 240,
+            "w": 120,
+            "h": 16
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "hs_pips_3"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 354,
+            "y": 218,
+            "w": 232,
+            "h": 16
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "hs_name_4"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 596,
+            "y": 218,
+            "w": 120,
+            "h": 16
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "hs_pips_4"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 354,
+            "y": 196,
+            "w": 232,
+            "h": 16
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "hs_name_5"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 596,
+            "y": 196,
+            "w": 120,
+            "h": 16
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "hs_pips_5"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 354,
+            "y": 174,
+            "w": 232,
+            "h": 16
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "hs_name_6"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 596,
+            "y": 174,
+            "w": 120,
+            "h": 16
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "hs_pips_6"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 354,
+            "y": 152,
+            "w": 232,
+            "h": 16
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "hs_name_7"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 596,
+            "y": 152,
+            "w": 120,
+            "h": 16
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "hs_pips_7"
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 354,
+            "y": 112,
+            "w": 362,
+            "h": 36
+          },
+          "label_text": "",
+          "style_id": "shop_button",
+          "z_order": 10,
+          "name": "menu_buy",
+          "on_click_fn": "on_buy_ship"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 354,
+            "y": 76,
+            "w": 362,
+            "h": 28
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "hangar_hint"
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 40,
+            "y": 540,
+            "w": 110,
+            "h": 40
+          },
+          "label_text": "BACK",
+          "style_id": "default_button",
+          "z_order": 10,
+          "name": "menu_back",
+          "on_click_fn": "on_back_click"
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 40,
+            "y": 210,
+            "w": 120,
+            "h": 44
+          },
+          "label_text": "NORMAL",
+          "style_id": "shop_tab",
+          "z_order": 10,
+          "name": "menu_normal",
+          "on_click_fn": "on_pick_normal"
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 168,
+            "y": 210,
+            "w": 120,
+            "h": 44
+          },
+          "label_text": "HARD",
+          "style_id": "shop_tab",
+          "z_order": 10,
+          "name": "menu_hard",
+          "on_click_fn": "on_pick_hard"
+        },
+        {
+          "element_type": "button",
+          "rect": {
+            "x": 40,
+            "y": 88,
+            "w": 248,
+            "h": 72
+          },
+          "label_text": "LAUNCH",
+          "style_id": "launch_green",
+          "z_order": 10,
+          "name": "menu_launch",
+          "on_click_fn": "on_launch_click",
+          "pulse_hz": 1.1
+        }
+      ]
+    },
+    "run_stats": {
+      "//": "Gameplay pack (D221) tier 6: end-of-run flight report, pushed on death and victory before the prestige offer. Lines rewritten every frame by main.cpp refresh_run_stats.",
+      "active": false,
+      "widgets": [
+        {
+          "element_type": "panel",
+          "rect": {
+            "x": 240,
+            "y": 150,
+            "w": 320,
+            "h": 310
+          },
+          "label_text": "",
+          "style_id": "panel",
+          "z_order": 0
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 264,
+            "y": 404,
+            "w": 272,
+            "h": 36
+          },
+          "label_text": "FLIGHT REPORT",
+          "style_id": "title",
+          "z_order": 10,
+          "name": "rs_title"
+        },
+        {
+          "element_type": "panel",
+          "rect": {
+            "x": 264,
+            "y": 394,
+            "w": 272,
+            "h": 2
+          },
           "label_text": "",
           "style_id": "rule",
           "z_order": 10
         },
         {
           "element_type": "label",
-          "rect": { "x": 204, "y": 362, "w": 392, "h": 28 },
-          "label_text": "Pick a difficulty and a hull.",
-          "style_id": "subtitle",
-          "z_order": 10
-        },
-        {
-          "element_type": "button",
-          "rect": { "x": 204, "y": 296, "w": 188, "h": 52 },
-          "label_text": "NORMAL",
-          "style_id": "shop_tab",
-          "z_order": 10,
-          "on_click_fn": "on_pick_normal",
-          "name": "menu_normal"
-        },
-        {
-          "element_type": "button",
-          "rect": { "x": 408, "y": 296, "w": 188, "h": 52 },
-          "label_text": "HARD",
-          "style_id": "shop_tab",
-          "z_order": 10,
-          "on_click_fn": "on_pick_hard",
-          "name": "menu_hard"
-        },
-        {
-          "element_type": "button",
-          "rect": { "x": 204, "y": 236, "w": 392, "h": 48 },
+          "rect": {
+            "x": 264,
+            "y": 356,
+            "w": 272,
+            "h": 22
+          },
           "label_text": "",
           "style_id": "subtitle",
           "z_order": 10,
-          "on_click_fn": "on_ship_cycle",
-          "name": "menu_ship",
-          "//": "Lane F (D82): ship selector AND lock readout, one widget, label rewritten every title frame."
+          "name": "rs_line_0"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 264,
+            "y": 326,
+            "w": 272,
+            "h": 22
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "rs_line_1"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 264,
+            "y": 296,
+            "w": 272,
+            "h": 22
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "rs_line_2"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 264,
+            "y": 266,
+            "w": 272,
+            "h": 22
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "rs_line_3"
+        },
+        {
+          "element_type": "label",
+          "rect": {
+            "x": 264,
+            "y": 236,
+            "w": 272,
+            "h": 22
+          },
+          "label_text": "",
+          "style_id": "subtitle",
+          "z_order": 10,
+          "name": "rs_line_4"
         },
         {
           "element_type": "button",
-          "rect": { "x": 204, "y": 164, "w": 392, "h": 56 },
-          "label_text": "LAUNCH",
+          "rect": {
+            "x": 264,
+            "y": 176,
+            "w": 272,
+            "h": 48
+          },
+          "label_text": "CONTINUE",
           "style_id": "shop_button",
           "z_order": 10,
-          "pulse_hz": 1.1,
-          "on_click_fn": "on_launch_click",
-          "name": "menu_launch"
-        },
-        {
-          "element_type": "button",
-          "rect": { "x": 204, "y": 112, "w": 188, "h": 44 },
-          "label_text": "BACK",
-          "style_id": "default_button",
-          "z_order": 10,
-          "on_click_fn": "on_back_click",
-          "name": "menu_back"
+          "name": "rs_continue",
+          "on_click_fn": "on_run_stats_continue"
         }
       ]
     },
