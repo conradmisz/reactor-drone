@@ -37,6 +37,11 @@ void PlayerFireSystem::update(ComponentStorage& storage,
         // directly (see main.cpp's scripted_fire), it never went through Input.
         bool firing = mouse_held;
 
+        // Gameplay pack (D221): a ship special can jam the trigger (Owl's
+        // phoenix veil — invincible but unable to shoot). Timer owned by
+        // ship_specials.hpp; this system only reads it, staying config-blind.
+        if (blackboard.get_or<float>("ship.no_fire", 0.0f) > 0.0f) firing = false;
+
         // #9 (D192): the primary-fire battery. Holding the trigger drains it;
         // anything else charges it at a constant rate. Draining it to EMPTY
         // latches a lockout that only clears at full, so the cost of holding the
@@ -84,7 +89,9 @@ void PlayerFireSystem::update(ComponentStorage& storage,
             std::uniform_real_distribution<float> jitter(-wpn.spread * 0.5f, wpn.spread * 0.5f);
             angle += jitter(rng_);
         }
-        constexpr float PR = 6.0f;   // projectile half-size / radius
+        // Gameplay pack (D221): per-weapon projectile half-size (Moonshot's wide
+        // crescent, Flak's slag chunks). 6.0 is the pre-pack constant.
+        const float PR = wpn.projectile_size > 0.0f ? wpn.projectile_size : 6.0f;
 
         // D184 (supersedes D108's hardcoded red): shots are the COMPLEMENT of
         // the ship's hull hue, published by start_run from ShipDef.color. Same
@@ -129,7 +136,8 @@ void PlayerFireSystem::update(ComponentStorage& storage,
                 static_cast<uint8_t>(std::min(255, sg + 35)),
                 static_cast<uint8_t>(std::min(255, sb + 60))});
             storage.add_component<ProjectileData>(shot,
-                ProjectileData{NO_TARGET, wpn.projectile_speed, wpn.damage, bounces});
+                ProjectileData{NO_TARGET, wpn.projectile_speed, wpn.damage, bounces,
+                               wpn.pierce});
             storage.add_component<RenderLayer>(shot, RenderLayer{5});
 
             // v2: additive glow trail that rides the projectile. The emitter dies with

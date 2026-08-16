@@ -79,6 +79,7 @@
 // Lane B (iteration 3): sustain pickups (#10), thruster dash (#5), minimap (#7).
 #include "sustain_spawn_system.hpp"
 #include "dash_system.hpp"
+#include "ship_specials.hpp"   // gameplay pack (D221): veil + special ids
 // Engine suite: Lane P (#1 Temporal Overload, D139).
 #include "timescale_system.hpp"
 // Engine suite: Lane Q (#8 Adaptive Director, D142).
@@ -906,7 +907,8 @@ int main(int argc, char* argv[]) {
         component_storage.add_component<WeaponStats>(player, WeaponStats{
             config.player.weapon.fire_rate, config.player.weapon.damage,
             config.player.weapon.projectile_speed, config.player.weapon.projectile_lifetime,
-            config.player.weapon.spread, 0.0f});
+            config.player.weapon.spread, 0.0f,
+            config.player.weapon.projectile_size, config.player.weapon.pierce});
         // Per-run economy/shop state (D3: no persistence — a fresh one each run).
         // The ship's stats are already baked into `config` by start_run; ship_id
         // just records which hull this run is flying.
@@ -1267,6 +1269,15 @@ int main(int argc, char* argv[]) {
             // Gameplay pack (D221): the equipped weapon overlays after the ship.
             // Falls back to the ship's default when nothing valid is equipped;
             // the weapon's own colour supersedes D184's ship-complement rule.
+            // Gameplay pack (D221): the ship's special attribute, published for
+            // the systems that consume it (fire gate, veil, ram dash), plus the
+            // per-run seeds it owns. Seeding active_cd_mult here also stops a
+            // boss-repick discount leaking into the NEXT run.
+            blackboard.set<std::string>("ship.special", sd.special);
+            blackboard.set<float>("ship.active_cd_mult",
+                                  sd.special == "equip_cd" ? 0.75f : 1.0f);
+            blackboard.set<bool>("veil.armed", true);
+            blackboard.set<float>("ship.no_fire", 0.0f);
             // A resumed run keeps ITS weapon, not whatever is equipped now.
             std::string wname = (resume != nullptr && resume->present && !resume->weapon.empty())
                                     ? resume->weapon
@@ -2786,6 +2797,11 @@ int main(int argc, char* argv[]) {
             }
             // === END HOOK: crumble ===
 
+            // Gameplay pack (D221): ship specials (Owl's phoenix veil + the
+            // shared no-fire countdown) tick just before shields/damage so a
+            // sub-10% frame grants its i-frames before the hit resolves.
+            tick_ship_specials(component_storage, blackboard,
+                static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)));
             // Shields regen *before* damage resolves, so a hit this frame restarts
             // the quiet timer with the last word (Phase 3).
             tick_shields(component_storage,

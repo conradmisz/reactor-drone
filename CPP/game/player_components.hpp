@@ -137,6 +137,11 @@ struct WeaponStats {
     float projectile_lifetime = 1.2f;
     float spread = 0.0f;
     float cooldown_remaining = 0.0f;
+    // Gameplay pack (D221) — per-weapon projectile identity: half-size of the
+    // shot's hitbox/visual, and whether it pierces (Moonshot's wide crescent
+    // damages each enemy it passes through once instead of dying on the first).
+    float projectile_size = 6.0f;
+    bool pierce = false;
 };
 
 /**

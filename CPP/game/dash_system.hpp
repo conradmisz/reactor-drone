@@ -132,6 +132,12 @@ inline void tick_dash(ComponentStorage& storage,
             state.dir_y = dy;
             state.hit.clear();
             state.player_contact = false;
+            // Gameplay pack (D221): the Gryphon's ram dash — each dash restores
+            // a slice of shield. The shove happens in the contact loop below.
+            // ponytail: +15/dash first-pass, tune with the scrap table.
+            if (blackboard.get_or<std::string>("ship.special", std::string()) == "ram_dash"
+                && ship.shield_max > 0.0f)
+                ship.shield = std::min(ship.shield_max, ship.shield + 15.0f);
             ship.dash_timer = cfg.duration;
             --ship.dash_charges;
             // telemetry: write-only observation, nothing in the sim reads tm.* (the
@@ -171,6 +177,16 @@ inline void tick_dash(ComponentStorage& storage,
             if (std::sqrt(dx * dx + dy * dy) > pr + er) continue;
 
             touching = true;
+            // Gameplay pack (D221): ram dash shoves every touched enemy radially
+            // away by displacement, not velocity — seeker steering rewrites
+            // Velocity next frame, a moved Position sticks. Every frame of
+            // contact pushes, so the Gryphon plows through instead of clipping.
+            if (blackboard.get_or<std::string>("ship.special", std::string()) == "ram_dash") {
+                const float d = std::max(0.001f, std::sqrt(dx * dx + dy * dy));
+                const float push = 320.0f * dt;   // ponytail: shove speed, tune by feel
+                epos->get().x += dx / d * push;
+                epos->get().y += dy / d * push;
+            }
             if (std::find(state.hit.begin(), state.hit.end(), e) != state.hit.end()) continue;
             state.hit.push_back(e);
             if (cfg.damage > 0.0f) {

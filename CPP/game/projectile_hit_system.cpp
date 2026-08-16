@@ -4,6 +4,7 @@
 #include "player_components.hpp"  // Flash
 #include "collision_layers.hpp"   // OBSTACLE
 #include "bullet_bounce.hpp"      // bounce::off_aabb / inside_circle
+#include <algorithm>          // std::find (pierce ledger, D221)
 
 namespace {
 
@@ -65,6 +66,22 @@ void ProjectileHitSystem::update(EntityManager& entity_manager,
             for (Entity other : collided->get().entities) {
                 if (component_storage.has_component<EnemyTag>(other) &&
                     entity_manager.is_alive(other)) {
+                    // Gameplay pack (D221): a piercing shot keeps flying — it
+                    // damages each enemy exactly once (its `hit` ledger, the
+                    // dash_system idiom) and never claims `hit_enemy`, so the
+                    // destroy-on-enemy branch below stays untouched.
+                    if (data.pierce) {
+                        if (std::find(data.hit.begin(), data.hit.end(), other)
+                            != data.hit.end()) continue;
+                        data.hit.push_back(other);
+                        Entity ev = entity_manager.create_entity();
+                        component_storage.add_component<DamageEvent>(
+                            ev, DamageEvent{other, data.damage});
+                        component_storage.add_component<Flash>(other, Flash{fdur, fdur, fr, fg, fb});
+                        blackboard.set<double>("tm.hits",
+                            blackboard.get_or<double>("tm.hits", 0.0) + 1.0);
+                        continue;
+                    }
                     hit_enemy = other;
                     // telemetry: write-only observation, nothing in the sim reads tm.*
                     // (the player.hit_bearing precedent) — cannot move the replay canary.

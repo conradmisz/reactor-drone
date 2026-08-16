@@ -112,6 +112,9 @@ struct WeaponConfig {
     float projectile_speed = 500.0f;
     float projectile_lifetime = 1.2f;
     float spread = 0.0f;
+    // Gameplay pack (D221): per-weapon projectile half-size and piercing.
+    float projectile_size = 6.0f;
+    bool pierce = false;
 };
 
 struct PlayerConfig {

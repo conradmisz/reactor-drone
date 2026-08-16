@@ -9,10 +9,13 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   `plans/gameplay-pack-plan.md`, decisions D221/D222. Tier 0 (spec+baseline)
   and Tier 1 (data model: 4-ship roster with stats, first-class weapons,
   persistent scrap on meta.json, equipped loadout, Gryphon forest atlas) are
-  DONE — build zero-warning, 392 tests green, canary byte-identical and
-  matching baseline (Falcon + 55 Iron == old Standard numbers, deliberately).
-  Next: Tier 2 (weapon primary behaviors + ship specials). NOT playtested in a
-  window yet — hangar UI (Tier 6) is where the roster becomes visible.
+  DONE. Tier 2 DONE: per-weapon projectile identity (size + pierce — Moonshot
+  wide piercing crescent, Flak big slag), ship specials (Falcon equip_cd 0.75,
+  Owl phoenix veil <10% -> 4s invuln+no-fire w/ 25% re-arm, Gryphon ram dash
+  +15 shield & positional shove) in ship_specials.hpp + dash_system.
+  Build zero-warning, 395 unit cases + 8/8 ctest green, canary byte-identical
+  and matching baseline. Next: Tier 3 (right-mouse secondary fire). NOT
+  playtested in a window yet — feel of pierce/shove/veil unjudged.
 
 - v2.2.0 shipped 2026-08-16; release notes collapsed below.
 

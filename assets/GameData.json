@@ -2745,6 +2745,8 @@
       "projectile_speed": 420.0,
       "projectile_lifetime": 0.6,
       "spread": 0.0,
+      "projectile_size": 16.0,
+      "pierce": true,
       "secondary": "crescent_burst",
       "secondary_cd": 10.0
     },
@@ -2756,6 +2758,7 @@
       "projectile_speed": 460.0,
       "projectile_lifetime": 1.1,
       "spread": 0.04,
+      "projectile_size": 10.0,
       "secondary": "lava_stream",
       "secondary_cd": 10.0
     },

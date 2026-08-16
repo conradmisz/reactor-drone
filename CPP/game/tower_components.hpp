@@ -115,6 +115,15 @@ struct ProjectileData {
     float speed = 300.0f;
     float damage = 25.0f;
     int bounces = 0;
+    // Gameplay pack (D221): a piercing shot (Moonshot crescent) damages each
+    // enemy it passes through exactly once — `hit` is this shot's ledger, the
+    // dash_system state.hit idiom — and dies only on walls or lifetime.
+    bool pierce = false;
+    std::vector<Entity> hit;
+
+    ProjectileData() = default;
+    ProjectileData(Entity t, float s, float d, int b = 0, bool p = false)
+        : target(t), speed(s), damage(d), bounces(b), pierce(p) {}
 };
 
 /**
