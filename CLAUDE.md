@@ -43,10 +43,13 @@ read all of them for every task.
       SDL_VIDEODRIVER=dummy ./CPP/build/game/game --seed 42 \
         --keys $(seq -f '%g:SPACE' 10 4 2990) --stopframe 3000
 
-  Expected: `Frames: 3000  Final score: 160  Units: 20  Wave: 2  Phase: 1`.
-  (Re-baselined by the pack twice, each with a decision: D223 — tier 4's arena
-  shuffle changed what seed 42 plays (opens on Core II); D224 — tier 7 made
-  entity iteration SORTED, so UI authoring can never move the sim again.)
+  Expected: `Frames: 3000  Final score: 10  Units: 0  Wave: 1  Phase: 2`.
+  (Re-baselined three times by the v2.3 pack, each with a decision: D223 arena
+  shuffle, D224 sorted entity iteration, D227 contact damage restored + solid
+  enemies. **Phase 2 = the scripted drone now DIES in wave 1** — it never
+  moves, and standing inside enemies is no longer free. The canary is still a
+  determinism check, but it no longer exercises much past the first wave; see
+  the open item in progress-tracker.md about scripting movement into it.)
   Run twice — identical. For presentation-only work, also diff against the same
   command on `master`; that summary must match too.
 - **Clear `saves/` before any canary run.** The seed does NOT make the run
@@ -85,7 +88,7 @@ read all of them for every task.
 
 - Update `progress-tracker.md` after every meaningful change.
 - Append design calls (with the *why* and what was rejected) to `decisions.md`.
-  Ids are stable and cited from code — next free id is **D227**.
+  Ids are stable and cited from code — next free id is **D228**.
   (D207-D219 are the `visual-overhaul` v3 block, renumbered at the 2026-08-15
   merge — see the note in `decisions.md`. Do NOT allocate below D220.)
   (`feature/engine-suite` reserves D138-D180; the gameplay-polish batch is

@@ -115,6 +115,10 @@ struct WeaponConfig {
     // Gameplay pack (D221): per-weapon projectile half-size and piercing.
     float projectile_size = 6.0f;
     bool pierce = false;
+    // Playtest #1 item 9 (D227): render as a fixed-length blaster bolt rather
+    // than a position-history tracer ribbon.
+    bool bolt = false;
+    float bolt_length = 26.0f;   // px, along the heading
 };
 
 struct PlayerConfig {

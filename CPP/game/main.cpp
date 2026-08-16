@@ -911,7 +911,8 @@ int main(int argc, char* argv[]) {
             config.player.weapon.fire_rate, config.player.weapon.damage,
             config.player.weapon.projectile_speed, config.player.weapon.projectile_lifetime,
             config.player.weapon.spread, 0.0f,
-            config.player.weapon.projectile_size, config.player.weapon.pierce});
+            config.player.weapon.projectile_size, config.player.weapon.pierce,
+            config.player.weapon.bolt, config.player.weapon.bolt_length});
         // Per-run economy/shop state (D3: no persistence — a fresh one each run).
         // The ship's stats are already baked into `config` by start_run; ship_id
         // just records which hull this run is flying.
@@ -1332,6 +1333,7 @@ int main(int argc, char* argv[]) {
                 blackboard.set<std::string>("weapon.name", wd.name);
                 blackboard.set<std::string>("weapon.secondary", wd.secondary);
                 blackboard.set<float>("weapon.secondary_cd_max", wd.secondary_cd);
+                blackboard.set<float>("weapon.bolt_length", wd.stats.bolt_length);
                 blackboard.set<int>("ship.shot_r", wd.color_r);
                 blackboard.set<int>("ship.shot_g", wd.color_g);
                 blackboard.set<int>("ship.shot_b", wd.color_b);
@@ -1526,6 +1528,38 @@ int main(int argc, char* argv[]) {
             if (!config.ships[i].locked && !ship_owned(meta, config.ships[i]))
                 return static_cast<int>(i);
         return -1;
+    };
+
+    // Playtest #1 item 3 (D227): the hangar had no drone in it. Tier 6 claimed
+    // the live world drone WAS the preview, but it sits at world centre —
+    // behind the hangar panel. Park it in an authored preview slot instead
+    // while run_setup is up: no second entity, no duplicated art path, and the
+    // sprite already reskins on ship cycle. start_run's spawn_world resets the
+    // position, so nothing leaks into a run.
+    auto park_drone_in_hangar = [&](bool in_hangar) {
+        for (Entity pl : component_storage.entities_with_component<PlayerTag>()) {
+            auto pos = component_storage.get_component<Position>(pl);
+            auto sz  = component_storage.get_component<Size>(pl);
+            if (!pos.has_value() || !sz.has_value()) return;
+            if (!in_hangar) return;
+            // Design-canvas slot in the hangar's empty left column, mapped the
+            // same way the shop's preview is (D63).
+            constexpr UIRect PREVIEW{96.0f, 372.0f, 140.0f, 140.0f};
+            const float win_w = static_cast<float>(blackboard.get_or<int>("window_width", 980));
+            const float win_h = static_cast<float>(blackboard.get_or<int>("window_height", 660));
+            const UIRect r = ui_apply_transform(ui_canvas_transform(win_w, win_h), PREVIEW);
+            float zoom = blackboard.get_or<float>("camera.zoom", 1.0f);
+            if (zoom < 0.01f) zoom = 0.01f;
+            const float cam_left   = blackboard.get_or<float>("camera.lookat.x", 0.0f) - win_w / zoom * 0.5f;
+            const float cam_bottom = blackboard.get_or<float>("camera.lookat.y", 0.0f) - win_h / zoom * 0.5f;
+            pos->get().x = cam_left   + (r.x + (r.w - sz->get().width) * 0.5f) / zoom;
+            pos->get().y = cam_bottom + (r.y + (r.h - sz->get().height) * 0.5f) / zoom;
+            // Face right, so the hull reads as a display model rather than a
+            // drone mid-turn toward the cursor.
+            if (auto rot = component_storage.get_component<Rotation>(pl); rot.has_value())
+                rot->get().angle = 0.0f;
+            return;
+        }
     };
 
     // Tier 6 (D221): the hangar's dynamic labels, rewritten every title frame —
@@ -3015,43 +3049,7 @@ int main(int argc, char* argv[]) {
             for (Entity e : component_storage.entities_with_component<EnemyTag>()) clamp_to_arena(e);
             for (Entity p : component_storage.entities_with_component<PlayerTag>()) push_out_of_solids(p);
             for (Entity e : component_storage.entities_with_component<EnemyTag>()) push_out_of_solids(e);
-            // Gameplay pack (D221) spec #5: the drone no longer phases through
-            // enemies. A dash is the exception (tick_dash owns that contact and
-            // the burst must plow through); the Owl's veil phases through by
-            // design. Resolution is positional — push the drone out along the
-            // radial with a small extra shove so ending a dash on top of an
-            // enemy reads as a bounce, not a pin. Contact damage is unchanged
-            // (CollidedWith still fires).
-            for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
-                auto ship = component_storage.get_component<ShipState>(p);
-                if (ship.has_value() && ship->get().dash_timer > 0.0f) break;
-                if (blackboard.get_or<std::string>("ship.special", std::string()) == "phoenix_veil"
-                    && blackboard.get_or<float>("ship.no_fire", 0.0f) > 0.0f) break;
-                auto ppos = component_storage.get_component<Position>(p);
-                auto psz  = component_storage.get_component<Size>(p);
-                if (!ppos.has_value() || !psz.has_value()) break;
-                const float pr = psz->get().width * 0.5f;
-                for (Entity e : component_storage.entities_with_component<EnemyTag>()) {
-                    if (component_storage.has_component<DestroyRequest>(e)) continue;
-                    auto epos = component_storage.get_component<Position>(e);
-                    auto esz  = component_storage.get_component<Size>(e);
-                    if (!epos.has_value() || !esz.has_value()) continue;
-                    const float er = esz->get().width * 0.5f;
-                    const float pcx = ppos->get().x + pr, pcy = ppos->get().y + psz->get().height * 0.5f;
-                    const float ecx = epos->get().x + er, ecy = epos->get().y + esz->get().height * 0.5f;
-                    float dx = pcx - ecx, dy = pcy - ecy;
-                    const float dist = std::sqrt(dx * dx + dy * dy);
-                    const float min_d = pr + er;
-                    if (dist >= min_d) continue;
-                    if (dist < 0.001f) { dx = 1.0f; dy = 0.0f; }
-                    else { dx /= dist; dy /= dist; }
-                    // ponytail: overlap + 2px shove = the "small bounce"; spring it if playtests want more
-                    const float push = (min_d - dist) + 2.0f;
-                    ppos->get().x += dx * push;
-                    ppos->get().y += dy * push;
-                }
-                break;   // one player
-            }
+
             update_equipment_visuals();
 
             // Gameplay Phase 4: the Repulsor Field runs after the arena clamp and
@@ -3128,6 +3126,61 @@ int main(int argc, char* argv[]) {
                       static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)));
             player_damage.update(entity_manager, component_storage, blackboard);
             damage_apply.update(entity_manager, component_storage);
+            // Gameplay pack (D221) spec #5, corrected by playtest #1 item 6:
+            // the drone no longer phases through enemies — but the separation
+            // must run AFTER collision+damage, not before. Separating first
+            // meant the pair never overlapped when CollisionSystem looked, so
+            // CollidedWith never fired and bumping an enemy did NO damage
+            // (regression, fixed here). Now: move -> collide -> damage -> part.
+            //
+            // The drone no longer phases through
+            // enemies. A dash is the exception (tick_dash owns that contact and
+            // the burst must plow through); the Owl's veil phases through by
+            // design. Resolution is positional — push the drone out along the
+            // radial with a small extra shove so ending a dash on top of an
+            // enemy reads as a bounce, not a pin. Contact damage is unchanged
+            // (CollidedWith still fires).
+            static bool was_dashing = false;
+            for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+                auto ship = component_storage.get_component<ShipState>(p);
+                const bool dashing = ship.has_value() && ship->get().dash_timer > 0.0f;
+                const bool just_dashed = was_dashing && !dashing;
+                was_dashing = dashing;
+                if (dashing) break;
+                if (blackboard.get_or<std::string>("ship.special", std::string()) == "phoenix_veil"
+                    && blackboard.get_or<float>("ship.no_fire", 0.0f) > 0.0f) break;
+                auto ppos = component_storage.get_component<Position>(p);
+                auto psz  = component_storage.get_component<Size>(p);
+                if (!ppos.has_value() || !psz.has_value()) break;
+                const float pr = psz->get().width * 0.5f;
+                for (Entity e : component_storage.entities_with_component<EnemyTag>()) {
+                    if (component_storage.has_component<DestroyRequest>(e)) continue;
+                    auto epos = component_storage.get_component<Position>(e);
+                    auto esz  = component_storage.get_component<Size>(e);
+                    if (!epos.has_value() || !esz.has_value()) continue;
+                    const float er = esz->get().width * 0.5f;
+                    const float pcx = ppos->get().x + pr, pcy = ppos->get().y + psz->get().height * 0.5f;
+                    const float ecx = epos->get().x + er, ecy = epos->get().y + esz->get().height * 0.5f;
+                    float dx = pcx - ecx, dy = pcy - ecy;
+                    const float dist = std::sqrt(dx * dx + dy * dy);
+                    const float min_d = pr + er;
+                    if (dist >= min_d) continue;
+                    if (dist < 0.001f) { dx = 1.0f; dy = 0.0f; }
+                    else { dx /= dist; dy /= dist; }
+                    // Playtest #1 item 6, second finding: separate by EXACTLY the
+                    // overlap. The first cut added a 2px bonus on every contact
+                    // frame, which is a repulsion field, not solidity — it walked
+                    // a standing drone through the swarm and multiplied the
+                    // contact damage it ate (measured: the scripted canary went
+                    // from 115 score to 0). The spec's "small bounce" is for
+                    // ending a DASH on top of an enemy, so it lives there.
+                    const float overlap = min_d - dist;
+                    const float push = just_dashed ? overlap + 6.0f : overlap;
+                    ppos->get().x += dx * push;
+                    ppos->get().y += dy * push;
+                }
+                break;   // one player
+            }
             enemy_death.update(component_storage, entity_manager, blackboard);
             pickups.update(component_storage, entity_manager, blackboard);
 
@@ -3438,11 +3491,16 @@ int main(int argc, char* argv[]) {
                     }
                     blackboard.remove(UISystem::UI_CLICK_KEY);
                 } else if (menu_click == "on_open_cosmetics" || menu_click == "on_open_inventory") {
-                    blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH,
+                    // Playtest #1 items 4/5: CLEAR_TO, not PUSH. A pushed screen
+                    // draws OVER the hangar without hiding it, so the two menus
+                    // rendered on top of each other. CLEAR_TO is what PLAY/BACK
+                    // already use, so the stack stays [gameplay, one screen].
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
                         std::string(menu_click == "on_open_cosmetics" ? "cosmetic_shop" : "inventory"));
                     blackboard.remove(UISystem::UI_CLICK_KEY);
                 } else if (menu_click == "on_overlay_back") {
-                    blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                std::string(SCREEN_RUN_SETUP));
                     blackboard.remove(UISystem::UI_CLICK_KEY);
                 } else if (menu_click.rfind("on_cosmetic_buy_", 0) == 0) {
                     const int row = menu_click.back() - '0';
@@ -3590,6 +3648,11 @@ int main(int argc, char* argv[]) {
                 }
                 refresh_ship_widget();
                 refresh_hangar();
+                {
+                    const auto stack = ScreenStackSystem::get_stack(blackboard);
+                    park_drone_in_hangar(!stack.empty() &&
+                                         stack.back() == std::string(SCREEN_RUN_SETUP));
+                }
                 refresh_cosmetic_shop();
                 refresh_inventory();
                 refresh_continue_widget();
@@ -4221,8 +4284,34 @@ int main(int argc, char* argv[]) {
                 // short (a shot fired this frame) or the budget is spent, they
                 // fall back to a minimum-length dash along the velocity, which
                 // is what makes a fresh shot read as a laser rather than pop in.
-                auto emit = [&](Entity e, float head_w, Color col, bool is_shot) {
+                auto emit = [&](Entity e, float head_w, Color col, bool is_shot,
+                                float bolt_len = 0.0f) {
                     std::vector<line_mesh::P2> pts;
+                    // Playtest #1 item 9 (D227): a BOLT is a fixed-length blaster
+                    // shot — same length every frame of its flight, no growing
+                    // tail. It ignores trail_history entirely, which is what
+                    // makes it read as a bolt rather than a tracer.
+                    if (bolt_len > 0.0f) {
+                        float cx, cy;
+                        if (!center_of(e, &cx, &cy)) return;
+                        auto v = component_storage.get_component<Velocity>(e);
+                        float dx = v.has_value() ? v->get().dx : 0.0f;
+                        float dy = v.has_value() ? v->get().dy : 1.0f;
+                        const float len = std::sqrt(dx * dx + dy * dy);
+                        if (len < 1e-3f) { dx = 0.0f; dy = 1.0f; }
+                        else { dx /= len; dy /= len; }
+                        if (verts_left < 4) return;
+                        RenderSystem::GlowLine b;
+                        b.points = {{cx - dx * bolt_len, cy - dy * bolt_len}, {cx, cy}};
+                        b.width = head_w;
+                        b.color = col;
+                        b.core = true;
+                        b.core_scale = 0.34f;   // hot white centre down the whole bolt
+                        b.fade_tail = false;    // both ends equally bright: a bolt, not a streak
+                        verts_left -= 4;
+                        glow_lines.push_back(std::move(b));
+                        return;
+                    }
                     auto it = trail_history.find(e);
                     const std::size_t have = it == trail_history.end() ? 0 : it->second.size();
                     const std::size_t keep =
@@ -4388,7 +4477,11 @@ int main(int argc, char* argv[]) {
                         ? Color{pt->get().r, pt->get().g, pt->get().b, 235}
                         : Color{static_cast<Uint8>(shot_r), static_cast<Uint8>(shot_g),
                                 static_cast<Uint8>(shot_b), 235};
-                    emit(e, config.trails.shot_width, c, true);
+                    // Playtest #1 item 9 (D227): bolt weapons draw a fixed-length
+                    // blast; the rest keep the v3 ribbon.
+                    const float blen = (pt.has_value() && pt->get().bolt)
+                        ? blackboard.get_or<float>("weapon.bolt_length", 26.0f) : 0.0f;
+                    emit(e, config.trails.shot_width, c, true, blen);
                 }
                 for (Entity e : component_storage.entities_with_component<EnemyShot>()) {
                     auto es = component_storage.get_component<EnemyShot>(e);

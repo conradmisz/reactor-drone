@@ -19,6 +19,13 @@ namespace {
 // second layout.
 constexpr float COL_X = 164.0f;
 constexpr float COL_W = 472.0f;
+// Playtest #1 item 8: the pips used to be appended to each line's text, so with
+// a proportional font they landed wherever the value string happened to end.
+// They now render in their OWN label at ONE fixed x — the hangar's aligned-pip
+// recipe (D227) — which is alignment by geometry rather than by padding.
+constexpr float PIP_X = 496.0f;
+constexpr float PIP_W = 140.0f;
+constexpr float TEXT_W = PIP_X - COL_X - 8.0f;
 constexpr float TOP_Y = 480.0f;    // bottom edge of the first line
 constexpr float STEP  = 22.0f;
 constexpr float LINE_H = 20.0f;
@@ -83,7 +90,11 @@ std::string effect_total(const std::string& effect, float amount, int count,
 }  // namespace
 
 UIRect line_rect(int i) {
-    return UIRect{COL_X, TOP_Y - static_cast<float>(i) * STEP, COL_W, LINE_H};
+    return UIRect{COL_X, TOP_Y - static_cast<float>(i) * STEP, TEXT_W, LINE_H};
+}
+
+UIRect pip_rect(int i) {
+    return UIRect{PIP_X, TOP_Y - static_cast<float>(i) * STEP, PIP_W, LINE_H};
 }
 
 std::string active_tag(int active_id) {
@@ -113,20 +124,15 @@ std::vector<std::string> stat_lines(const Snapshot& s,
     // Each stat row ends in its shop row's pip meter (D188) — strings only, the
     // numbers and the backend math are untouched.
     out.push_back(row("HULL", fmt("%.0f", static_cast<double>(s.hull)) + " / " +
-                              fmt("%.0f", static_cast<double>(s.hull_max))) +
-                  "  " + pips(s.upg_counts[0], kMaxStacks[0]));
+                              fmt("%.0f", static_cast<double>(s.hull_max))));
     out.push_back(row("SHIELD", s.shield_max > 0.0f
                                     ? fmt("%.0f", static_cast<double>(s.shield)) + " / " +
                                           fmt("%.0f", static_cast<double>(s.shield_max))
-                                    : std::string("none")) +
-                  "  " + pips(s.upg_counts[1], kMaxStacks[1]));
+                                    : std::string("none")));
     out.push_back(row("SPEED", fmt("%.0f px/s", static_cast<double>(s.base_speed * s.speed_mult)) +
-                                   fmt("   (base %.0f)", static_cast<double>(s.base_speed))) +
-                  "  " + pips(s.upg_counts[2], kMaxStacks[2]));
-    out.push_back(row("FIRE RATE", fmt("%.1f/s", static_cast<double>(s.fire_rate)) + " " +
-                                       pips(s.upg_counts[3], kMaxStacks[3]) +
-                                       fmt("   DAMAGE  %.0f", static_cast<double>(s.damage)) + " " +
-                                       pips(s.upg_counts[4], kMaxStacks[4])));
+                                   fmt("   (base %.0f)", static_cast<double>(s.base_speed))));
+    out.push_back(row("FIRE RATE", fmt("%.1f/s", static_cast<double>(s.fire_rate))));
+    out.push_back(row("DAMAGE", fmt("%.0f", static_cast<double>(s.damage))));
 
     out.push_back(std::string());
     out.push_back("UPGRADES");
@@ -135,24 +141,42 @@ std::vector<std::string> stat_lines(const Snapshot& s,
         const int n = s.upg_counts[i];
         if (n <= 0) continue;
         out.push_back("  " + upgrades[i].name + " x" + std::to_string(n) + "   " +
-                      effect_total(upgrades[i].effect, upgrades[i].amount, n, s) +
-                      "  " + pips(n, upgrades[i].max_stacks));
+                      effect_total(upgrades[i].effect, upgrades[i].amount, n, s));
     }
     if (out.size() == before) out.push_back("  none purchased");
 
-    out.push_back(std::string());
-    std::string gear;
-    if (s.item_id >= 0) gear += s.item_name;
-    if (s.consumable_id >= 0) {
-        if (!gear.empty()) gear += "  /  ";
-        gear += "[Q] " + s.consumable_name;
-    }
-    if (s.active_id >= 0) {
-        if (!gear.empty()) gear += "  /  ";
-        gear += active_key(s.active_id) + " " + s.active_name;
-    }
-    out.push_back(row("GEAR", gear.empty() ? std::string("none equipped") : gear));
+    // Playtest #1 item 8: the GEAR row is gone. The gear economy it summarised
+    // was retired from the shop in D225, so the row described equipment the
+    // player can no longer buy.
 
+    if (out.size() > static_cast<std::size_t>(MAX_LINES))
+        out.resize(static_cast<std::size_t>(MAX_LINES));
+    return out;
+}
+
+std::vector<std::string> stat_pips(const Snapshot& s,
+                                   const std::vector<ShopUpgradeDef>& upgrades) {
+    // Row-for-row parallel to stat_lines: same order, same count, "" where a
+    // row has no meter. Kept as a second vector rather than a pair so the
+    // existing pure tests on the text are untouched.
+    std::vector<std::string> out;
+    out.reserve(MAX_LINES);
+    if (s.prestige > 0) out.push_back(std::string());
+    out.push_back(pips(s.upg_counts[0], kMaxStacks[0]));   // HULL
+    out.push_back(pips(s.upg_counts[1], kMaxStacks[1]));   // SHIELD
+    out.push_back(pips(s.upg_counts[2], kMaxStacks[2]));   // SPEED
+    out.push_back(pips(s.upg_counts[3], kMaxStacks[3]));   // FIRE RATE
+    out.push_back(pips(s.upg_counts[4], kMaxStacks[4]));   // DAMAGE
+    out.push_back(std::string());                          // blank
+    out.push_back(std::string());                          // UPGRADES header
+    std::size_t rows = 0;
+    for (std::size_t i = 0; i < upgrades.size() && i < 8; ++i) {
+        const int n = s.upg_counts[i];
+        if (n <= 0) continue;
+        out.push_back(pips(n, upgrades[i].max_stacks));
+        ++rows;
+    }
+    if (rows == 0) out.push_back(std::string());           // "none purchased"
     // The pool is fixed, so the sheet is capped rather than allowed to run off
     // the panel. It cannot actually be reached: 1 + 5 + 2 + 8 + 2 == MAX_LINES.
     if (out.size() > static_cast<std::size_t>(MAX_LINES))
@@ -179,6 +203,19 @@ void PauseStatsSystem::ensure_pool(ComponentStorage& cs, EntityManager& em) {
         cs.add_component<UIState>(e, UIState{});
         cs.add_component<ScreenMembership>(e, ScreenMembership{std::string(PAUSE_SCREEN)});
         pool_.push_back(e);
+
+        // Playtest #1 item 8 (D227): the pip meter for the same row, in its own
+        // label at the fixed pip column so every meter starts at one x.
+        Entity pe = em.create_entity();
+        UIElement pel;
+        pel.element_type = "label";
+        pel.rect = pause_stats::pip_rect(static_cast<int>(pips_.size()));
+        pel.style_id = "caption";
+        pel.z_order = 40;
+        cs.add_component<UIElement>(pe, pel);
+        cs.add_component<UIState>(pe, UIState{});
+        cs.add_component<ScreenMembership>(pe, ScreenMembership{std::string(PAUSE_SCREEN)});
+        pips_.push_back(pe);
     }
 }
 
@@ -243,10 +280,18 @@ void PauseStatsSystem::update(ComponentStorage& cs, EntityManager& em, Blackboar
     const std::vector<std::string> lines =
         have_player ? pause_stats::stat_lines(s, cfg.shop.upgrades)
                     : std::vector<std::string>();
+    const std::vector<std::string> meters =
+        have_player ? pause_stats::stat_pips(s, cfg.shop.upgrades)
+                    : std::vector<std::string>();
     for (std::size_t i = 0; i < pool_.size(); ++i) {
         auto el = cs.get_component<UIElement>(pool_[i]);
         if (!el.has_value()) continue;
         el->get().label_text = i < lines.size() ? lines[i] : std::string();
+    }
+    for (std::size_t i = 0; i < pips_.size(); ++i) {
+        auto el = cs.get_component<UIElement>(pips_[i]);
+        if (!el.has_value()) continue;
+        el->get().label_text = i < meters.size() ? meters[i] : std::string();
     }
 
     // --- HUD active-item slot (#13) ---

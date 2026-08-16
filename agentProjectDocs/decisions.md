@@ -2639,3 +2639,61 @@ and it would make escapes ordinary, but it changes the Worker's bundling and
 deploy shape — not worth coupling to a one-line outage fix). Logged in
 bugs/011 along with the still-open `cache-control: public` on an authenticated
 route.
+
+
+## D227 — Playtest #1 batch (9 items from the owner's first windowed run)  *(2026-08-16)*
+
+**Decision.** One batch, all nine items from the first real playtest of the
+v2.3 pack:
+
+1. **Main menu box** enlarged (y 64->40) so the LEADERBOARD row and the three
+   hint lines sit inside it; hint wording evened out because labels scale text
+   to fit, so the longest line rendered visibly smaller than its neighbours.
+3. **Hangar preview**: the live world drone is parked in an authored preview
+   slot while `run_setup` is up. Tier 6 claimed the world drone WAS the
+   preview, but it sits at world centre — behind the hangar panel.
+4/5. **Cosmetic shop and inventory now CLEAR_TO instead of PUSH.** A pushed
+   screen draws over the hangar without hiding it, so both menus rendered on
+   top of each other. CLEAR_TO is what PLAY/BACK already use.
+6. **Contact damage restored** — see the regression note below.
+7. **Charge is visible**: holding right-mouse fills the secondary gauge, and a
+   full charge is now a 76px slug (half-size 10->38) that pierces past half
+   charge, instead of a marginally fatter dot.
+8. **Pause sheet**: pips moved into their own fixed-x column (alignment by
+   geometry, the hangar recipe — space padding cannot align a proportional
+   font); FIRE RATE and DAMAGE split so each carries its own meter; the GEAR
+   row removed, since D225 retired the economy it described. MAX_LINES 17->16.
+9. **Fixed-length blaster bolts** for 55 Iron and Hailstorm — *supersedes
+   D201/D213 for those two weapons only*. gameplay.md's PAB already said "no
+   tracers" for them while asking for a molten-slag tracer on Flak, so Flak and
+   Moonshot keep the v3 ribbon. Owner confirmed the per-weapon split.
+10. **55 Iron recoloured** red -> warm white (255,236,200): enemy fire is always
+   deep red, so the default weapon was reading as incoming fire.
+
+**The regression, and what the fix taught us (item 6).** Tier 4's solidity
+separated the drone from enemies at line ~3016, but CollisionSystem runs at
+~3091 — so the pair never overlapped when collision looked, `CollidedWith`
+never fired, and bumping an enemy did NO damage for the whole pack. Fixed by
+moving the separation AFTER collision+damage: move -> collide -> damage -> part.
+
+Then the canary died instantly, which exposed a second bug in the same code:
+the separation added a **2px bonus shove on every contact frame**, which is a
+repulsion field, not solidity — it walked a standing drone through the swarm.
+Measured on the scripted canary: 115 score without solidity, **0** with the
+bonus shove, 10 with exact-overlap separation. Now it separates by exactly the
+overlap, and the spec's "small bounce" fires only when a DASH ends on top of an
+enemy, which is what the spec actually asked for.
+
+**Canary re-baselined a third time** to
+`Frames: 3000  Final score: 10  Units: 0  Wave: 1  Phase: 2`. Phase 2 means the
+scripted drone now dies in wave 1: it never moves, and standing inside enemies
+is no longer free. Determinism still holds (byte-identical x2).
+
+**Open, deliberately not decided here:** the canary now ends in a death run, so
+it exercises little past wave 1. Scripting movement keys into it would restore
+coverage but changes a documented project convention — owner's call.
+
+**Rejected:** padding the pause sheet's text to align pips (a proportional font
+makes that approximate at best); making all four weapons bolts (drops the slag
+tracer gameplay.md asks for); keeping the 2px shove as a "feel" knob (it was
+the bug).

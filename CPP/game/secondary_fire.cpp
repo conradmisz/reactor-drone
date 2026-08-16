@@ -103,15 +103,26 @@ void tick_secondary_fire(ComponentStorage& storage, EntityManager& em,
             if (held && !jammed && ship.secondary_cd <= 0.0f) {
                 if (ship.secondary_charge < 0.0f) ship.secondary_charge = 0.0f;
                 ship.secondary_charge += dt;
+                // Playtest #1 item 7: the charge must be VISIBLE. It drives the
+                // same HUD gauge the cooldown uses, so holding right-mouse fills
+                // the bar and releasing empties it into the shot.
+                bb.set<float>("ship.secondary_frac",
+                              secondary::charge_frac(ship.secondary_charge));
+                bb.set<bool>("ship.secondary_charging", true);
             } else if (ship.secondary_charge >= 0.0f) {
                 // Released (or jammed mid-hold): loose the shot.
                 const float frac = secondary::charge_frac(ship.secondary_charge);
                 ship.secondary_charge = -1.0f;
+                bb.set<bool>("ship.secondary_charging", false);
                 Muzzle m;
                 if (frac > 0.0f && player_muzzle(storage, player, m)) {
+                    // Playtest #1 item 7: a full charge must read as PHYSICALLY
+                    // bigger, not a slightly fatter dot. Half-size 10 -> 38 px
+                    // (a 76px slug at full hold) and it pierces when charged
+                    // past half, so the payoff is visible as well as numeric.
                     spawn_shot(storage, em, bb, m.x, m.y, m.angle,
                                480.0f, wpn.damage * secondary::charge_damage_mult(frac),
-                               8.0f + 10.0f * frac, 1.4f, false, false);
+                               10.0f + 28.0f * frac, 1.4f, frac >= 0.5f, false);
                     ship.secondary_cd = secondary::charge_cooldown(frac, cd_max);
                 }
             }

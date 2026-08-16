@@ -274,6 +274,8 @@ GameConfig load_arena_config(const std::string& file_path) {
             wd.stats.spread              = w.value("spread", wd.stats.spread);
             wd.stats.projectile_size     = w.value("projectile_size", wd.stats.projectile_size);
             wd.stats.pierce              = w.value("pierce", wd.stats.pierce);
+            wd.stats.bolt                = w.value("bolt", wd.stats.bolt);
+            wd.stats.bolt_length         = w.value("bolt_length", wd.stats.bolt_length);
             wd.fire_time     = w.value("fire_time", cfg.battery.fire_time);
             wd.recharge_time = w.value("recharge_time", cfg.battery.recharge_time);
             wd.secondary     = w.value("secondary", std::string());

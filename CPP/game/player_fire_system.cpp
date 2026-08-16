@@ -134,7 +134,8 @@ void PlayerFireSystem::update(ComponentStorage& storage,
             storage.add_component<ProjectileTag>(shot, ProjectileTag{
                 static_cast<uint8_t>(std::min(255, sr + 90)),
                 static_cast<uint8_t>(std::min(255, sg + 35)),
-                static_cast<uint8_t>(std::min(255, sb + 60))});
+                static_cast<uint8_t>(std::min(255, sb + 60)),
+                wpn.bolt});
             storage.add_component<ProjectileData>(shot,
                 ProjectileData{NO_TARGET, wpn.projectile_speed, wpn.damage, bounces,
                                wpn.pierce});

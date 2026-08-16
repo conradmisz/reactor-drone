@@ -193,12 +193,13 @@ TEST_CASE("the stat sheet reports the drone the player is actually flying",
         CHECK(all.find("322 px/s") != std::string::npos);   // 260 * 1.24
         CHECK(all.find("(base 260)") != std::string::npos);
         CHECK(all.find("5.2/s") != std::string::npos);
-        CHECK(all.find("DAMAGE  28") != std::string::npos);
+        // D227: DAMAGE is its own row now, so it can carry its own pip meter.
+        CHECK(all.find("DAMAGE") != std::string::npos);
+        CHECK(all.find("28") != std::string::npos);
         // Only PURCHASED rows, with the cumulative effect, not the per-stack one.
         CHECK(all.find("Hull Plating x2   +50 hull") != std::string::npos);
         CHECK(all.find("Aux Thruster x2   +24% speed") != std::string::npos);
         CHECK(all.find("Overclock") == std::string::npos);
-        CHECK(all.find("none equipped") != std::string::npos);
         CHECK(all.find("PRESTIGE") == std::string::npos);   // Lane O has not landed
     }
 
@@ -208,16 +209,19 @@ TEST_CASE("the stat sheet reports the drone the player is actually flying",
         CHECK(all.find("none purchased") != std::string::npos);
     }
 
-    SECTION("gear and the boss-reward active") {
+    SECTION("the GEAR row is gone, even with equipment fitted") {
+        // Playtest #1 item 8 (D227): the sheet no longer summarises gear — the
+        // gear economy it described was retired from the shop in D225. The HUD
+        // item slot still shows the active; this sheet does not.
         s.item_id = 0; s.item_name = "Magnet Core";
         s.consumable_id = 0; s.consumable_name = "Repair Kit";
         s.active_id = 1; s.active_name = "Laser Cannon";
         s.shield = 12.0f; s.shield_max = 30.0f;
         const std::string all = joined(pause_stats::stat_lines(s, cat));
         CHECK(all.find("12 / 30") != std::string::npos);
-        CHECK(all.find("Magnet Core") != std::string::npos);
-        CHECK(all.find("[Q] Repair Kit") != std::string::npos);
-        CHECK(all.find("[E] Laser Cannon") != std::string::npos);
+        CHECK(all.find("GEAR") == std::string::npos);
+        CHECK(all.find("Magnet Core") == std::string::npos);
+        CHECK(all.find("[Q] Repair Kit") == std::string::npos);
     }
 
     SECTION("the worst case still fits the pool") {
@@ -232,6 +236,9 @@ TEST_CASE("the stat sheet reports the drone the player is actually flying",
         const auto lines = pause_stats::stat_lines(full, eight);
         CHECK(lines.size() == static_cast<std::size_t>(pause_stats::MAX_LINES));
         CHECK(lines.front().rfind("PRESTIGE", 0) == 0);
+        // D227: the pip column is parallel — one entry per line, or the meters
+        // drift off their rows.
+        CHECK(pause_stats::stat_pips(full, eight).size() == lines.size());
     }
 }
 
@@ -241,9 +248,10 @@ TEST_CASE("the pip meter rounds, not truncates, at the stack boundary",
     // filled, floor would say 1. The one input at this cap where they disagree.
     pause_stats::Snapshot s;
     s.upg_counts[0] = 3;
-    const auto lines = pause_stats::stat_lines(s, {});
-    REQUIRE_FALSE(lines.empty());
-    CHECK(lines.front().find("●●○○○") != std::string::npos);
+    // D227: pips live in their own parallel column now, not inside the text.
+    const auto meters = pause_stats::stat_pips(s, {});
+    REQUIRE_FALSE(meters.empty());
+    CHECK(meters.front() == "●●○○○");
 }
 
 TEST_CASE("the repulsion device is not advertised on a key it does not have",

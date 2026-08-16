@@ -2728,12 +2728,14 @@
   "weapons": [
     {
       "name": "55 Iron",
-      "color": [255, 70, 70],
+      "color": [255, 236, 200],
       "fire_rate": 4.0,
       "damage": 20.0,
       "projectile_speed": 520.0,
       "projectile_lifetime": 1.0,
       "spread": 0.06,
+      "bolt": true,
+      "bolt_length": 30.0,
       "secondary": "charge_shot",
       "secondary_cd": 10.0
     },
@@ -2770,6 +2772,8 @@
       "projectile_speed": 560.0,
       "projectile_lifetime": 0.8,
       "spread": 0.12,
+      "bolt": true,
+      "bolt_length": 22.0,
       "secondary": "blizzard",
       "secondary_cd": 10.0
     }
@@ -4681,7 +4685,7 @@
       "widgets": [
         {
           "element_type": "panel",
-          "rect": { "x": 180, "y": 64, "w": 440, "h": 472 },
+          "rect": { "x": 180, "y": 40, "w": 440, "h": 496 },
           "label_text": "",
           "style_id": "panel",
           "z_order": 0,
@@ -4789,14 +4793,14 @@
         {
           "element_type": "label",
           "rect": { "x": 204, "y": 104, "w": 392, "h": 24 },
-          "label_text": "Arrows move   Mouse aims   Hold fire   RMB secondary",
+          "label_text": "Arrows move   Mouse aims   Hold fire",
           "style_id": "caption",
           "z_order": 10
         },
         {
           "element_type": "label",
           "rect": { "x": 204, "y": 80, "w": 392, "h": 24 },
-          "label_text": "SPACE quick-starts a Normal run",
+          "label_text": "SPACE quick-starts a run  ·  RMB secondary fire",
           "style_id": "caption",
           "z_order": 10
         },

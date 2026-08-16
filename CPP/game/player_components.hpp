@@ -149,6 +149,8 @@ struct WeaponStats {
     // damages each enemy it passes through once instead of dying on the first).
     float projectile_size = 6.0f;
     bool pierce = false;
+    bool bolt = false;            // playtest #1 item 9 (D227): fixed-length blast
+    float bolt_length = 26.0f;
 };
 
 /**

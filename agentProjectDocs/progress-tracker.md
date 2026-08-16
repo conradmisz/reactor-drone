@@ -51,8 +51,22 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   never move the sim again.** Tier 8 DONE (D225): GEAR/LEVELS
   tabs retired (code stays, nothing routes there; tests re-pinned), ESC in
   shop closes without pause, rear-origin tracer trail, main-menu LEADERBOARD
-  button, website disclaimers in docs/features.html footer. Next: Tier 9
-  (balance + playtest + release v2.3.0).
+  button, website disclaimers in docs/features.html footer. **Playtest #1 done (owner, windowed) — 9 items,
+  all fixed as batch D227.** Two real bugs found that every green gate had
+  missed: contact damage had been DEAD since tier 4 (separation ran before
+  collision), and the separation's 2px bonus shove was a repulsion field that
+  walked a standing drone through the swarm.
+
+  **OPEN for the owner:**
+  - The canary now ends in a DEATH run (Phase 2, wave 1) because standing in
+    enemies is no longer free. Determinism holds, but it exercises little past
+    wave 1. Scripting movement into the canary would fix coverage and changes a
+    documented convention — needs a call.
+  - Solidity makes standing still much more lethal (measured 115 -> 10 score on
+    the scripted bot). Judge in playtest #2 whether that is right for a player
+    who actually moves.
+
+  Next: playtest #2, then tune, then release v2.3.0.
 
 - v2.2.0 shipped 2026-08-16; release notes collapsed below.
 

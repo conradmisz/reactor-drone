@@ -46,15 +46,24 @@ struct Snapshot {
     int   prestige = 0;
 };
 
-/// Slots the pause screen reserves for stat lines. 5 stats + a blank + the
-/// UPGRADES header + 8 upgrade rows + a blank + the GEAR row = 16, plus one for
-/// the prestige line = 17, which is the worst case a run can reach.
-constexpr int MAX_LINES = 17;
+/// Slots the pause screen reserves for stat lines. Playtest #1 item 8 (D227)
+/// split FIRE RATE and DAMAGE into their own rows (each needs its own pip) and
+/// dropped the GEAR row with the gear economy (D225): 5 stats + a blank + the
+/// UPGRADES header + 8 upgrade rows = 15, plus the prestige line = 16.
+constexpr int MAX_LINES = 16;
 
 /// Where line `i` is drawn, in the 800x600 design canvas (bottom-left origin).
 /// Public so the screen-layout test can prove these never land on an authored
 /// widget — the exact class of bug #2 turned out to be.
 UIRect line_rect(int i);
+
+/// Where line `i`'s pip meter is drawn — ONE fixed x column (playtest #1 item
+/// 8, D227), so the bubbles align no matter how long the value text is.
+UIRect pip_rect(int i);
+
+/// Pip meters, row-for-row parallel to stat_lines ("" where a row has none).
+std::vector<std::string> stat_pips(const Snapshot& s,
+                                   const std::vector<ShopUpgradeDef>& upgrades);
 
 /// The character sheet, top line first. Never longer than MAX_LINES.
 std::vector<std::string> stat_lines(const Snapshot& s,
@@ -87,6 +96,7 @@ private:
     void resolve_slot(ComponentStorage& cs, const Blackboard& bb);
 
     std::vector<Entity> pool_;
+    std::vector<Entity> pips_;   // parallel pip-column labels (D227)
     Entity slot_[3] = {0, 0, 0};      // frame, name, key
     UIRect slot_rect_[3] = {};        // authored geometry, cached before hiding
     bool   slot_resolved_ = false;

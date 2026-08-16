@@ -96,6 +96,11 @@ struct DamageEvent {
  */
 struct ProjectileTag {
     uint8_t r = 255, g = 200, b = 120;
+    // Playtest #1 item 9 (D227): a BOLT renders as a fixed-length blaster shot
+    // along its heading — the "no tracers" PAB in gameplay.md for 55 Iron and
+    // Hailstorm. False keeps the v3 position-history ribbon (D201/D213), which
+    // is what Flak's molten slag and Moonshot's crescent still want.
+    bool bolt = false;
 };
 
 /**

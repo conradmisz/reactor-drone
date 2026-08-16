@@ -240,9 +240,14 @@ void GameHUDSystem::update(ComponentStorage& component_storage, Blackboard& blac
             battery_locked ? "hud_battery_low" : "hud_battery");
     // Gameplay pack (D221) tier 3: the secondary-fire cooldown. Fills toward
     // ready and flips green at full, the battery-lockout feedback pattern.
+    // Playtest #1 item 7: while the trigger is HELD the same bar shows the
+    // charge filling (green at full = loose it now); otherwise it is the
+    // cooldown refilling toward ready.
     const float sec_frac = blackboard.get_or<float>("ship.secondary_frac", 1.0f);
+    const bool charging = blackboard.get_or<bool>("ship.secondary_charging", false);
     set_bar(component_storage, sec_fill_, BAR_FULL_W, sec_frac,
-            sec_frac >= 1.0f ? "hud_secondary_ready" : "hud_secondary");
+            (charging || sec_frac >= 1.0f) && sec_frac >= 1.0f ? "hud_secondary_ready"
+                                                               : "hud_secondary");
 
     // #8: the boss bar. Collapsed to nothing unless BossSystem is publishing a
     // fraction — the same zero-rect hide the phase gate uses, so a boss that dies
