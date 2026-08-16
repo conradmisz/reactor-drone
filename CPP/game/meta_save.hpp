@@ -12,7 +12,7 @@
  * Deliberately one number. This is NOT the run-state save/load from the older
  * plan: there is no entity snapshot, no SerializationRegistry and no
  * LoadSystem. Lifetime score is the whole progression currency, and which ships
- * are unlocked is *derived* from it against each ShipDef::unlock_score (D81) —
+ * are owned is *derived* from purchases against each ShipDef (D81, D221) —
  * storing an unlock list as well would let the file disagree with GameData.json
  * the first time a threshold is retuned.
  *
@@ -47,6 +47,18 @@ struct MetaSave {
     std::string player_id;
     std::string player_name;
     bool registered = false;
+
+    /// Gameplay pack (D221/D222): persistent progression currency and the
+    /// hangar loadout. `scrap` and `owned_ships` record purchases — CHOICES,
+    /// the prestige rule, so they are stored; everything derivable (which
+    /// weapons/colors the player has) is derived from ownership instead
+    /// (D81's rule). `equipped_ship`/`equipped_weapon` DO reach the sim, like
+    /// prestige: a replay is reproducible at a fixed loadout, and headless
+    /// canary runs clear saves/ first so they always fly the defaults.
+    int scrap = 0;
+    std::vector<std::string> owned_ships;    // bought ships, by ShipDef::name
+    std::string equipped_ship;               // "" = first non-locked cost-0 ship
+    std::string equipped_weapon;             // "" = equipped ship's default weapon
 };
 
 /// Absolute path of the meta-save (`<project root>/saves/meta.json`).
@@ -66,31 +78,42 @@ bool meta_write(const std::string& path, const MetaSave& m);
 /// unique enough to key a player row, generated once and persisted forever.
 std::string generate_uuid();
 
-/// A ship is unlocked once lifetime score reaches its threshold (>=, so exactly
-/// 4000 unlocks the 4000-point ship).
-inline bool ship_unlocked(const ShipDef& s, long long lifetime_score) {
-    return lifetime_score >= static_cast<long long>(s.unlock_score);
+/// Gameplay pack (D221 call #1): ownership replaces the lifetime-score unlock.
+/// A cost-0 ship is always owned; anything else must have been bought; a
+/// `locked` ship (the unreleased 4th drone) is owned by no one.
+inline bool ship_owned(const MetaSave& m, const ShipDef& s) {
+    if (s.locked) return false;
+    if (s.scrap_cost <= 0) return true;
+    for (const std::string& n : m.owned_ships) if (n == s.name) return true;
+    return false;
 }
 
-/// How many of `ships` are currently unlocked (the title menu shows a selector
-/// only when this exceeds 1).
-inline int unlocked_ship_count(const std::vector<ShipDef>& ships, long long lifetime_score) {
+/// How many of `ships` the player owns (the selector shows only when > 1).
+inline int owned_ship_count(const std::vector<ShipDef>& ships, const MetaSave& m) {
     int n = 0;
-    for (const ShipDef& s : ships) if (ship_unlocked(s, lifetime_score)) ++n;
+    for (const ShipDef& s : ships) if (ship_owned(m, s)) ++n;
     return n;
 }
 
-/// Next unlocked ship index after `cur`, wrapping. Returns `cur` when nothing
-/// else is unlocked, which is how a locked ship stays unselectable — the cycle
-/// button simply cannot land on one.
-inline int next_unlocked_ship(const std::vector<ShipDef>& ships, int cur, long long lifetime_score) {
+/// Next owned ship index after `cur`, wrapping. Returns `cur` when nothing else
+/// is owned — the cycle button simply cannot land on a ship you don't own.
+inline int next_owned_ship(const std::vector<ShipDef>& ships, int cur, const MetaSave& m) {
     const int n = static_cast<int>(ships.size());
     if (n <= 0) return 0;
     for (int step = 1; step <= n; ++step) {
         const int i = (cur + step) % n;
-        if (ship_unlocked(ships[static_cast<size_t>(i)], lifetime_score)) return i;
+        if (ship_owned(m, ships[static_cast<size_t>(i)])) return i;
     }
     return cur;
+}
+
+/// A weapon is owned iff some owned ship grants it (derived, never stored —
+/// D81). Standalone weapon purchases don't exist yet; add storage when they do.
+inline bool weapon_owned(const MetaSave& m, const std::vector<ShipDef>& ships,
+                         const std::string& weapon_name) {
+    for (const ShipDef& s : ships)
+        if (ship_owned(m, s) && s.default_weapon == weapon_name) return true;
+    return false;
 }
 
 #endif  // META_SAVE_HPP

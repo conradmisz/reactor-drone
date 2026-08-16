@@ -2518,3 +2518,30 @@ verification traps punish unbriefed subagents).
 
 **Note.** The replay canary baseline changes **once**, at the arena-shuffle
 tier, by design. Any other tier moving the canary line is a bug.
+
+
+## D222 — Loadout persistence and weapon identity (gameplay pack tier 1)  *(2026-08-15)*
+
+**Decision.** Three implementation calls under the D221 batch:
+
+1. `MetaSave` gains `scrap`, `owned_ships`, `equipped_ship`, `equipped_weapon`.
+   Purchases and the equipped loadout are stored because they record CHOICES
+   (the prestige rule); which weapons/colors the player has stays **derived**
+   from ship ownership (D81). The equipped loadout DOES reach the sim —
+   supersedes D80's "the chosen ship is deliberately not persisted": replays
+   are reproducible at a fixed loadout, and canary runs reset `saves/` so they
+   always fly the defaults (CLAUDE.md canary rules unchanged).
+2. Weapons are first-class `WeaponDef`s with their own projectile colour —
+   supersedes **D184** (ship-complement shot colour). The complement rule
+   survives only as the fallback when no weapons catalogue is authored.
+   Per-weapon battery (`fire_time`/`recharge_time`) rides the same struct.
+3. `RunSave` records the run's weapon by name; a resumed run keeps ITS weapon
+   even if the hangar equips another meanwhile.
+
+**Why.** The spec makes any owned drone able to install any owned weapon, so
+weapon identity cannot live inside ShipDef; the rest follows D81's
+store-choices-derive-consequences discipline.
+
+**Rejected:** storing an owned-weapons list (derivable until standalone weapon
+purchases exist); persisting per-run scrap increments anywhere but the
+exactly-once `bank_run_score` edge (D3).

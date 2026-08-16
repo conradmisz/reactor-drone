@@ -37,6 +37,7 @@ struct RunSave {
     int  difficulty = 0;       ///< index into GameConfig::difficulties
     std::string difficulty_name;
     int  ship_id = 0;
+    std::string weapon;        ///< gameplay pack (D221): installed WeaponDef name; "" in legacy files
     int  wave = 0;             ///< 0-based wave index to resume at
     int  score = 0;
 

@@ -312,6 +312,14 @@ int main(int argc, char* argv[]) {
         meta_write(meta_save_path(), meta);
     }
     int selected_ship = 0;
+    // Gameplay pack (D221): the hangar loadout persists. Boot on the equipped
+    // ship when the save names an owned one; anything else falls back to 0.
+    for (size_t i = 0; i < config.ships.size(); ++i) {
+        if (config.ships[i].name == meta.equipped_ship && ship_owned(meta, config.ships[i])) {
+            selected_ship = static_cast<int>(i);
+            break;
+        }
+    }
     // Main-menu-suite Phase A: the difficulty picked on the run_setup screen,
     // consumed by LAUNCH. SPACE quick-start ignores it on purpose (always Normal).
     int setup_difficulty = 0;
@@ -904,6 +912,10 @@ int main(int argc, char* argv[]) {
         // just records which hull this run is flying.
         ShipState ship_state{};
         ship_state.ship_id = selected_ship;
+        // Gameplay pack (D221): a per-ship starting shield (Gryphon). Baked into
+        // config by apply_ship, so a resumed run's overlay still wins below.
+        ship_state.shield_max = config.player.start_shield;
+        ship_state.shield     = config.player.start_shield;
         // D192 #10: the dash stack starts at the configured size and grows by one
         // per boss killed (BossSystem). A resumed run restores dash_max from the
         // save, so bosses already beaten are not re-paid for.
@@ -1151,6 +1163,18 @@ int main(int argc, char* argv[]) {
         run_banked = true;
         const int run_score = bb.get_or<int>("score", 0);
         meta.lifetime_score += run_score;
+        // Gameplay pack (D221): bank scrap on this same exactly-once edge. A
+        // victory banks every wave; otherwise the current 0-based index IS the
+        // number of waves fully cleared. Published for the run-stats screen.
+        {
+            const bool victory = std::string(outcome) == "victory";
+            const int cleared = victory ? config.victory_wave
+                                        : wave_spawner.current_wave_index();
+            const int earned = scrap_for_run(cleared, victory, config.scrap,
+                                             10, config.victory_wave);
+            meta.scrap += earned;
+            blackboard.set<int>("run.scrap", earned);
+        }
         // Main-menu-suite Phase C: the records screen's numbers, banked in the
         // same breath as the score so they can never disagree with it.
         meta.runs_played += 1;
@@ -1235,13 +1259,36 @@ int main(int argc, char* argv[]) {
         if (selected_ship >= 0 && selected_ship < static_cast<int>(config.ships.size())) {
             const ShipDef& sd = config.ships[static_cast<size_t>(selected_ship)];
             apply_ship(config.player, sd);
+            // Gameplay pack (D221): per-ship dash reach — distance is
+            // speed*duration, so scaling speed here (on the fresh copy, D50
+            // discipline) changes reach without touching any duration rule.
+            config.dash.speed *= sd.dash_mult;
             load_player_sprite();
-            // D184: shots fire in the complement of the hull's hue, published
-            // here so PlayerFireSystem stays catalogue-blind like the barrel
-            // count. get_or defaults in the reader keep old saves harmless.
-            blackboard.set<int>("ship.shot_r", 255 - sd.color_r);
-            blackboard.set<int>("ship.shot_g", 255 - sd.color_g);
-            blackboard.set<int>("ship.shot_b", 255 - sd.color_b);
+            // Gameplay pack (D221): the equipped weapon overlays after the ship.
+            // Falls back to the ship's default when nothing valid is equipped;
+            // the weapon's own colour supersedes D184's ship-complement rule.
+            // A resumed run keeps ITS weapon, not whatever is equipped now.
+            std::string wname = (resume != nullptr && resume->present && !resume->weapon.empty())
+                                    ? resume->weapon
+                                    : meta.equipped_weapon;
+            if (wname.empty() || find_weapon(config.weapons, wname) < 0
+                || (!(resume != nullptr && resume->present)
+                    && !weapon_owned(meta, config.ships, wname)))
+                wname = sd.default_weapon;
+            const int wi = find_weapon(config.weapons, wname);
+            if (wi >= 0) {
+                const WeaponDef& wd = config.weapons[static_cast<size_t>(wi)];
+                apply_weapon(config.player, config.battery, wd);
+                blackboard.set<std::string>("weapon.name", wd.name);
+                blackboard.set<int>("ship.shot_r", wd.color_r);
+                blackboard.set<int>("ship.shot_g", wd.color_g);
+                blackboard.set<int>("ship.shot_b", wd.color_b);
+            } else {
+                // No weapons catalogue authored — D184's complement rule stands.
+                blackboard.set<int>("ship.shot_r", 255 - sd.color_r);
+                blackboard.set<int>("ship.shot_g", 255 - sd.color_g);
+                blackboard.set<int>("ship.shot_b", 255 - sd.color_b);
+            }
         }
         // === HOOK: prestige === (Iteration 5, D126 — Lane O / #14)
         // The base-stat buff rides the SAME site as the ship overlay and
@@ -1294,7 +1341,10 @@ int main(int argc, char* argv[]) {
         std::cout << "Run start: difficulty " << label << "  ship "
                   << (selected_ship >= 0 && selected_ship < static_cast<int>(config.ships.size())
                           ? config.ships[static_cast<size_t>(selected_ship)].name
-                          : std::string("Standard"))
+                          : std::string("Falcon"))
+                  // Gameplay pack (D221): the weapon is the only other loadout
+                  // choice — same line, same reason, still not the canary line.
+                  << "  weapon " << blackboard.get_or<std::string>("weapon.name", "none")
                   << "\n";
         wave_spawner.set_config(&config);
         spawn_world();
@@ -1342,21 +1392,22 @@ int main(int argc, char* argv[]) {
         if (ship_widget == 0) return;      // no main_menu authored — nothing to say
         auto el = component_storage.get_component<UIElement>(ship_widget);
         if (!el.has_value()) return;
-        const int unlocked = unlocked_ship_count(config.ships, meta.lifetime_score);
-        if (unlocked > 1 && selected_ship < static_cast<int>(config.ships.size())) {
+        const int owned = owned_ship_count(config.ships, meta);
+        if (owned > 1 && selected_ship < static_cast<int>(config.ships.size())) {
             el->get().label_text = "SHIP: " + config.ships[static_cast<size_t>(selected_ship)].name
                                  + "   (click to change)";
             el->get().style_id = "default_button";
             return;
         }
-        // Only one hull available: show the next threshold instead of a dead button.
+        // Only one hull owned: show the next purchasable ship's price instead of
+        // a dead button (gameplay pack D221 — drones are bought with scrap).
         el->get().style_id = "subtitle";
         el->get().label_text.clear();
         for (const ShipDef& s : config.ships) {
-            if (!ship_unlocked(s, meta.lifetime_score)) {
-                el->get().label_text = s.name + " unlocks at " + std::to_string(s.unlock_score)
-                                     + " pts  (lifetime "
-                                     + std::to_string(meta.lifetime_score) + ")";
+            if (!s.locked && !ship_owned(meta, s)) {
+                el->get().label_text = s.name + " costs " + std::to_string(s.scrap_cost)
+                                     + " scrap  (you have "
+                                     + std::to_string(meta.scrap) + ")";
                 break;
             }
         }
@@ -2989,12 +3040,15 @@ int main(int argc, char* argv[]) {
                     launch = true;
                     launch_difficulty = static_cast<size_t>(setup_difficulty);
                 } else if (menu_click == "on_ship_cycle") {
-                    // Lane F (D82): cycle to the next *unlocked* ship. A locked one
-                    // is never landed on, so there is no "you can't fly that" case
-                    // to report — with only one ship unlocked this is a no-op and
-                    // the widget is a lock readout rather than a selector.
-                    selected_ship = next_unlocked_ship(config.ships, selected_ship,
-                                                       meta.lifetime_score);
+                    // Lane F (D82) / gameplay pack (D221): cycle to the next
+                    // *owned* ship — an unowned or locked one is never landed on.
+                    // The choice persists as the equipped loadout.
+                    selected_ship = next_owned_ship(config.ships, selected_ship, meta);
+                    if (selected_ship >= 0 && selected_ship < static_cast<int>(config.ships.size())) {
+                        meta.equipped_ship = config.ships[static_cast<size_t>(selected_ship)].name;
+                        meta.equipped_weapon.clear();  // ship default until the hangar can pick
+                        meta_write(meta_save_path(), meta);
+                    }
                     blackboard.remove(UISystem::UI_CLICK_KEY);
                 } else if (menu_click == "on_continue_run_click" && newest_slot() >= 0) {
                     // Lane K (D100): CONTINUE resumes the newest saved run. Handled

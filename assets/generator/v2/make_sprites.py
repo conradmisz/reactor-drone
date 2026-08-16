@@ -1115,6 +1115,11 @@ def main():
     write_sprite("player_drone_violet",
                  player_frames(6, hull=(180, 110, 255), accent=(232, 210, 255),
                                trim=(90, 235, 255)), 3, march_clip)
+    # Gameplay pack (D221): the Gryphon's forest-green atlas — same chassis rule
+    # as the violet one (bake the catalogue colour, never runtime-tint cyan art).
+    write_sprite("player_drone_forest",
+                 player_frames(6, hull=(70, 170, 90), accent=(180, 255, 190),
+                               trim=(235, 220, 120)), 3, march_clip)
     # Enemies: march (loop) + death (oneshot) concatenated.
     # v2 Phase 5a: drawn against MONO, i.e. pure luminance. These used to bake an
     # arena's own primary (runner=BIOLAB green, hulk=FOUNDRY orange), which made

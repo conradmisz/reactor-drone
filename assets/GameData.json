@@ -2668,36 +2668,115 @@
     }
   ],
   "//ships": "Selectable ships (Lane F, D82). A ship is a variant of the player block's sidecar/idle_clip/weapon, overlaid onto PlayerConfig at run start. unlock_score is compared against the LIFETIME score in saves/meta.json; 0 = always available. Purple is a gatling: 12/s x 6 dmg = 72 DPS against Standard's 4/s x 20 = 80, i.e. 3x the cadence for 90% of the sustained damage. PROVISIONAL and unplayed. Purple reuses the standard drone art for now (D83).",
+  "//ships": "Gameplay pack (D221): drones are bought with scrap (cost 0 = starter, locked = unreleased 4th drone). Stats overlay the player block; weapons are first-class in the weapons array. dash_mult scales dash SPEED (distance = speed*duration).",
   "ships": [
     {
-      "name": "Standard",
+      "name": "Falcon",
       "sidecar": "images/v2/player_drone.json",
       "idle_clip": "march",
       "color": [90, 220, 255],
-      "unlock_score": 0,
-      "weapon": {
-        "fire_rate": 4.0,
-        "damage": 20.0,
-        "projectile_speed": 520.0,
-        "projectile_lifetime": 1.0,
-        "spread": 0.06
-      }
+      "default_weapon": "55 Iron",
+      "special": "equip_cd",
+      "hull": 100.0,
+      "shield": 0.0,
+      "speed": 260.0,
+      "dash_mult": 1.0,
+      "scrap_cost": 0
     },
     {
-      "name": "Purple Gatling",
+      "name": "Owl",
       "sidecar": "images/v2/player_drone_violet.json",
       "idle_clip": "march",
       "color": [180, 110, 255],
-      "unlock_score": 4000,
-      "weapon": {
-        "fire_rate": 12.0,
-        "damage": 6.0,
-        "projectile_speed": 560.0,
-        "projectile_lifetime": 0.8,
-        "spread": 0.12
-      }
+      "default_weapon": "Moonshot",
+      "special": "phoenix_veil",
+      "hull": 100.0,
+      "shield": 0.0,
+      "speed": 260.0,
+      "dash_mult": 1.0,
+      "scrap_cost": 400
+    },
+    {
+      "name": "Gryphon",
+      "sidecar": "images/v2/player_drone_forest.json",
+      "idle_clip": "march",
+      "color": [70, 170, 90],
+      "default_weapon": "Flak Cannon",
+      "special": "ram_dash",
+      "hull": 140.0,
+      "shield": 30.0,
+      "speed": 220.0,
+      "dash_mult": 0.75,
+      "scrap_cost": 800
+    },
+    {
+      "name": "Gatling",
+      "sidecar": "images/v2/player_drone_violet.json",
+      "idle_clip": "march",
+      "color": [180, 110, 255],
+      "default_weapon": "Hailstorm",
+      "special": "",
+      "hull": 100.0,
+      "shield": 0.0,
+      "speed": 260.0,
+      "dash_mult": 1.0,
+      "scrap_cost": 1200,
+      "locked": true
     }
   ],
+  "//weapons": "Gameplay pack (D221): installable weapons. Stats default to the player block, battery to the battery block. secondary/secondary_cd parsed now, consumed by the secondary-fire tier. color is the projectile identity (supersedes D184 ship-complement).",
+  "weapons": [
+    {
+      "name": "55 Iron",
+      "color": [255, 70, 70],
+      "fire_rate": 4.0,
+      "damage": 20.0,
+      "projectile_speed": 520.0,
+      "projectile_lifetime": 1.0,
+      "spread": 0.06,
+      "secondary": "charge_shot",
+      "secondary_cd": 10.0
+    },
+    {
+      "name": "Moonshot",
+      "color": [90, 255, 130],
+      "fire_rate": 1.6,
+      "damage": 14.0,
+      "projectile_speed": 420.0,
+      "projectile_lifetime": 0.6,
+      "spread": 0.0,
+      "secondary": "crescent_burst",
+      "secondary_cd": 10.0
+    },
+    {
+      "name": "Flak Cannon",
+      "color": [255, 170, 60],
+      "fire_rate": 1.2,
+      "damage": 45.0,
+      "projectile_speed": 460.0,
+      "projectile_lifetime": 1.1,
+      "spread": 0.04,
+      "secondary": "lava_stream",
+      "secondary_cd": 10.0
+    },
+    {
+      "name": "Hailstorm",
+      "color": [150, 220, 255],
+      "fire_rate": 12.0,
+      "damage": 6.0,
+      "projectile_speed": 560.0,
+      "projectile_lifetime": 0.8,
+      "spread": 0.12,
+      "secondary": "blizzard",
+      "secondary_cd": 10.0
+    }
+  ],
+  "//scrap": "Gameplay pack (D221 call 5): persistent-currency awards. FIRST-PASS TUNING TABLE - full victory = 30*5 + 3*25 + 100 = 325.",
+  "scrap": {
+    "per_wave": 5,
+    "boss_bonus": 25,
+    "victory_bonus": 100
+  },
   "//economy": "Currency/key drop tuning (Gameplay Phase 2). Drop counts are inclusive bounds on a uniform roll; pickup_size doubles as the collection-radius basis.",
   "economy": {
     "min_drops": 0,

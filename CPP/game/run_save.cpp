@@ -85,6 +85,7 @@ RunSave run_save_load(const std::string& path) {
         s.difficulty      = std::max(0, jget(j, "difficulty", 0));
         s.difficulty_name = jget<std::string>(j, "difficulty_name", std::string());
         s.ship_id         = std::max(0, jget(j, "ship_id", 0));
+        s.weapon          = jget<std::string>(j, "weapon", std::string());
         s.wave            = std::max(0, jget(j, "wave", 0));
         s.score           = std::max(0, jget(j, "score", 0));
 
@@ -130,6 +131,7 @@ bool run_save_write(const std::string& path, const RunSave& s) {
             {"difficulty", s.difficulty},
             {"difficulty_name", s.difficulty_name},
             {"ship_id", s.ship_id},
+            {"weapon", s.weapon},
             {"wave", s.wave},
             {"score", s.score},
             {"hull", s.hull},
@@ -178,6 +180,7 @@ RunSave run_save_capture(ComponentStorage& storage, const Blackboard& blackboard
     s.ship_id         = ship_id;
     s.wave            = std::max(0, wave);
     s.score           = blackboard.get_or<int>("score", 0);
+    s.weapon          = blackboard.get_or<std::string>("weapon.name", std::string());
     s.extra_shots     = blackboard.get_or<int>("ship.extra_shots", 0);
 
     Entity player = 0;

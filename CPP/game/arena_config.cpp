@@ -135,31 +135,38 @@ GameConfig load_arena_config(const std::string& file_path) {
         }
     }
 
-    // Lane F (D82): selectable ships. Each entry defaults to the player block it
-    // overlays, so a ship that only retunes the weapon authors only the weapon.
+    // Lane F (D82): selectable ships. Stat fields default to the player block
+    // they overlay (gameplay pack D221: stats + price replace the embedded
+    // weapon and the retired unlock_score).
     if (data.contains("ships")) {
         for (const auto& s : data["ships"]) {
             ShipDef ship;
-            ship.name         = s.value("name", ship.name);
-            ship.sidecar      = s.value("sidecar", std::string());
-            ship.idle_clip    = s.value("idle_clip", std::string());
-            ship.unlock_score = s.value("unlock_score", ship.unlock_score);
+            ship.name           = s.value("name", ship.name);
+            ship.sidecar        = s.value("sidecar", std::string());
+            ship.idle_clip      = s.value("idle_clip", std::string());
+            ship.default_weapon = s.value("default_weapon", std::string());
+            ship.special        = s.value("special", std::string());
+            ship.hull           = s.value("hull", cfg.player.start_health);
+            ship.shield         = s.value("shield", 0.0f);
+            ship.speed          = s.value("speed", cfg.player.move_speed);
+            ship.dash_mult      = s.value("dash_mult", ship.dash_mult);
+            ship.scrap_cost     = s.value("scrap_cost", ship.scrap_cost);
+            ship.locked         = s.value("locked", ship.locked);
             if (s.contains("color") && s["color"].is_array() && s["color"].size() >= 3) {
                 ship.color_r = static_cast<uint8_t>(s["color"][0].get<int>());
                 ship.color_g = static_cast<uint8_t>(s["color"][1].get<int>());
                 ship.color_b = static_cast<uint8_t>(s["color"][2].get<int>());
             }
-            ship.weapon       = cfg.player.weapon;
-            if (s.contains("weapon")) {
-                const auto& w = s["weapon"];
-                ship.weapon.fire_rate           = w.value("fire_rate", ship.weapon.fire_rate);
-                ship.weapon.damage              = w.value("damage", ship.weapon.damage);
-                ship.weapon.projectile_speed    = w.value("projectile_speed", ship.weapon.projectile_speed);
-                ship.weapon.projectile_lifetime = w.value("projectile_lifetime", ship.weapon.projectile_lifetime);
-                ship.weapon.spread              = w.value("spread", ship.weapon.spread);
-            }
-            cfg.ships.push_back(ship);
+            cfg.ships.push_back(std::move(ship));
         }
+    }
+
+    // Gameplay pack (D221 call #5): the scrap tuning table.
+    if (data.contains("scrap")) {
+        const auto& sc = data["scrap"];
+        cfg.scrap.per_wave      = sc.value("per_wave", cfg.scrap.per_wave);
+        cfg.scrap.boss_bonus    = sc.value("boss_bonus", cfg.scrap.boss_bonus);
+        cfg.scrap.victory_bonus = sc.value("victory_bonus", cfg.scrap.victory_bonus);
     }
 
     if (data.contains("enemy_types")) {
@@ -231,6 +238,33 @@ GameConfig load_arena_config(const std::string& file_path) {
         cfg.battery.fire_time     = b.value("fire_time", cfg.battery.fire_time);
         cfg.battery.recharge_time = b.value("recharge_time", cfg.battery.recharge_time);
     }
+
+    // Gameplay pack (D221): first-class weapons. Stats default to the player
+    // block, battery to the global battery block, so an entry authors only what
+    // it changes.
+    if (data.contains("weapons")) {
+        for (const auto& w : data["weapons"]) {
+            WeaponDef wd;
+            wd.name  = w.value("name", wd.name);
+            wd.stats = cfg.player.weapon;
+            wd.stats.fire_rate           = w.value("fire_rate", wd.stats.fire_rate);
+            wd.stats.damage              = w.value("damage", wd.stats.damage);
+            wd.stats.projectile_speed    = w.value("projectile_speed", wd.stats.projectile_speed);
+            wd.stats.projectile_lifetime = w.value("projectile_lifetime", wd.stats.projectile_lifetime);
+            wd.stats.spread              = w.value("spread", wd.stats.spread);
+            wd.fire_time     = w.value("fire_time", cfg.battery.fire_time);
+            wd.recharge_time = w.value("recharge_time", cfg.battery.recharge_time);
+            wd.secondary     = w.value("secondary", std::string());
+            wd.secondary_cd  = w.value("secondary_cd", wd.secondary_cd);
+            if (w.contains("color") && w["color"].is_array() && w["color"].size() >= 3) {
+                wd.color_r = static_cast<uint8_t>(w["color"][0].get<int>());
+                wd.color_g = static_cast<uint8_t>(w["color"][1].get<int>());
+                wd.color_b = static_cast<uint8_t>(w["color"][2].get<int>());
+            }
+            cfg.weapons.push_back(std::move(wd));
+        }
+    }
+
     if (data.contains("bloom")) {
         const auto& b = data["bloom"];
         cfg.bloom.enabled           = b.value("enabled", cfg.bloom.enabled);

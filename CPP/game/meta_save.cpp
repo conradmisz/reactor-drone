@@ -42,6 +42,12 @@ MetaSave meta_load(const std::string& path) {
             m.player_id      = j.value("player_id", std::string());
             m.player_name    = j.value("player_name", std::string());
             m.registered     = j.value("registered", false);
+            m.scrap           = std::max(0, j.value("scrap", 0));
+            m.equipped_ship   = j.value("equipped_ship", std::string());
+            m.equipped_weapon = j.value("equipped_weapon", std::string());
+            if (j.contains("owned_ships") && j["owned_ships"].is_array())
+                for (const auto& n : j["owned_ships"])
+                    if (n.is_string()) m.owned_ships.push_back(n.get<std::string>());
         }
     } catch (...) {
         return MetaSave{};
@@ -65,7 +71,11 @@ bool meta_write(const std::string& path, const MetaSave& m) {
                               {"runs_played", m.runs_played},
                               {"player_id", m.player_id},
                               {"player_name", m.player_name},
-                              {"registered", m.registered}}.dump(2) << "\n";
+                              {"registered", m.registered},
+                              {"scrap", m.scrap},
+                              {"owned_ships", m.owned_ships},
+                              {"equipped_ship", m.equipped_ship},
+                              {"equipped_weapon", m.equipped_weapon}}.dump(2) << "\n";
         return out.good();
     } catch (...) {
         return false;  // ponytail: a lost save is a lost unlock, never a crashed game

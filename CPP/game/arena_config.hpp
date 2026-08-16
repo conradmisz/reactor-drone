@@ -116,6 +116,7 @@ struct WeaponConfig {
 
 struct PlayerConfig {
     float start_health = 100.0f;
+    float start_shield = 0.0f;     // gameplay pack (D221): shield at spawn (per-ship)
     float move_speed = 260.0f;
     float invuln_window = 0.8f;
     float start_x = 460.0f;
@@ -127,26 +128,58 @@ struct PlayerConfig {
 };
 
 /**
- * ShipDef — one selectable player ship (Lane F, D82).
+ * WeaponDef — one installable weapon (gameplay pack v2.3, D221/D222).
  *
- * A ship is exactly a variant of the three PlayerConfig fields that describe
- * "what you fly": its sprite, its idle clip and its weapon. No new component,
- * no ship system — `apply_ship` overlays it onto PlayerConfig at run start, the
- * same place and the same discipline as apply_difficulty.
+ * Weapons used to be an anonymous WeaponConfig embedded in each ship; the pack
+ * makes them first-class so any owned drone can install any owned weapon. The
+ * projectile colour lives here (supersedes D184's ship-complement rule — the
+ * spec assigns each weapon its own identity colour), and the primary-fire
+ * battery is per-weapon (`fire_time`/`recharge_time`, the D192 #9 knobs).
+ * `secondary`/`secondary_cd` are parsed now, consumed by the secondary-fire
+ * tier (the D51 convention: inert until its owner lands).
+ */
+struct WeaponDef {
+    std::string name = "55 Iron";
+    WeaponConfig stats;
+    float fire_time = 12.0f;       // battery seconds of continuous fire
+    float recharge_time = 3.0f;    // battery seconds empty -> full
+    uint8_t color_r = 255, color_g = 70, color_b = 70;
+    std::string secondary;         // secondary-fire behavior id ("" = none yet)
+    float secondary_cd = 10.0f;
+};
+
+/// Index of `name` in `weapons`, or -1. Pure — unit-tested.
+inline int find_weapon(const std::vector<WeaponDef>& weapons, const std::string& name) {
+    for (size_t i = 0; i < weapons.size(); ++i)
+        if (weapons[i].name == name) return static_cast<int>(i);
+    return -1;
+}
+
+/**
+ * ShipDef — one selectable player ship (Lane F, D82; stats + ownership added by
+ * the gameplay pack, D221).
  *
- * `unlock_score` is compared against the *lifetime* score in saves/meta.json
- * (see meta_save.hpp); 0 = always available.
+ * A ship is now a stat profile (hull/shield/speed/dash), a default weapon (by
+ * WeaponDef name), a special-attribute id, and a scrap price. Ownership is
+ * price-based: `scrap_cost` 0 = always owned, otherwise the ship must appear in
+ * MetaSave::owned_ships (bought in the hangar). `locked` ships are neither
+ * owned nor purchasable regardless of price (the 4th drone, pre-release).
+ * `unlock_score` (lifetime-score gating) retired with D221 call #1.
  */
 struct ShipDef {
-    std::string name = "Standard";
+    std::string name = "Falcon";
     std::string sidecar;
     std::string idle_clip = "idle";
-    WeaponConfig weapon;
-    int unlock_score = 0;
-    // D184: the hull's identity hue, matching the baked sprite art. Shots are
-    // fired in its complement (255-c per channel) so ordnance can never read
-    // as ship — the rule D108's hardcoded red approximated for the one ship
-    // that existed then. Default is the Standard drone's cyan.
+    std::string default_weapon;    // WeaponDef name granted with the ship
+    std::string special;           // special-attribute id ("" = none); consumed by ship-specials tier
+    float hull = 100.0f;
+    float shield = 0.0f;           // shield the run STARTS with (Gryphon)
+    float speed = 260.0f;
+    float dash_mult = 1.0f;        // scales DashConfig::speed (distance = speed*duration)
+    int scrap_cost = 0;            // 0 = always owned
+    bool locked = false;           // true = unreleased (never owned/purchasable)
+    // D184: the hull's identity hue, matching the baked sprite art. (Shot colour
+    // moved to WeaponDef with the pack; this hue still drives trails/UI.)
     uint8_t color_r = 90, color_g = 220, color_b = 255;
 };
 
@@ -328,6 +361,25 @@ struct BatteryConfig {
     float fire_time = 12.0f;      // seconds of continuous fire from full
     float recharge_time = 3.0f;   // seconds from empty to full
 };
+
+/// ScrapConfig — the persistent between-run currency awards (gameplay pack,
+/// D221 call #5). All first-pass numbers; a tuning table, not a design.
+struct ScrapConfig {
+    int per_wave = 5;         // per wave cleared
+    int boss_bonus = 25;      // extra per boss wave cleared (10/20/30)
+    int victory_bonus = 100;  // extra for finishing wave 30
+};
+
+/// Scrap earned by a run: `waves_cleared` full waves (victory = all of them),
+/// one boss bonus per boss wave inside that count. Pure — unit-tested.
+inline int scrap_for_run(int waves_cleared, bool victory, const ScrapConfig& c,
+                         int boss_every = 10, int total_waves = 30) {
+    if (waves_cleared < 0) waves_cleared = 0;
+    if (waves_cleared > total_waves) waves_cleared = total_waves;
+    int bosses = boss_every > 0 ? waves_cleared / boss_every : 0;
+    return waves_cleared * c.per_wave + bosses * c.boss_bonus
+         + (victory ? c.victory_bonus : 0);
+}
 
 /// MinimapConfig — the arena minimap (#7, Lane B).
 struct MinimapConfig {
@@ -561,6 +613,8 @@ struct GameConfig {
     ShopConfig shop;               // v2 Gameplay Phase 3: catalogue + prices
     std::vector<DifficultyDef> difficulties;  // Phase B: run difficulties, index 0 = default
     std::vector<ShipDef> ships;    // Lane F: selectable ships, index 0 = the default hull
+    std::vector<WeaponDef> weapons; // gameplay pack (D221): installable weapons
+    ScrapConfig scrap;              // gameplay pack (D221): persistent-currency awards
     // Iteration 3 (D51) — parsed now, consumed by the lane that owns each.
     SustainConfig sustain;         // #10 health/shield pickups
     DashConfig dash;               // #5 thruster dash
@@ -619,7 +673,20 @@ inline int active_arena_index(const std::vector<ArenaDef>& arenas, int wave) {
 inline void apply_ship(PlayerConfig& player, const ShipDef& s) {
     if (!s.sidecar.empty())   player.sidecar   = s.sidecar;
     if (!s.idle_clip.empty()) player.idle_clip = s.idle_clip;
-    player.weapon = s.weapon;
+    // Gameplay pack (D221): the stat profile overlays here; the weapon does NOT —
+    // weapons are first-class WeaponDefs, overlaid by start_run from the equipped
+    // loadout (any owned drone can install any owned weapon).
+    player.start_health = s.hull;
+    player.start_shield = s.shield;
+    player.move_speed   = s.speed;
+}
+
+/// Overlay the equipped weapon onto the player config + battery (same discipline
+/// as apply_ship: fresh config copy, exactly one application site in start_run).
+inline void apply_weapon(PlayerConfig& player, BatteryConfig& battery, const WeaponDef& w) {
+    player.weapon         = w.stats;
+    battery.fire_time     = w.fire_time;
+    battery.recharge_time = w.recharge_time;
 }
 
 inline void apply_difficulty(GameConfig& cfg, const DifficultyDef& d) {

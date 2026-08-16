@@ -5,8 +5,16 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
 
 ## Current Phase
 
-- **v2.2.0 SHIPPED 2026-08-16. The branch is staged for the gameplay.md
-  rewrite and nothing else is in flight.**
+- **Gameplay pack v2.3 in flight** — spec `specs/gameplay-pack-v2.3.md`, plan
+  `plans/gameplay-pack-plan.md`, decisions D221/D222. Tier 0 (spec+baseline)
+  and Tier 1 (data model: 4-ship roster with stats, first-class weapons,
+  persistent scrap on meta.json, equipped loadout, Gryphon forest atlas) are
+  DONE — build zero-warning, 392 tests green, canary byte-identical and
+  matching baseline (Falcon + 55 Iron == old Standard numbers, deliberately).
+  Next: Tier 2 (weapon primary behaviors + ship specials). NOT playtested in a
+  window yet — hangar UI (Tier 6) is where the roster becomes visible.
+
+- v2.2.0 shipped 2026-08-16; release notes collapsed below.
 
   Released off `feature/distribution`: engine suite (all flags off), The Shroud,
   The Drift, and `--dev` starting fully kitted. All five gates verified in the
