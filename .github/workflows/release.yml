@@ -131,7 +131,15 @@ jobs:
       - name: GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          draft: true
+          # Publish outright. This was `draft: true`, which meant every release
+          # sat invisible until someone pressed a button in the web UI — the
+          # assets existed but every releases/download/<tag>/ URL 404'd, so the
+          # website buttons and the in-game updater both pointed at nothing.
+          draft: false
+          # ...and publishing alone does NOT move the "Latest" badge, so
+          # /releases/latest kept serving the PREVIOUS version even once the new
+          # one was public. Both of these were fixed by hand on v2.1.0.
+          make_latest: true
           files: |
             installer/Output/ReactorDrone-Setup-*.exe
             ReactorDrone-win64.zip
