@@ -194,7 +194,7 @@ int main(int argc, char* argv[]) {
     SDL_RendererPtr renderer;
     // D212 (v3 Tier 6a): the GPU renderer is now the DEFAULT, as the v3 plan
     // always specified; --classic-renderer is the escape hatch. The opt-in was a
-    // bugs/003 stability hold, resolved by the 2026-08-11 system SDL update and
+    // bugs/009 stability hold, resolved by the 2026-08-11 system SDL update and
     // signed off by the 2026-08-13 windowed playtest. --gpu-renderer is kept as
     // an accepted no-op so existing scripts and the run.py forwarder still work.
     // Headless is unaffected without an explicit guard: the dummy/offscreen

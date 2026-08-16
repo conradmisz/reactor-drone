@@ -2329,7 +2329,7 @@ game should *show* its state, not make you infer it.
   `begin()` instead of hard-coding the backbuffer — the one bloom change this
   tier needed), then `apply()` draws it back through the shader.
   - **Opt-in, not default** (`--gpu-renderer`): the installed SDL prerelease
-    wedges — see `bugs/003`. The classic renderer carries the full Tier 0-3
+    wedges — see `bugs/009`. The classic renderer carries the full Tier 0-3
     look; Tier 4 adds grade/aberration/shockwave only. Flip the default after
     a system SDL update passes the bug-003 re-test.
   - **Uniforms are 8 tightly-packed floats** matching the GLSL block; the
@@ -2368,7 +2368,7 @@ game should *show* its state, not make you infer it.
   further: `SDL_DestroyGPURenderState` + texture destroy are clean;
   `SDL_ReleaseGPUShader` still wedges under a live renderer, so exactly one
   shader object (~4KB) is leaked to process exit. GPU stays opt-in pending a
-  windowed playtest — a product call now, not a stability one. bugs/003
+  windowed playtest — a product call now, not a stability one. bugs/009
   updated with the full re-test matrix.
 
 ### Hoisted from `v3-neon-projectiles-and-display.md` (2026-08-15 merge)
@@ -2377,7 +2377,7 @@ Hoist to `decisions.md` / `progress-tracker.md` on `master` at merge, then empty
 
 - **D212:** GPU renderer is now the default; `--classic-renderer` is the escape
   hatch. The plan always specified this — Tier 4 shipped it inverted as a
-  bugs/003 stability hold, discharged by the SDL update + a windowed playtest.
+  bugs/009 stability hold, discharged by the SDL update + a windowed playtest.
 - **D213:** trail history lives in a render-side `unordered_map` in `main.cpp`,
   NOT an ECS component. Keeping it out of `component_storage` means no gameplay
   system *can* read it, so presentation-only is enforced by construction.

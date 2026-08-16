@@ -52,7 +52,7 @@ the game delivers the Laser Hockey look it was aiming at.
 - Merging any of this to `master`.
 - Trails on pickups, explosions, or enemies themselves.
 - Runtime shader compilation — `.spv` stays offline-built and committed.
-- Fixing the `bugs/003` shader leak (still deliberate, still ~4KB to exit).
+- Fixing the `bugs/009` shader leak (still deliberate, still ~4KB to exit).
 
 ## Affected Boundaries
 
@@ -72,7 +72,7 @@ the game delivers the Laser Hockey look it was aiming at.
 ## Task Breakdown
 
 1. Canary fix in both docs; re-verify master vs branch.
-2. Tier 6a default flip (+ `bugs/003` note).
+2. Tier 6a default flip (+ `bugs/009` note).
 3. Tier 6b GameData retune.
 4. ~~Tier 6c LUT grade + dash radial blur~~ — DEFERRED, see req 2(c).
 5. Tier 7a `trail_math.hpp` + unit tests (no rendering yet).

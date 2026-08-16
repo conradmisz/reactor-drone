@@ -5,6 +5,34 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
 
 ## Current Phase
 
+- **v2.1.0 SHIPPED (2026-08-15) — the v3 visual overhaul is live on
+  `feature/distribution`.** `visual-overhaul` merged in (tiers 0-12) and is
+  fully contained here; that branch needs nothing further. Release published,
+  marked Latest, all four assets verified 200 anonymously; Worker
+  RELEASE_VERSION=2.1.0 deployed and its installer_url resolves; website
+  redeployed (Pages does NOT auto-deploy on push — `wrangler pages deploy site/`
+  in the brainstormlabs repo). Two commits landed AFTER the tag (CI
+  auto-publish, the D-number renumber) — docs/CI only, so the tag still matches
+  what players run.
+
+  **Merging to master is deliberately NOT wanted — the distribution branch is
+  intentional (owner, 2026-08-15). Stop proposing it.** It is 75 commits ahead
+  of master and master has nothing unique.
+
+  **Unjudged by a human:** the tiers 10-12 look (tracer, layered explosion,
+  glow/bloom pullback, chromatic aberration 0.0028 -> 0.0006) shipped on my
+  screenshots alone. The owner played the merged build once but never gave a
+  verdict. `DISC_SCALE = 2.5` in `render_particles` is a by-eye constant and is
+  the first knob to touch if the glow reads wrong.
+
+  **Never executed:** the Windows silent-install handoff in the new updater. It
+  cross-compiles with mingw and the download path is tested, but
+  `SDL_CreateProcess(setup, "/SILENT")` -> installer -> relaunch has never run.
+  First real exercise is someone on 2.1.0 clicking the button against 2.2.0.
+  Note the update button cannot help anyone on 2.0.0 — they lack the code.
+
+  **Owed:** none blocking. `analytics/report.py` still deferred.
+
 - **`feature/distribution` (2026-08-15, slice 2): telemetry, DB status and
   tech center on the dashboard** (`specs/dashboard-telemetry-and-status.md`).
   Outcome split (stacked bar, palette-validated both modes — segment order IS
@@ -95,7 +123,7 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   committed; its canary byte-identical (mouseless canary lands no kills, so hit-stop
   never fires in it; kill-bearing runs shift by design). Tier 4 (SPIR-V postfx via SDL_CreateGPURenderState, D210) is committed —
   OPT-IN via --gpu-renderer because the installed SDL prerelease wedges under
-  it (bugs/003: mid-run segfault with bloom, readback segfault, teardown hang;
+  it (bugs/009: mid-run segfault with bloom, readback segfault, teardown hang;
   all verified gone under SDL origin/main built in a scratch worktree).
   Tier 5 (immediate-mode neon line ribbons via SDL_RenderGeometry, D211:
   arena rink ring, obstacle outlines, laser-beam ribbons) is committed. ALL

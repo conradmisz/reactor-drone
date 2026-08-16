@@ -1,5 +1,5 @@
 ---
-id: 003
+id: 009
 title: GPU renderer segfaults/hangs with bloom on the installed SDL prerelease
 status: resolved
 severity: high
