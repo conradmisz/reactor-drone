@@ -399,7 +399,7 @@ The suite reserved D138-D180 and has spent **D138-D151**. D152-D180 are burned.
   constructs it.
 - The battle-scar layer is **cut**.
 - `bash gate.sh .canary-baseline.txt` runs the whole gate.
-- Unrelated flake: `bugs/003-path-property-test-flake.md`, pre-existing on
+- Unrelated flake: `bugs/010-path-property-test-flake.md`, pre-existing on
   `master`, ~5% of ctest runs.
 
 ## D138 — Engine-suite Phase 0: eleven inert hooks, one shared FX event vocabulary

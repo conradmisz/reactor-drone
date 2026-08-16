@@ -5,6 +5,45 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
 
 ## Current Phase
 
+- **Engine suite + two arenas merged in (2026-08-15). The branch is staged for
+  the gameplay.md rewrite and nothing else is in flight.**
+
+  `engine-suite-build` merged (D138-D151): force fields, resonance grid,
+  timescale/bullet time, adaptive director, surges, bullet patterns,
+  destructible arena, palette engine, chip-synth audio, flight report, plus the
+  A* blocked-cell fix. **Every feature is OFF** — `enabled: false` in
+  GameData.json, `forces` inert by shape — so the sim is byte-identical to
+  pre-suite master. `--suite` turns them all on at once; `bash gate.sh
+  .canary-baseline.txt` re-proves inertness after any change.
+
+  Cherry-picked `545e12f` from `experimental`: **The Shroud** (wave 10,
+  darkness past `light_radius`) and **The Drift** (wave 19, directional
+  current). The 30-wave ladder is re-banded to 11 arenas —
+  1/4/7/10/13/16/19/22/25/28/30.
+
+  **The rest of `experimental` was deliberately NOT merged** and should not be:
+  upgrade tracks, rolled shop cards with reroll/lock, ability slots on 1-4,
+  fusion capstones, the three hulls and ship installs. gameplay.md supersedes
+  all of it — merging would mean merging code in order to revert it. In
+  particular `experimental` demotes `ShipState.upg_counts` to legacy and moves
+  purchase truth to `track_levels`, while gameplay.md says to KEEP the original
+  upgrade method. Note those files (`shop_system.*`, `player_components.hpp`,
+  `run_save.cpp`) auto-merge with ZERO conflicts because this branch never
+  touched them — git would take the roguelite version silently.
+
+  Verified at the merge: warning-free build, 8/8 ctest,
+  `scripts/verify_branch.sh` **30/30**, and the firing replay canary unchanged
+  (`Frames: 3000  Final score: 100  Units: 24  Wave: 1  Phase: 1`).
+
+  **Unplayed:** neither new arena has been seen by a human, and no suite
+  feature has ever been enabled outside a scripted run.
+
+  **Known gap, pre-existing:** `scripts/verify_branch.sh` section 3 still runs
+  the IDLE canary (`--keys 5:SPACE`), which ends score 0 / units 0 and never
+  reaches hit-stop — the exact false pass CLAUDE.md and bugs/006 warn about.
+  `gate.sh` was fixed to the firing form this session; verify_branch was left
+  alone because it is the shipping gate and changing it is a separate call.
+
 - **v2.1.0 SHIPPED (2026-08-15) — the v3 visual overhaul is live on
   `feature/distribution`.** `visual-overhaul` merged in (tiers 0-12) and is
   fully contained here; that branch needs nothing further. Release published,

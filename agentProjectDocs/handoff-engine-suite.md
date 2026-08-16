@@ -79,7 +79,7 @@ provisional in the strict sense the project uses.
 
 **Known noise:** `Game_Property_Tests` fails about 1 run in 20 on a **pre-existing
 `master` flake** — measured at the same rate in both worktrees and filed as
-`bugs/003-path-property-test-flake.md`. It is not a suite regression. Re-run before
+`bugs/010-path-property-test-flake.md`. It is not a suite regression. Re-run before
 believing a red ctest line.
 
 ---

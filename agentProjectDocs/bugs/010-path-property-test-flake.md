@@ -1,5 +1,5 @@
 ---
-id: 003
+id: 010
 title: Game_Property_Tests fails ~1 run in 20 — find_path returns a path whose first cell is not walkable
 status: open
 severity: medium

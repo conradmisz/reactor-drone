@@ -4,13 +4,14 @@
 #
 #   bash gate.sh .canary-baseline.txt
 #
-# .canary-baseline.txt holds the summary line from pre-suite master (779455e), so
-# a green run proves the suite is inert by default rather than merely
-# self-consistent. Lives on this branch only — it is a merge-decision tool, not
-# part of the game.
+# .canary-baseline.txt holds the FIRING canary's summary line as documented in
+# CLAUDE.md for pre-suite master (779455e), so a green run proves the suite is
+# inert by default rather than merely self-consistent. Complements
+# scripts/verify_branch.sh (the branch gate); this one only answers "did the
+# suite move the sim".
 #
 # Known noise: Game_Property_Tests fails ~1 run in 20 on a pre-existing master
-# flake (agentProjectDocs/bugs/003-path-property-test-flake.md). Re-run before
+# flake (agentProjectDocs/bugs/010-path-property-test-flake.md). Re-run before
 # believing a red ctest line.
 set -o pipefail
 cd "$(dirname "$0")"
@@ -23,8 +24,16 @@ echo "warnings (ours): $W"
 echo "=== ctest ==="
 ctest --test-dir CPP/build 2>&1 | grep -E "tests passed|tests failed|Failed" || true
 echo "=== canary x2 ==="
+# The FIRING canary, not the idle one. A single `--keys 5:SPACE` only presses
+# start (SPACE is both the title key and the fire key), so the run ends
+# score 0 / units 0 and never reaches hit-stop — it passes without exercising
+# the one path that could break (CLAUDE.md, bugs/006). Saves are reset first
+# for the same reason: meta.json is read at boot and steers the presses.
 for i in 1 2; do
-  SDL_VIDEODRIVER=dummy ./CPP/build/game/game --seed 42 --keys 5:SPACE --stopframe 3000 2>/dev/null | tail -1 > "$OUT/c$i.txt"
+  rm -f saves/settings.json
+  printf '{"best_wave":5,"lifetime_score":1305,"prestige":0,"runs_played":4}\n' > saves/meta.json
+  SDL_VIDEODRIVER=dummy ./CPP/build/game/game --seed 42 \
+    --keys $(seq -f '%g:SPACE' 10 4 2990) --stopframe 3000 2>/dev/null | tail -1 > "$OUT/c$i.txt"
 done
 cat "$OUT/c1.txt"
 if diff -q "$OUT/c1.txt" "$OUT/c2.txt" >/dev/null; then echo "canary: IDENTICAL across runs"; else echo "canary: DIVERGED"; diff "$OUT/c1.txt" "$OUT/c2.txt"; fi

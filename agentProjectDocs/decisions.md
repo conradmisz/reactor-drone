@@ -4,7 +4,8 @@ Append-only. Never rewrite or delete an entry — if a decision is reversed, add
 a new one that supersedes it.
 
 **Numbering:** decisions carry stable ids (`D1`…) because code comments,
-handoffs and plans cite them. The next free id is **D50**. Continue the
+handoffs and plans cite them. The next free id is **D220** (D152-D179 are also free — see the
+D138-D151 heading below). Continue the
 sequence; do not renumber.
 
 **Format for new entries:**
@@ -1665,6 +1666,28 @@ gate-green phases. The calls that will matter later:
   and explains why Lane K verified SAVE by unit test only.
 - SPACE keeps meaning "Normal run, now" from any title screen: it is the
   replay canary's entry path and its meaning is pinned by the baseline diff.
+
+### D138-D151 — Engine feature suite  *(merged 2026-08-15)*
+
+Merged onto this branch from `engine-suite-build`. The entries themselves are
+NOT duplicated here: they live in `specs/engine-feature-suite.md` (the umbrella
+spec, one section per lane) and `handoff-engine-suite.md`, with the frame-order
+consequences in `ENGINE.md`. This heading exists so the id range is not a
+silent hole between D138 and D180.
+
+Covered: timescale/bullet time (D139), resonance grid (D140), `--suite` (D141),
+adaptive director, flight report, force fields (D144), destructible arena,
+palette engine (D147), surges, bullet patterns (D148-D149), chip-synth audio
+(D150), first playtest batch (D151 — grid revised, scars cut, audio shelved).
+
+**Everything ships inert**: `director`, `resonance`, `timescale`, `palettes`,
+`audio` and `flight_report` are `enabled: false` in GameData.json, and `forces`
+is inert by shape (no registered sources, so the pass iterates nothing).
+`--suite` flips them all on at once for a playtest. That is what keeps the
+replay canary byte-identical to pre-suite master — proven by `gate.sh`.
+
+**D152-D179 are still free.** D180+ is the gameplay-polish/distribution range
+below; next free there is D220.
 
 ### D181-D191 — Gameplay-polish batch: readability, shop UX, boss waves  *(2026-08-10)*
 
