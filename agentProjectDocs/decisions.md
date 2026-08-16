@@ -2593,3 +2593,25 @@ canary x2 byte-identical.
 **Rejected:** re-baselining without the fix (leaves the trap armed);
 per-call-site sorting (misses the next site); ordered std::map storage (bigger
 constant on every lookup, not just enumeration).
+
+
+## D225 — GEAR and LEVELS retired from the shop UI  *(2026-08-16)*
+
+**Decision.** The in-run shop keeps only UPGRADES (the owner's spec, with the
+shopMenuItems screenshot as the reference). The GEAR/LEVELS tab widgets are
+gone from GameData.json; TAB and `on_shop_page_1/2` clamp to page 0. The
+purchase code (`buy_gear`, `upgrade_gear`, items/consumables catalogue,
+`gear_levels`/`item_id` save fields) stays compiled and save-compatible —
+nothing routes there.
+
+**Why.** The pack's hangar/weapon/cosmetic economy replaces the gear economy;
+running both would split the currency's meaning. Removing the CODE as well was
+rejected: run-save compatibility keeps the fields anyway, D220 already burned
+one merge avoiding a half-reverted economy, and deleting is cheap later.
+
+**Also in this batch (spec's Random Thoughts):** ESC in the shop closes the
+shop without raising pause; the drone trail originates at the hull's rear
+(tracer read); a LEADERBOARD button on the main menu (the L-key flow,
+net-gated); leaderboard-wipe + local-save disclaimers on the field-manual
+footer (docs/features.html). Feedback reachability was checked: FEEDBACK is on
+both the pause and main menus — the spec note predates Task 7's fix.

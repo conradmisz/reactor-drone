@@ -386,8 +386,12 @@ static GameConfig gear_config() {
     return cfg;
 }
 
-TEST_CASE("The gear page equips one item and one consumable, replacing the slot",
+TEST_CASE("The gear and levels pages are retired: TAB and digits stay on upgrades",
           "[Game][arena][items]") {
+    // Gameplay pack tier 8 (D221/D225): the GEAR/LEVELS shop pages are gone
+    // from the UI. The purchase code stays compiled but nothing routes there —
+    // this pins the retirement so a stray toggle_page can't quietly resurrect
+    // the old economy alongside the pack's hangar/weapon/cosmetic one.
     GameConfig cfg = gear_config();
     EntityManager em; ComponentStorage storage; Blackboard bb;
     bb.set<int>("window_width", 980); bb.set<int>("window_height", 660);
@@ -402,34 +406,21 @@ TEST_CASE("The gear page equips one item and one consumable, replacing the slot"
     shop.set_config(&cfg.shop);
     shop.open(storage, em, bb);
 
-    // Page 0 is upgrades: digit 1 must not equip anything.
+    // Page 0 is upgrades: digit 1 buys the first upgrade, never an item.
     shop.update(storage, bb, 1, false);
     CHECK(ship.item_id == -1);
     CHECK(ship.upg_counts[0] == 1);
 
-    shop.update(storage, bb, 0, false, /*toggle_page=*/true);   // -> gear page
-    shop.update(storage, bb, 4, false);                          // row 4 = Salvager
-    CHECK(ship.item_id == item_ids::SALVAGER);
-    CHECK_THAT(bb.get_or<float>("ship.item_amount", 0.0f), WithinAbs(1.5f, 1e-4));
-    CHECK(ship.currency == 500 - 50 - 120);
-
-    // Rows 5-8 are the consumables; equipping an item does not touch that slot.
-    shop.update(storage, bb, 6, false);                          // row 6 = Overdrive
-    CHECK(ship.item_id == item_ids::SALVAGER);
-    CHECK(ship.consumable_id == consumable_ids::OVERDRIVE);
-    CHECK(ship.currency == 500 - 50 - 120 - 45);
-
-    // One slot: a second item replaces the first, with no refund.
-    shop.update(storage, bb, 1, false);                          // row 1 = Magnet Core
-    CHECK(ship.item_id == item_ids::MAGNET_CORE);
-    CHECK(ship.item_id == PickupSystem::ITEM_MAGNET_CORE);       // the id PickupSystem gates on
-    CHECK(ship.currency == 500 - 50 - 120 - 45 - 120);
-
-    // Broke: the slot keeps what it had.
-    ship.currency = 10;
-    shop.update(storage, bb, 2, false);
-    CHECK(ship.item_id == item_ids::MAGNET_CORE);
-    CHECK(ship.currency == 10);
+    // TAB is a no-op now: still upgrades. Digit 4 (Salvager's old gear row)
+    // buys nothing — the fixture has one upgrade — and equips nothing; digit 1
+    // buys the SECOND Hull Plating, proving the page never left upgrades.
+    shop.update(storage, bb, 0, false, /*toggle_page=*/true);
+    shop.update(storage, bb, 4, false);
+    CHECK(ship.item_id == -1);
+    CHECK(ship.consumable_id == -1);
+    shop.update(storage, bb, 1, false);
+    CHECK(ship.upg_counts[0] == 2);
+    CHECK(ship.item_id == -1);
 }
 
 TEST_CASE("Magnet Core pulls loot in and Salvager pays more for it",

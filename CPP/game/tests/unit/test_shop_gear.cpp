@@ -229,15 +229,12 @@ TEST_CASE("A card buys on a held press, not a click, and the click key is consum
     w.hover("shop_card_0", false);
     shop.menu_tick(w.cs, w.em, w.bb);
 
-    // A tab click switches page, and the cards follow.
+    // Tier 8 (D221/D225): the GEAR/LEVELS pages are retired — a stray page
+    // click (the widgets are gone, but the callback comparison survives)
+    // stays on the upgrades cards.
     w.bb.set<std::string>(UISystem::UI_CLICK_KEY, std::string("on_shop_page_1"));
     shop.menu_tick(w.cs, w.em, w.bb);
-    REQUIRE(shop.card_line(w.cs, 0).find("Magnet Core") != std::string::npos);
-
-    // The LEVELS page with nothing fitted explains itself instead of going blank.
-    w.bb.set<std::string>(UISystem::UI_CLICK_KEY, std::string("on_shop_page_2"));
-    shop.menu_tick(w.cs, w.em, w.bb);
-    REQUIRE(shop.card_line(w.cs, 0).find("Nothing fitted") != std::string::npos);
+    REQUIRE(shop.card_line(w.cs, 0).find("Hull Plating") != std::string::npos);
 
     // LAUNCH ends the shop frame.
     w.bb.set<std::string>(UISystem::UI_CLICK_KEY, std::string("on_shop_leave"));

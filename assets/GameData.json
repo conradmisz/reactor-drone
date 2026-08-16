@@ -4456,35 +4456,7 @@
           "on_click_fn": "on_shop_page_0",
           "name": "shop_tab_0"
         },
-        {
-          "element_type": "button",
-          "rect": {
-            "x": 168,
-            "y": 440,
-            "w": 112,
-            "h": 44
-          },
-          "label_text": "GEAR",
-          "style_id": "shop_tab",
-          "z_order": 10,
-          "on_click_fn": "on_shop_page_1",
-          "name": "shop_tab_1"
-        },
-        {
-          "element_type": "button",
-          "rect": {
-            "x": 288,
-            "y": 440,
-            "w": 112,
-            "h": 44
-          },
-          "label_text": "LEVELS",
-          "style_id": "shop_tab",
-          "z_order": 10,
-          "on_click_fn": "on_shop_page_2",
-          "name": "shop_tab_2"
-        },
-        {
+                        {
           "element_type": "button",
           "rect": {
             "x": 48,
@@ -4813,16 +4785,17 @@
           "on_click_fn": "on_feedback_click",
           "name": "menu_feedback"
         },
+          {"element_type": "button", "rect": {"x": 204, "y": 136, "w": 392, "h": 38}, "label_text": "LEADERBOARD", "style_id": "default_button", "z_order": 10, "on_click_fn": "on_leaderboard_click", "name": "menu_leaderboard"},
         {
           "element_type": "label",
-          "rect": { "x": 204, "y": 140, "w": 392, "h": 24 },
-          "label_text": "Arrows move   Mouse aims   Hold fire",
+          "rect": { "x": 204, "y": 104, "w": 392, "h": 24 },
+          "label_text": "Arrows move   Mouse aims   Hold fire   RMB secondary",
           "style_id": "caption",
           "z_order": 10
         },
         {
           "element_type": "label",
-          "rect": { "x": 204, "y": 112, "w": 392, "h": 24 },
+          "rect": { "x": 204, "y": 80, "w": 392, "h": 24 },
           "label_text": "SPACE quick-starts a Normal run",
           "style_id": "caption",
           "z_order": 10
@@ -4831,7 +4804,7 @@
           "//": "Task 7/9: rename + leaderboard hint. Always shown - N re-enters name_entry pre-filled with the current name (or blank pre-registration) either way; the leaderboard half is rewritten out by main.cpp when net::enabled() is false (menu_hint_line).",
           "element_type": "label",
           "name": "menu_hint_line",
-          "rect": { "x": 204, "y": 84, "w": 392, "h": 24 },
+          "rect": { "x": 204, "y": 56, "w": 392, "h": 24 },
           "label_text": "N renames your pilot  ·  L leaderboard",
           "style_id": "caption",
           "z_order": 10

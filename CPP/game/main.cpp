@@ -2215,7 +2215,7 @@ int main(int argc, char* argv[]) {
         // and the feedback form (specs/feedback-reports.md) likewise.
         if (blackboard.get_or<bool>("ui.escape_pressed", false) && phase != PHASE_TITLE &&
             phase != PHASE_NAME_ENTRY && phase != PHASE_LEADERBOARD &&
-            phase != PHASE_FEEDBACK && !run_stats_up) {
+            phase != PHASE_FEEDBACK && phase != PHASE_SHOP && !run_stats_up) {
             if (ScreenStackSystem::depth(blackboard) <= 1) {
                 blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH, std::string(SCREEN_PAUSE));
                 // Lane K: the button says SAVE again each time the screen opens,
@@ -3287,7 +3287,13 @@ int main(int argc, char* argv[]) {
             // no damage. Purchases and rendering are ShopSystem's (R7).
             // Only B closes the shop: SPACE is the fire key, and a player holding it
             // when the wave cleared would never see the shop at all.
-            if (shop.update(component_storage, blackboard, digit, b_edge, tab_edge)) {
+            // Tier 8 (D221) spec #4: ESC closes the shop and does NOT raise the
+            // pause menu (the generic ESC handler skips PHASE_SHOP for this).
+            if (blackboard.get_or<bool>("ui.escape_pressed", false)) {
+                blackboard.set<bool>("ui.escape_pressed", false);
+                shop.close(component_storage);
+                phase = PHASE_PLAYING;
+            } else if (shop.update(component_storage, blackboard, digit, b_edge, tab_edge)) {
                 shop.close(component_storage);
                 phase = PHASE_PLAYING;
             }
@@ -3362,6 +3368,16 @@ int main(int argc, char* argv[]) {
                 } else if (menu_click == "on_menu_quit_click") {
                     blackboard.remove(UISystem::UI_CLICK_KEY);
                     running = false;      // nothing to bank at the title
+                } else if (menu_click == "on_leaderboard_click" && net::enabled()) {
+                    // Tier 8 (D221) spec: the global board, one click from the
+                    // hub — the exact L-key flow (net-gated, so headless runs
+                    // and offline players see the button do nothing rather
+                    // than an empty screen; L behaves the same today).
+                    fetch_leaderboard("high");
+                    phase = PHASE_LEADERBOARD;
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                std::string(SCREEN_LEADERBOARD));
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
                 } else if (menu_click == "on_feedback_click" && net::enabled()) {
                     blackboard.remove(UISystem::UI_CLICK_KEY);
                     fb_from_pause = false;
@@ -4159,6 +4175,19 @@ int main(int argc, char* argv[]) {
                 auto sample = [&](Entity e) {
                     float cx, cy;
                     if (!center_of(e, &cx, &cy)) return;
+                    // Tier 8 (D221) spec #3: the drone's trail originates at its
+                    // REAR, not its centre — offset opposite the aim so it reads
+                    // as a tracer off the thrusters. Presentation-only.
+                    if (component_storage.has_component<PlayerTag>(e)) {
+                        if (auto rot = component_storage.get_component<Rotation>(e);
+                            rot.has_value()) {
+                            float rr = 0.0f;
+                            if (auto ps2 = component_storage.get_component<Size>(e);
+                                ps2.has_value()) rr = ps2->get().width * 0.42f;
+                            cx -= std::cos(rot->get().angle) * rr;
+                            cy -= std::sin(rot->get().angle) * rr;
+                        }
+                    }
                     alive.insert(e);
                     trail::push_sample(trail_history[e], {cx, cy},
                                        config.trails.min_spacing, max_pts);

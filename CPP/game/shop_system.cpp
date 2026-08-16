@@ -161,7 +161,11 @@ bool ShopSystem::update(ComponentStorage& storage, Blackboard& blackboard,
     // and this keeps "the row you saw is the row you bought" true. TAB still
     // walks only the two original pages; the LEVELS page is menu/keyboard-3.
     if (toggle_page) {
-        page_ = (page_ == 0) ? 1 : 0;
+        // Tier 8 (D221) spec: GEAR and LEVELS retired from the UI — the pack's
+        // hangar/weapon/cosmetic economy replaces them. TAB is now a no-op;
+        // buy_gear/upgrade_gear stay compiled (their tests still pin them) but
+        // nothing routes there.
+        page_ = 0;
     } else if (page_ == 1) {
         buy_gear(digit - 1, player, storage, blackboard, ship);
     } else if (page_ == 2) {
@@ -520,8 +524,9 @@ bool ShopSystem::menu_tick(ComponentStorage& storage, EntityManager& entity_mana
         if (click == "on_shop_leave") {
             leave = true;
         } else if (click.rfind("on_shop_page_", 0) == 0) {
-            const int p = click.back() - '0';
-            if (p >= 0 && p <= 2) page_ = p;
+            // Tier 8 (D221): only UPGRADES survives; the GEAR/LEVELS tab
+            // widgets are gone from the data, so this is belt-and-braces.
+            page_ = 0;
         } else if (click.rfind("on_shop_card_", 0) == 0) {
             // D189: a click no longer buys — purchasing is press-and-HOLD
             // (below), so a stray click can't spend 200 credits. The click is

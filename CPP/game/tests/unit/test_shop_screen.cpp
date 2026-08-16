@@ -43,7 +43,8 @@ constexpr int kCards = 8;
 // Every name shop_system.cpp resolves via "ui.widget_id.<name>".
 const std::vector<std::string> kNamedWidgets = {
     "shop_panel", "shop_title", "shop_credits",
-    "shop_tab_0", "shop_tab_1", "shop_tab_2",
+    // Tier 8 (D221/D225): only the UPGRADES tab survives.
+    "shop_tab_0",
     "shop_card_0", "shop_card_1", "shop_card_2", "shop_card_3",
     "shop_card_4", "shop_card_5", "shop_card_6", "shop_card_7",
     "shop_leave", "shop_preview_label",
@@ -123,13 +124,15 @@ TEST_CASE("Card, tab and leave callbacks are exactly what shop_system.cpp compar
         // interactive kinds — a "label" would draw and never fire.
         REQUIRE(card.element_type == "button");
     }
-    for (int p = 0; p < 3; ++p) {
+    // Tier 8 (D221/D225): GEAR/LEVELS retired — exactly one tab remains.
+    {
         UIElement tab{};
-        const std::string fn = "on_shop_page_" + std::to_string(p);
-        INFO("callback: " << fn);
-        REQUIRE(w.find_by_click(fn, tab));
+        REQUIRE(w.find_by_click("on_shop_page_0", tab));
         REQUIRE(tab.element_type == "button");
         REQUIRE_FALSE(tab.label_text.empty());
+        UIElement gone{};
+        CHECK_FALSE(w.find_by_click("on_shop_page_1", gone));
+        CHECK_FALSE(w.find_by_click("on_shop_page_2", gone));
     }
 
     UIElement leave{};

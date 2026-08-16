@@ -48,7 +48,11 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   unordered_map bucket order, so adding menu widgets moved the replay canary
   (170->160 from two new screens). entities_with_component is now SORTED and
   the canary re-baselined a second, final time to 160 — UI authoring can
-  never move the sim again.** Next: Tier 8 (cleanup batch).
+  never move the sim again.** Tier 8 DONE (D225): GEAR/LEVELS
+  tabs retired (code stays, nothing routes there; tests re-pinned), ESC in
+  shop closes without pause, rear-origin tracer trail, main-menu LEADERBOARD
+  button, website disclaimers in docs/features.html footer. Next: Tier 9
+  (balance + playtest + release v2.3.0).
 
 - v2.2.0 shipped 2026-08-16; release notes collapsed below.
 
