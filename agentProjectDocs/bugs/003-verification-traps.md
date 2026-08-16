@@ -112,3 +112,21 @@ guard — they are habits, recorded here. (Trap 5 is partly mitigated: the
 verifier now sources `.dev.vars` rather than taking secrets from the
 environment, so a *correctly* started local worker and the test script can no
 longer disagree about which secrets exist.)
+
+## Trap 7 — XTest clicks are swallowed under COSMIC (2026-08-16)
+
+`scripts/drive_ui.py` moves the pointer and hovers correctly on this machine,
+but its **synthetic clicks never reach the game** under the COSMIC desktop
+(they worked historically under a bare Xvfb / the previous WM). A probe
+therefore *looks* like it ran — the window is focused, the cursor moves, the
+script exits 0 — while nothing was ever clicked, and the screenshots show the
+same screen the run started on.
+
+That is a FALSE PASS shape: it cost a menu verification during the v2.3 pack's
+tier 6, where a "click-through" produced three identical title-screen frames.
+Menu flows were pinned with contract tests over the loaded GameData instead
+(`test_hangar_screen.cpp`, `test_cosmetics.cpp`), and the real click-through
+was deferred to a human playtest — which is what then found the D227 batch.
+
+**Rule:** do not report a UI flow as verified on the strength of a `drive_ui`
+click. Hover/screenshot is still useful; clicks are not.

@@ -43,6 +43,26 @@ the graded course submission.
 ## Features
 
 ### Combat & progression
+- **Gameplay pack v2.3** (D221-D227, spec `specs/gameplay-pack-v2.3.md`):
+  persistent **scrap** currency banked per wave/boss/victory; a 4-drone roster
+  (Falcon free, Owl 400, Gryphon 800, Gatling locked for a later release) bought
+  with scrap, each with its own hull/shield/speed/dash profile and a special
+  (Falcon equipment-cooldown, Owl phoenix veil, Gryphon ram dash).
+- **First-class weapons** (55 Iron / Moonshot / Flak Cannon / Hailstorm),
+  installable on any owned drone, each with a right-mouse **secondary** on a
+  shared 10s slot: hold-to-charge slug, radial crescent burst, lava stream with
+  a burn DoT, and a traveling blizzard that chills.
+- **Per-run arena shuffle** (seeded; Prism never opens a run, Singularity stays
+  the wave-30 finale) and **solid enemies** — the drone no longer passes through
+  them, dash excepted.
+- **Two-phase boss**: an enrage below 50% HP (faster cadence, denser patterns,
+  aggressive repositioning), a reward menu that waits for the boss's adds, and a
+  boss-item catalogue trimmed to Heat-Seeking Missiles.
+- **Hangar** (the old run_setup): live drone preview, aligned pip stat sheet,
+  ship/weapon selection, scrap purchases, plus a cosmetic shop and inventory;
+  and an end-of-run **flight report** showing scrap earned.
+- **Cosmetics**: ship, trail and projectile colour slots; three paints granted
+  by drone ownership and three more bought with scrap.
 - 20-wave arc: waves 1-11 fixed-count, 12-20 timed; per-wave `hp_mult` /
   `speed_mult` scaling over 3 enemy types (spark / runner / hulk).
 - **30-wave arc** (supersedes the 20- and 50-wave tables above): waves 1-15
