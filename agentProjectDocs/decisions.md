@@ -2482,3 +2482,39 @@ rode in with the suite.
 
 Suite features all ship inert (`enabled: false`; `forces` inert by shape).
 `--suite` flips them on. `gate.sh .canary-baseline.txt` re-proves inertness.
+
+
+## D221 — Gameplay pack v2.3: owner-interview decision batch  *(2026-08-15)*
+
+**Decision.** The v2.3 gameplay pack (spec:
+`agentProjectDocs/specs/gameplay-pack-v2.3.md`, plan:
+`plans/gameplay-pack-plan.md`) is built to these owner calls, interviewed
+2026-08-15:
+
+1. Drones are **bought with scrap** — the lifetime-score ship unlock retires.
+   Buying a drone grants its weapon and its colors account-wide.
+2. The **4th drone is the current Purple Gatling** and owns Hailstorm;
+   Hailstorm is implemented now but locked until that drone's later release.
+   Standard maps to Falcon.
+3. **Secondary fire is right mouse** (E/Q/SPACE unchanged).
+4. The cosmetic shop sells **extra colors beyond ship-granted** for scrap.
+5. Scrap economy ships as a first-pass **tuning table** in GameData.json
+   (5/wave, +25/boss, +100 victory; Owl 400, Gryphon 800; colors 100-250).
+6. Arena order: **seeded full shuffle**, two rules only — Prism/Prism II
+   never first, Singularity pinned to wave 30.
+7. Boss: **2-phase enrage at 50% HP** (denser patterns + hunt/reposition
+   movement) on all three boss waves, tuned per ordinal.
+8. "The 5 bubbles" = the shop stat-sheet pip meters, reused in the hangar
+   with alignment fixed.
+9. **One release: v2.3.0** — no staged cut.
+
+**Why.** Each was ambiguous in the owner's gameplay.md; options were put to
+the owner directly rather than guessed.
+
+**Rejected:** score-milestone ship unlocks (2 also rejects retiring the
+gatling or shipping it as a 4th now); staged 2.3/2.4 releases; orchestrator
+/subagent execution (phased plan + handoffs chosen — this repo's
+verification traps punish unbriefed subagents).
+
+**Note.** The replay canary baseline changes **once**, at the arena-shuffle
+tier, by design. Any other tier moving the canary line is a bug.
