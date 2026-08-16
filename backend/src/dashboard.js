@@ -566,8 +566,14 @@ $('refresh').onclick = load;
 // is no undo and no backup step anywhere in this stack, and both buttons sit one
 // misclick away from Refresh.
 function clearTarget(what, label) {
-  if (!confirm('Are you sure you want to do this?\n\n' + label +
-               '\n\nThis cannot be undone.')) return;
+  // NOTE: this whole file is ONE template literal, so an escape meant for the
+  // browser must be DOUBLE-escaped here. A single-backslash newline escape is
+  // consumed by the template literal and emits a REAL line break inside this
+  // single-quoted string — a SyntaxError that kills the entire client script,
+  // leaving the page stuck on "connecting..." with no error and no polling
+  // (D226). Even this comment must avoid the bare escape, for the same reason.
+  if (!confirm('Are you sure you want to do this?\\n\\n' + label +
+               '\\n\\nThis cannot be undone.')) return;
   if (prompt('Type CLEAR to confirm.') !== 'CLEAR') return;
   fetch('/clear?what=' + what, {
     method: 'POST',

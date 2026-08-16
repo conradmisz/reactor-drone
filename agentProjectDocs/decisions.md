@@ -2615,3 +2615,27 @@ shop without raising pause; the drone trail originates at the hull's rear
 net-gated); leaderboard-wipe + local-save disclaimers on the field-manual
 footer (docs/features.html). Feedback reachability was checked: FEEDBACK is on
 both the pause and main menus — the spec note predates Task 7's fix.
+
+
+## D226 — Escapes in dashboard.js are double-escaped, and the client script is parsed by the gate  *(2026-08-16)*
+
+**Decision.** `backend/src/dashboard.js` is one template literal, so any escape
+intended for the browser is written double (`\\n`, not `\n`) — comments in that
+file included. `scripts/verify_branch.sh` section 4 now extracts the served
+`<script>` and runs `node --check` on it.
+
+**Why.** A single-escaped newline shipped a real line break inside a quoted JS
+string, which is a SyntaxError; the browser dropped the whole script and the
+dashboard sat on "connecting..." with no data and no error for a day. Every
+existing check stayed green because none of them parsed the client script —
+`test.sh` only asserts `/dashboard` returns 200 and contains its title.
+
+**Verified:** the new gate was confirmed to FAIL on the broken file and PASS on
+the fixed one, not just to pass today (the bugs/003 rule about checks that
+cannot fail).
+
+**Rejected:** moving the client script to its own asset file (correct long-term,
+and it would make escapes ordinary, but it changes the Worker's bundling and
+deploy shape — not worth coupling to a one-line outage fix). Logged in
+bugs/011 along with the still-open `cache-control: public` on an authenticated
+route.

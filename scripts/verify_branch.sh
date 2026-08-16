@@ -86,6 +86,21 @@ python3 -c "import yaml,sys;yaml.safe_load(open('.github/workflows/release.yml')
 for f in installer/package-win.sh installer/package-linux.sh installer/package-mac.sh CPP/fetch-win-deps.sh CPP/fetch-linux-deps.sh scripts/drive_ui.py; do
   [ -x "$f" ] && bash -n "$f" 2>/dev/null || python3 -m py_compile "$f" 2>/dev/null
 done && ok "packaging scripts parse" || bad "a packaging script has a syntax error"
+# bugs/011: the dashboard is ONE big JS template literal, so an escape meant for
+# the browser gets eaten by the literal. That shipped a real newline inside a
+# single-quoted string — a SyntaxError that killed the whole client script and
+# left the page on "connecting..." forever, with every server-side check green.
+# Extract the served <script> exactly as a browser would receive it and PARSE it.
+( cd backend/src && node --input-type=module -e "
+import('./dashboard.js').then(async m => {
+  const fs = await import('node:fs');
+  const h = m.DASHBOARD_HTML;
+  const s = h.slice(h.indexOf('<script>')+8, h.lastIndexOf('</script>'));
+  if (!s.length) process.exit(1);
+  fs.writeFileSync(process.env.TMPDIR ? process.env.TMPDIR + '/dash_client.js' : '/tmp/dash_client.js', s);
+})" && node --check "${TMPDIR:-/tmp}/dash_client.js" ) >/dev/null 2>&1 \
+  && ok "dashboard client script parses in a browser" \
+  || bad "dashboard client script has a syntax error — the page will hang on 'connecting'"
 grep -q "$(grep -o '"[0-9.]*"' CPP/game/version.hpp | tr -d '"')" backend/wrangler.jsonc \
   && ok "version.hpp matches wrangler RELEASE_VERSION" || bad "version.hpp and wrangler.jsonc disagree"
 fi
