@@ -106,7 +106,7 @@ public:
     void render(const ComponentStorage& storage, const Blackboard& blackboard);
 
     /**
-     * v3 Tier 5 (D198): one glowing polyline, immediate-mode. World-space
+     * v3 Tier 5 (D211): one glowing polyline, immediate-mode. World-space
      * points; the camera transform and the world Y-flip are applied HERE (the
      * flip stays in this file, per the invariant). Game code pushes a list
      * each frame and calls render_glow_lines once into the scene and once
@@ -140,7 +140,7 @@ public:
                            const Blackboard& blackboard);
 
     /**
-     * v3 Tier 9 (D202): every additive particle in ONE SDL_RenderGeometry call,
+     * v3 Tier 9 (D215): every additive particle in ONE SDL_RenderGeometry call,
      * UV-mapped across v2/glow_disc_64.png so each one is a soft round disc.
      *
      * This exists because the alternative shapes are both wrong. Drawn with no

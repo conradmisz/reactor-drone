@@ -1,5 +1,5 @@
 // Unit tests for explosion_fx.hpp — the pure staged geometry of the v3 Tier 11
-// layered enemy explosion (D203). No SDL, no window, no entities.
+// layered enemy explosion (D216). No SDL, no window, no entities.
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>

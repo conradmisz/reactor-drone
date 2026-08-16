@@ -1,5 +1,5 @@
 // Unit tests for particle_mesh.hpp — the pure quad/UV geometry of the v3 Tier 9
-// batched additive particle renderer (D202). No SDL, no window.
+// batched additive particle renderer (D215). No SDL, no window.
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>

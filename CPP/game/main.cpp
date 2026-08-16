@@ -49,7 +49,7 @@
 #include "engine/ecs/systems/render_system.hpp"
 #include "engine/ecs/systems/hud_system.hpp"
 #include "engine/ecs/systems/screenshot_system.hpp"
-#include "engine/ecs/systems/trail_math.hpp"   // v3 Tier 7 (D200)
+#include "engine/ecs/systems/trail_math.hpp"   // v3 Tier 7 (D213)
 
 #include <nlohmann/json.hpp>
 
@@ -60,7 +60,7 @@
 #include "debug_state.hpp"
 #include "arena_config.hpp"
 #include "arena_vfx.hpp"
-#include "explosion_fx.hpp"      // v3 Tier 11 (D203)
+#include "explosion_fx.hpp"      // v3 Tier 11 (D216)
 #include "player_components.hpp"
 #include "enemy_components.hpp"
 #include "collision_layers.hpp"
@@ -186,13 +186,13 @@ int main(int argc, char* argv[]) {
 
     SDL_WindowPtr window(SDL_CreateWindow("Reactor Drone v2", 980, 660, SDL_WINDOW_RESIZABLE));
     if (!window) { std::cerr << "Window: " << SDL_GetError() << std::endl; SDL_Quit(); return 1; }
-    // v3 Tier 4 (D197): prefer the SDL GPU renderer so PostFxSystem can attach
+    // v3 Tier 4 (D210): prefer the SDL GPU renderer so PostFxSystem can attach
     // SPIR-V fragment shaders to ordinary draws. Created via properties with
     // the SPIRV capability declared. Anything can refuse it — --classic-renderer,
     // a headless driver, no Vulkan — and the classic renderer is byte-for-byte
     // the pre-Tier-4 pipeline (PostFx self-disables off a non-GPU renderer).
     SDL_RendererPtr renderer;
-    // D199 (v3 Tier 6a): the GPU renderer is now the DEFAULT, as the v3 plan
+    // D212 (v3 Tier 6a): the GPU renderer is now the DEFAULT, as the v3 plan
     // always specified; --classic-renderer is the escape hatch. The opt-in was a
     // bugs/003 stability hold, resolved by the 2026-08-11 system SDL update and
     // signed off by the 2026-08-13 windowed playtest. --gpu-renderer is kept as
@@ -283,7 +283,7 @@ int main(int argc, char* argv[]) {
     };
     int run_difficulty = 0;   // which difficulty the live run was started at
 
-    // v3 Tier 3 (D196): pending hit-stop frames. Set by the kill/boss sites,
+    // v3 Tier 3 (D209): pending hit-stop frames. Set by the kill/boss sites,
     // consumed after timer.update_blackboard each frame: while positive, the
     // published delta_time is overridden to 0 so every system integrates zero
     // motion — draw/RNG counts are unchanged (systems still run), frames still
@@ -375,7 +375,7 @@ int main(int argc, char* argv[]) {
     // logical surface size; self-disables (begin/resolve become no-ops) when
     // the driver has no render-target support or GameData turns it off.
     BloomSystem bloom_system(renderer.get(), win_w, win_h, config.bloom);
-    // v3 Tier 4 (D197): SPIR-V post-process, GPU renderer only. Self-disables
+    // v3 Tier 4 (D210): SPIR-V post-process, GPU renderer only. Self-disables
     // everywhere else (classic renderer, headless, missing .spv).
     PostFxSystem postfx(renderer.get(),
                         project_paths::assets_dir() + "/shaders/postfx.frag.spv",
@@ -629,7 +629,7 @@ int main(int argc, char* argv[]) {
         // #13: the player named it. "arena shift" was engine vocabulary.
         blackboard.set<std::string>("hud_message", def.name + " — REACTOR SHIFT");
         blackboard.set<float>("hud_message_timer", SHIFT_SECONDS + 1.4f);
-        // v3 Tier 4 (D197): the shift also ripples the whole frame.
+        // v3 Tier 4 (D210): the shift also ripples the whole frame.
         postfx.trigger_shock(0.5f, 0.5f);
 
         // Shockwave: a one-shot emitter host, the same pattern
@@ -666,7 +666,7 @@ int main(int argc, char* argv[]) {
         blackboard.set<float>("feedback.trauma",
             feedback::add_trauma(blackboard.get_or<float>("feedback.trauma", 0.0f),
                                  config.feedback.trauma_enemy_death));
-        // v3 Tier 3 (D196): a kill freezes sim time for a beat. Saturating,
+        // v3 Tier 3 (D209): a kill freezes sim time for a beat. Saturating,
         // not additive — a multi-kill frame reads as one hit, not a slideshow.
         hitstop_left = std::max(hitstop_left, config.feedback.hitstop_frames_kill);
         return true;
@@ -1463,7 +1463,7 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Reactor Drone v2 initialized. Arrows move, mouse aims, hold fire. ESC quits.\n";
 
-    // v3 Tier 7 (D200): position-history trails. The history lives HERE, in a
+    // v3 Tier 7 (D213): position-history trails. The history lives HERE, in a
     // render-side map keyed by entity — deliberately NOT a component. Nothing
     // in component_storage means no gameplay system can read it, so it cannot
     // feed the sim, touch the RNG, or move the replay canary. That is the
@@ -2324,8 +2324,8 @@ int main(int argc, char* argv[]) {
                 // frame, then plays the destruction/entry animation across the
                 // 5s crossfade. Lane E verified it is callable mid-wave with
                 // enemies alive; it has no dependency on wave_cleared.
-                // v3 Tier 3 (D196): boss deaths hit harder than kills.
-                // Tier 4 (D197): and fire a screen-space shockwave from centre.
+                // v3 Tier 3 (D209): boss deaths hit harder than kills.
+                // Tier 4 (D210): and fire a screen-space shockwave from centre.
                 if (blackboard.get_or<bool>("boss.just_died", false)) {
                     blackboard.set<bool>("boss.just_died", false);
                     hitstop_left = std::max(hitstop_left,
@@ -3196,7 +3196,7 @@ int main(int argc, char* argv[]) {
                 config.feedback.trauma_decay_per_sec);
             blackboard.set<float>("feedback.trauma", trauma);
 
-            // v3 Tier 3 (D196): trauma also punches the camera in. Same
+            // v3 Tier 3 (D209): trauma also punches the camera in. Same
             // trauma^2 curve as the shake; nothing else writes camera.zoom
             // (CameraControlSystem is not instantiated in this game), so a
             // plain per-frame recompute needs no restore step. Presentation
@@ -3335,7 +3335,7 @@ int main(int argc, char* argv[]) {
         // backbuffer. UI is inside the pass on purpose — menus glow too. When
         // bloom is disabled (config or target-less driver) both are no-ops and
         // this block is byte-for-byte the old pipeline.
-        // v3 Tier 5 (D198): the frame's neon lines, world-space, immediate
+        // v3 Tier 5 (D211): the frame's neon lines, world-space, immediate
         // mode — rebuilt every frame from live state, so there is nothing to
         // invalidate on an arena shift. Drawn into the scene after the world
         // (below) and again into the emissive target so they bloom.
@@ -3386,7 +3386,7 @@ int main(int argc, char* argv[]) {
                 glow_lines.push_back(std::move(beam));
             }
 
-            // v3 Tier 7 (D200): position-history trails. Sampled here, in the
+            // v3 Tier 7 (D213): position-history trails. Sampled here, in the
             // render pass, from live Positions — a pure observer. A trail IS a
             // glow line whose points are where the entity has been, so this
             // reuses Tier 5's ribbon end to end and adds no draw path.
@@ -3482,7 +3482,7 @@ int main(int argc, char* argv[]) {
                     glow_lines.push_back(std::move(t));
                 };
 
-                // v3 Tier 11 (D203): the layered explosion. The effect entity
+                // v3 Tier 11 (D216): the layered explosion. The effect entity
                 // enemy_death_system already spawns IS the clock — its sprite
                 // clip gives progress, so the ring and the shards need no
                 // component, no event and no state of their own. Emitted
@@ -3645,7 +3645,7 @@ int main(int argc, char* argv[]) {
 
         if (sim) timer.end_frame(); else timer.end_frame_no_advance();
         timer.update_blackboard(blackboard);
-        // v3 Tier 3 (D196): apply pending hit-stop to the NEXT frame's dt.
+        // v3 Tier 3 (D209): apply pending hit-stop to the NEXT frame's dt.
         // After update_blackboard so the override is the last writer; only
         // while simulating, so pause cannot eat the budget invisibly.
         if (hitstop_left > 0 && sim) {

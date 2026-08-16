@@ -125,28 +125,6 @@ rectangular — that is authored art, not an artifact.
 
 ## Merge Notes
 
-- **D202:** additive particles are batched into one `SDL_RenderGeometry` mesh
-  UV'd to `glow_disc_64.png`, NOT given a per-entity texture. The texture route
-  was measured at ~27x (bugs/004) because `draw_entity` makes six batch-flushing
-  SDL state calls per particle; a batch makes six per FRAME.
-- **D203:** the explosion shockwave ring and debris shards are `GlowLine`s, not
-  new sprites or a new renderer — the Tier 5 line renderer already draws exactly
-  this shape.
-- **D204:** the tracer is tuning, not new machinery — `taper_widths` gained an
-  `exponent` (shots use 2.0) and `GlowLine` a `core_scale` (shots 0.26), plus
-  GameData trail length 14x3.0 -> 20x3.6 (~9.8x the 7.0 shot width) with the
-  vertex budget raised 4000 -> 6000 to pay for it.
-- **D206:** `EnemyDeathSystem` loads `images/v2/effect_explosion.json`. It had
-  loaded the class-original placeholder since before v2; see ENGINE.md section 5.
-  The blast layers also set `core = false` — a white-lifted core blooms into a
-  flat grey ball that fills the ring.
-- **D205:** `UIRenderSystem::render` sets `SDL_BLENDMODE_BLEND` itself instead of
-  inheriting it. Found by Tier 9: the UI's alpha fills had been relying on
-  additive particles setting the renderer-wide draw blend mode each frame, so
-  removing particles from the render walk made every alpha-0 fill paint solid
-  black. Fixed at the UI's single entry point rather than per fill site — one
-  guard where all of them route.
-- **NUMBERING HAZARD:** this branch's `decisions.md` stops at D196 and this
-  branch's other spec holds D199-D201 unhoisted; `experimental` and
-  `distribution` are reported to also claim numbers in this range. Reconcile at
-  merge — do not assume D202-D204 are free on `master`.
+Hoisted into `decisions.md` at the 2026-08-15 merge into
+`feature/distribution` (D207-D219 there), as this section always said to do.
+Nothing pending.

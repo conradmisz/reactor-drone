@@ -82,7 +82,9 @@ read all of them for every task.
 
 - Update `progress-tracker.md` after every meaningful change.
 - Append design calls (with the *why* and what was rejected) to `decisions.md`.
-  Ids are stable and cited from code — next free id is **D202**.
+  Ids are stable and cited from code — next free id is **D220**.
+  (D207-D219 are the `visual-overhaul` v3 block, renumbered at the 2026-08-15
+  merge — see the note in `decisions.md`. Do NOT allocate below D220.)
   (`feature/engine-suite` reserves D138-D180; the gameplay-polish batch is
   D181-D191, logged as one entry; the second playtest batch is D192 and the
   third is D193, each also one entry.)

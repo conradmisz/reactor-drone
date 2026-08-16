@@ -1,6 +1,6 @@
 /**
  * explosion_fx.hpp — pure staged geometry for the v3 Tier 11 layered enemy
- * explosion (D203).
+ * explosion (D216).
  *
  * The explosion is four layers on one timeline: the existing 8-frame sprite
  * clip is the flash, a shockwave RING expands out of it, debris SHARDS fly,

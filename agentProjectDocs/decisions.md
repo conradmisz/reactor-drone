@@ -2227,11 +2227,26 @@ game should *show* its state, not make you infer it.
   stayed at 347; ESC returned to the pause screen (Phase 1) and RESUME
   unfroze — frames 347 -> 539. ctest 8/8, canary byte-identical.
 
-- **MERGE 2026-08-15 — `visual-overhaul` renumbering.** Both branches allocated
-  **D194** independently: distribution's read-only-assets/user-data split (above,
-  already shipped in v2.0.0) and the visual branch's vsync+bloom decision. The
-  shipped one keeps the number; the visual one became **D207**. D195-D198 did not
-  collide — distribution's log stops at D194 — so they are unchanged.
+- **MERGE 2026-08-15 — `visual-overhaul` renumbering.** The two branches ran in
+  parallel for weeks and BOTH allocated from the same counter, so D194-D206 each
+  meant two unrelated things (identity/telemetry/leaderboard/dashboard on this
+  branch; the v3 render tiers on the other). The shipped distribution numbers
+  keep their ids — they are cited from this branch's specs, plans and code, and
+  went out in v2.0.0. The incoming v3 block was renumbered instead:
+
+      D194 -> D207   D198 -> D211   D202 -> D215   D206 -> D219
+      D195 -> D208   D199 -> D212   D203 -> D216
+      D196 -> D209   D200 -> D213   D204 -> D217
+      D197 -> D210   D201 -> D214   D205 -> D218
+
+  69 citations updated across code, ENGINE.md, the tracker, the v3 specs and the
+  bugs files. The one D195 left in code is `main.cpp`'s `// Task 7 (D195)`, which
+  is this branch's own name-entry decision and correct as it stands.
+
+  The trap that caused it: each branch's `decisions.md` writes entries in a
+  DIFFERENT format (`### D195 — ...` here, `- **D195 — ...**` there), so a grep
+  for one form reports the other branch's log as empty. Next free id is now
+  **D220**.
 
 
 ## v3 — the neon polish branch (visual-overhaul)
@@ -2257,7 +2272,7 @@ game should *show* its state, not make you infer it.
     **Rejected:** SDL_GPU shaders now (Tier 4's job, needs a toolchain) and
     per-sprite baked halos as the only glow (they cannot bleed or saturate).
 
-- **D195 — Tier 2: emissive separation is a naming convention, not a component.**
+- **D208 — Tier 2: emissive separation is a naming convention, not a component.**
   Every generated atlas/prop now ships a `_glow` sibling PNG whose alpha is the
   source's alpha × per-pixel luminance^1.2 (`emissive_of` in `common.py`) — the
   emissive layer is *derived*, never re-authored, so it can never drift from the
@@ -2276,7 +2291,7 @@ game should *show* its state, not make you infer it.
   glow already blooms). HUD widgets keep no siblings on purpose — menus stay
   crisp. Trap for new art: any sprite that should glow must be born through the
   generators; hand-dropped PNGs bloom only if additive-tinted.
-- **D196 — Tier 3: impact feel is dt-shaping, not new systems.** Audit first:
+- **D209 — Tier 3: impact feel is dt-shaping, not new systems.** Audit first:
   projectile trails (player_fire_system) and enemy-shot trails
   (enemy_fire_system) already existed, as did kill trauma + seeded shake — so
   Tier 3 shipped only the two genuine gaps.
@@ -2302,7 +2317,7 @@ game should *show* its state, not make you infer it.
     squash needs either a new component (invariant-6 expensive) or draw-path
     plumbing — for feedback the Flash + hit-stop + punch stack already covers.
     Revisit only if a windowed playtest asks for it.
-- **D197 — Tier 4: SPIR-V post-processing rides SDL_Renderer, behind an opt-in.**
+- **D210 — Tier 4: SPIR-V post-processing rides SDL_Renderer, behind an opt-in.**
   `PostFxSystem` attaches one precompiled fragment shader
   (`assets/shaders/postfx.frag.spv`, built OFFLINE by `assets/shaders/make.sh`
   with glslc or standalone glslang — a build never compiles shaders, same
@@ -2325,7 +2340,7 @@ game should *show* its state, not make you infer it.
     generator for what saturation/gain uniforms deliver today — revisit if an
     arena needs a real look, not a grade); rewriting rendering on raw SDL_GPU
     (the render-state API exists precisely so SDL_Renderer code keeps working).
-- **D198 — Tier 5: neon lines are immediate-mode geometry, not entities.**
+- **D211 — Tier 5: neon lines are immediate-mode geometry, not entities.**
   `line_mesh_math.hpp` (pure, tested: miter joins with width preservation +
   hairpin clamp, strip triangulation, arc-length UVs, circle sampling) feeds
   `RenderSystem::render_glow_lines`: world-space polylines → miter-joined
@@ -2346,7 +2361,7 @@ game should *show* its state, not make you infer it.
   path for a visual); enemy-shot tracers (their particle trails already read
   well — add if a playtest disagrees).
 
-- **D197 addendum (post-SDL-update re-test, same day).** With the system SDL
+- **D210 addendum (post-SDL-update re-test, same day).** With the system SDL
   rebuilt from origin/main: the mid-run and readback crashes are gone, so
   `--gpu-renderer --screenshot` is now allowed (default runs still capture on
   classic — it stays the verification baseline). Teardown localized one call
@@ -2356,3 +2371,52 @@ game should *show* its state, not make you infer it.
   windowed playtest — a product call now, not a stability one. bugs/003
   updated with the full re-test matrix.
 
+### Hoisted from `v3-neon-projectiles-and-display.md` (2026-08-15 merge)
+
+Hoist to `decisions.md` / `progress-tracker.md` on `master` at merge, then empty.
+
+- **D212:** GPU renderer is now the default; `--classic-renderer` is the escape
+  hatch. The plan always specified this — Tier 4 shipped it inverted as a
+  bugs/003 stability hold, discharged by the SDL update + a windowed playtest.
+- **D213:** trail history lives in a render-side `unordered_map` in `main.cpp`,
+  NOT an ECS component. Keeping it out of `component_storage` means no gameplay
+  system *can* read it, so presentation-only is enforced by construction.
+- **D214:** projectiles carry no `Color` component — the neon ribbon is their
+  only visual. Colour rides on `ProjectileTag` / `EnemyShot` instead. A new
+  `HiddenVisual` engine component was built for this first and discarded: a bare
+  tag costs ~30 lines of ComponentStorage instantiation boilerplate, and
+  dropping `Color` achieves the same thing with none.
+- **Deferred:** Tier 6c (per-arena LUT grade + dash radial blur). 6a + 6b were
+  judged sufficient. Still live if the grade reads flat.
+- **Rejected:** textured particles as the box-halo fix — measured ~27x slower
+  (bugs/004). The mitigation shipped instead is a bloom pullback.
+- **Rejected:** `Timer::set_external_pacing` for the menu framerate — the vsync
+  double-pacing hypothesis was disproved by A/B (bugs/005). Reverted unshipped.
+
+### Hoisted from `v3-soft-particles-and-explosions.md` (2026-08-15 merge)
+
+- **D215:** additive particles are batched into one `SDL_RenderGeometry` mesh
+  UV'd to `glow_disc_64.png`, NOT given a per-entity texture. The texture route
+  was measured at ~27x (bugs/004) because `draw_entity` makes six batch-flushing
+  SDL state calls per particle; a batch makes six per FRAME.
+- **D216:** the explosion shockwave ring and debris shards are `GlowLine`s, not
+  new sprites or a new renderer — the Tier 5 line renderer already draws exactly
+  this shape.
+- **D217:** the tracer is tuning, not new machinery — `taper_widths` gained an
+  `exponent` (shots use 2.0) and `GlowLine` a `core_scale` (shots 0.26), plus
+  GameData trail length 14x3.0 -> 20x3.6 (~9.8x the 7.0 shot width) with the
+  vertex budget raised 4000 -> 6000 to pay for it.
+- **D219:** `EnemyDeathSystem` loads `images/v2/effect_explosion.json`. It had
+  loaded the class-original placeholder since before v2; see ENGINE.md section 5.
+  The blast layers also set `core = false` — a white-lifted core blooms into a
+  flat grey ball that fills the ring.
+- **D218:** `UIRenderSystem::render` sets `SDL_BLENDMODE_BLEND` itself instead of
+  inheriting it. Found by Tier 9: the UI's alpha fills had been relying on
+  additive particles setting the renderer-wide draw blend mode each frame, so
+  removing particles from the render walk made every alpha-0 fill paint solid
+  black. Fixed at the UI's single entry point rather than per fill site — one
+  guard where all of them route.
+- **NUMBERING HAZARD:** this branch's `decisions.md` stops at D209 and this
+  branch's other spec holds D212-D214 unhoisted; `experimental` and
+  `distribution` are reported to also claim numbers in this range. Reconcile at
+  merge — do not assume D215-D217 are free on `master`.

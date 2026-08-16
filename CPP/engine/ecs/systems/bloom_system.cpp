@@ -50,7 +50,7 @@ void BloomSystem::destroy_targets() {
 
 void BloomSystem::begin() {
     if (!active_) return;
-    // v3 Tier 4 (D197): remember where the composite should land. Normally the
+    // v3 Tier 4 (D210): remember where the composite should land. Normally the
     // backbuffer (nullptr); when PostFxSystem is live, main.cpp has already set
     // its frame target, and resolve() must restore THAT, not hard-code null.
     dest_ = SDL_GetRenderTarget(renderer_);

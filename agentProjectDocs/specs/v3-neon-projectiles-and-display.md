@@ -87,25 +87,9 @@ the game delivers the Laser Hockey look it was aiming at.
 
 ## Merge Notes
 
-Hoist to `decisions.md` / `progress-tracker.md` on `master` at merge, then empty.
-
-- **D199:** GPU renderer is now the default; `--classic-renderer` is the escape
-  hatch. The plan always specified this — Tier 4 shipped it inverted as a
-  bugs/003 stability hold, discharged by the SDL update + a windowed playtest.
-- **D200:** trail history lives in a render-side `unordered_map` in `main.cpp`,
-  NOT an ECS component. Keeping it out of `component_storage` means no gameplay
-  system *can* read it, so presentation-only is enforced by construction.
-- **D201:** projectiles carry no `Color` component — the neon ribbon is their
-  only visual. Colour rides on `ProjectileTag` / `EnemyShot` instead. A new
-  `HiddenVisual` engine component was built for this first and discarded: a bare
-  tag costs ~30 lines of ComponentStorage instantiation boilerplate, and
-  dropping `Color` achieves the same thing with none.
-- **Deferred:** Tier 6c (per-arena LUT grade + dash radial blur). 6a + 6b were
-  judged sufficient. Still live if the grade reads flat.
-- **Rejected:** textured particles as the box-halo fix — measured ~27x slower
-  (bugs/004). The mitigation shipped instead is a bloom pullback.
-- **Rejected:** `Timer::set_external_pacing` for the menu framerate — the vsync
-  double-pacing hypothesis was disproved by A/B (bugs/005). Reverted unshipped.
+Hoisted into `decisions.md` at the 2026-08-15 merge into
+`feature/distribution` (D207-D219 there), as this section always said to do.
+Nothing pending.
 
 ## State
 

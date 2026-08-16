@@ -26,7 +26,7 @@ Pre-existing since Tier 2. It became obvious only when v3 Tier 6b raised
 
 ## Ruled Out
 
-- Not the trails (D200): reproduces on entities with no trail.
+- Not the trails (D213): reproduces on entities with no trail.
 - Not the GPU renderer: identical on `--classic-renderer`.
 
 ## Attempted and REJECTED: textured particles
@@ -54,7 +54,7 @@ not attempted.
 0.38 — between the original .35 and Tier 6b's .55. The squares still seed the
 bloom; they are just less amplified. This treats the symptom, deliberately.
 
-## Fixed (2026-08-14, v3 Tier 9, D202)
+## Fixed (2026-08-14, v3 Tier 9, D215)
 
 The "real fix" this file called for is what shipped: `RenderSystem::render_particles`
 builds ONE mesh of camera-facing quads UV'd across `v2/glow_disc_64.png` and hands

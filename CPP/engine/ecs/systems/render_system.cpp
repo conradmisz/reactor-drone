@@ -238,7 +238,7 @@ void RenderSystem::render_walk(const ComponentStorage& storage,
             auto color_opt = storage.get_component<Color>(entity);
             if (color_opt.has_value()) {
                 if (emissive && !(tint && tint->additive)) continue;
-                // v3 Tier 9 (D202): an additive, textureless Color entity is a
+                // v3 Tier 9 (D215): an additive, textureless Color entity is a
                 // particle. render_particles draws it as a soft batched disc;
                 // drawing it here too would put the hard square back (bugs/004)
                 // AND double its brightness. Both passes skip it.

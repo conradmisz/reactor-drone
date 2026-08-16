@@ -54,5 +54,5 @@ GPU renderer remains opt-in until a windowed playtest signs off on the path
 **Signed off 2026-08-13.** A windowed `--gpu-renderer` session ran 9407 frames
 and exited `EXIT=0` — symptom 3 did not reproduce, so the deliberate shader
 leak holds in practice. The default was flipped to the GPU renderer in the
-same pass (D199, v3 Tier 6a); `--classic-renderer` is now the escape hatch.
+same pass (D212, v3 Tier 6a); `--classic-renderer` is now the escape hatch.
 The leak itself is unchanged and still deliberate.

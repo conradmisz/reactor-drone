@@ -1,6 +1,6 @@
 /**
  * particle_mesh.hpp — pure quad geometry for the batched additive particle
- * renderer (v3 Tier 9, D202).
+ * renderer (v3 Tier 9, D215).
  *
  * Every additive particle becomes ONE camera-facing quad UV-mapped across a
  * soft radial glow disc, so the sprite's own falloff reaches transparent at

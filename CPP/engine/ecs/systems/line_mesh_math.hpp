@@ -1,5 +1,5 @@
 /**
- * line_mesh_math.hpp — pure geometry for the neon line renderer (v3 Tier 5, D198).
+ * line_mesh_math.hpp — pure geometry for the neon line renderer (v3 Tier 5, D211).
  *
  * Turns a polyline into a triangle-strip ribbon whose cross-section UV drives a
  * soft-falloff glow texture. Engine-free and SDL-free: verts are plain structs,
