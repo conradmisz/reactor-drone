@@ -2,6 +2,7 @@
 #define ARENA_CONFIG_HPP
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <string>
@@ -119,6 +120,11 @@ struct WeaponConfig {
     // than a position-history tracer ribbon.
     bool bolt = false;
     float bolt_length = 26.0f;   // px, along the heading
+    // Playtest #2 item 6 (D228): render as a fat molten chunk with an ember
+    // tracer — Flak's own projectile identity.
+    bool slag = false;
+    // Playtest #3 item 1 (D229): render as an actual crescent arc — Moonshot.
+    bool crescent = false;
 };
 
 struct PlayerConfig {
@@ -165,9 +171,20 @@ struct CosmeticColorDef {
     std::string name = "Cyan";
     uint8_t r = 90, g = 220, b = 255;
     int price = 0;
-    std::string sidecar;         // body atlas for this paint (relative to assets/)
     std::string granted_by;      // ship whose purchase grants it; "" = shop-only
 };
+
+/// Playtest #2 item 8 (D228): every ship has its OWN chassis atlas, so a ship
+/// paint is chassis x colour resolved by naming convention —
+/// "<ship sidecar minus .json>_<colour, lowercased>.json" — rather than one
+/// sidecar per colour (which could only ever repaint the Falcon chassis).
+/// generator v2/make_sprites.py emits the full matrix. Pure.
+inline std::string paint_sidecar(const std::string& ship_sidecar, std::string color) {
+    if (ship_sidecar.size() < 5) return ship_sidecar;
+    for (char& ch : color)
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    return ship_sidecar.substr(0, ship_sidecar.size() - 5) + "_" + color + ".json";
+}
 
 /// Index of `name` in `colors`, or -1. Pure.
 inline int find_color(const std::vector<CosmeticColorDef>& colors, const std::string& name) {
@@ -197,6 +214,9 @@ inline int find_weapon(const std::vector<WeaponDef>& weapons, const std::string&
 struct ShipDef {
     std::string name = "Falcon";
     std::string sidecar;
+    std::string desc;            // hangar description (playtest #5 item 6, D231)
+    float armor = 0.0f;          // playtest #6 item 4 (D232): fraction of ALL
+                                 // incoming damage shrugged off (0..1)
     std::string idle_clip = "idle";
     std::string default_weapon;    // WeaponDef name granted with the ship
     std::string special;           // special-attribute id ("" = none); consumed by ship-specials tier
@@ -436,6 +456,35 @@ inline void shuffle_arena_order(std::vector<ArenaDef>& arenas, URNG& rng) {
             if (arenas[i].name.rfind("Prism", 0) != 0) { std::swap(arenas[0], arenas[i]); break; }
         }
     }
+    // Rule 3 (playtest #5 item 1, D231 / bugs/015): no two SAME-FAMILY arenas
+    // adjacent — "Prism II" then "Prism" made the wave-7 REACTOR SHIFT announce
+    // an arena the screen was already showing. Family = name minus its " II".
+    // Greedy repair to a fixed point; the pinned finale is never moved. With at
+    // most two members per family a conflict always has a legal swap partner.
+    auto family = [](const std::string& n) {
+        return n.size() > 3 && n.compare(n.size() - 3, 3, " II") == 0
+                   ? n.substr(0, n.size() - 3) : n;
+    };
+    auto fam_at = [&](size_t k) { return family(arenas[k].name); };
+    for (int pass = 0; pass < 32; ++pass) {   // bounded fixed point (paranoia cap)
+        bool dirty = false;
+        for (size_t i = 0; i + 1 < arenas.size() && !dirty; ++i) {
+            if (fam_at(i) != fam_at(i + 1)) continue;
+            // Swap a[i+1] with any non-finale slot j where BOTH ends stay clean.
+            for (size_t j = 0; j + 1 < arenas.size(); ++j) {
+                if (j == i || j == i + 1) continue;
+                if (fam_at(j) == fam_at(i)) continue;
+                const std::string moved = fam_at(i + 1);
+                if (j == 0 && moved.rfind("Prism", 0) == 0) continue;   // rule 2 holds
+                if (j > 0 && j - 1 != i + 1 && fam_at(j - 1) == moved) continue;
+                if (j + 1 < arenas.size() && j + 1 != i && fam_at(j + 1) == moved) continue;
+                std::swap(arenas[i + 1], arenas[j]);
+                dirty = true;
+                break;
+            }
+        }
+        if (!dirty) break;
+    }
     for (size_t i = 0; i < arenas.size(); ++i) arenas[i].first_wave = ladder[i];
 }
 
@@ -496,11 +545,36 @@ struct BossConfig {
 /// ActiveItemDef — one boss-reward active (#4/new-feature note, Lane D).
 struct ActiveItemDef {
     std::string name = "Active";
-    std::string effect;           // missiles | laser | repulsor_field
+    std::string desc;             // D234 (playtest #8 item 3): reward tooltip
+    std::string effect;           // missiles | plasma_wake | cryolator | dozr | ...
     float cooldown = 30.0f;       // the note fixes this at 30 s for all three
     float amount = 40.0f;         // effect magnitude (damage, radius, heal)
     float duration = 5.0f;        // for the effects that persist
+    // D232 (playtest #6 item 13): loadout gate — "" = always eligible,
+    // "weapon:A|B" = any listed weapon equipped, "ship:Name" = that hull.
+    std::string requires_loadout;
 };
+
+/// Does `req` pass for the given loadout? Pure — unit-tested.
+inline bool active_requirement_met(const std::string& req,
+                                   const std::string& weapon_name,
+                                   const std::string& ship_name) {
+    if (req.empty()) return true;
+    const size_t colon = req.find(':');
+    if (colon == std::string::npos) return true;
+    const std::string kind = req.substr(0, colon);
+    const std::string& have = kind == "weapon" ? weapon_name : ship_name;
+    size_t start = colon + 1;
+    while (start <= req.size()) {
+        const size_t bar = req.find('|', start);
+        const std::string opt = req.substr(start, bar == std::string::npos
+                                                      ? std::string::npos : bar - start);
+        if (opt == have) return true;
+        if (bar == std::string::npos) break;
+        start = bar + 1;
+    }
+    return false;
+}
 
 
 /**

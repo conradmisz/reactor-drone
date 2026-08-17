@@ -166,9 +166,15 @@ TEST_CASE("the re-banded ladder covers all 30 waves and holds its own themes",
     // something against the wall forever and stall the wave-clear gate.
     float slowest = 1e9f;
     for (const auto& t : cfg.enemy_types) slowest = std::min(slowest, t.speed);
+    // D231: the authored current may exceed the slowest enemy (the player
+    // feels the full +35%), but the ENEMY shove is clamped by
+    // drift_enemy_scale, and THAT is the anti-pin invariant now.
     const float current = std::sqrt(cfg.arenas[drift].drift_x * cfg.arenas[drift].drift_x +
                                    cfg.arenas[drift].drift_y * cfg.arenas[drift].drift_y);
-    CHECK(current < slowest);
+    const float k = arena_mechanics::drift_enemy_scale(
+        cfg.arenas[drift].drift_x, cfg.arenas[drift].drift_y, slowest * 0.95f);
+    CHECK(current * k < slowest);
+    CHECK(arena_mechanics::drift_enemy_scale(10.0f, 0.0f, 48.0f) == 1.0f);  // slow current untouched
 
     // And the nine original themes must not have picked up a mechanic by accident.
     for (const auto& a : cfg.arenas) {

@@ -143,6 +143,8 @@ GameConfig load_arena_config(const std::string& file_path) {
             ShipDef ship;
             ship.name           = s.value("name", ship.name);
             ship.sidecar        = s.value("sidecar", std::string());
+            ship.desc           = s.value("desc", std::string());
+            ship.armor          = s.value("armor", 0.0f);
             ship.idle_clip      = s.value("idle_clip", std::string());
             ship.default_weapon = s.value("default_weapon", std::string());
             ship.special        = s.value("special", std::string());
@@ -167,7 +169,6 @@ GameConfig load_arena_config(const std::string& file_path) {
             CosmeticColorDef cd;
             cd.name       = c.value("name", cd.name);
             cd.price      = c.value("price", cd.price);
-            cd.sidecar    = c.value("sidecar", std::string());
             cd.granted_by = c.value("granted_by", std::string());
             if (c.contains("color") && c["color"].is_array() && c["color"].size() >= 3) {
                 cd.r = static_cast<uint8_t>(c["color"][0].get<int>());
@@ -276,6 +277,8 @@ GameConfig load_arena_config(const std::string& file_path) {
             wd.stats.pierce              = w.value("pierce", wd.stats.pierce);
             wd.stats.bolt                = w.value("bolt", wd.stats.bolt);
             wd.stats.bolt_length         = w.value("bolt_length", wd.stats.bolt_length);
+            wd.stats.slag                = w.value("slag", wd.stats.slag);
+            wd.stats.crescent            = w.value("crescent", wd.stats.crescent);
             wd.fire_time     = w.value("fire_time", cfg.battery.fire_time);
             wd.recharge_time = w.value("recharge_time", cfg.battery.recharge_time);
             wd.secondary     = w.value("secondary", std::string());
@@ -384,6 +387,8 @@ GameConfig load_arena_config(const std::string& file_path) {
             ad.cooldown = a.value("cooldown", ad.cooldown);
             ad.amount   = a.value("amount", ad.amount);
             ad.duration = a.value("duration", ad.duration);
+            ad.requires_loadout  = a.value("requires", std::string());
+            ad.desc = a.value("desc", std::string());
             cfg.actives.push_back(std::move(ad));
         }
     }

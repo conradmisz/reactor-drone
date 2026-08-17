@@ -32,7 +32,20 @@ void PlayerDamageSystem::update(EntityManager& entity_manager,
             if (!cd.has_value()) continue;
             if (!entity_manager.is_alive(other)) continue;
 
-            float amount = cd->get().amount;
+            // Playtest #6 item 14 (D232): the ram is armoured — while a
+            // ram_dash ship is mid-dash, colliding with an ENEMY costs
+            // nothing (the dash is the weapon). Hazards still burn.
+            if (storage.has_component<EnemyTag>(other)) {
+                auto sst = storage.get_component<ShipState>(player);
+                if (sst.has_value() && sst->get().dash_timer > 0.0f &&
+                    blackboard.get_or<std::string>("ship.special", std::string()) == "ram_dash")
+                    continue;
+            }
+
+            // Playtest #6 item 4 (D232): armor shaves every hit before the
+            // shield sees it.
+            float amount = cd->get().amount *
+                (1.0f - blackboard.get_or<float>("ship.armor", 0.0f));
 
             // Gameplay Phase 3: the Shield Capacitor soaks damage before the hull,
             // and *any* hit restarts the regen delay — including one the shield ate

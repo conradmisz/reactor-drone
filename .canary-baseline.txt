@@ -1,1 +1,1 @@
-Shutting down. Frames: 3000  Final score: 10  Units: 0  Wave: 1  Phase: 2
+Shutting down. Frames: 3000  Final score: 0  Units: 0  Wave: 1  Phase: 2

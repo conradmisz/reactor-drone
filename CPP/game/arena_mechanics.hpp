@@ -98,18 +98,31 @@ inline void tick_shroud(ComponentStorage& cs, float light_radius) {
  * is what survives both — and it is why this must run AFTER the movement system
  * and BEFORE the arena clamp, so the wall still gets the last word.
  */
-inline void tick_drift(ComponentStorage& cs, float dx_per_s, float dy_per_s, float dt) {
+/// D231 item 3: the enemy shove is CLAMPED below the slowest enemy's own
+/// speed — a current faster than an enemy would pin it against the wall
+/// forever and stall the wave-clear gate. Pure — unit-tested.
+inline float drift_enemy_scale(float dx_per_s, float dy_per_s, float cap_speed) {
+    const float mag = std::sqrt(dx_per_s * dx_per_s + dy_per_s * dy_per_s);
+    if (cap_speed <= 0.0f || mag <= cap_speed) return 1.0f;
+    return cap_speed / mag;
+}
+
+inline void tick_drift(ComponentStorage& cs, float dx_per_s, float dy_per_s, float dt,
+                       float enemy_cap_speed = -1.0f) {
     if (dt <= 0.0f || (dx_per_s == 0.0f && dy_per_s == 0.0f)) return;
     const float dx = dx_per_s * dt, dy = dy_per_s * dt;
-    auto shove = [&](Entity e) {
+    auto shove = [&](Entity e, float k) {
         if (auto p = cs.get_component<Position>(e); p.has_value()) {
-            p->get().x += dx;
-            p->get().y += dy;
+            p->get().x += dx * k;
+            p->get().y += dy * k;
         }
     };
-    for (Entity e : cs.entities_with_component<PlayerTag>()) shove(e);
-    for (Entity e : cs.entities_with_component<EnemyTag>()) shove(e);
-    for (Entity e : cs.entities_with_component<Pickup>()) shove(e);
+    // The player and the loot feel the full current (D231: +35%, the drama);
+    // enemies ride a capped one so the slowest can always fight upstream.
+    const float ek = drift_enemy_scale(dx_per_s, dy_per_s, enemy_cap_speed);
+    for (Entity e : cs.entities_with_component<PlayerTag>()) shove(e, 1.0f);
+    for (Entity e : cs.entities_with_component<EnemyTag>()) shove(e, ek);
+    for (Entity e : cs.entities_with_component<Pickup>()) shove(e, 1.0f);
 }
 
 }  // namespace arena_mechanics

@@ -27,7 +27,9 @@ namespace actives {
 /// Ids stored in ShipState.active_id. Code constants mapped from the catalogue's
 /// `effect` string (D26), never a row index.
 namespace ids {
-enum : int { MISSILES = 0, LASER = 1, REPULSOR_FIELD = 2 };
+enum : int { MISSILES = 0, LASER = 1, REPULSOR_FIELD = 2,
+             // D232 (playtest #6 item 13): loadout-gated passives.
+             PLASMA_WAKE = 3, CRYOLATOR = 4, DOZR = 5 };
 }
 
 /// Catalogue `effect` -> ShipState.active_id. -1 = not an active.
@@ -35,6 +37,9 @@ inline int active_id_for(const std::string& effect) {
     if (effect == "missiles")       return ids::MISSILES;
     if (effect == "laser")          return ids::LASER;
     if (effect == "repulsor_field") return ids::REPULSOR_FIELD;
+    if (effect == "plasma_wake")    return ids::PLASMA_WAKE;
+    if (effect == "cryolator")      return ids::CRYOLATOR;
+    if (effect == "dozr")           return ids::DOZR;
     return -1;
 }
 

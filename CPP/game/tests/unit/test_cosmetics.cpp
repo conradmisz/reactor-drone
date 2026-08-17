@@ -57,9 +57,15 @@ TEST_CASE("the paint catalogue is coherent and its atlases exist", "[cosmetics][
     int granted = 0, purchasable = 0;
     for (const CosmeticColorDef& col : c.cosmetic_colors) {
         INFO("paint: " << col.name);
-        REQUIRE_FALSE(col.sidecar.empty());
-        std::ifstream f(project_paths::assets_dir() + "/" + col.sidecar);
-        CHECK(f.is_open());   // a paint with no atlas would strip the drone bare
+        // D228 item 8: a paint atlas is chassis x colour by naming convention,
+        // so EVERY unlocked ship must have an atlas for EVERY paint.
+        for (const ShipDef& s : c.ships) {
+            if (s.locked) continue;   // Gatling flies borrowed art until release
+            const std::string path = paint_sidecar(s.sidecar, col.name);
+            INFO("chassis: " << s.name << " -> " << path);
+            std::ifstream f(project_paths::assets_dir() + "/" + path);
+            CHECK(f.is_open());   // a paint with no atlas would strip the drone bare
+        }
         if (col.granted_by.empty()) {
             ++purchasable;
             CHECK(col.price > 0);
@@ -100,9 +106,14 @@ TEST_CASE("the cosmetic shop and inventory screens route their clicks", "[cosmet
         REQUIRE(e != 0);
         CHECK(fn(e) == "on_cosmetic_buy_" + std::to_string(i));
     }
-    CHECK(fn(by_name("inv_ship_color")) == "on_inv_ship_color");
-    CHECK(fn(by_name("inv_trail_color")) == "on_inv_trail_color");
-    CHECK(fn(by_name("inv_proj_color")) == "on_inv_proj_color");
+    // D228: the grid inventory's cells — 4 weapon cells + 3 colour rows of
+    // (1 default + 6 paints), every one wired to the on_inv_ router.
+    for (int i = 0; i < 4; ++i)
+        CHECK(fn(by_name("inv_w_" + std::to_string(i))) == "on_inv_w_" + std::to_string(i));
+    for (const char* row : {"sc", "tc", "pc"})
+        for (int i = 0; i < 7; ++i)
+            CHECK(fn(by_name("inv_" + std::string(row) + "_" + std::to_string(i)))
+                  == "on_inv_" + std::string(row) + "_" + std::to_string(i));
     CHECK(fn(by_name("cs_back")) == "on_overlay_back");
     CHECK(fn(by_name("inv_back")) == "on_overlay_back");
     // The hangar doors into both overlays.

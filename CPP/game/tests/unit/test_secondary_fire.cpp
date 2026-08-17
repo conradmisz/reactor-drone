@@ -20,15 +20,9 @@ TEST_CASE("charge fraction ramps to full at CHARGE_MAX_S and clamps", "[secondar
     CHECK_THAT(secondary::charge_frac(-1.0f), WithinAbs(0.0, 1e-6));
 }
 
-TEST_CASE("charge cooldown scales with the hold, capped and floored", "[secondary]") {
-    // Full hold pays the whole cooldown (spec: max CD = 10 s)...
-    CHECK_THAT(secondary::charge_cooldown(1.0f, 10.0f), WithinAbs(10.0, 1e-6));
-    // ...a half hold pays half...
-    CHECK_THAT(secondary::charge_cooldown(0.5f, 10.0f), WithinAbs(5.0, 1e-6));
-    // ...and a tap still pays the floor, so it cannot be spammed free.
-    CHECK_THAT(secondary::charge_cooldown(0.05f, 10.0f),
-               WithinAbs(secondary::CHARGE_MIN_CD, 1e-6));
-}
+// D231 item 8: the scaled cooldown is GONE — the charge bank (passive refill,
+// CHARGE_REFILL_S empty->full) is the gate now, so a tap costs exactly the
+// charge it spent and nothing else.
 
 TEST_CASE("charge damage runs 1x tap to 4x full", "[secondary]") {
     CHECK_THAT(secondary::charge_damage_mult(0.0f), WithinAbs(1.0, 1e-6));

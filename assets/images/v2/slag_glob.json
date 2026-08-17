@@ -1,0 +1,15 @@
+{
+  "atlas": "v2/slag_glob.png",
+  "frame_width": 128,
+  "frame_height": 128,
+  "columns": 1,
+  "total_frames": 1,
+  "animations": {
+    "march": {
+      "start_frame": 0,
+      "frame_count": 1,
+      "frame_duration": 1.0,
+      "looping": true
+    }
+  }
+}

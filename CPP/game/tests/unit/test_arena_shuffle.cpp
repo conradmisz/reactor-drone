@@ -41,6 +41,17 @@ TEST_CASE("shuffle keeps the ladder, pins the finale, never opens on Prism", "[s
         for (const ArenaDef& x : base) a.insert(x.name);
         for (const ArenaDef& x : v) b.insert(x.name);
         CHECK(a == b);
+        // D231 (bugs/015): no same-family neighbours — a REACTOR SHIFT must
+        // always land on a visibly different arena.
+        auto family = [](std::string n) {
+            if (n.size() > 3 && n.compare(n.size() - 3, 3, " II") == 0)
+                n.resize(n.size() - 3);
+            return n;
+        };
+        for (size_t i = 0; i + 1 < v.size(); ++i) {
+            INFO("seed " << seed << ": " << v[i].name << " then " << v[i + 1].name);
+            CHECK(family(v[i].name) != family(v[i + 1].name));
+        }
     }
 }
 

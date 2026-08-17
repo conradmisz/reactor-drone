@@ -1,0 +1,15 @@
+{
+  "atlas": "v2/owl_drone_violet.png",
+  "frame_width": 128,
+  "frame_height": 128,
+  "columns": 3,
+  "total_frames": 6,
+  "animations": {
+    "march": {
+      "start_frame": 0,
+      "frame_count": 6,
+      "frame_duration": 0.09,
+      "looping": true
+    }
+  }
+}

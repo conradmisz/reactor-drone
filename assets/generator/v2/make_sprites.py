@@ -208,6 +208,89 @@ def player_frames(n=6, hull=None, accent=None, trim=None):
 
 
 # ---------------------------------------------------------------------------
+# Playtest #2 item 8 (D228): each ship gets its OWN chassis, not a recolour of
+# the Falcon. Same conventions as player_frames: face right, symmetric about
+# the horizontal axis, authored in 128-space, tight halo. hull/accent/trim
+# default to CORE so the palette is always the caller's choice — main() emits
+# every chassis in every paint colour (the naming convention paint_sidecar()
+# resolves at runtime).
+# ---------------------------------------------------------------------------
+def owl_frames(n=6, hull=None, accent=None, trim=None):
+    """The Owl: a rounded, wide-winged glider. Two large rotor pods carried on
+    swept wing struts, a soft elliptical body, twin forward sensor eyes and a
+    three-feather tail — reads round and quiet next to the Falcon's frame."""
+    pal = CORE
+    hull = hull or pal.primary
+    accent = accent or pal.accent
+    trim = trim or pal.secondary
+    frames = []
+    cx, cy = S/2, S/2
+    for i in range(n):
+        f = frame()
+        b = pulse(i / n)
+        t = i / n
+        pods = [(cx-4, cy-34), (cx-4, cy+34)]
+        quad_pods(f, pal, hull, b, t, pods, 17, (cx, cy), 6, accent=accent)
+        d = draw(f)
+        d.ellipse([cx-36, cy-15, cx+40, cy+15], fill=scale_col(hull, 0.7) + (255,))
+        d.ellipse([cx-36, cy-15, cx+40, cy+15],
+                  outline=scale_col(accent, b) + (255,), width=3)
+        # swept wing struts toward the pods
+        for sy in (-1, 1):
+            d.line([(cx-6, cy + sy*13), (cx-26, cy + sy*26)],
+                   fill=scale_col(trim, 0.85) + (255,), width=3)
+        # tail feathers
+        for dy in (-9, 0, 9):
+            d.line([(cx-36, cy+dy), (cx-50, cy + dy*1.5)],
+                   fill=scale_col(trim, 0.7) + (255,), width=2)
+        # twin owl eyes, forward
+        for sy in (-1, 1):
+            dot(f, (cx+24, cy + sy*7), 5, scale_col(accent, b))
+            dot(f, (cx+24, cy + sy*7), 2, (255, 255, 255))
+        f = add_halo(shrink(f), hull, spread=0.085, strength=120)
+        frames.append(f)
+    return frames
+
+
+def gryphon_frames(n=6, hull=None, accent=None, trim=None):
+    """The Gryphon: the heavy. Four chunky rotor pods on short booms, a broad
+    armoured hexagonal hull with plate seams, and a bright ram prow — the dash
+    IS its special, so the nose advertises it."""
+    pal = CORE
+    hull = hull or pal.primary
+    accent = accent or pal.accent
+    trim = trim or pal.secondary
+    frames = []
+    cx, cy = S/2, S/2
+    for i in range(n):
+        f = frame()
+        b = pulse(i / n)
+        t = i / n
+        pods = [(cx+26, cy-34), (cx+26, cy+34), (cx-30, cy-34), (cx-30, cy+34)]
+        quad_pods(f, pal, hull, b, t, pods, 16, (cx-2, cy), 7, accent=accent)
+        chassis = [(cx+40, cy), (cx+18, cy-18), (cx-30, cy-16),
+                   (cx-38, cy), (cx-30, cy+16), (cx+18, cy+18)]
+        neon_poly(f, chassis, scale_col(hull, 0.65),
+                  outline=scale_col(accent, b), ow=4)
+        d = draw(f)
+        # armour plate seams
+        for px in (-18, -4, 10):
+            d.line([(cx+px, cy-14), (cx+px, cy+14)],
+                   fill=scale_col(hull, 0.4) + (255,), width=2)
+        # the ram prow
+        neon_poly(f, [(cx+56, cy), (cx+34, cy-9), (cx+34, cy+9)],
+                  scale_col(trim, 0.9), outline=scale_col(trim, b), ow=3)
+        # sensor eye + aft thrusters
+        dot(f, (cx+14, cy), 7, scale_col(accent, b))
+        dot(f, (cx+14, cy), 3, (255, 255, 255))
+        for sy in (-1, 1):
+            dot(f, (cx-36, cy + sy*8), 4, scale_col(trim, b))
+        f = add_halo(shrink(f), hull, spread=0.085, strength=120)
+        frames.append(f)
+    return frames
+
+
+# ---------------------------------------------------------------------------
 # The upgrade kit (D133) — one overlay per shop upgrade row, authored in the
 # SAME 128-space as the chassis so it composites 1:1 at any size. Every part is
 # mirrored about the horizontal axis (art faces right and rotates, never flips)
@@ -1104,32 +1187,115 @@ def sweep_frames(n=SWEEP_N):
     return out
 
 
+def slag_glob_ice():
+    """D235: the Cryolator's sphere — same ball, cold palette."""
+    f = frame()
+    d = draw(f)
+    cx = S / 2
+    for rr, col in ((30, (20, 50, 110)), (24, (60, 130, 220)),
+                    (16, (150, 210, 255)), (9, (220, 240, 255)),
+                    (4, (255, 255, 255))):
+        d.ellipse([cx - rr, cx - rr, cx + rr, cx + rr], fill=col + (255,))
+    return add_halo(shrink(f), (140, 200, 255), spread=0.10, strength=150)
+
+
+def slag_glob():
+    """Playtest #6 item 12 (D232): the Flak chunk is a SPHERE now — a radial
+    molten ball (white-hot core -> orange -> dark rim) with the standard baked
+    halo. One frame; the ember trail supplies the motion."""
+    f = frame()
+    d = draw(f)
+    cx = S / 2
+    for rr, col, a in ((30, (120, 40, 10), 255), (24, (230, 110, 30), 255),
+                       (16, (255, 170, 60), 255), (9, (255, 230, 170), 255),
+                       (4, (255, 255, 255), 255)):
+        d.ellipse([cx - rr, cx - rr, cx + rr, cx + rr], fill=col + (a,))
+    return add_halo(shrink(f), (255, 150, 40), spread=0.10, strength=150)
+
+
+def item_icons():
+    """D234 (playtest #8 item 4): one 128px neon glyph per boss item, drawn in
+    the HUD's cyan-on-dark language. Filenames hud_icon_<effect>.png."""
+    out = {}
+    C = (120, 225, 255); HOT = (255, 190, 90); ICE = (170, 225, 255)
+    VIOLET = (200, 140, 255)
+
+    f = frame(); d = draw(f)   # missiles: rocket + flame
+    d.polygon([(64, 96), (52, 60), (76, 60)], fill=C + (255,))
+    d.rectangle([56, 40, 72, 62], fill=scale_col(C, 0.7) + (255,))
+    d.polygon([(56, 40), (72, 40), (64, 22)], fill=HOT + (255,))
+    out["hud_icon_missiles"] = add_halo(shrink(f), C, spread=0.09, strength=140)
+
+    f = frame(); d = draw(f)   # laser: a beam
+    d.line([(20, 64), (108, 64)], fill=C + (255,), width=10)
+    dot(f, (108, 64), 10, (255, 255, 255))
+    out["hud_icon_laser"] = add_halo(shrink(f), C, spread=0.09, strength=140)
+
+    f = frame(); d = draw(f)   # repulsor: ring
+    d.ellipse([28, 28, 100, 100], outline=C + (255,), width=8)
+    dot(f, (64, 64), 8, C)
+    out["hud_icon_repulsor_field"] = add_halo(shrink(f), C, spread=0.09, strength=140)
+
+    f = frame(); d = draw(f)   # plasma wake: streak of glowing pools
+    for i, (x, r) in enumerate(((30, 8), (56, 11), (86, 15))):
+        dot(f, (x, 84 - i * 18), r, VIOLET)
+    d.line([(24, 92), (96, 44)], fill=scale_col(VIOLET, 0.6) + (200,), width=4)
+    out["hud_icon_plasma_wake"] = add_halo(shrink(f), VIOLET, spread=0.09, strength=140)
+
+    f = frame(); d = draw(f)   # cryolator: snowflake
+    for k in range(6):
+        a = 3.14159265 * k / 3.0
+        d.line([(64, 64), (64 + 38 * math.cos(a), 64 + 38 * math.sin(a))],
+               fill=ICE + (255,), width=6)
+    dot(f, (64, 64), 8, (255, 255, 255))
+    out["hud_icon_cryolator"] = add_halo(shrink(f), ICE, spread=0.09, strength=140)
+
+    f = frame(); d = draw(f)   # DOZR: twin chevrons (the blade)
+    for off in (0, 26):
+        d.polygon([(34 + off, 30), (58 + off, 64), (34 + off, 98),
+                   (46 + off, 98), (70 + off, 64), (46 + off, 30)],
+                  fill=HOT + (255,))
+    out["hud_icon_dozr"] = add_halo(shrink(f), HOT, spread=0.09, strength=140)
+    return out
+
+
 def main():
     print("make_sprites:")
     # Player
     march_clip = {"march": {"start_frame": 0, "frame_count": 6,
                             "frame_duration": 0.09, "looping": True}}
-    write_sprite("player_drone", player_frames(6), 3, march_clip)
-    # #2: the Purple Gatling's own atlas. Its catalogue colour is violet but it
-    # wore the cyan chassis, so the ship the menu calls purple flew in blue.
-    write_sprite("player_drone_violet",
-                 player_frames(6, hull=(180, 110, 255), accent=(232, 210, 255),
-                               trim=(90, 235, 255)), 3, march_clip)
-    # Gameplay pack (D221): the Gryphon's forest-green atlas — same chassis rule
-    # as the violet one (bake the catalogue colour, never runtime-tint cyan art).
-    write_sprite("player_drone_forest",
-                 player_frames(6, hull=(70, 170, 90), accent=(180, 255, 190),
-                               trim=(235, 220, 120)), 3, march_clip)
-    # Tier 7 (D221): the three shop paints — same chassis, baked hue each.
-    write_sprite("player_drone_gold",
-                 player_frames(6, hull=(235, 185, 60), accent=(255, 240, 180),
-                               trim=(120, 90, 40)), 3, march_clip)
-    write_sprite("player_drone_crimson",
-                 player_frames(6, hull=(220, 60, 70), accent=(255, 180, 180),
-                               trim=(90, 220, 255)), 3, march_clip)
-    write_sprite("player_drone_arctic",
-                 player_frames(6, hull=(230, 240, 255), accent=(160, 220, 255),
-                               trim=(90, 130, 200)), 3, march_clip)
+    # Playtest #2 item 8 (D228): three chassis, and every chassis in every
+    # paint — runtime resolves "<chassis>_<colour>.json" (paint_sidecar()), so
+    # the full matrix must exist. The bases bake each ship's catalogue colour
+    # (the Gatling still flies the violet Falcon chassis until its own art
+    # lands — spec TODO).
+    PALETTES = {
+        "cyan":    (None, None, None),                                   # CORE
+        "violet":  ((180, 110, 255), (232, 210, 255), (90, 235, 255)),
+        "forest":  ((70, 170, 90),   (180, 255, 190), (235, 220, 120)),
+        "gold":    ((235, 185, 60),  (255, 240, 180), (120, 90, 40)),
+        "crimson": ((220, 60, 70),   (255, 180, 180), (90, 220, 255)),
+        "arctic":  ((230, 240, 255), (160, 220, 255), (90, 130, 200)),
+    }
+    CHASSIS = {"player_drone": (player_frames, "cyan"),
+               "owl_drone": (owl_frames, "violet"),
+               "gryphon_drone": (gryphon_frames, "forest")}
+    for chassis, (fn, base) in CHASSIS.items():
+        for cname, (h, a, tr) in PALETTES.items():
+            fr = fn(6, hull=h, accent=a, trim=tr)
+            write_sprite(f"{chassis}_{cname}", fr, 3, march_clip)
+            if cname == base:
+                write_sprite(chassis, fr, 3, march_clip)   # the ship's own look
+    for icon_name, icon_img in item_icons().items():
+        write_sprite(icon_name, [icon_img], 1,
+                     {"march": {"start_frame": 0, "frame_count": 1,
+                                "frame_duration": 1.0, "looping": True}})
+    write_sprite("slag_glob_ice", [slag_glob_ice()], 1,
+                 {"march": {"start_frame": 0, "frame_count": 1,
+                            "frame_duration": 1.0, "looping": True}})
+    write_sprite("slag_glob", [slag_glob()], 1,
+                 {"march": {"start_frame": 0, "frame_count": 1,
+                            "frame_duration": 1.0, "looping": True}})
     # Enemies: march (loop) + death (oneshot) concatenated.
     # v2 Phase 5a: drawn against MONO, i.e. pure luminance. These used to bake an
     # arena's own primary (runner=BIOLAB green, hulk=FOUNDRY orange), which made

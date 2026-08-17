@@ -165,8 +165,18 @@ void BossSystem::open_reward(ComponentStorage& storage, Blackboard& blackboard) 
             if (actives::active_id_for(cfg_->actives[i].effect) == held)
                 offer_.push_back(static_cast<int>(i));
     }
+    // D232 (item 13): loadout gate — an active with a `requires` clause is
+    // only offered when the current weapon/ship satisfies it.
+    const std::string weapon_now =
+        blackboard.get_or<std::string>("weapon.name", std::string());
+    std::string ship_now;
+    if (ship != nullptr && ship->ship_id >= 0 &&
+        ship->ship_id < static_cast<int>(cfg_->ships.size()))
+        ship_now = cfg_->ships[static_cast<size_t>(ship->ship_id)].name;
     for (size_t i = 0; i < cfg_->actives.size(); ++i) {
         if (actives::active_id_for(cfg_->actives[i].effect) == held) continue;
+        if (!active_requirement_met(cfg_->actives[i].requires_loadout, weapon_now, ship_now))
+            continue;
         offer_.push_back(static_cast<int>(i));
     }
     if (static_cast<int>(offer_.size()) > cfg_->boss.reward_choices)
@@ -212,9 +222,27 @@ bool BossSystem::handle_reward_click(ComponentStorage& storage, Blackboard& blac
             } else {
                 ship->active_id = id;
                 ship->active_cd = 0.0f;
+                // D232 (item 13): the Cryolator recolours the Flak's shells
+                // icy blue for the REST OF THE RUN (start_run rewrites these
+                // keys, so a new run resets them).
+                if (id == actives::ids::PLASMA_WAKE) {
+                    // Publish the tuning so secondary_fire stays config-blind.
+                    blackboard.set<float>("active.wake_dps", d.amount);
+                    blackboard.set<float>("active.wake_s", d.duration);
+                }
+                if (id == actives::ids::CRYOLATOR) {
+                    blackboard.set<float>("active.freeze_s", d.duration);
+                    blackboard.set<bool>("weapon.glob_ice", true);   // D235: icy sphere
+                    blackboard.set<int>("ship.shot_r", 150);
+                    blackboard.set<int>("ship.shot_g", 220);
+                    blackboard.set<int>("ship.shot_b", 255);
+                }
             }
         }
-        blackboard.set<std::string>("hud_message", d.name + " installed  —  press E");
+        const bool passive = id == actives::ids::PLASMA_WAKE ||
+                             id == actives::ids::CRYOLATOR || id == actives::ids::DOZR;
+        blackboard.set<std::string>("hud_message",
+            d.name + (passive ? " installed" : " installed  —  press E"));
         blackboard.set<float>("hud_message_timer", 4.0f);
         blackboard.set<bool>(ScreenStackSystem::CMD_POP, true);
         return true;
@@ -510,6 +538,26 @@ void BossSystem::update(ComponentStorage& storage, EntityManager& entity_manager
         }
     }
 
+    // D234 (item 3): while the reward is open, the description line follows
+    // the HOVERED choice (or the first, before the mouse reaches one).
+    if (reward_open_) {
+        int show = -1;
+        for (size_t i = 0; i < 3 && i < offer_.size(); ++i) {
+            const double v = blackboard.get_or<double>(
+                std::string("ui.widget_id.") + WIDGET[i], -1.0);
+            if (v < 0.0) continue;
+            auto st = storage.get_component<UIState>(static_cast<Entity>(v));
+            if (st.has_value() && st->get().hovered) { show = static_cast<int>(i); break; }
+        }
+        if (show < 0 && !offer_.empty()) show = 0;
+        const double dv = blackboard.get_or<double>("ui.widget_id.reward_desc", -1.0);
+        if (dv >= 0.0 && show >= 0) {
+            auto el = storage.get_component<UIElement>(static_cast<Entity>(dv));
+            if (el.has_value())
+                el->get().label_text =
+                    cfg_->actives[static_cast<size_t>(offer_[static_cast<size_t>(show)])].desc;
+        }
+    }
     if (reward_open_ && handle_reward_click(storage, blackboard)) {
         reward_open_ = false;
         offer_.clear();

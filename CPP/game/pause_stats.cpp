@@ -102,6 +102,9 @@ std::string active_tag(int active_id) {
         case actives::ids::MISSILES:       return "MISSILES";
         case actives::ids::LASER:          return "LASER";
         case actives::ids::REPULSOR_FIELD: return "REPULSOR";
+        case actives::ids::PLASMA_WAKE:    return "WAKE";
+        case actives::ids::CRYOLATOR:      return "CRYO";
+        case actives::ids::DOZR:           return "DOZR";
         default:                           return std::string();
     }
 }
@@ -314,21 +317,26 @@ void PauseStatsSystem::update(ComponentStorage& cs, EntityManager& em, Blackboar
     const bool held = s.active_id >= 0;
     if (slot_[1] != 0) {
         if (auto el = cs.get_component<UIElement>(slot_[1]); el.has_value())
-            el->get().label_text = held ? pause_stats::active_tag(s.active_id)
+            // D234 (playtest #8 item 4): a held item shows its ICON (main.cpp
+            // parks the sprite over this frame), so the text yields to it.
+            el->get().label_text = held ? std::string()
                                         // Playtest #12: one word, and the word
-                                        // names the slot. "EMPTY / BOSS" spent
-                                        // two lines of a 48px box saying the box
-                                        // was empty, which the empty box said.
+                                        // names the slot.
                                         : std::string("ITEM");
     }
     if (slot_[2] != 0) {
         if (auto el = cs.get_component<UIElement>(slot_[2]); el.has_value()) {
             char cd[16];
             std::snprintf(cd, sizeof(cd), "%.0fs", std::ceil(static_cast<double>(active_cd)));
+            // D234: the prompt sits UNDER the box now. E-fired actives keep
+            // the key + cooldown; the D232 passives (ids >= 3) have no key —
+            // their short tag sits there instead.
             el->get().label_text =
-                held ? pause_stats::active_key(s.active_id) + " " +
-                           (active_cd > 0.0f ? cd : "READY")
-                     : std::string();         // empty: the row above says ITEM
+                held ? (s.active_id >= 3
+                            ? pause_stats::active_tag(s.active_id)
+                            : pause_stats::active_key(s.active_id) + " " +
+                                  (active_cd > 0.0f ? cd : "READY"))
+                     : std::string("E");      // empty slot: name the key, like SPACE
         }
     }
 }

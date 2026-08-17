@@ -130,3 +130,14 @@ was deferred to a human playtest — which is what then found the D227 batch.
 
 **Rule:** do not report a UI flow as verified on the strength of a `drive_ui`
 click. Hover/screenshot is still useful; clicks are not.
+
+## Trap 8 — gate.sh exited 0 no matter what it printed (2026-08-16, fixed)
+
+The gate printed "canary: DIFFERS from baseline" (or DIVERGED, or a warning
+count, or a red ctest) and still exited 0 — every red line was advisory, so a
+scripted caller checking `$?` got a false pass. Found during the D230 batch
+when the canary genuinely moved and `echo $?` said 0 anyway. Fixed the same
+day: gate.sh now accumulates FAIL across warnings / ctest / divergence /
+baseline mismatch and exits it. Related: particle-emitter entity churn CAN
+move the sim through entity-id allocation (the D230 re-baseline) — adding or
+removing an always-on emitter is a sim change here, not presentation.

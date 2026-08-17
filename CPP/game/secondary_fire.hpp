@@ -14,33 +14,38 @@
  * this file stays catalogue-blind.
  *
  * Behaviors by id:
- *   charge_shot     55 Iron — hold to charge (cap CHARGE_MAX_S), release for a
- *                   big shot; damage AND cooldown scale with the hold.
+ *   charge_shot     55 Iron — a passive-refill charge BANK (D231): holding
+ *                   RMB pumps the bank into the shot, release fires it, the
+ *                   unspent remainder stays banked. Damage scales with charge.
  *   crescent_burst  Moonshot — 8 piercing crescents radially, instant.
- *   lava_stream     Flak — 3 s forward slag stream; hits set enemies on fire
- *                   (Burn: small damage for 3 s after last exposure).
+ *   lava_stream     Flak — hold-to-breathe flamethrower on a fuel tank
+ *                   (D230): hold drains STREAM_S seconds of fire, release
+ *                   refills; every tick damages + ignites the cone.
  *   blizzard        Hailstorm — one traveling snow ring; enemies caught in it
  *                   are chilled (PathFollower.speed scaled) for its duration.
  */
 
 namespace secondary {
 constexpr float CHARGE_MAX_S   = 2.5f;   // full charge after this many held seconds
-constexpr float CHARGE_MIN_CD  = 2.0f;   // tap floor for the scaled cooldown
+// Playtest #5 item 8 (D231): the charge is a BANK, like the flamethrower's
+// fuel — it refills passively, holding RMB spends it into the shot, and
+// whatever you don't spend stays banked. No cooldown; the bank is the gate.
+constexpr float CHARGE_REFILL_S = 8.0f;  // empty bank -> full while not holding
 constexpr float DPS_TICK_S     = 0.5f;   // burn damage cadence
 constexpr float BURN_LINGER_S  = 3.0f;
-constexpr float STREAM_S       = 3.0f;   // lava stream duration
-constexpr float STREAM_STEP_S  = 0.07f;  // seconds between slag droplets
+constexpr float STREAM_S       = 3.0f;   // fuel tank: seconds of continuous fire
+constexpr float STREAM_STEP_S  = 0.07f;  // seconds between damage ticks
+constexpr float FUEL_RECHARGE_S = 6.0f;  // empty -> full while not firing (D230)
+// Playtest #3 item 3 (D229): the flame cone IS the weapon — every tick hits the
+// whole cone. ponytail: feel numbers, tune in playtest.
+constexpr float STREAM_RANGE      = 425.0f;  // px reach of the cone (D236 +25% again)
+constexpr float STREAM_HALF_ANGLE = 0.28f;   // rad (~16 deg)
+constexpr float STREAM_TICK_DMG   = 4.6f;    // per enemy per tick (D231 +15%)
 
 /// Charge fraction [0,1] from held seconds. Pure — unit-tested.
 inline float charge_frac(float held_s) {
     if (held_s <= 0.0f) return 0.0f;
     return held_s >= CHARGE_MAX_S ? 1.0f : held_s / CHARGE_MAX_S;
-}
-/// Cooldown for a charge shot released at `frac` of full charge (max = cd_max,
-/// spec: shorter press -> shorter cooldown). Pure — unit-tested.
-inline float charge_cooldown(float frac, float cd_max) {
-    const float cd = cd_max * frac;
-    return cd < CHARGE_MIN_CD ? CHARGE_MIN_CD : cd;
 }
 /// Charge-shot damage multiplier: 1x tap -> 4x full. Pure — unit-tested.
 inline float charge_damage_mult(float frac) { return 1.0f + 3.0f * frac; }

@@ -2697,3 +2697,362 @@ coverage but changes a documented project convention — owner's call.
 makes that approximate at best); making all four weapons bolts (drops the slag
 tracer gameplay.md asks for); keeping the 2px shove as a "feel" knob (it was
 the bug).
+
+## D228 — Playtest #2 batch (9 items from the owner's second windowed run)  *(2026-08-16)*
+
+**Decision.** One batch, all nine items from the second playtest of the v2.3
+pack (list pasted 2026-08-16; bug 013 filed from item 4):
+
+1. **The scrolling-menu bug (items 1+2) — supersedes D227's park.** The
+   "parked" preview drone chased the camera which re-centred on the drone the
+   same frame: a feedback loop that scrolled the backdrop forever and pinned
+   the ship to screen centre. `park_drone_in_hangar` is DELETED; the CAMERA
+   now takes a render-only offset while `run_setup`, `main_menu`,
+   `cosmetic_shop` or `inventory` tops the stack, so the live drone draws in
+   an authored left-column slot and the world stands still. No sim writes —
+   the canary cannot see it.
+2. **"(you have N)" removed** from the next-purchasable-ship line — the scrap
+   counter already says so (item 3).
+3. **Grid inventory** (items 4+5, spec `specs/grid-inventory.md`): the screen
+   is a grid of selectable cells — 4 weapon cells + three colour rows of
+   (DEFAULT + 6 paints). shop_tab+disabled = equipped (the D88 tab
+   convention), card+disabled = unowned. Clicks equip directly and persist;
+   `cycle_color_slot` deleted. Bug 013 (BACK under the projectile row) died
+   with the old layout, and `test_screen_layout.cpp` now fails the build on
+   ANY partial widget overlap on ANY screen — it immediately caught two more
+   (run_setup's HANGAR title under the scrap label, the shop tip-name under
+   the stat panel), both fixed by re-authoring rects.
+4. **Flak slag projectile** (item 6): projectile_size 10->16 and a new `slag`
+   flag through WeaponConfig/WeaponStats/ProjectileTag — renders as a short,
+   FAT hot-cored chunk (the bolt path at ~1.3x its own radius wide) with the
+   long-dormant ember trail emitter finally attached (110/s, chunky). Flak no
+   longer shares the ribbon.
+5. **Lava-stream flamethrower read** (item 7): globs fattened 7->11px and a
+   0.2s additive flame cone (260/s, 14° half-angle, gold->ember fade) spawns
+   at the muzzle each stream step. Damage cadence untouched.
+6. **Per-ship chassis art** (item 8): `owl_frames` (round two-pod glider,
+   wing struts, twin eyes, tail feathers) and `gryphon_frames` (four chunky
+   pods, armoured hex hull with plate seams, bright ram prow) in
+   make_sprites.py. Paints are now chassis x colour by NAMING CONVENTION —
+   `paint_sidecar()` derives `<chassis>_<colour>.json` from the ship's own
+   sidecar — and the generator emits the full 3x6 matrix, so
+   `CosmeticColorDef::sidecar` (which could only repaint the Falcon) is
+   deleted from struct, parser and GameData. test_cosmetics now proves every
+   unlocked-chassis x paint atlas exists. The locked Gatling still flies the
+   violet Falcon chassis (art TODO stands, spec).
+7. **Boot reskin**: the title/hangar preview wore the Falcon atlas regardless
+   of the save; `reskin_player()` now runs once at startup.
+8. **gameplay.md audit (item 9)**: every requirement verified implemented in
+   code — ship-unlock grants its weapon (derived), sustain pickups recharge
+   on a timer, waves gate on zero enemies + quota with the anti-softlock
+   force-kill, boss holds until reward taken, feedback on the pause row,
+   disclaimers/trail/ESC-shop/solidity/leaderboard shipped in tiers 4-8.
+
+**Verified:** zero-warning build; 8/8 suites, 410 unit cases; gate.sh green
+TWICE on the UNMOVED D227 baseline (`Frames: 3000 Final score: 10 Units: 0
+Wave: 1 Phase: 2`, saves reset per bugs/006); screenshots of main menu,
+hangar, inventory, slag fire and the flame cone eyeballed. NOT yet judged by
+a human — playtest #3 owns that.
+
+**Rejected:** parking the drone by writing Position with the camera pinned
+(still a sim write; the offset does it render-only); one sidecar per paint
+colour (cannot express paint x chassis); a WoW-style drag inventory (UIElement
+has no texture/drag — selectable cells deliver the "everything is an item"
+ask without a new UI engine).
+
+## D229 — Playtest #3 batch (7 items from the owner's third windowed run)  *(2026-08-16)*
+
+**Decision.** One batch, all seven items (list pasted 2026-08-16; bug 014
+filed from item 7; owner confirmed replacing the veil on item 4):
+
+1. **Moonshot crescents are crescents now** (item 1): a `crescent` flag
+   through WeaponConfig/WeaponStats/ProjectileTag renders the shot as an arc
+   bowed along the heading — 7 points, per-point widths thin at the tips and
+   fat in the middle — for the primary AND the RMB radial burst. Replaces the
+   ribbon for this weapon only.
+2. **Flak hits harder and explodes** (item 2): damage 45→55, and a slag
+   impact now deals a light AoE (40% of shot damage, 80 px radius, ponytail
+   feel-number) with an orange burst so the explosion reads. Hue fixed by NOT
+   applying the shared +90/+35/+60 brighten to slag — the wash was turning
+   Flak's authored orange white; the hot core supplies the brightness.
+3. **The flame IS the flamethrower** (item 3, supersedes the D228 globs): the
+   lava stream spawns no projectiles at all — each tick hit-tests a forward
+   cone (270 px, ~16°, 4 dmg/tick, knobs in secondary_fire.hpp) and applies
+   damage + Burn; the fire particles (faster, longer-lived, ~250 px reach) are
+   the entire visual. Nothing left to see "underneath".
+4. **Owl special = second dash charge** (item 4, REPLACES the phoenix veil —
+   owner's call, supersedes that part of D221/D223): start_run bumps dash_max
+   by one for `special: "dash_charge"`. The veil machinery is deleted
+   (ship_specials.hpp trigger/re-arm, the solidity pass-through, the armed
+   flag); the generic "ship.no_fire" jam countdown stays for future sources.
+5. **Ember de-squaring + bigger chunk** (item 5): the size-10 square trail
+   particles read as A BOX under the chunk — now 5 px and denser (the sparkle
+   without the square); projectile_size 16→18.
+6. **Charged slug renders as a chunk** (item 6): spawn_shot grew
+   crescent/chunk flags; the 55 Iron charge shot uses the slag render path,
+   so the slug is a fat hot-cored chunk scaled by the charge — the beefed-up
+   Flak primary the owner described.
+7. **Feedback over pause** (item 7, bug 014): the feedback screen was
+   authored z 9/10 vs pause's 30/40, and UIRenderSystem sorts by z across all
+   active screens, so pause always drew on top. Feedback is now 50/60 —
+   strictly above anything it can be pushed over.
+
+**Verified:** zero-warning build; 8/8 suites (one timing-suite flake on the
+first pass, clean twice after — the bugs/010 pattern); gate.sh green TWICE on
+the UNMOVED baseline, saves reset per bugs/006 and the owner's save restored;
+screenshots eyeballed for the crescent, the orange chunk + sparkle trail and
+the long flame cone. NOT verifiable headless: the feedback z-fix
+(`on_feedback_click` is gated on net::enabled(), off headless — proven by the
+sort arithmetic instead) and the Owl's second dash (state dump doesn't print
+ShipState; the data test pins the special id). Owner judges both in playtest #4.
+
+**Rejected:** keeping the veil alongside the dash charge (owner said
+replace); crescent as a sprite atlas (UIElement/projectiles carry no texture
+— the glow-line arc does it in ~20 lines); keeping glob projectiles under the
+flame with colliders off (two damage paths to tune instead of one).
+
+## D230 — Playtest #4 batch (6 items from the owner's fourth windowed run)  *(2026-08-16)*
+
+**Decision.** One batch, all six items (list pasted 2026-08-16):
+
+1. **Charge-up reads as charging** (item 1): a world-space charge bar under
+   the drone (glow-line track + gold fill, render-only) plus gather motes
+   ringing the hull while the RMB is held — the freed player emitter slot
+   (see item 4), attached on charge start and removed on release.
+2. **The slug was never "not hitting"** (item 2): a probed headless A/B run
+   (no-fire 0 score vs slug-only 10) showed it connects — it was illegible
+   and died on the first graze. Now 16+34*frac half-size (wider floor) and
+   ALWAYS piercing, so a release sweeps through the pack and visibly lands.
+3. **Feedback form UX** (item 3): panel centred (it spanned 180-800, flush to
+   the right edge); every field is a clickable card box — a button hitbox
+   CONTAINING its text label, which the layout gate permits by design; the
+   body has its own tall box with click-anywhere focus; SUBMIT button
+   replaces ENTER-to-send (ENTER in BODY still inserts a newline); the
+   focused card wears the D88 selected look.
+4. **One trail, and it dissipates** (item 4): the centre thruster emitter is
+   DELETED — it read as a second trail leaking from the hull (and its
+   direction math mixed radians with degrees anyway). The rear ribbon now
+   sheds one tail point per frame whenever the drone adds no new sample, so
+   a stopped drone's trail melts instead of hanging.
+5. **Flamethrower on fuel** (item 5, supersedes D229's 3s-burst-per-cooldown):
+   hold to breathe while the tank (STREAM_S=3s, refill 6s, knobs in
+   secondary_fire.hpp) drains; release refills; the shared HUD gauge shows
+   fuel. Damage was PROVEN landing (A/B score 10 vs 0) but invisible — every
+   cone tick now flashes its victims.
+6. **Moonshot tune** (item 6): damage 14 → 17.5 (+25%), primary crescent
+   16 → 22 wide, burst crescents 1.6x primary, secondary_cd 10 → 6.
+
+**Canary re-baselined a FOURTH time** to
+`Frames: 3000  Final score: 0  Units: 0  Wave: 1  Phase: 2` — and the move
+was PROBED, not assumed: re-adding the thruster emitter restored the old 10
+exactly. The emitter's per-frame particle entities perturb entity-id
+allocation, so an always-on emitter is a sim change in this engine, not
+presentation (bugs/003 Trap 8 note). While confirming, found that **gate.sh
+exited 0 on every failure it printed** — DIFFERS/DIVERGED/warnings/red
+ctest were all advisory. Fixed: FAIL propagates; verified both exit paths.
+
+**Verified:** zero-warning build; 8/8 suites; canary byte-identical x2 at
+the new baseline (gate green, and the gate's red path now really exits 1);
+screenshots eyeballed: charge bar + motes, flame plume with no globs under
+it, dissipated trail on a stationary drone. NOT verifiable headless: the
+feedback form (net-gated) — owner exercises it in playtest #5.
+
+**Rejected:** keeping a cooldown alongside fuel (two clocks, one gauge);
+inward-flying gather particles (emitters only push outward — short-lived
+growing motes read the same for zero engine work); making fields
+multi-widget focus machinery in the engine (the game's by-name rewrite
+pattern already does it).
+
+## D231 — Playtest #5 batch (10 items from the owner's fifth windowed run)  *(2026-08-16)*
+
+**Decision.** One batch: 8 items built, 1 recorded, plus bugs 015/016.
+
+1. **Bug 015 — same-family REACTOR SHIFT**: the ladder is 3-wave blocks (the
+   6→7 boundary was real), but the shuffle could seat Prism II next to Prism,
+   so the shift banner announced an arena the screen already showed. Shuffle
+   rule 3: no same-family neighbours (bounded greedy repair; the first draft
+   broke the no-Prism-opener rule and the 200-seed test caught it — that test
+   now pins all three rules).
+2. **Bug 016 — cover now covers**: the tier-3 laser's pierce exemption
+   skipped destruction on EVERYTHING, walls included, while player pierce
+   shots stop on walls. Enemy shots now die on any OBSTACLE-layer collider
+   regardless of pierce; lasers still pierce bodies.
+3. **Drift drama** (item 3): authored current +35% (51.3,-18.9) and the
+   current REVERSES after two waves in the block. The +35% broke the anti-pin
+   invariant (current 54.7 > slowest enemy 48 would wall-pin it and stall the
+   wave gate), so the shove is now split: player and loot feel the full
+   current, enemies ride one clamped below the slowest speed
+   (drift_enemy_scale, pure + tested).
+4. **Map modifiers recorded, not built** (item 4): specs/map-modifiers.md
+   (Draft) + the owner's open questions. Interview before building.
+5. **Low-hull vignette** (item 5): <=10% hull draws a soft flashing red
+   border — nested translucent frames fading inward, sine pulse, render-only,
+   gameplay phase only. NOT visually verified headless (needs a dying drone
+   under a real window) — playtest #6 judges it.
+6. **Drone descriptions** (item 6): ShipDef::desc from GameData, shown in the
+   hangar under the stat pips. The old hangar_hint slot IS the desc slot now;
+   the "grants <weapon>" note moved onto the BUY row.
+7. **Flak reach + heat** (item 7): STREAM_RANGE 270→340 (flame particles
+   sped up to match), projectile 55→63, breath tick 4.0→4.6 (+15%).
+8. **Charge bank** (item 8, supersedes the D229/D230 scaled cooldown): the
+   55 Iron secondary runs on a passively-refilling bank (full 2.5s, refill
+   8s) — holding pumps the bank into the shot, release fires it, the unspent
+   remainder stays banked, and the HUD gauge shows the bank when idle. The
+   charge_cooldown helper and its test are deleted.
+9. **Juicy slug** (item 9): the charge slug carries the ember tracer the Flak
+   chunk wears, and flies 480→720 px/s (+50%).
+10. **How-to-play refreshed** (item 10): the in-game screen and
+   docs/features.html now say RMB secondaries, dash charges, battery, scrap
+   persistence, 3-wave arena rotation, cover blocking both directions; the
+   site's dead "upgrades and gear" tab line is gone. The site change is ON
+   DISK ONLY — deploying ships whatever is on disk, and this branch has
+   uncommitted work, so no deploy was run.
+
+**Verified:** zero-warning build; 407 unit cases, 8/8 suites; gate green
+TWICE with the canary UNMOVED on the D230 baseline (and the gate's exit code
+is honest now — D230). Screenshots: hangar description renders under the
+pips. NOT verified: the vignette, the drift flip feel, and cover-vs-lasers —
+playtest #6 owns those.
+
+**Rejected:** capping the drift at +14% to satisfy the invariant (the owner
+asked for drama — splitting player/enemy shove keeps both); building map
+modifiers now (owner said "remember", not "build"); a screen-space shader
+vignette (nested SDL rects read the same at 3am).
+
+## D232 — Playtest #6 batch (16 items from the owner's sixth windowed run)  *(2026-08-17)*
+
+**Decision.** One batch, all sixteen (item 12's cut-off sentence resolved to
+"both secondaries + make the Flak chunk a sphere"; item 9's interview chose
+options A+C):
+
+1. **Checkpoints restore** (item 1): a boss kill and the 5th-wave shop
+   cadence both refill hull AND shield.
+2. **Health orbs** (item 2): every kill rolls one — 5% before wave 12, 3%
+   after, 25 hull — drawn unconditionally per the R2 RNG discipline.
+3. **Flak 63→57** (item 3, −10%).
+4. **Armor** (item 4): ShipDef::armor = flat fraction of ALL incoming damage
+   ignored, applied before the shield soaks. Gryphon 25%, Falcon 10%,
+   Owl 5%. Ninth hangar stat row (rows re-laid at 20 px pitch).
+5. **field_focus style** (item 5): the focused feedback card is card-blue a
+   shade lighter — the searing shop_tab cyan is gone from the form.
+6. **TAGS dropdown** (item 6): six fixed options (incl. "hotdog", owner's
+   list) as z-70 overlay buttons — ghost+disabled when closed. The layout
+   gate learned that z>=70 marks a floating overlay.
+7. **Per-type impact fizzle** (item 7): projectile_fizzle.hpp — crescents
+   dissolve as a shimmer ring, slag splashes embers, bolts snap into sparks;
+   fires on walls, end-of-range, and enemy-shot deaths (their own colour).
+8. **Charge gather** (item 8): bigger, denser, and tinted from ship.shot_* —
+   the weapon's own colour.
+9. **Drone profile A+C** (item 9): the hangar header reads "<SHIP> PROFILE",
+   and every inventory cosmetic row names its owner ("SHIP COLOR — GRYPHON",
+   "PROJECTILE COLOR — FLAK CANNON").
+10. **Twin Barrel fans the slug** (item 10): ship.extra_shots adds slugs to
+    the charge release, same fan step as the primary.
+11. **Slug** (item 11): 936 px/s (+30%), still full-range piercing, fizzles
+    at end of range, trail 340/s x 0.6 s.
+12. **Pizzazz** (item 12): denser flame + a white-hot spark layer on the
+    breath; the Flak chunk is now a real molten SPHERE (generated
+    slag_glob.png sprite — the glow-rect "block" is gone; the spriteless
+    charge slug keeps the fat chunk).
+13. **Loadout-gated boss items** (item 13, spec specs/loadout-boss-items.md):
+    `requires` on ActiveItemDef + active_requirement_met (pure, tested);
+    reward_choices 1→2. Plasma Wake (55 Iron/Moonshot: secondaries trail
+    25%-slow, 12 dps plasma patches — stationary BlizzardTag fields with a
+    new dps knob); Cryolator (Flak: ice breath, Frostbite stacks −10% each on
+    a 0.5 s cadence, 4 = frozen 2 s, shells icy blue for the run); DOZR
+    (Gryphon: a dash KILL multiplies remaining dash cooldown by 0.25).
+    Frostbite rides the existing Chill component (field adds, no new
+    registration).
+14. **The ram is armoured** (item 14): mid-dash enemy contact costs a
+    ram_dash ship nothing. Hazards still burn.
+15. **Cone heat falloff** (item 15): 1.5x on the flame's axis to 0.7x at the
+    edge.
+16. **Vignette tiers** (item 16): starts at 20% hull, steps at 15/10/5% —
+    alpha 32→74 and the pulse quickens per tier.
+
+**Verified:** zero-warning build (the C++20 `requires` keyword collision
+renamed to requires_loadout); full suites green after re-pinning two tests
+the batch legitimately moved (actives' 30 s rule now applies only to E-fired
+ids; the drop property test learned health orbs); canary UNMOVED, gate green
+twice; screenshots: the molten sphere and the breath eyeballed. NOT verified
+headless: every boss item (needs a boss kill under a real loadout), the
+dropdown feel, armor feel, restores — playtest #7 owns those. The in-game
+how-to hull line updated for orbs/restores.
+
+**Rejected:** a real Frostbite component (five-file registration for fields
+Chill already carries); per-patch damage events on overlap frames without dt
+scaling (burst damage, not a field); offering gated items to everyone with a
+dead pick (a reward that installs nothing is a lie).
+
+## D233 — Playtest #7 hotfixes (2 items, mid-session report)  *(2026-08-17)*
+
+**Decision.** Two fixes from live play:
+
+1. **The flame rides the hull** (item 1): the breath's main emitter was a new
+   STATIONARY host entity every 0.07 s, each radiating for 0.2 s from where
+   the drone USED to be — that was the "origin lags behind the player". The
+   main flame is now ONE emitter ON the player entity, re-pointed every frame
+   (emit accumulator preserved so the density is unchanged), removed the
+   frame breathing stops. Only the 0.07 s spark garnish still spawns per
+   step — too short-lived to read as lag.
+2. **The closed dropdown truly vanishes** (item 2): ghost-styled buttons
+   still painted their box frame. Closed fb_tag_ rects are now zeroed —
+   nothing drawn, nothing hit-testable; the authored rect is restored when
+   the dropdown opens.
+
+**Verified:** zero-warning build, 8/8 suites, canary unmoved (gate green),
+screenshot: flame pouring from the hull mid-move. The dropdown re-check is
+the owner's (windowed form).
+
+## D234 — Playtest #8 batch (4 items, mid-session report)  *(2026-08-17)*
+
+**Decision.**
+
+1. **Flame deadspot** (item 1): standing ON an enemy could put its centre just
+   behind the cone axis, and the angle test alone read that as "not in the
+   flame" — 0 damage point-blank. Inside 70 px (+ enemy radius) the cone
+   check is waived, and the heat falloff is clamped at its 0.7x floor so a
+   behind-axis hit can never go negative.
+2. **Dropdown legibility** (item 2): new `menu_option` style (lighter than
+   card, bright text) on 34 px rows at a 40 px pitch — the 6 px gaps between
+   fills against the dark panel ARE the separating grid.
+3. **Reward tooltips** (item 3): ActiveItemDef::desc + a reward_desc caption
+   on the boss_reward panel, rewritten every frame to the HOVERED choice
+   (first choice before the mouse arrives).
+4. **Item slot face** (item 4): six generated neon icons
+   (hud_icon_<effect>.png); the held item's icon parks over item_slot_frame
+   (the dash-button recipe) and the slot's text yields to it; the key prompt
+   moved UNDER the box like SPACE under the booster — "[E] READY/cd" for
+   E-fired actives, the item's short tag (WAKE/CRYO/DOZR) for the D232
+   passives, a bare "E" when empty. test_pause_screen re-pinned to the
+   under-box layout.
+
+**Verified:** zero-warning build, 8/8 suites (one legitimate re-pin), canary
+unmoved, gate green; icon contact sheet eyeballed. The deadspot fix, dropdown
+and slot face are playtest #9's to judge windowed.
+
+## D235 — Playtest #9 (dev-mode session, 3 items)  *(2026-08-17)*
+
+**Decision.**
+
+1. **The tank refills only while the trigger is released**: holding an empty
+   flamethrower used to sputter-refire every few frames as fuel trickled back
+   in under the held button (near-zero damage, all noise). Now an empty tank
+   under a held trigger does nothing until you let go.
+2. **Frostbite is visible**: stacked enemies wear a faint icy additive tint
+   that deepens per stack; a FROZEN enemy gets the hard white-blue tint AND a
+   tilted hexagonal ice shell drawn around it (glow-line, render-only). Tints
+   are cleaned up when the chill ends.
+3. **The Cryolator freezes the sphere**: a cold-palette slag_glob_ice.png,
+   picked via the run-scoped weapon.glob_ice key (set on pick, reset by
+   start_run with the shot colours).
+
+**Verified:** zero-warning build, 8/8 suites, canary unmoved, gate green.
+Owner judges the look in the next session.
+
+## D236 — Cryolator freeze speed + breath range (owner tune)  *(2026-08-17)*
+
+Frostbite stack cadence 0.5 s → 0.25 s (a held breath freezes in ~0.75 s of
+exposure instead of ~1.5 s); STREAM_RANGE 340 → 425 px (+25%), flame
+particles sped/lengthened to keep the visual honest about the reach.
+Verified: zero-warning build, 8/8 suites, canary unmoved, gate green.

@@ -448,7 +448,10 @@ TEST_CASE("every shipped active maps onto a known id", "[Game][actives][config]"
         INFO("effect: " << d.effect);
         REQUIRE(id >= 0);
         if (id == actives::ids::MISSILES) missiles_seen = true;
-        CHECK_THAT(d.cooldown, WithinAbs(30.0f, 1e-3f));   // the note fixes this
+        // The 30 s note governs the E-fired actives; the D232 loadout-gated
+        // PASSIVES (plasma wake / cryolator / DOZR) have no cooldown at all.
+        if (id <= actives::ids::REPULSOR_FIELD)
+            CHECK_THAT(d.cooldown, WithinAbs(30.0f, 1e-3f));
         CHECK(actives::active_def(cfg.actives, id) != nullptr);
     }
     CHECK(missiles_seen);

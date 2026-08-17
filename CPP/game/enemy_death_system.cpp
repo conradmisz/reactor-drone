@@ -209,6 +209,16 @@ void EnemyDeathSystem::drop_loot(ComponentStorage& component_storage,
     if (drops && key_roll < ec.key_drop_chance) {
         make_pickup(cx, cy, PickupKind::Key, 1, 255, 130, 245);
     }
+
+    // Playtest #6 item 2 (D232): a health-orb roll on every kill — drawn
+    // unconditionally like every other roll here (R2), so the RNG stream never
+    // depends on the outcome. 5% before wave 12, 3% from wave 12 on.
+    const float health_roll = unit(rng_);
+    const float health_chance = wave_ < 12 ? 0.05f : 0.03f;
+    if (health_roll < health_chance) {
+        make_pickup(cx, cy, PickupKind::Health, 25, 120, 255, 140,
+                    "v2/pickup_health.png");
+    }
 }
 
 void EnemyDeathSystem::update(ComponentStorage& component_storage,

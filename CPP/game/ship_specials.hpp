@@ -13,49 +13,20 @@
  * Specials by id (ShipDef::special, published as "ship.special" by start_run):
  *   equip_cd     Falcon — 25% lower boss-item cooldown. No tick: start_run
  *                seeds "ship.active_cd_mult" 0.75 and active_items reads it.
- *   phoenix_veil Owl — dipping below 10% hull grants 4 s of invincibility but
- *                jams the trigger ("ship.no_fire", read by PlayerFireSystem).
- *                Re-arms once hull climbs back to 25%, so hovering at 9% can't
- *                re-trigger it every frame.
+ *   dash_charge  Owl — a second dash charge from wave 1 (playtest #3 item 4,
+ *                D229 — replaces the phoenix veil, owner's call). No tick:
+ *                start_run bumps ShipState::dash_max by one.
  *   ram_dash     Gryphon — a dash recharges shield and shoves contacted
  *                enemies away (handled inside tick_dash, which owns contact).
  */
-namespace veil {
-constexpr float TRIGGER_FRAC = 0.10f;
-constexpr float REARM_FRAC   = 0.25f;
-constexpr float DURATION     = 4.0f;
 
-/// Pure trigger/re-arm rules — unit-tested.
-inline bool should_fire(float hull_frac, bool armed) {
-    return armed && hull_frac < TRIGGER_FRAC;
-}
-inline bool should_rearm(float hull_frac, bool armed) {
-    return !armed && hull_frac >= REARM_FRAC;
-}
-}  // namespace veil
-
-/// Per-frame veil bookkeeping. Cheap no-op for every ship but the Owl, except
-/// the "ship.no_fire" countdown, which any future jam source may reuse.
+/// Per-frame special bookkeeping. Today that is only the "ship.no_fire" jam
+/// countdown (read by PlayerFireSystem and the secondaries) — nothing sets it
+/// since the veil retired (D229), but any future jam source re-uses it.
 inline void tick_ship_specials(ComponentStorage& storage, Blackboard& bb, float dt) {
+    (void)storage;
     const float nf = bb.get_or<float>("ship.no_fire", 0.0f);
     if (nf > 0.0f) bb.set<float>("ship.no_fire", nf - dt);
-
-    if (bb.get_or<std::string>("ship.special", std::string()) != "phoenix_veil") return;
-    for (Entity player : storage.entities_with_component<PlayerTag>()) {
-        auto h = storage.get_component<Health>(player);
-        if (!h.has_value() || h->get().max_hp <= 0.0f) return;
-        const float frac = h->get().current / h->get().max_hp;
-        bool armed = bb.get_or<bool>("veil.armed", true);
-        if (veil::should_fire(frac, armed)) {
-            bb.set<bool>("veil.armed", false);
-            bb.set<float>("ship.no_fire", veil::DURATION);
-            bb.set<float>("player.iframes",
-                std::max(bb.get_or<float>("player.iframes", 0.0f), veil::DURATION));
-        } else if (veil::should_rearm(frac, armed)) {
-            bb.set<bool>("veil.armed", true);
-        }
-        return;  // one player
-    }
 }
 
 #endif  // SHIP_SPECIALS_HPP

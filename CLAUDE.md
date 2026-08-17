@@ -43,10 +43,13 @@ read all of them for every task.
       SDL_VIDEODRIVER=dummy ./CPP/build/game/game --seed 42 \
         --keys $(seq -f '%g:SPACE' 10 4 2990) --stopframe 3000
 
-  Expected: `Frames: 3000  Final score: 10  Units: 0  Wave: 1  Phase: 2`.
-  (Re-baselined three times by the v2.3 pack, each with a decision: D223 arena
+  Expected: `Frames: 3000  Final score: 0  Units: 0  Wave: 1  Phase: 2`.
+  (Re-baselined FOUR times by the v2.3 pack, each with a decision: D223 arena
   shuffle, D224 sorted entity iteration, D227 contact damage restored + solid
-  enemies. **Phase 2 = the scripted drone now DIES in wave 1** — it never
+  enemies, D230 centre thruster emitter removed — its per-frame particle
+  entities were perturbing entity-id allocation, so deleting it shifted the
+  sim; score 10 -> 0 was probed and confirmed as exactly that.
+  **Phase 2 = the scripted drone DIES in wave 1** — it never
   moves, and standing inside enemies is no longer free. The canary is still a
   determinism check, but it no longer exercises much past the first wave; see
   the open item in progress-tracker.md about scripting movement into it.)
@@ -88,7 +91,7 @@ read all of them for every task.
 
 - Update `progress-tracker.md` after every meaningful change.
 - Append design calls (with the *why* and what was rejected) to `decisions.md`.
-  Ids are stable and cited from code — next free id is **D228**.
+  Ids are stable and cited from code — next free id is **D237**.
   (D207-D219 are the `visual-overhaul` v3 block, renumbered at the 2026-08-15
   merge — see the note in `decisions.md`. Do NOT allocate below D220.)
   (`feature/engine-suite` reserves D138-D180; the gameplay-polish batch is

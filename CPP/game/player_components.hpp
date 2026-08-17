@@ -42,7 +42,8 @@ struct ShipState {
     float secondary_cd = 0.0f;          // seconds until ready
     float secondary_charge = -1.0f;     // charge_shot held-seconds; -1 = not charging
     bool  secondary_prev_held = false;  // edge detector for tap secondaries
-    float stream_timer = 0.0f;          // lava_stream seconds remaining
+    float stream_timer = 0.0f;          // lava_stream FUEL seconds (D230)
+    float charge_bank = 0.0f;           // charge_shot banked seconds (D231, item 8)
     float stream_acc = 0.0f;            // droplet cadence accumulator
     unsigned stream_seed = 1u;          // tiny LCG for droplet jitter (NOT the run RNG)
     int upg_counts[8] = {0};      // purchases per shop upgrade (escalating price)
@@ -151,6 +152,8 @@ struct WeaponStats {
     bool pierce = false;
     bool bolt = false;            // playtest #1 item 9 (D227): fixed-length blast
     float bolt_length = 26.0f;
+    bool slag = false;            // playtest #2 item 6 (D228): molten chunk + embers
+    bool crescent = false;        // playtest #3 item 1 (D229): crescent arc render
 };
 
 /**

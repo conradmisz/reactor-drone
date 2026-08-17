@@ -54,16 +54,16 @@ TEST_CASE("the hangar carries every widget main.cpp rewrites or routes", "[Game]
         REQUIRE(e != 0);
         CHECK(w.el(e).on_click_fn == want.fn);
     }
-    for (const char* label : {"hangar_scrap", "hangar_hint"}) {
+    for (const char* label : {"hangar_scrap", "hangar_desc"}) {
         INFO("label: " << label);
         CHECK(w.by_name(label) != 0);
     }
 }
 
-TEST_CASE("the 5-bubble pip column is one aligned x for all 8 rows", "[Game][hangar][ui]") {
+TEST_CASE("the 5-bubble pip column is one aligned x for all 9 rows", "[Game][hangar][ui]") {
     LoadedWorld w;
     float pip_x = -1.0f, name_x = -1.0f, prev_y = 1e9f;
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < 9; ++i) {
         Entity n = w.by_name("hs_name_" + std::to_string(i));
         Entity p = w.by_name("hs_pips_" + std::to_string(i));
         INFO("row " << i);

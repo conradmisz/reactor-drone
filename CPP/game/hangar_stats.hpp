@@ -28,6 +28,7 @@ struct StatRow {
 constexpr float CAP_HULL = 200.0f, CAP_SHIELD = 60.0f, CAP_SPEED = 340.0f,
                 CAP_DASH = 220.0f, CAP_DAMAGE = 60.0f, CAP_RATE = 14.0f,
                 CAP_RANGE = 900.0f, CAP_BATTERY = 16.0f;
+constexpr float CAP_ARMOR   = 0.40f;   // D232: 40% DR = 5 pips
 
 inline int pip5(float value, float cap) {
     if (cap <= 0.0f) return 0;
@@ -56,6 +57,7 @@ inline std::vector<StatRow> rows(const ShipDef& ship, const WeaponDef& weapon,
     const float range = weapon.stats.projectile_speed * weapon.stats.projectile_lifetime;
     return {
         {"HULL " + num(ship.hull),                    pip5(ship.hull, CAP_HULL)},
+        {"ARMOR " + num(ship.armor * 100.0f) + "%",   pip5(ship.armor, CAP_ARMOR)},
         {"SHIELD " + num(ship.shield),                pip5(ship.shield, CAP_SHIELD)},
         {"SPEED " + num(ship.speed),                  pip5(ship.speed, CAP_SPEED)},
         {"DASH " + num(dash_dist) + "px",             pip5(dash_dist, CAP_DASH)},

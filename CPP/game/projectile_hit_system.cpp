@@ -5,6 +5,7 @@
 #include "collision_layers.hpp"   // OBSTACLE
 #include "bullet_bounce.hpp"      // bounce::off_aabb / inside_circle
 #include "secondary_fire.hpp"     // Burn (Flak slag, D221)
+#include "projectile_fizzle.hpp"  // playtest #6 item 7 (D232)
 #include <algorithm>          // std::find (pierce ledger, D221)
 
 namespace {
@@ -60,10 +61,31 @@ auto apply_burn = [&](Entity enemy) {
         }
     };
 
+    const float dt = static_cast<float>(blackboard.get_or<double>("delta_time", 0.0));
+    auto fizzle_here = [&](Entity proj) {
+        float cx, cy, r;
+        if (!circle_of(component_storage, proj, cx, cy, r)) return;
+        auto pt = component_storage.get_component<ProjectileTag>(proj);
+        fizzle::Look look;
+        if (pt.has_value()) {
+            look.r = pt->get().r; look.g = pt->get().g; look.b = pt->get().b;
+            look.bolt = pt->get().bolt; look.slag = pt->get().slag;
+            look.crescent = pt->get().crescent;
+        }
+        fizzle::spawn(component_storage, entity_manager, cx, cy, look, r);
+    };
+
     auto projectiles = component_storage.entities_with_component<ProjectileTag>();
 
     for (Entity proj : projectiles) {
         if (component_storage.has_component<DestroyRequest>(proj)) continue;
+
+        // Playtest #6 items 7+11 (D232): a shot reaching the end of its range
+        // fizzles instead of blinking out. Lifetime is about to expire this
+        // frame, so this fires exactly once.
+        if (auto lt = component_storage.get_component<Lifetime>(proj);
+            lt.has_value() && lt->get().remaining <= dt)
+            fizzle_here(proj);
 
         auto data_opt = component_storage.get_component<ProjectileData>(proj);
         if (!data_opt.has_value()) continue;
@@ -117,6 +139,41 @@ auto apply_burn = [&](Entity enemy) {
             component_storage.add_component<Flash>(hit_enemy, Flash{fdur, fdur, fr, fg, fb});
             if (data.incendiary) apply_burn(hit_enemy);
 
+            // Playtest #3 item 2 (D229): slag explodes on impact — light AoE
+            // around the hit (40% of the shot's damage, small radius) plus an
+            // orange burst so the explosion is visible, not just numeric.
+            if (component_storage.get_component<ProjectileTag>(proj)->get().slag) {
+                constexpr float AOE_R = 80.0f;    // ponytail: feel number, tune in playtest
+                float px = 0.0f, py = 0.0f, pr = 0.0f;
+                if (circle_of(component_storage, proj, px, py, pr)) {
+                    for (Entity e : component_storage.entities_with_component<EnemyTag>()) {
+                        if (e == hit_enemy || !entity_manager.is_alive(e)) continue;
+                        float ex, ey, er;
+                        if (!circle_of(component_storage, e, ex, ey, er)) continue;
+                        const float dx = ex - px, dy = ey - py;
+                        if (dx * dx + dy * dy > (AOE_R + er) * (AOE_R + er)) continue;
+                        Entity ev = entity_manager.create_entity();
+                        component_storage.add_component<DamageEvent>(
+                            ev, DamageEvent{e, data.damage * 0.4f});
+                        component_storage.add_component<Flash>(e, Flash{fdur, fdur, fr, fg, fb});
+                    }
+                    Entity boom = entity_manager.create_entity();
+                    component_storage.add_component<Position>(boom, Position{px, py});
+                    ParticleEmitter x;
+                    x.shape = EmitterShape::Point;
+                    x.additive = true;
+                    x.emission_rate = 900.0f;
+                    x.particle_lifetime = 0.3f;
+                    x.min_speed = 60.0f; x.max_speed = 260.0f;
+                    x.cone_half_angle = 180.0f;
+                    x.start_r = 255; x.start_g = 190; x.start_b = 70; x.start_a = 255;
+                    x.end_r = 180;   x.end_g = 40;    x.end_b = 10;   x.end_a = 0;
+                    x.start_size = 6.0f; x.end_size = 0.0f;
+                    component_storage.add_component<ParticleEmitter>(boom, x);
+                    component_storage.add_component<Lifetime>(boom, Lifetime{0.08f});
+                }
+            }
+
             // v2: additive impact spark burst at the projectile's position.
             if (auto ppos = component_storage.get_component<Position>(proj); ppos.has_value()) {
                 Entity burst = entity_manager.create_entity();
@@ -161,6 +218,7 @@ auto apply_burn = [&](Entity enemy) {
             auto opos = component_storage.get_component<Position>(hit_solid);
             auto osz = component_storage.get_component<Size>(hit_solid);
             if (data.bounces <= 0) {
+                fizzle_here(proj);   // item 7: died on a wall — show it
                 component_storage.add_component<DestroyRequest>(proj, DestroyRequest{});
             } else if (have_circle && vel.has_value() && opos.has_value() && osz.has_value() &&
                        bounce::off_aabb(cx, cy, r, vel->get().dx, vel->get().dy,

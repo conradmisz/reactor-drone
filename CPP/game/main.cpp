@@ -79,7 +79,7 @@
 // Lane B (iteration 3): sustain pickups (#10), thruster dash (#5), minimap (#7).
 #include "sustain_spawn_system.hpp"
 #include "dash_system.hpp"
-#include "ship_specials.hpp"   // gameplay pack (D221): veil + special ids
+#include "ship_specials.hpp"   // gameplay pack (D221): special ids + no-fire tick
 #include "secondary_fire.hpp"   // gameplay pack (D221): right-mouse secondaries
 #include "hangar_stats.hpp"     // gameplay pack (D221): hangar stat rows + pips
 // Engine suite: Lane P (#1 Temporal Overload, D139).
@@ -520,6 +520,7 @@ int main(int argc, char* argv[]) {
     // not widgets because UIElement has no texture path and adding one is an
     // engine change; same "pool it once, park it when idle" shape as the kit.
     Entity dash_icon = 0, dash_dial = 0;
+    Entity item_icon = 0;   // D234: the held boss item's face
     // Engine suite (D144): the force-field layer outlives a single hook because
     // other lanes REGISTER into it (surges, actives) and only the `forces` hook
     // consumes. Declared here with the other long-lived systems; cleared at
@@ -912,7 +913,8 @@ int main(int argc, char* argv[]) {
             config.player.weapon.projectile_speed, config.player.weapon.projectile_lifetime,
             config.player.weapon.spread, 0.0f,
             config.player.weapon.projectile_size, config.player.weapon.pierce,
-            config.player.weapon.bolt, config.player.weapon.bolt_length});
+            config.player.weapon.bolt, config.player.weapon.bolt_length,
+            config.player.weapon.slag, config.player.weapon.crescent});
         // Per-run economy/shop state (D3: no persistence — a fresh one each run).
         // The ship's stats are already baked into `config` by start_run; ship_id
         // just records which hull this run is flying.
@@ -926,28 +928,25 @@ int main(int argc, char* argv[]) {
         // per boss killed (BossSystem). A resumed run restores dash_max from the
         // save, so bosses already beaten are not re-paid for.
         ship_state.dash_max = std::max(1, config.dash.charges);
+        // Playtest #3 item 4 (D229, replaces the phoenix veil — owner's call):
+        // the Owl's special is a second dash charge from wave 1.
+        if (config.ships[static_cast<size_t>(selected_ship)].special == "dash_charge")
+            ship_state.dash_max += 1;
         ship_state.dash_charges = ship_state.dash_max;
+        // Playtest #4 item 5 (D230): the flamethrower's fuel tank starts full.
+        ship_state.stream_timer = secondary::STREAM_S;
+        // Playtest #5 item 8 (D231): so does the 55 Iron's charge bank.
+        ship_state.charge_bank = secondary::CHARGE_MAX_S;
         component_storage.add_component<ShipState>(player, ship_state);
         component_storage.add_component<Collider>(player,
             Collider{psz, psz, layers::PLAYER, layers::PLAYER_MASK});
         component_storage.add_component<CircleCollider>(player, CircleCollider{psz * 0.5f, 0.0f, 0.0f});
         component_storage.add_component<RenderLayer>(player, RenderLayer{3});
 
-        // v2: subtle additive aura/thruster emitter riding the player's centre.
-        {
-            ParticleEmitter thruster;
-            thruster.shape = EmitterShape::Point;
-            thruster.additive = true;
-            thruster.emission_rate = 34.0f;
-            thruster.particle_lifetime = 0.4f;
-            thruster.min_speed = 5.0f; thruster.max_speed = 30.0f;
-            thruster.cone_half_angle = 180.0f;
-            thruster.start_r = 90; thruster.start_g = 220; thruster.start_b = 255; thruster.start_a = 170;
-            thruster.end_r = 30;   thruster.end_g = 80;    thruster.end_b = 160;   thruster.end_a = 0;
-            thruster.start_size = 5.0f; thruster.end_size = 0.0f;
-            thruster.offset_x = psz * 0.5f; thruster.offset_y = psz * 0.5f;
-            component_storage.add_component<ParticleEmitter>(player, thruster);
-        }
+        // Playtest #4 item 4 (D230): the centre thruster emitter is GONE — it
+        // read as a second trail leaking from the hull. The rear ribbon is the
+        // drone's one trail. (The player entity's ParticleEmitter slot is now
+        // free for the charge-gather effect, secondary_fire.cpp.)
 
         // v2 Phase 5c: the equipped-item aura. Starts inactive; the game loop
         // re-points and reconfigures it from ShipState.item_id each frame. Its own
@@ -1016,6 +1015,20 @@ int main(int argc, char* argv[]) {
                 Images{{std::string("v2/hud_boost.png")}, 0});
             component_storage.add_component<RenderLayer>(dash_icon, RenderLayer{60});
 
+            // D234 (playtest #8 item 4): the item slot's face — the held
+            // boss item's icon, same parking recipe. Image swapped per id.
+            item_icon = entity_manager.create_entity();
+            component_storage.add_component<Position>(item_icon, Position{0.0f, 0.0f});
+            component_storage.add_component<Size>(item_icon, Size{0.0f, 0.0f});  // parked
+            component_storage.add_component<Images>(item_icon,
+                Images{{std::string("v2/hud_icon_missiles.png"),
+                        std::string("v2/hud_icon_laser.png"),
+                        std::string("v2/hud_icon_repulsor_field.png"),
+                        std::string("v2/hud_icon_plasma_wake.png"),
+                        std::string("v2/hud_icon_cryolator.png"),
+                        std::string("v2/hud_icon_dozr.png")}, 0});
+            component_storage.add_component<RenderLayer>(item_icon, RenderLayer{60});
+
             dash_dial = entity_manager.create_entity();
             component_storage.add_component<Position>(dash_dial, Position{0.0f, 0.0f});
             component_storage.add_component<Size>(dash_dial, Size{0.0f, 0.0f});   // parked
@@ -1070,6 +1083,11 @@ int main(int argc, char* argv[]) {
     // plumbing. fb_fields: 0=subject 1=body 2=tags 3=from.
     std::string fb_fields[4];
     int fb_focus = 0;
+    // Playtest #6 item 6 (D232): TAGS is a dropdown of fixed options.
+    bool fb_tags_open = false;
+    static constexpr const char* FB_TAG_OPTIONS[6] = {
+        "general feedback", "bug report", "comment",
+        "just saying hi", "hotdog", "other"};
     bool fb_from_pause = false;      // routes ESC: pop-to-pause vs back-to-title
     int fb_prev_phase = PHASE_TITLE; // restored on exit when fb_from_pause
     std::string fb_msg;              // "" = show the default hint line
@@ -1286,8 +1304,11 @@ int main(int argc, char* argv[]) {
             {
                 const int sci = equipped_color(meta, meta.ship_colors, config.ships,
                                                config.cosmetic_colors, sd.name);
-                if (sci >= 0 && !config.cosmetic_colors[static_cast<size_t>(sci)].sidecar.empty())
-                    config.player.sidecar = config.cosmetic_colors[static_cast<size_t>(sci)].sidecar;
+                // D228 item 8: paints are per-chassis by naming convention now.
+                if (sci >= 0)
+                    config.player.sidecar = paint_sidecar(
+                        config.player.sidecar,
+                        config.cosmetic_colors[static_cast<size_t>(sci)].name);
             }
             load_player_sprite();
             // Tier 7 (D221): trail paint, published for the render pass (which
@@ -1310,13 +1331,15 @@ int main(int argc, char* argv[]) {
             // Falls back to the ship's default when nothing valid is equipped;
             // the weapon's own colour supersedes D184's ship-complement rule.
             // Gameplay pack (D221): the ship's special attribute, published for
-            // the systems that consume it (fire gate, veil, ram dash), plus the
+            // the systems that consume it (fire gate, ram dash), plus the
             // per-run seeds it owns. Seeding active_cd_mult here also stops a
             // boss-repick discount leaking into the NEXT run.
             blackboard.set<std::string>("ship.special", sd.special);
             blackboard.set<float>("ship.active_cd_mult",
                                   sd.special == "equip_cd" ? 0.75f : 1.0f);
-            blackboard.set<bool>("veil.armed", true);
+            // D232 item 4: armor — flat fraction of all incoming damage
+            // ignored. Config-blind consumers read the key (D184 pattern).
+            blackboard.set<float>("ship.armor", sd.armor);
             blackboard.set<float>("ship.no_fire", 0.0f);
             // A resumed run keeps ITS weapon, not whatever is equipped now.
             std::string wname = (resume != nullptr && resume->present && !resume->weapon.empty())
@@ -1337,6 +1360,7 @@ int main(int argc, char* argv[]) {
                 blackboard.set<int>("ship.shot_r", wd.color_r);
                 blackboard.set<int>("ship.shot_g", wd.color_g);
                 blackboard.set<int>("ship.shot_b", wd.color_b);
+                blackboard.set<bool>("weapon.glob_ice", false);   // D235: Cryolator sets it
                 // Tier 7 (D221): a projectile paint on THIS weapon wins.
                 const int pci = equipped_color(meta, meta.proj_colors, config.ships,
                                                config.cosmetic_colors, wd.name);
@@ -1468,9 +1492,10 @@ int main(int argc, char* argv[]) {
         el->get().label_text.clear();
         for (const ShipDef& s : config.ships) {
             if (!s.locked && !ship_owned(meta, s)) {
+                // Playtest #2 item 3 (D228): no "(you have N)" — the scrap
+                // counter already says so.
                 el->get().label_text = s.name + " costs " + std::to_string(s.scrap_cost)
-                                     + " scrap  (you have "
-                                     + std::to_string(meta.scrap) + ")";
+                                     + " scrap";
                 break;
             }
         }
@@ -1496,10 +1521,13 @@ int main(int argc, char* argv[]) {
                 if (!sd.idle_clip.empty()) config.player.idle_clip = sd.idle_clip;
             }
             // Tier 7 (D221): the equipped paint's atlas wins, in the hangar too.
+            // D228 item 8: resolved per-chassis by naming convention.
             const int sci = equipped_color(meta, meta.ship_colors, config.ships,
                                            config.cosmetic_colors, sd.name);
-            if (sci >= 0 && !config.cosmetic_colors[static_cast<size_t>(sci)].sidecar.empty())
-                config.player.sidecar = config.cosmetic_colors[static_cast<size_t>(sci)].sidecar;
+            if (sci >= 0)
+                config.player.sidecar = paint_sidecar(
+                    config.player.sidecar,
+                    config.cosmetic_colors[static_cast<size_t>(sci)].name);
         }
         load_player_sprite();
         if (!player_sprite.has_value()) return;
@@ -1509,6 +1537,10 @@ int main(int argc, char* argv[]) {
             break;
         }
     };
+    // Playtest #2 item 8 (D228): the boot-time preview drone wore the Falcon
+    // atlas no matter what was equipped — reskin was click-driven only. Once,
+    // at startup, so the title/hangar preview is the saved loadout.
+    reskin_player();
 
     // The weapon the NEXT run will fly: the equipped one when owned, else the
     // selected ship's default. -1 when no catalogue is authored.
@@ -1530,51 +1562,26 @@ int main(int argc, char* argv[]) {
         return -1;
     };
 
-    // Playtest #1 item 3 (D227): the hangar had no drone in it. Tier 6 claimed
-    // the live world drone WAS the preview, but it sits at world centre —
-    // behind the hangar panel. Park it in an authored preview slot instead
-    // while run_setup is up: no second entity, no duplicated art path, and the
-    // sprite already reskins on ship cycle. start_run's spawn_world resets the
-    // position, so nothing leaks into a run.
-    auto park_drone_in_hangar = [&](bool in_hangar) {
-        for (Entity pl : component_storage.entities_with_component<PlayerTag>()) {
-            auto pos = component_storage.get_component<Position>(pl);
-            auto sz  = component_storage.get_component<Size>(pl);
-            if (!pos.has_value() || !sz.has_value()) return;
-            if (!in_hangar) return;
-            // Design-canvas slot in the hangar's empty left column, mapped the
-            // same way the shop's preview is (D63).
-            constexpr UIRect PREVIEW{96.0f, 372.0f, 140.0f, 140.0f};
-            const float win_w = static_cast<float>(blackboard.get_or<int>("window_width", 980));
-            const float win_h = static_cast<float>(blackboard.get_or<int>("window_height", 660));
-            const UIRect r = ui_apply_transform(ui_canvas_transform(win_w, win_h), PREVIEW);
-            float zoom = blackboard.get_or<float>("camera.zoom", 1.0f);
-            if (zoom < 0.01f) zoom = 0.01f;
-            const float cam_left   = blackboard.get_or<float>("camera.lookat.x", 0.0f) - win_w / zoom * 0.5f;
-            const float cam_bottom = blackboard.get_or<float>("camera.lookat.y", 0.0f) - win_h / zoom * 0.5f;
-            pos->get().x = cam_left   + (r.x + (r.w - sz->get().width) * 0.5f) / zoom;
-            pos->get().y = cam_bottom + (r.y + (r.h - sz->get().height) * 0.5f) / zoom;
-            // Face right, so the hull reads as a display model rather than a
-            // drone mid-turn toward the cursor.
-            if (auto rot = component_storage.get_component<Rotation>(pl); rot.has_value())
-                rot->get().angle = 0.0f;
-            return;
-        }
-    };
-
     // Tier 6 (D221): the hangar's dynamic labels, rewritten every title frame —
     // the refresh_ship_widget idiom, batched. Pips share one x column (the
     // owner's "5 bubbles", aligned by authored geometry, not by text padding).
     auto refresh_hangar = [&]() {
         static Entity w_scrap = 0, w_weapon = 0, w_buy = 0, w_hint = 0;
         static bool r_scrap = false, r_weapon = false, r_buy = false, r_hint = false;
-        static Entity w_name[8] = {0}, w_pips[8] = {0};
-        static bool r_name[8] = {false}, r_pips[8] = {false};
+        static Entity w_name[9] = {0}, w_pips[9] = {0};
+        static bool r_name[9] = {false}, r_pips[9] = {false};
         auto set_label = [&](Entity w, const std::string& text) {
             if (w == 0) return;
             if (auto el = component_storage.get_component<UIElement>(w); el.has_value())
                 el->get().label_text = text;
         };
+        // Playtest #6 item 9 (D232, option A): the header names the drone —
+        // everything on this panel belongs to ITS profile.
+        static Entity w_title2 = 0; static bool r_title2 = false;
+        set_label(widget_by_name("hangar_title", w_title2, r_title2),
+                  (selected_ship >= 0 && selected_ship < static_cast<int>(config.ships.size()))
+                      ? config.ships[static_cast<size_t>(selected_ship)].name + " PROFILE"
+                      : std::string("HANGAR"));
         set_label(widget_by_name("hangar_scrap", w_scrap, r_scrap),
                   "SCRAP: " + std::to_string(meta.scrap));
         const int wi = current_weapon_index();
@@ -1585,7 +1592,7 @@ int main(int argc, char* argv[]) {
             const auto stat_rows = hangar::rows(
                 config.ships[static_cast<size_t>(selected_ship)],
                 config.weapons[static_cast<size_t>(wi)], config.dash);
-            for (int i = 0; i < 8 && i < static_cast<int>(stat_rows.size()); ++i) {
+            for (int i = 0; i < 9 && i < static_cast<int>(stat_rows.size()); ++i) {
                 set_label(widget_by_name(("hs_name_" + std::to_string(i)).c_str(),
                                          w_name[i], r_name[i]), stat_rows[static_cast<size_t>(i)].name);
                 set_label(widget_by_name(("hs_pips_" + std::to_string(i)).c_str(),
@@ -1594,19 +1601,17 @@ int main(int argc, char* argv[]) {
             }
         }
         const int buy = next_purchasable_ship();
+        // D231 item 6: the grant note rides the BUY row now; the old hint slot
+        // shows the SELECTED ship's description instead.
         set_label(widget_by_name("menu_buy", w_buy, r_buy),
                   buy < 0 ? std::string("ALL DRONES OWNED")
                           : "BUY " + config.ships[static_cast<size_t>(buy)].name + "  —  "
                             + std::to_string(config.ships[static_cast<size_t>(buy)].scrap_cost)
-                            + " SCRAP");
-        const int gi = buy >= 0 ? buy : -1;
-        std::string hint;
-        if (gi >= 0 && meta.scrap < config.ships[static_cast<size_t>(gi)].scrap_cost)
-            hint = "Earn scrap by clearing waves and bosses.";
-        else if (gi >= 0)
-            hint = config.ships[static_cast<size_t>(gi)].name + " grants "
-                 + config.ships[static_cast<size_t>(gi)].default_weapon + ".";
-        set_label(widget_by_name("hangar_hint", w_hint, r_hint), hint);
+                            + " SCRAP  (grants "
+                            + config.ships[static_cast<size_t>(buy)].default_weapon + ")");
+        set_label(widget_by_name("hangar_desc", w_hint, r_hint),
+                  (selected_ship >= 0 && selected_ship < static_cast<int>(config.ships.size()))
+                      ? config.ships[static_cast<size_t>(selected_ship)].desc : std::string());
     };
 
     // Tier 6 (D221): the flight report's lines, rewritten while it is up.
@@ -1632,25 +1637,6 @@ int main(int argc, char* argv[]) {
         for (int i = 0; i < 5; ++i)
             set_label(widget_by_name(("rs_line_" + std::to_string(i)).c_str(),
                                      w_line[i], r_line[i]), lines[i]);
-    };
-
-    // Tier 7 (D221): a paint-slot cycle. Cycles "" (item's own paint) -> each
-    // OWNED colour -> back to "". Writes the per-item slot map and persists.
-    auto cycle_color_slot = [&](std::map<std::string, std::string>& slot,
-                                const std::string& item) {
-        if (item.empty() || config.cosmetic_colors.empty()) return;
-        auto it = slot.find(item);
-        int cur = it == slot.end() ? -1 : find_color(config.cosmetic_colors, it->second);
-        const int n = static_cast<int>(config.cosmetic_colors.size());
-        for (int step = 1; step <= n + 1; ++step) {
-            const int i = cur + step;
-            if (i >= n) { slot.erase(item); break; }   // wrapped: back to default
-            if (!color_owned(meta, config.ships,
-                             config.cosmetic_colors[static_cast<size_t>(i)])) continue;
-            slot[item] = config.cosmetic_colors[static_cast<size_t>(i)].name;
-            break;
-        }
-        meta_write(meta_save_path(), meta);
     };
 
     // Tier 7 (D221): the cosmetic shop's rows + the inventory's labels, the
@@ -1680,47 +1666,65 @@ int main(int argc, char* argv[]) {
                   "One purchase paints hull, trail or shots. Equip in INVENTORY.");
     };
 
+    // Playtest #2 (D228, bug 013): the grid inventory. Every cell is a button;
+    // this rewrites label + style + UIState.disabled per cell each title frame.
+    // shop_tab + disabled = equipped (the D88 tab convention), card + disabled
+    // = unowned, cell 0 of a colour row = the item's own default paint.
     auto refresh_inventory = [&]() {
-        static Entity w_weap[4] = {0}, w_ship = 0, w_trail = 0, w_proj = 0;
-        static bool r_weap[4] = {false}, r_ship = false, r_trail = false, r_proj = false;
-        auto set_label = [&](Entity w, const std::string& text) {
+        static Entity w_cell[25] = {0};
+        static bool r_cell[25] = {false};
+        auto cell = [&](int slot_idx, const std::string& name, const std::string& text,
+                        bool owned, bool selected) {
+            Entity w = widget_by_name(name.c_str(), w_cell[slot_idx], r_cell[slot_idx]);
             if (w == 0) return;
-            if (auto el = component_storage.get_component<UIElement>(w); el.has_value())
+            if (auto el = component_storage.get_component<UIElement>(w); el.has_value()) {
                 el->get().label_text = text;
+                el->get().style_id = owned ? "shop_tab" : "card";
+            }
+            if (auto st = component_storage.get_component<UIState>(w); st.has_value())
+                st->get().disabled = selected || !owned;
         };
-        int row = 0;
-        for (const WeaponDef& wd : config.weapons) {
-            if (row >= 4) break;
-            if (!weapon_owned(meta, config.ships, wd.name)) continue;
-            set_label(widget_by_name(("inv_weap_" + std::to_string(row)).c_str(),
-                                     w_weap[row], r_weap[row]),
-                      wd.name + (current_weapon_index() >= 0 &&
-                                 config.weapons[static_cast<size_t>(current_weapon_index())].name == wd.name
-                                     ? "   [equipped]" : ""));
-            ++row;
+        const int wi2 = current_weapon_index();
+        for (int i = 0; i < 4 && i < static_cast<int>(config.weapons.size()); ++i) {
+            const WeaponDef& wd = config.weapons[static_cast<size_t>(i)];
+            cell(i, "inv_w_" + std::to_string(i), wd.name,
+                 weapon_owned(meta, config.ships, wd.name), wi2 == i);
         }
-        for (; row < 4; ++row)
-            set_label(widget_by_name(("inv_weap_" + std::to_string(row)).c_str(),
-                                     w_weap[row], r_weap[row]), "");
         const std::string ship_name =
             (selected_ship >= 0 && selected_ship < static_cast<int>(config.ships.size()))
                 ? config.ships[static_cast<size_t>(selected_ship)].name : std::string();
-        const int wi2 = current_weapon_index();
         const std::string weap_name = wi2 >= 0 ? config.weapons[static_cast<size_t>(wi2)].name
                                                : std::string();
-        auto slot_text = [&](const std::map<std::string, std::string>& slot,
-                             const std::string& item, const char* label) {
-            const int i = equipped_color(meta, slot, config.ships, config.cosmetic_colors, item);
-            return std::string(label) + ": "
-                 + (i >= 0 ? config.cosmetic_colors[static_cast<size_t>(i)].name
-                           : std::string("default")) + "   (click to cycle)";
-        };
-        set_label(widget_by_name("inv_ship_color", w_ship, r_ship),
-                  slot_text(meta.ship_colors, ship_name, "SHIP COLOR"));
-        set_label(widget_by_name("inv_trail_color", w_trail, r_trail),
-                  slot_text(meta.trail_colors, ship_name, "TRAIL COLOR"));
-        set_label(widget_by_name("inv_proj_color", w_proj, r_proj),
-                  slot_text(meta.proj_colors, weap_name, "PROJECTILE COLOR"));
+        // Playtest #6 item 9 (D232, option C): each cosmetic row says WHOSE
+        // slot it is — the selected drone's, or the equipped weapon's.
+        {
+            static Entity w_sec[3] = {0}; static bool r_sec[3] = {false};
+            const char* sec_names[3] = {"inv_sec_sc", "inv_sec_tc", "inv_sec_pc"};
+            const std::string sec_text[3] = {
+                "SHIP COLOR — " + (ship_name.empty() ? std::string("?") : ship_name),
+                "TRAIL COLOR — " + (ship_name.empty() ? std::string("?") : ship_name),
+                "PROJECTILE COLOR — " + (weap_name.empty() ? std::string("?") : weap_name)};
+            for (int i2 = 0; i2 < 3; ++i2) {
+                Entity w = widget_by_name(sec_names[i2], w_sec[i2], r_sec[i2]);
+                if (w == 0) continue;
+                if (auto el = component_storage.get_component<UIElement>(w); el.has_value())
+                    el->get().label_text = sec_text[i2];
+            }
+        }
+        const char* prefixes[3] = {"inv_sc_", "inv_tc_", "inv_pc_"};
+        const std::map<std::string, std::string>* slots[3] =
+            {&meta.ship_colors, &meta.trail_colors, &meta.proj_colors};
+        for (int s = 0; s < 3; ++s) {
+            const std::string& item = s == 2 ? weap_name : ship_name;
+            const int eq = equipped_color(meta, *slots[s], config.ships,
+                                          config.cosmetic_colors, item);
+            cell(4 + s * 7, prefixes[s] + std::string("0"), "DEFAULT", true, eq < 0);
+            for (int i = 0; i < 6 && i < static_cast<int>(config.cosmetic_colors.size()); ++i) {
+                const CosmeticColorDef& c = config.cosmetic_colors[static_cast<size_t>(i)];
+                cell(4 + s * 7 + 1 + i, prefixes[s] + std::to_string(i + 1), c.name,
+                     color_owned(meta, config.ships, c), eq == i);
+            }
+        }
     };
 
     // Lane K (D100): the two widgets this lane owns, resolved by name through
@@ -2387,6 +2391,30 @@ int main(int argc, char* argv[]) {
             if (blackboard.get_or<bool>("ui.tab_pressed", false))
                 fb_focus = (fb_focus + 1) % 4;
 
+            // Playtest #4 item 3 (D230): fields are clickable, and SUBMIT is a
+            // button — ENTER no longer sends (in BODY it still inserts \n).
+            {
+                const std::string fbc =
+                    blackboard.get_or<std::string>(UISystem::UI_CLICK_KEY, std::string());
+                if (fbc == "on_fb_focus_2") {
+                    // item 6 (D232): the TAGS card opens/closes its dropdown
+                    // instead of taking typing focus.
+                    fb_tags_open = !fb_tags_open;
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                } else if (fbc.rfind("on_fb_focus_", 0) == 0) {
+                    fb_focus = fbc.back() - '0';
+                    fb_tags_open = false;
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                } else if (fbc.rfind("on_fb_tag_", 0) == 0) {
+                    const int oi = fbc.back() - '0';
+                    if (fb_tags_open && oi >= 0 && oi < 6) {
+                        fb_fields[2] = FB_TAG_OPTIONS[oi];
+                        fb_tags_open = false;
+                    }
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                }
+            }
+
             // Poll last frame's submit before reading enter/escape (the
             // name_entry ordering — a same-frame response never races input).
             if (pending_feedback.valid() &&
@@ -2404,9 +2432,13 @@ int main(int argc, char* argv[]) {
             }
 
             const bool fb_enter = blackboard.get_or<bool>("ui.enter_pressed", false);
+            const bool fb_submit_click =
+                blackboard.get_or<std::string>(UISystem::UI_CLICK_KEY, std::string())
+                    == "on_fb_submit";
+            if (fb_submit_click) blackboard.remove(UISystem::UI_CLICK_KEY);
             if (fb_enter && fb_focus == 1) {
                 if (fb_fields[1].size() < FB_CAPS[1]) fb_fields[1].push_back('\n');
-            } else if (fb_enter && !pending_feedback.valid()) {
+            } else if (fb_submit_click && !pending_feedback.valid()) {
                 if (fb_fields[0].find_first_not_of(' ') == std::string::npos) {
                     fb_msg = "Subject is required";
                 } else if (fb_fields[1].find_first_not_of(" \n") == std::string::npos) {
@@ -2434,6 +2466,7 @@ int main(int argc, char* argv[]) {
                 SDL_StopTextInput(window.get());
                 for (auto& f : fb_fields) f.clear();
                 fb_focus = 0;
+                fb_tags_open = false;
                 fb_msg.clear();
                 if (fb_from_pause) {
                     phase = fb_prev_phase;   // back under the pause screen
@@ -2450,6 +2483,45 @@ int main(int argc, char* argv[]) {
                 // shows the tail that fits its 5-line box (full text sends).
                 static const char* FB_NAMES[5] = {"fb_subject", "fb_body",
                                                   "fb_tags", "fb_from", "fb_msg"};
+                // D230: the focused card wears the selected look (UIState.disabled
+                // on shop_tab/card, the D88 convention).
+                static Entity fb_btn_w[4] = {0};
+                static bool fb_btn_r[4] = {false};
+                for (int i = 0; i < 4; ++i) {
+                    Entity b = widget_by_name(("fb_btn_" + std::to_string(i)).c_str(),
+                                              fb_btn_w[i], fb_btn_r[i]);
+                    if (b == 0) continue;
+                    // item 5 (D232): field_focus, a shade lighter than card —
+                    // not the searing tab cyan.
+                    if (auto el2 = component_storage.get_component<UIElement>(b); el2.has_value())
+                        el2->get().style_id = i == fb_focus ? "field_focus" : "card";
+                    if (auto st2 = component_storage.get_component<UIState>(b); st2.has_value())
+                        st2->get().disabled = (i == fb_focus);
+                }
+                // item 6 (D232): the dropdown's six options exist as widgets
+                // always; closed they wear ghost + disabled + no caption.
+                static Entity fb_tag_w[6] = {0};
+                static bool fb_tag_r[6] = {false};
+                for (int i = 0; i < 6; ++i) {
+                    Entity b = widget_by_name(("fb_tag_" + std::to_string(i)).c_str(),
+                                              fb_tag_w[i], fb_tag_r[i]);
+                    if (b == 0) continue;
+                    if (auto el2 = component_storage.get_component<UIElement>(b); el2.has_value()) {
+                        el2->get().style_id = fb_tags_open ? "menu_option" : "ghost";
+                        el2->get().label_text = fb_tags_open ? FB_TAG_OPTIONS[i] : "";
+                        // Playtest #7 item 2 (D233): ghost still painted a box
+                        // frame — a zero rect draws nothing and hit-tests
+                        // nothing, so the closed dropdown truly vanishes.
+                        // D234 item 2: taller rows (34) on a 40 px pitch —
+                        // the 6 px gaps between menu_option fills ARE the grid.
+                        el2->get().rect = fb_tags_open
+                            ? UIRect{236.0f, 200.0f + 40.0f * static_cast<float>(i),
+                                     240.0f, 34.0f}
+                            : UIRect{0.0f, 0.0f, 0.0f, 0.0f};
+                    }
+                    if (auto st2 = component_storage.get_component<UIState>(b); st2.has_value())
+                        st2->get().disabled = !fb_tags_open;
+                }
                 for (int i = 0; i < 4; ++i) {
                     Entity w = widget_by_name(FB_NAMES[i], fb_w[i], fb_w_resolved[i]);
                     if (w == 0) continue;
@@ -2476,7 +2548,7 @@ int main(int argc, char* argv[]) {
                         el->get().label_text =
                             !fb_msg.empty()
                                 ? fb_msg
-                                : "TAB next field - ENTER send - ESC back";
+                                : "TAB or click a field - SUBMIT sends - ESC backs out";
                         el->get().style_id =
                             (fb_msg.find("required") != std::string::npos ||
                              fb_msg.find("Couldn't") != std::string::npos)
@@ -2582,14 +2654,6 @@ int main(int argc, char* argv[]) {
                     const float pcx = pos->get().x + sz->get().width * 0.5f;
                     const float pcy = pos->get().y + sz->get().height * 0.5f;
 
-                    // Thruster: a cone opposite the aim, instead of the 180° aura it
-                    // shipped as. ponytail: offset stays at the hull centre — emitter
-                    // offsets are host-*local* and unrotated, so a rear offset would
-                    // detach from the ship as it turns; the cone alone reads as exhaust.
-                    if (auto em = component_storage.get_component<ParticleEmitter>(p); em.has_value()) {
-                        em->get().direction = rot->get().angle + 180.0f;
-                        em->get().cone_half_angle = 26.0f;
-                    }
 
                     // D133/D134: the upgrade kit and the shield field. Both ride the
                     // aim angle written above, so they belong here rather than with
@@ -2869,6 +2933,15 @@ int main(int argc, char* argv[]) {
                     hitstop_left = std::max(hitstop_left,
                                             config.feedback.hitstop_frames_boss);
                     postfx.trigger_shock(0.5f, 0.5f);
+                    // Playtest #6 item 1 (D232): a boss kill restores the drone
+                    // to full hull AND shield — the fight is the checkpoint.
+                    for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+                        if (auto h = component_storage.get_component<Health>(p); h.has_value())
+                            h->get().current = h->get().max_hp;
+                        if (auto st = component_storage.get_component<ShipState>(p); st.has_value())
+                            st->get().shield = st->get().shield_max;
+                        break;
+                    }
                 }
                 if (boss_system.wants_arena_shift()) {
                     boss_system.clear_arena_shift_request();
@@ -3032,9 +3105,20 @@ int main(int argc, char* argv[]) {
             // anything ends up.
             if (active_arena >= 0) {
                 const ArenaDef& ad = config.arenas[static_cast<size_t>(active_arena)];
+                // Playtest #5 item 3 (D231): after two waves in a drift arena
+                // the current REVERSES for the rest of the block — the player
+                // has just learned to lean into it, so flip the lesson.
+                const int waves_in = blackboard.get_or<int>("wave", 1) - ad.first_wave;
+                const float flip = waves_in >= 2 ? -1.0f : 1.0f;
+                static float slowest_enemy = [&]{
+                    float m = 1e9f;
+                    for (const auto& t : config.enemy_types) m = std::min(m, t.speed);
+                    return m;
+                }();
                 arena_mechanics::tick_drift(
-                    component_storage, ad.drift_x, ad.drift_y,
-                    static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)));
+                    component_storage, ad.drift_x * flip, ad.drift_y * flip,
+                    static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)),
+                    slowest_enemy * 0.95f);
             }
             // === END HOOK: arena mechanics ===
 
@@ -3106,9 +3190,8 @@ int main(int argc, char* argv[]) {
             }
             // === END HOOK: crumble ===
 
-            // Gameplay pack (D221): ship specials (Owl's phoenix veil + the
-            // shared no-fire countdown) tick just before shields/damage so a
-            // sub-10% frame grants its i-frames before the hit resolves.
+            // Gameplay pack (D221, veil retired D229): the shared no-fire
+            // countdown ticks just before shields/damage.
             tick_ship_specials(component_storage, blackboard,
                 static_cast<float>(blackboard.get_or<double>("delta_time", 0.0)));
             // Gameplay pack (D221) tier 3: the right-mouse secondary and its
@@ -3135,8 +3218,7 @@ int main(int argc, char* argv[]) {
             //
             // The drone no longer phases through
             // enemies. A dash is the exception (tick_dash owns that contact and
-            // the burst must plow through); the Owl's veil phases through by
-            // design. Resolution is positional — push the drone out along the
+            // the burst must plow through). Resolution is positional — push the drone out along the
             // radial with a small extra shove so ending a dash on top of an
             // enemy reads as a bounce, not a pin. Contact damage is unchanged
             // (CollidedWith still fires).
@@ -3147,8 +3229,6 @@ int main(int argc, char* argv[]) {
                 const bool just_dashed = was_dashing && !dashing;
                 was_dashing = dashing;
                 if (dashing) break;
-                if (blackboard.get_or<std::string>("ship.special", std::string()) == "phoenix_veil"
-                    && blackboard.get_or<float>("ship.no_fire", 0.0f) > 0.0f) break;
                 auto ppos = component_storage.get_component<Position>(p);
                 auto psz  = component_storage.get_component<Size>(p);
                 if (!ppos.has_value() || !psz.has_value()) break;
@@ -3277,6 +3357,15 @@ int main(int argc, char* argv[]) {
                                             std::string(SCREEN_RUN_STATS));
                 run_stats_up = true;
             } else if (shop_due || key_entry) {
+                // Playtest #6 item 1 (D232): reaching the shop cadence also
+                // restores full hull + shield — every 5th wave is a checkpoint.
+                for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+                    if (auto h = component_storage.get_component<Health>(p); h.has_value())
+                        h->get().current = h->get().max_hp;
+                    if (auto st = component_storage.get_component<ShipState>(p); st.has_value())
+                        st->get().shield = st->get().shield_max;
+                    break;
+                }
                 // The shop no longer opens itself. The same trigger now raises the
                 // between-waves prompt, and the player picks: shop, or push on.
                 blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH,
@@ -3515,21 +3604,42 @@ int main(int argc, char* argv[]) {
                         }
                     }
                     blackboard.remove(UISystem::UI_CLICK_KEY);
-                } else if (menu_click == "on_inv_ship_color" || menu_click == "on_inv_trail_color") {
-                    if (selected_ship >= 0 && selected_ship < static_cast<int>(config.ships.size())) {
-                        const std::string ship_name =
-                            config.ships[static_cast<size_t>(selected_ship)].name;
-                        cycle_color_slot(menu_click == "on_inv_ship_color" ? meta.ship_colors
-                                                                           : meta.trail_colors,
-                                         ship_name);
-                        if (menu_click == "on_inv_ship_color") reskin_player();
+                } else if (menu_click.rfind("on_inv_", 0) == 0) {
+                    // Playtest #2 (D228): grid-inventory cells. on_inv_w_N
+                    // equips a weapon; on_inv_{sc,tc,pc}_N sets a paint slot
+                    // (N=0 clears it — the item's own default). Unowned cells
+                    // are disabled widgets, so a click here is always owned.
+                    const int idx = menu_click.back() - '0';
+                    const std::string kind = menu_click.substr(7, menu_click.size() - 9);
+                    const std::string ship_name =
+                        (selected_ship >= 0 && selected_ship < static_cast<int>(config.ships.size()))
+                            ? config.ships[static_cast<size_t>(selected_ship)].name : std::string();
+                    if (kind == "w" && idx >= 0 && idx < static_cast<int>(config.weapons.size())) {
+                        if (weapon_owned(meta, config.ships,
+                                         config.weapons[static_cast<size_t>(idx)].name)) {
+                            meta.equipped_weapon = config.weapons[static_cast<size_t>(idx)].name;
+                            meta_write(meta_save_path(), meta);
+                        }
+                    } else if (kind == "sc" || kind == "tc" || kind == "pc") {
+                        const int wi3 = current_weapon_index();
+                        const std::string item = kind == "pc"
+                            ? (wi3 >= 0 ? config.weapons[static_cast<size_t>(wi3)].name
+                                        : std::string())
+                            : ship_name;
+                        std::map<std::string, std::string>& slot =
+                            kind == "sc" ? meta.ship_colors
+                                         : kind == "tc" ? meta.trail_colors : meta.proj_colors;
+                        if (!item.empty()) {
+                            const int ci = idx - 1;   // cell 0 = default
+                            if (ci < 0 || ci >= static_cast<int>(config.cosmetic_colors.size()))
+                                slot.erase(item);
+                            else if (color_owned(meta, config.ships,
+                                                 config.cosmetic_colors[static_cast<size_t>(ci)]))
+                                slot[item] = config.cosmetic_colors[static_cast<size_t>(ci)].name;
+                            meta_write(meta_save_path(), meta);
+                            if (kind == "sc") reskin_player();
+                        }
                     }
-                    blackboard.remove(UISystem::UI_CLICK_KEY);
-                } else if (menu_click == "on_inv_proj_color") {
-                    const int wi3 = current_weapon_index();
-                    if (wi3 >= 0)
-                        cycle_color_slot(meta.proj_colors,
-                                         config.weapons[static_cast<size_t>(wi3)].name);
                     blackboard.remove(UISystem::UI_CLICK_KEY);
                 } else if (menu_click == "on_continue_run_click" && newest_slot() >= 0) {
                     // Lane K (D100): CONTINUE resumes the newest saved run. Handled
@@ -3648,11 +3758,6 @@ int main(int argc, char* argv[]) {
                 }
                 refresh_ship_widget();
                 refresh_hangar();
-                {
-                    const auto stack = ScreenStackSystem::get_stack(blackboard);
-                    park_drone_in_hangar(!stack.empty() &&
-                                         stack.back() == std::string(SCREEN_RUN_SETUP));
-                }
                 refresh_cosmetic_shop();
                 refresh_inventory();
                 refresh_continue_widget();
@@ -4052,6 +4157,33 @@ int main(int argc, char* argv[]) {
                 base_y = pos->get().y + sz->get().height * 0.5f;
                 break;
             }
+            // Playtest #2 items 1+2 (D228, supersedes D227's park): on the
+            // title screens the drone is the preview, but parking it by
+            // MOVING it chased the camera (which re-centres on the drone the
+            // same frame) — a feedback loop that scrolled the backdrop
+            // forever and pinned the drone to screen centre. Offset the
+            // CAMERA instead: render-only, no sim write, so the drone draws
+            // in the authored left-column slot and the world stays still.
+            {
+                const auto stack = ScreenStackSystem::get_stack(blackboard);
+                const std::string top = stack.empty() ? std::string() : stack.back();
+                const bool hangar = top == SCREEN_RUN_SETUP;
+                if (hangar || top == SCREEN_MAIN_MENU ||
+                    top == "cosmetic_shop" || top == "inventory") {
+                    // Design-canvas slots (D63's shop-preview mapping): the
+                    // hangar's empty left column, or the strip left of the
+                    // main-menu / overlay panels.
+                    const UIRect slot = hangar ? UIRect{96.0f, 372.0f, 140.0f, 140.0f}
+                                               : UIRect{20.0f, 372.0f, 140.0f, 140.0f};
+                    const float win_w = static_cast<float>(blackboard.get_or<int>("window_width", 980));
+                    const float win_h = static_cast<float>(blackboard.get_or<int>("window_height", 660));
+                    const UIRect r = ui_apply_transform(ui_canvas_transform(win_w, win_h), slot);
+                    float zoom = blackboard.get_or<float>("camera.zoom", 1.0f);
+                    if (zoom < 0.01f) zoom = 0.01f;
+                    base_x -= (r.x + r.w * 0.5f - win_w * 0.5f) / zoom;
+                    base_y -= (r.y + r.h * 0.5f - win_h * 0.5f) / zoom;
+                }
+            }
             blackboard.set<float>("camera.lookat.x", base_x + ox);
             blackboard.set<float>("camera.lookat.y", base_y + oy);
         }
@@ -4118,6 +4250,38 @@ int main(int argc, char* argv[]) {
                             e, ScreenPosition{box.x, box.y});
             };
             park(dash_icon, row_on);
+            // D234: the item slot's icon — the box one slot LEFT of the dash.
+            {
+                const double slot_id =
+                    blackboard.get_or<double>("ui.widget_id.item_slot_frame", -1.0);
+                UIRect srect{};
+                if (slot_id >= 0.0) {
+                    if (auto sel = component_storage.get_component<UIElement>(
+                            static_cast<Entity>(slot_id)); sel.has_value())
+                        srect = sel->get().rect;
+                }
+                const UIRect sbox = ui_apply_transform(
+                    ui_canvas_transform(static_cast<float>(win_w), static_cast<float>(win_h)),
+                    srect);
+                int held_id = -1;
+                for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+                    if (auto st = component_storage.get_component<ShipState>(p); st.has_value())
+                        held_id = st->get().active_id;
+                    break;
+                }
+                const bool icon_on = sbox.w > 0.0f && sbox.h > 0.0f &&
+                                     held_id >= 0 && held_id < 6;
+                if (auto im = component_storage.get_component<Images>(item_icon);
+                    im.has_value() && icon_on)
+                    im->get().active_index = static_cast<size_t>(held_id);
+                if (auto sz = component_storage.get_component<Size>(item_icon); sz.has_value()) {
+                    sz->get().width  = icon_on ? sbox.w : 0.0f;
+                    sz->get().height = icon_on ? sbox.h : 0.0f;
+                }
+                if (icon_on)
+                    component_storage.add_component<ScreenPosition>(
+                        item_icon, ScreenPosition{sbox.x, sbox.y});
+            }
             // A charge in hand means READY: no dial at all, rather than a full one.
             park(dash_dial, row_on && dash_frac < 1.0f);
             if (auto ss = component_storage.get_component<SpriteSheet>(dash_dial);
@@ -4252,8 +4416,14 @@ int main(int argc, char* argv[]) {
                         }
                     }
                     alive.insert(e);
-                    trail::push_sample(trail_history[e], {cx, cy},
-                                       config.trails.min_spacing, max_pts);
+                    // Playtest #4 item 4 (D230): a trail with no new samples
+                    // (the drone stopped) dissipates instead of hanging in the
+                    // air — shed one tail point per frame until it is gone.
+                    auto& hist = trail_history[e];
+                    if (!trail::push_sample(hist, {cx, cy},
+                                            config.trails.min_spacing, max_pts)
+                        && !hist.empty())
+                        hist.erase(hist.begin());
                 };
 
                 for (Entity e : component_storage.entities_with_component<PlayerTag>())
@@ -4470,6 +4640,34 @@ int main(int argc, char* argv[]) {
                                  : Color{static_cast<Uint8>(tr), static_cast<Uint8>(tg),
                                          static_cast<Uint8>(tb), 170},
                          false);
+                    // Playtest #4 item 1 (D230): the charge bar, in world space
+                    // right under the drone — fills with the held charge. The
+                    // gather motes (secondary_fire) cover the "energy flowing
+                    // in"; this is the readout. Render-only.
+                    if (blackboard.get_or<bool>("ship.secondary_charging", false)
+                        && verts_left >= 8) {
+                        float pcx, pcy;
+                        if (center_of(e, &pcx, &pcy)) {
+                            const float frac =
+                                blackboard.get_or<float>("ship.secondary_frac", 0.0f);
+                            constexpr float BAR_W = 40.0f, BAR_Y = 30.0f;
+                            RenderSystem::GlowLine track;
+                            track.points = {{pcx - BAR_W * 0.5f, pcy - BAR_Y},
+                                            {pcx + BAR_W * 0.5f, pcy - BAR_Y}};
+                            track.width = 3.0f;
+                            track.color = Color{80, 90, 110, 120};
+                            track.core = false;
+                            RenderSystem::GlowLine fill = track;
+                            fill.points = {{pcx - BAR_W * 0.5f, pcy - BAR_Y},
+                                           {pcx - BAR_W * 0.5f + BAR_W * frac, pcy - BAR_Y}};
+                            fill.width = 5.0f;
+                            fill.color = Color{255, 236, 160, 235};
+                            fill.core = true;
+                            verts_left -= 8;
+                            glow_lines.push_back(std::move(track));
+                            if (frac > 0.01f) glow_lines.push_back(std::move(fill));
+                        }
+                    }
                 }
                 for (Entity e : component_storage.entities_with_component<ProjectileTag>()) {
                     auto pt = component_storage.get_component<ProjectileTag>(e);
@@ -4478,10 +4676,79 @@ int main(int argc, char* argv[]) {
                         : Color{static_cast<Uint8>(shot_r), static_cast<Uint8>(shot_g),
                                 static_cast<Uint8>(shot_b), 235};
                     // Playtest #1 item 9 (D227): bolt weapons draw a fixed-length
-                    // blast; the rest keep the v3 ribbon.
-                    const float blen = (pt.has_value() && pt->get().bolt)
+                    // blast; the rest keep the v3 ribbon. Playtest #2 item 6
+                    // (D228): slag reuses the bolt path but short and FAT — at
+                    // ~1.3x its own radius wide with the hot core, the shot
+                    // reads as a molten chunk, and its ember emitter (attached
+                    // at spawn) supplies the tracer.
+                    // Playtest #3 item 1 (D229): a crescent is drawn as an arc
+                    // bowed along the heading — thin at the tips, fat in the
+                    // middle (per-point widths), so it finally LOOKS like the
+                    // crescent the stats always claimed. Replaces the ribbon.
+                    if (pt.has_value() && pt->get().crescent) {
+                        float ccx, ccy;
+                        auto v = component_storage.get_component<Velocity>(e);
+                        auto sz = component_storage.get_component<Size>(e);
+                        if (center_of(e, &ccx, &ccy) && v.has_value() && verts_left >= 14) {
+                            const float heading = std::atan2(v->get().dy, v->get().dx);
+                            const float R = sz.has_value() ? sz->get().width * 0.55f : 10.0f;
+                            constexpr int N = 7;
+                            constexpr float SPAN = 2.1f;   // rad (~120 deg of arc)
+                            RenderSystem::GlowLine arc;
+                            arc.color = c;
+                            arc.core = true;
+                            arc.core_scale = 0.3f;
+                            for (int k = 0; k < N; ++k) {
+                                const float a = heading - SPAN * 0.5f
+                                              + SPAN * static_cast<float>(k) / (N - 1);
+                                arc.points.push_back({ccx + R * std::cos(a),
+                                                      ccy + R * std::sin(a)});
+                                const float tip = std::abs(k - (N - 1) * 0.5f)
+                                                / ((N - 1) * 0.5f);
+                                arc.widths.push_back(R * 0.7f * (1.0f - tip * 0.85f));
+                            }
+                            verts_left -= 14;
+                            glow_lines.push_back(std::move(arc));
+                        }
+                        continue;
+                    }
+                    float head_w = config.trails.shot_width;
+                    float blen = (pt.has_value() && pt->get().bolt)
                         ? blackboard.get_or<float>("weapon.bolt_length", 26.0f) : 0.0f;
-                    emit(e, config.trails.shot_width, c, true, blen);
+                    if (pt.has_value() && pt->get().slag) {
+                        // D232 item 12: a slag shot with a sprite (the Flak
+                        // glob) draws itself — no glow chunk under it. The
+                        // charge slug has no sprite and keeps the fat chunk.
+                        if (component_storage.has_component<Images>(e)) continue;
+                        auto sz = component_storage.get_component<Size>(e);
+                        const float pr = sz.has_value() ? sz->get().width * 0.5f : 8.0f;
+                        head_w = pr * 1.3f;
+                        blen = pr * 1.6f;
+                    }
+                    emit(e, head_w, c, true, blen);
+                }
+                // D235 (playtest #9): frozen enemies are ENCASED — a hard
+                // hexagonal ice shell drawn as a glow line. Render-only.
+                for (Entity e : component_storage.entities_with_component<Chill>()) {
+                    auto ch = component_storage.get_component<Chill>(e);
+                    if (!ch.has_value() || ch->get().frozen_t <= 0.0f) continue;
+                    float fcx, fcy;
+                    if (!center_of(e, &fcx, &fcy) || verts_left < 14) continue;
+                    auto fsz = component_storage.get_component<Size>(e);
+                    const float fr = (fsz.has_value() ? fsz->get().width * 0.5f : 16.0f) * 1.35f;
+                    RenderSystem::GlowLine shell;
+                    shell.color = Color{210, 240, 255, 235};
+                    shell.core = true;
+                    shell.core_scale = 0.3f;
+                    shell.width = 3.5f;
+                    for (int k = 0; k <= 6; ++k) {
+                        const float a = 3.14159265f / 3.0f * static_cast<float>(k)
+                                      + 0.26f;   // slight tilt: crystal, not stop sign
+                        shell.points.push_back({fcx + fr * std::cos(a),
+                                                fcy + fr * std::sin(a)});
+                    }
+                    verts_left -= 14;
+                    glow_lines.push_back(std::move(shell));
                 }
                 for (Entity e : component_storage.entities_with_component<EnemyShot>()) {
                     auto es = component_storage.get_component<EnemyShot>(e);
@@ -4540,6 +4807,42 @@ int main(int argc, char* argv[]) {
         render_system.render_glow_lines(glow_lines, blackboard);   // v3 Tier 5
         render_system.render_particles(component_storage, blackboard);  // v3 Tier 9
         hud_system.render(component_storage, blackboard);
+        // Playtest #5 item 5 (D231): the low-hull vignette — a SOFT flashing
+        // red border at <=10% hull. Nested translucent frames whose alpha
+        // falls inward make the fade; a slow sine makes the flash. Render-only
+        // (real-time clock, never sim state) and only while actually flying.
+        if (phase == PHASE_PLAYING) {
+            for (Entity p : component_storage.entities_with_component<PlayerTag>()) {
+                auto h = component_storage.get_component<Health>(p);
+                if (!h.has_value() || h->get().max_hp <= 0.0f) break;
+                const float hull_frac = h->get().current / h->get().max_hp;
+                if (hull_frac > 0.20f) break;
+                // Playtest #6 item 16 (D232): starts at 20% and steps up every
+                // 5% — four tiers of alpha, and the flash quickens with them.
+                const int tier = hull_frac <= 0.05f ? 4 : hull_frac <= 0.10f ? 3
+                               : hull_frac <= 0.15f ? 2 : 1;
+                const float base_a = 18.0f + 14.0f * tier;          // 32..74
+                const float hz = 0.004f + 0.001f * tier;
+                int ww = 0, wh = 0;
+                SDL_GetRenderOutputSize(renderer.get(), &ww, &wh);
+                const float pulse = 0.55f + 0.45f *
+                    std::sin(static_cast<float>(SDL_GetTicks()) * hz);
+                SDL_SetRenderDrawBlendMode(renderer.get(), SDL_BLENDMODE_BLEND);
+                constexpr int RINGS = 22;
+                for (int i = 0; i < RINGS; ++i) {
+                    const float t = 1.0f - static_cast<float>(i) / RINGS;   // 1 at edge
+                    const Uint8 a = static_cast<Uint8>(base_a * t * t * pulse);
+                    if (a == 0) continue;
+                    SDL_SetRenderDrawColor(renderer.get(), 255, 40, 30, a);
+                    SDL_FRect r{static_cast<float>(i * 2), static_cast<float>(i * 2),
+                                static_cast<float>(ww - i * 4), static_cast<float>(wh - i * 4)};
+                    SDL_RenderRect(renderer.get(), &r);
+                    SDL_FRect r2{r.x + 1.0f, r.y + 1.0f, r.w - 2.0f, r.h - 2.0f};
+                    SDL_RenderRect(renderer.get(), &r2);
+                }
+                break;
+            }
+        }
         // Menus composite last, on top of the world and the gameplay HUD.
         ui_render_system.render(component_storage, blackboard);
         // v3 Tier 2: the glow-only pass. Draws each entity's `_glow` sibling

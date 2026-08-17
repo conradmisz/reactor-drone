@@ -3,6 +3,7 @@
 #include "collision_layers.hpp"
 #include "player_components.hpp"   // PlayerTag, ContactDamage
 #include "aim_math.hpp"
+#include "projectile_fizzle.hpp"  // playtest #6 item 7 (D232)
 #include <algorithm>
 
 namespace enemy_fire {
@@ -143,13 +144,37 @@ void EnemyFireSystem::update(ComponentStorage& storage, EntityManager& entity_ma
     }
 
     // A shot dies on the thing it hit. The laser (tier 3) is the exception: it
-    // pierces, which is exactly why it is the tier-3 upgrade.
+    // pierces, which is exactly why it is the tier-3 upgrade — but it pierces
+    // BODIES, not cover. Playtest #5 item 2 (D231, bugs/016): the old blanket
+    // exemption let lasers sail through obstacles, while the player's own
+    // pierce shots stop on walls (projectile_hit_system) — cover has to block
+    // both directions or it is scenery.
     for (Entity s : storage.entities_with_component<EnemyShot>()) {
         if (storage.has_component<DestroyRequest>(s)) continue;
         auto col = storage.get_component<CollidedWith>(s);
         if (!col.has_value() || col->get().entities.empty()) continue;
+        bool solid = false;
+        for (Entity o : col->get().entities) {
+            auto oc = storage.get_component<Collider>(o);
+            if (oc.has_value() && (oc->get().layer & layers::OBSTACLE)) { solid = true; break; }
+        }
         auto beh = storage.get_component<EnemyBehavior>(s);
-        if (beh.has_value() && enemy_fire::shot_spec(beh->get().tier).pierce) continue;
+        if (!solid && beh.has_value() && enemy_fire::shot_spec(beh->get().tier).pierce)
+            continue;
+        // Playtest #6 item 7 (D232): enemy shots fizzle in their own colour.
+        if (auto es = storage.get_component<EnemyShot>(s); es.has_value()) {
+            auto p2 = storage.get_component<Position>(s);
+            auto z2 = storage.get_component<Size>(s);
+            if (p2.has_value() && z2.has_value()) {
+                fizzle::Look look;
+                look.r = es->get().r; look.g = es->get().g; look.b = es->get().b;
+                look.bolt = true;
+                fizzle::spawn(storage, entity_manager, 
+                              p2->get().x + z2->get().width * 0.5f,
+                              p2->get().y + z2->get().height * 0.5f, look,
+                              z2->get().width * 0.5f);
+            }
+        }
         storage.add_component<DestroyRequest>(s, DestroyRequest{});
     }
 }

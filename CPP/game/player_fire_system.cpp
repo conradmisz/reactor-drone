@@ -38,7 +38,7 @@ void PlayerFireSystem::update(ComponentStorage& storage,
         bool firing = mouse_held;
 
         // Gameplay pack (D221): a ship special can jam the trigger (Owl's
-        // phoenix veil — invincible but unable to shoot). Timer owned by
+        // no-fire jam; nothing sets it since the veil retired, D229). Owned by
         // ship_specials.hpp; this system only reads it, staying config-blind.
         if (blackboard.get_or<float>("ship.no_fire", 0.0f) > 0.0f) firing = false;
 
@@ -131,11 +131,16 @@ void PlayerFireSystem::update(ComponentStorage& storage,
                 Collider{PR * 2.0f, PR * 2.0f, layers::PROJECTILE, layers::PROJECTILE_MASK});
             storage.add_component<CircleCollider>(shot, CircleCollider{PR, 0.0f, 0.0f});
             storage.add_component<Lifetime>(shot, Lifetime{wpn.projectile_lifetime});
+            // Playtest #3 item 2 (D229): slag keeps its hue SATURATED — the
+            // shared +90/+35/+60 brighten washed Flak's orange toward white
+            // (and the hot core does the "bright" job already).
+            const int lr = wpn.slag ? 25 : 90, lg = wpn.slag ? 10 : 35,
+                      lb = wpn.slag ? 0 : 60;
             storage.add_component<ProjectileTag>(shot, ProjectileTag{
-                static_cast<uint8_t>(std::min(255, sr + 90)),
-                static_cast<uint8_t>(std::min(255, sg + 35)),
-                static_cast<uint8_t>(std::min(255, sb + 60)),
-                wpn.bolt});
+                static_cast<uint8_t>(std::min(255, sr + lr)),
+                static_cast<uint8_t>(std::min(255, sg + lg)),
+                static_cast<uint8_t>(std::min(255, sb + lb)),
+                wpn.bolt, wpn.slag, wpn.crescent});
             storage.add_component<ProjectileData>(shot,
                 ProjectileData{NO_TARGET, wpn.projectile_speed, wpn.damage, bounces,
                                wpn.pierce});
@@ -169,6 +174,26 @@ void PlayerFireSystem::update(ComponentStorage& storage,
             // edge and doubles its cost. Kept (unattached) because the tuning
             // above is the only record of what the trail used to look like;
             // delete it if the ribbon is ever judged final.
+            //
+            // Playtest #2 item 6 (D228): EXCEPT for slag — Flak's molten chunk
+            // wants exactly this ember tracer ("a nice tracer to give that
+            // effect", the PAB). Heavier and chunkier than the old tuning.
+            if (wpn.slag) {
+                // Playtest #6 item 12 (D232): the chunk is a molten SPHERE —
+                // a real sprite, so the renderer draws a ball, not a block.
+                // D235: the Cryolator freezes the sphere too.
+                storage.add_component<Images>(shot,
+                    Images{{blackboard.get_or<bool>("weapon.glob_ice", false)
+                                ? std::string("v2/slag_glob_ice.png")
+                                : std::string("v2/slag_glob.png")}, 0});
+                // Playtest #3 item 5 (D229): size-10 squares read as A SQUARE
+                // under the chunk (bugs/004 territory). Smaller, denser sparks
+                // keep the sparkle without the box.
+                trail.emission_rate = 170.0f;
+                trail.particle_lifetime = 0.4f;
+                trail.start_size = 5.0f;
+                storage.add_component<ParticleEmitter>(shot, trail);
+            }
             (void)trail;
         }
     }

@@ -42,6 +42,31 @@ the graded course submission.
 
 ## Features
 
+- Loadout-gated boss items (Plasma Wake, Cryolator, DOZR) + 2-choice rewards;
+  armor stat; checkpoint restores; health orbs (D232)
+- Per-type projectile fizzles, molten-sphere Flak glob, weapon-coloured
+  charge gather, TAGS dropdown, drone-profile labels (D232)
+
+- Arena polish: no same-family shifts, cover blocks lasers, reversing drift
+  current; low-hull vignette; hangar drone descriptions (D231)
+- 55 Iron charge bank + ember slug; Flak reach/damage up; how-to-play
+  refreshed in-game + site (D231)
+
+- Charge bar + gather motes, fuel-tank flamethrower, always-pierce charge
+  slug, dissipating single rear trail, clickable SUBMIT feedback form (D230)
+
+- Weapon identity pass: crescent arcs (Moonshot), exploding slag + AoE
+  (Flak), cone-damage flamethrower, chunk-render charge shot (D229)
+- Owl special: second dash charge (replaced phoenix veil, D229); feedback
+  screen draws over pause (D229)
+
+- Grid inventory: selectable weapon/paint cells, equip-on-click, screen-wide
+  overlap gate (D228)
+- Per-ship chassis art: Falcon/Owl/Gryphon each their own sprite, full
+  chassis x paint atlas matrix (D228)
+- Flak slag projectile + lava-stream flamethrower cone; static menu backdrop
+  with drone preview slot (D228)
+
 ### Combat & progression
 - **Gameplay pack v2.3** (D221-D227, spec `specs/gameplay-pack-v2.3.md`):
   persistent **scrap** currency banked per wave/boss/victory; a 4-drone roster

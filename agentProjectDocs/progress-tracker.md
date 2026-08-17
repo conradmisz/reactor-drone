@@ -66,7 +66,54 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
     the scripted bot). Judge in playtest #2 whether that is right for a player
     who actually moves.
 
-  Next: playtest #2, then tune, then release v2.3.0.
+  **Playtest #2 done (owner, windowed, 2026-08-16) — 9 items, all fixed as
+  batch D228** (bug 013 filed+resolved): the D227 "parked" hangar preview was
+  a camera feedback loop that scrolled the backdrop forever (now a render-only
+  camera offset, park deleted); grid inventory (spec grid-inventory.md) with a
+  new screen-wide overlap gate test_screen_layout.cpp that caught 2 more
+  authored overlaps; Flak slag chunk + ember tracer; lava-stream flame cone;
+  Owl + Gryphon got their OWN chassis with the full 3x6 paint-atlas matrix
+  (paint_sidecar naming convention; CosmeticColorDef::sidecar deleted); boot
+  now reskins to the saved loadout. gameplay.md audited: everything
+  implemented. Gate green twice on the UNMOVED D227 baseline; 410 unit cases.
+
+  **Playtest #3 done (owner, windowed, 2026-08-16) — 7 items, all fixed as
+  batch D229** (bug 014 filed+resolved): real crescent arcs for Moonshot,
+  Flak 55 dmg + impact AoE + saturated orange, flamethrower is now a damaging
+  cone with no projectiles under it, Owl special REPLACED (veil → second dash
+  charge, owner's call), ember trail de-squared, charged slug renders as a
+  chunk, feedback screen z-raised over pause. Gate green twice on the
+  unmoved baseline.
+
+  **Playtest #4 done (owner, windowed, 2026-08-16) — 6 items, all fixed as
+  batch D230:** charge bar + gather motes, always-pierce wider slug (probed:
+  it DID hit, just illegibly), centred clickable feedback form with SUBMIT,
+  centre thruster trail deleted + rear trail dissipates when stopped,
+  flamethrower on a fuel tank (hold-to-breathe, gauge = fuel), Moonshot
+  +25%/wider/6s CD. Canary re-baselined a FOURTH time (score 10 -> 0, probed:
+  the deleted emitter's particle churn was steering entity ids). gate.sh
+  exit-code trap found + fixed (bugs/003 Trap 8).
+
+  **Playtest #5 done (owner, windowed, 2026-08-16; reached wave 27) — 10
+  items = batch D231 + bugs 015/016:** same-family reactor-shift shuffle rule,
+  enemy lasers no longer pierce cover, drift +35% w/ mid-block flip (enemy
+  shove clamped under slowest speed), low-hull vignette, hangar drone
+  descriptions, Flak range/damage up, 55 Iron charge BANK (passive refill,
+  leftover persists) + 720px/s ember slug, how-to-play refreshed in-game AND
+  on the site (site change on disk only — no deploy). Map-modifiers idea
+  recorded in specs/map-modifiers.md, not built. Canary UNMOVED, gate green
+  twice.
+
+  **Playtest #6 done (owner, windowed, 2026-08-16) — 16 items = batch D232:**
+  checkpoint restores, health orbs, armor stat (9th hangar row), feedback
+  focus colour + TAGS dropdown, per-type impact fizzles, weapon-coloured
+  charge gather, drone-profile labels (A+C), slug fan/speed/fizzle, molten
+  SPHERE Flak glob, three loadout-gated boss items (Plasma Wake / Cryolator /
+  DOZR, reward_choices 2), armoured ram, cone heat falloff, vignette tiers
+  from 20%. Canary unmoved, gate green twice.
+
+  Next: playtest #7 (judge D232 — esp. the three boss items, which need
+  real boss kills under the right loadouts), then tune, then release v2.3.0.
 
 - v2.2.0 shipped 2026-08-16; release notes collapsed below.
 

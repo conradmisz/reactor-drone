@@ -146,15 +146,17 @@ TEST_CASE("the active-item slot is authored and layered above its frame",
     CHECK(f.rect.x < 200.0f);
     CHECK(f.rect.y < 200.0f);
     CHECK(f.rect.w == f.rect.h);
-    // Both labels inside the square, the key one along its bottom.
-    for (const UIElement* el : {&n, &k}) {
-        CHECK(el->rect.x >= f.rect.x);
-        CHECK(el->rect.y >= f.rect.y);
-        CHECK(el->rect.x + el->rect.w <= f.rect.x + f.rect.w);
-        CHECK(el->rect.y + el->rect.h <= f.rect.y + f.rect.h);
-        CHECK(el->z_order > f.z_order);      // or the frame paints over the text
-    }
-    CHECK(k.rect.y < n.rect.y);
+    // D234 (playtest #8 item 4): the NAME stays inside the square (the icon
+    // sprite parks over it); the KEY prompt sits UNDER the box now — the
+    // hud_dash_key pattern.
+    CHECK(n.rect.x >= f.rect.x);
+    CHECK(n.rect.y >= f.rect.y);
+    CHECK(n.rect.x + n.rect.w <= f.rect.x + f.rect.w);
+    CHECK(n.rect.y + n.rect.h <= f.rect.y + f.rect.h);
+    CHECK(n.z_order > f.z_order);            // or the frame paints over the text
+    CHECK(k.rect.y + k.rect.h <= f.rect.y);  // fully below the box
+    CHECK(k.rect.x >= f.rect.x - 1.0f);      // aligned under it
+    CHECK(k.z_order > f.z_order);
 
     auto table = w.bb.get_or<std::shared_ptr<StyleTable>>("ui_styles", nullptr);
     REQUIRE(table != nullptr);

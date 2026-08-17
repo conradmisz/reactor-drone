@@ -12,6 +12,7 @@
 #include "enemy_components.hpp"    // EnemyTag
 #include "player_components.hpp"   // PlayerTag, ShipState
 #include "tower_components.hpp"    // DamageEvent
+#include "active_items.hpp"        // ids::DOZR (D232)
 
 /**
  * tick_dash — the thruster dash (#5, D57).
@@ -192,6 +193,14 @@ inline void tick_dash(ComponentStorage& storage,
             if (cfg.damage > 0.0f) {
                 Entity ev = entity_manager.create_entity();
                 storage.add_component<DamageEvent>(ev, DamageEvent{e, cfg.damage});
+                // D232 (DOZR, playtest #6 item 13): a dash that KILLS refunds
+                // most of the cooldown. The DamageEvent resolves later, so
+                // "kills" is judged against current health right here.
+                if (ship.active_id == actives::ids::DOZR) {
+                    auto eh = storage.get_component<Health>(e);
+                    if (eh.has_value() && eh->get().current <= cfg.damage)
+                        ship.dash_cd *= 0.25f;
+                }
             }
         }
 

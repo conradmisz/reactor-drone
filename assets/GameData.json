@@ -1338,8 +1338,8 @@
       ],
       "specialty_tier": 1,
                          "//": "Roguelite phase 5 (design \u00a74): a directional current. drift_x/y are px/s pushing the drone, the enemies AND the loose loot alike (arena_mechanics::tick_drift), applied after movement and before the arena clamp so the boundary wall still gets the last word. PROVISIONAL, unplayed: 38 px/s is well under the slowest enemy speed, so a current can never pin anything against a wall forever. Reuses the prism art set.",
-                         "drift_x": 38.0,
-                         "drift_y": -14.0
+                         "drift_x": 51.3,
+                         "drift_y": -18.9
 },
     {
       "name": "Foundry II",
@@ -2101,13 +2101,13 @@
     "clearance": 24.0
   },
   "player": {
+    "sidecar": "images/v2/player_drone.json",
     "start_health": 100.0,
     "move_speed": 260.0,
     "invuln_window": 0.8,
     "start_x": 1600.0,
     "start_y": 1600.0,
     "size": 52.0,
-    "sidecar": "images/v2/player_drone.json",
     "idle_clip": "march",
     "weapon": {
       "fire_rate": 4.0,
@@ -2672,6 +2672,8 @@
   "ships": [
     {
       "name": "Falcon",
+      "armor": 0.10,
+      "desc": "All-rounder. Special: 25% faster boss-item cooldown.",
       "sidecar": "images/v2/player_drone.json",
       "idle_clip": "march",
       "color": [90, 220, 255],
@@ -2685,11 +2687,13 @@
     },
     {
       "name": "Owl",
-      "sidecar": "images/v2/player_drone_violet.json",
+      "armor": 0.05,
+      "desc": "Agile scout. Special: carries a second dash charge.",
+      "sidecar": "images/v2/owl_drone.json",
       "idle_clip": "march",
       "color": [180, 110, 255],
       "default_weapon": "Moonshot",
-      "special": "phoenix_veil",
+      "special": "dash_charge",
       "hull": 100.0,
       "shield": 0.0,
       "speed": 260.0,
@@ -2698,7 +2702,9 @@
     },
     {
       "name": "Gryphon",
-      "sidecar": "images/v2/player_drone_forest.json",
+      "armor": 0.25,
+      "desc": "Armored bruiser. Slow but shielded; the dash rams enemies aside.",
+      "sidecar": "images/v2/gryphon_drone.json",
       "idle_clip": "march",
       "color": [70, 170, 90],
       "default_weapon": "Flak Cannon",
@@ -2711,6 +2717,8 @@
     },
     {
       "name": "Gatling",
+      "armor": 0.10,
+      "desc": "Locked prototype awaiting its own hull.",
       "sidecar": "images/v2/player_drone_violet.json",
       "idle_clip": "march",
       "color": [180, 110, 255],
@@ -2743,24 +2751,26 @@
       "name": "Moonshot",
       "color": [90, 255, 130],
       "fire_rate": 1.6,
-      "damage": 14.0,
+      "damage": 17.5,
       "projectile_speed": 420.0,
       "projectile_lifetime": 0.6,
       "spread": 0.0,
-      "projectile_size": 16.0,
+      "projectile_size": 22.0,
       "pierce": true,
+      "crescent": true,
       "secondary": "crescent_burst",
-      "secondary_cd": 10.0
+      "secondary_cd": 6.0
     },
     {
       "name": "Flak Cannon",
       "color": [255, 170, 60],
       "fire_rate": 1.2,
-      "damage": 45.0,
+      "damage": 57.0,
       "projectile_speed": 460.0,
       "projectile_lifetime": 1.1,
       "spread": 0.04,
-      "projectile_size": 10.0,
+      "projectile_size": 18.0,
+      "slag": true,
       "secondary": "lava_stream",
       "secondary_cd": 10.0
     },
@@ -2786,12 +2796,12 @@
   },
   "//cosmetic_colors": "Tier 7 (D221): paints. One purchase = usable in every slot (body atlas, trail tint, projectile tint). granted_by paints derive from ship ownership; the rest sell for scrap in the cosmetic shop.",
   "cosmetic_colors": [
-    { "name": "Cyan",    "color": [90, 220, 255],  "price": 0,   "sidecar": "images/v2/player_drone.json",         "granted_by": "Falcon" },
-    { "name": "Violet",  "color": [180, 110, 255], "price": 0,   "sidecar": "images/v2/player_drone_violet.json",  "granted_by": "Owl" },
-    { "name": "Forest",  "color": [70, 170, 90],   "price": 0,   "sidecar": "images/v2/player_drone_forest.json",  "granted_by": "Gryphon" },
-    { "name": "Gold",    "color": [235, 185, 60],  "price": 150, "sidecar": "images/v2/player_drone_gold.json" },
-    { "name": "Crimson", "color": [220, 60, 70],   "price": 150, "sidecar": "images/v2/player_drone_crimson.json" },
-    { "name": "Arctic",  "color": [230, 240, 255], "price": 250, "sidecar": "images/v2/player_drone_arctic.json" }
+    { "name": "Cyan",    "color": [90, 220, 255],  "price": 0,   "granted_by": "Falcon" },
+    { "name": "Violet",  "color": [180, 110, 255], "price": 0,   "granted_by": "Owl" },
+    { "name": "Forest",  "color": [70, 170, 90],   "price": 0,   "granted_by": "Gryphon" },
+    { "name": "Gold",    "color": [235, 185, 60],  "price": 150 },
+    { "name": "Crimson", "color": [220, 60, 70],   "price": 150 },
+    { "name": "Arctic",  "color": [230, 240, 255], "price": 250 }
   ],
   "//economy": "Currency/key drop tuning (Gameplay Phase 2). Drop counts are inclusive bounds on a uniform roll; pickup_size doubles as the collection-radius basis.",
   "economy": {
@@ -3043,7 +3053,7 @@
     "contact_damage": 30.0,
     "summon_interval": 6.0,
     "summon_count": 4,
-    "reward_choices": 1,
+    "reward_choices": 2,
     "final_mult": 1.8,
     "final_summon_bonus": 4,
     "shift_hp_frac": 0.5,
@@ -3057,10 +3067,41 @@
   "actives": [
     {
       "name": "Heat-Seeking Missiles",
+      "desc": "E: two salvos of homing rockets; each blast hits an area.",
       "effect": "missiles",
       "cooldown": 30.0,
       "amount": 45.0,
       "duration": 4.0
+    },
+    {
+      "name": "Plasma Wake",
+      "desc": "Passive: your secondary shots trail plasma that burns and slows (25%) what stands in it.",
+      "effect": "plasma_wake",
+      "cooldown": 0.0,
+      "amount": 12.0,
+      "duration": 2.5,
+      "requires": "weapon:55 Iron|Moonshot",
+      "//": "D232: passive - SECONDARY shots trail plasma patches (amount = dps, duration = patch seconds, 25% slow)."
+    },
+    {
+      "name": "Cryolator",
+      "desc": "Passive: the breath becomes ice - stacks Frostbite (-10% speed); 4 stacks freeze for 2s. Shells turn icy.",
+      "effect": "cryolator",
+      "cooldown": 0.0,
+      "amount": 0.0,
+      "duration": 2.0,
+      "requires": "weapon:Flak Cannon",
+      "//": "D232: passive - the breath is ice: Frostbite stacks (-10% each, 0.5s cadence), 4 = frozen for `duration`; shells icy blue for the run."
+    },
+    {
+      "name": "DOZR",
+      "desc": "Passive: a dash that kills refunds 75% of the dash cooldown.",
+      "effect": "dozr",
+      "cooldown": 0.0,
+      "amount": 0.25,
+      "duration": 0.0,
+      "requires": "ship:Gryphon",
+      "//": "D232: passive - a dash KILL multiplies the remaining dash cooldown by `amount`."
     }
   ],
   "//engine-suite": "Engine-suite Phase 0 scaffolding (D138, specs/engine-feature-suite.md). Each block below is OWNED BY ONE LANE and every value is an inert default: enabled false (or an empty list) leaves the sim byte-identical. The owning lane fills its block in and deletes its 'still inert' line in test_scaffolding.cpp.",
@@ -3104,6 +3145,20 @@
 
   "//ui": "UI & menu layer (Option-040 port). Rects are authored in the 800x600 design canvas; ui_canvas_transform letterboxes them onto the live window.",
   "ui_styles": {
+    "menu_option": {
+      "//": "D234 (playtest #8 item 2): dropdown rows - lighter than the panel AND than card, bright text, so the row grid reads against the gaps between them.",
+      "normal":   { "bg": [26, 44, 70, 250], "text": [235, 248, 255, 255] },
+      "hovered":  { "bg": [50, 90, 130, 255], "text": [255, 255, 255, 255] },
+      "pressed":  { "bg": [70, 120, 170, 255], "text": [255, 255, 255, 255] },
+      "disabled": { "bg": [26, 44, 70, 0], "text": [235, 248, 255, 0] }
+    },
+    "field_focus": {
+      "//": "Playtest #6 item 5 (D232): the focused feedback card - a shade or two lighter than card's normal, NOT the searing shop_tab cyan. All states identical; the widget sits disabled while focused.",
+      "normal":   { "bg": [34, 54, 84, 240], "text": [235, 252, 255, 255] },
+      "hovered":  { "bg": [34, 54, 84, 240], "text": [235, 252, 255, 255] },
+      "pressed":  { "bg": [34, 54, 84, 240], "text": [235, 252, 255, 255] },
+      "disabled": { "bg": [34, 54, 84, 240], "text": [235, 252, 255, 255] }
+    },
     "pip_gain": {
       "//": "D191: shop pip meter previewing a stat GAIN on hover. Labels never paint bg, so bg stays transparent.",
       "normal":   { "bg": [0, 0, 0, 0], "text": [110, 235, 130, 235] },
@@ -4657,9 +4712,9 @@
           "element_type": "label",
           "rect": {
             "x": 464,
-            "y": 180,
+            "y": 164,
             "w": 296,
-            "h": 28
+            "h": 24
           },
           "label_text": "",
           "style_id": "title",
@@ -4670,9 +4725,9 @@
           "element_type": "label",
           "rect": {
             "x": 464,
-            "y": 128,
+            "y": 124,
             "w": 296,
-            "h": 44
+            "h": 40
           },
           "label_text": "",
           "style_id": "subtitle",
@@ -4881,22 +4936,325 @@
       ]
     },
     "feedback": {
-      "//": "Feedback form (specs/feedback-reports.md). main.cpp owns the four field buffers and rewrites fb_subject/fb_body/fb_tags/fb_from/fb_msg every frame - the name_entry by-name-rewrite pattern. Reached via on_feedback_click from pause and main_menu.",
-      "widgets": [
-        { "element_type": "panel", "rect": { "x": 180, "y": 64, "w": 620, "h": 472 }, "label_text": "", "style_id": "panel", "z_order": 9 },
-        { "element_type": "label", "rect": { "x": 204, "y": 452, "w": 392, "h": 44 }, "label_text": "FEEDBACK", "style_id": "title", "z_order": 10 },
-        { "element_type": "panel", "rect": { "x": 204, "y": 440, "w": 552, "h": 2 }, "label_text": "", "style_id": "panel", "z_order": 10 },
-        { "element_type": "label", "rect": { "x": 204, "y": 396, "w": 100, "h": 24 }, "label_text": "SUBJECT", "style_id": "caption", "z_order": 10 },
-        { "element_type": "label", "name": "fb_subject", "rect": { "x": 316, "y": 396, "w": 440, "h": 24 }, "label_text": "_", "style_id": "subtitle", "z_order": 10 },
-        { "element_type": "label", "rect": { "x": 204, "y": 356, "w": 100, "h": 24 }, "label_text": "BODY", "style_id": "caption", "z_order": 10 },
-        { "element_type": "label", "name": "fb_body", "rect": { "x": 316, "y": 260, "w": 440, "h": 120 }, "label_text": "", "style_id": "caption", "z_order": 10 },
-        { "element_type": "label", "rect": { "x": 204, "y": 216, "w": 100, "h": 24 }, "label_text": "TAGS", "style_id": "caption", "z_order": 10 },
-        { "element_type": "label", "name": "fb_tags", "rect": { "x": 316, "y": 216, "w": 440, "h": 24 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
-        { "element_type": "label", "rect": { "x": 204, "y": 176, "w": 100, "h": 24 }, "label_text": "FROM", "style_id": "caption", "z_order": 10 },
-        { "element_type": "label", "name": "fb_from", "rect": { "x": 316, "y": 176, "w": 440, "h": 24 }, "label_text": "", "style_id": "subtitle", "z_order": 10 },
-        { "element_type": "label", "name": "fb_msg", "rect": { "x": 204, "y": 128, "w": 552, "h": 24 }, "label_text": "TAB next field - ENTER send - ESC back", "style_id": "caption", "z_order": 10 },
-        { "element_type": "label", "rect": { "x": 204, "y": 96, "w": 552, "h": 24 }, "label_text": "Sent with game version, platform and (mid-run) wave/score.", "style_id": "caption", "z_order": 10 }
-      ]
+          "//": "Playtest #4 item 3 (D230): centred panel, every field is a clickable card box (button hitbox CONTAINING its text label \u2014 the layout gate allows containment), the body has its own tall box, and SUBMIT replaces ENTER-to-send. Labels rewritten every frame by main.cpp PHASE_FEEDBACK; the focused card gets UIState.disabled (the D88 selected look). z 50/60 keeps it above pause (bug 014).",
+          "active": false,
+          "widgets": [
+                {
+                      "element_type": "panel",
+                      "rect": {
+                            "x": 100,
+                            "y": 64,
+                            "w": 600,
+                            "h": 472
+                      },
+                      "label_text": "",
+                      "style_id": "panel",
+                      "z_order": 50
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 124,
+                            "y": 452,
+                            "w": 300,
+                            "h": 44
+                      },
+                      "label_text": "FEEDBACK",
+                      "style_id": "title",
+                      "z_order": 60
+                },
+                {
+                      "element_type": "panel",
+                      "rect": {
+                            "x": 124,
+                            "y": 440,
+                            "w": 552,
+                            "h": 2
+                      },
+                      "label_text": "",
+                      "style_id": "rule",
+                      "z_order": 60
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 124,
+                            "y": 392,
+                            "w": 100,
+                            "h": 32
+                      },
+                      "label_text": "SUBJECT",
+                      "style_id": "subtitle",
+                      "z_order": 60
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 236,
+                            "y": 388,
+                            "w": 440,
+                            "h": 36
+                      },
+                      "label_text": "",
+                      "style_id": "card",
+                      "z_order": 60,
+                      "name": "fb_btn_0",
+                      "on_click_fn": "on_fb_focus_0"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 240,
+                            "y": 392,
+                            "w": 432,
+                            "h": 28
+                      },
+                      "label_text": "_",
+                      "style_id": "subtitle",
+                      "z_order": 60,
+                      "name": "fb_subject"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 124,
+                            "y": 344,
+                            "w": 100,
+                            "h": 32
+                      },
+                      "label_text": "BODY",
+                      "style_id": "subtitle",
+                      "z_order": 60
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 236,
+                            "y": 228,
+                            "w": 440,
+                            "h": 152
+                      },
+                      "label_text": "",
+                      "style_id": "card",
+                      "z_order": 60,
+                      "name": "fb_btn_1",
+                      "on_click_fn": "on_fb_focus_1"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 240,
+                            "y": 232,
+                            "w": 432,
+                            "h": 144
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 60,
+                      "name": "fb_body"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 124,
+                            "y": 184,
+                            "w": 100,
+                            "h": 32
+                      },
+                      "label_text": "TAGS",
+                      "style_id": "subtitle",
+                      "z_order": 60
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 236,
+                            "y": 180,
+                            "w": 440,
+                            "h": 36
+                      },
+                      "label_text": "",
+                      "style_id": "card",
+                      "z_order": 60,
+                      "name": "fb_btn_2",
+                      "on_click_fn": "on_fb_focus_2"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 240,
+                            "y": 184,
+                            "w": 432,
+                            "h": 28
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 60,
+                      "name": "fb_tags"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 124,
+                            "y": 140,
+                            "w": 100,
+                            "h": 32
+                      },
+                      "label_text": "FROM",
+                      "style_id": "subtitle",
+                      "z_order": 60
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 236,
+                            "y": 136,
+                            "w": 440,
+                            "h": 36
+                      },
+                      "label_text": "",
+                      "style_id": "card",
+                      "z_order": 60,
+                      "name": "fb_btn_3",
+                      "on_click_fn": "on_fb_focus_3"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 240,
+                            "y": 140,
+                            "w": 432,
+                            "h": 28
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 60,
+                      "name": "fb_from"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 124,
+                            "y": 100,
+                            "w": 380,
+                            "h": 28
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 60,
+                      "name": "fb_msg"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 520,
+                            "y": 92,
+                            "w": 156,
+                            "h": 44
+                      },
+                      "label_text": "SUBMIT",
+                      "style_id": "shop_button",
+                      "z_order": 60,
+                      "name": "fb_submit",
+                      "on_click_fn": "on_fb_submit"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 124,
+                            "y": 72,
+                            "w": 380,
+                            "h": 24
+                      },
+                      "label_text": "Sent with game version, platform and wave context.",
+                      "style_id": "caption",
+                      "z_order": 60
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 236,
+                            "y": 216,
+                            "w": 220,
+                            "h": 30
+                      },
+                      "label_text": "",
+                      "style_id": "ghost",
+                      "z_order": 70,
+                      "name": "fb_tag_0",
+                      "on_click_fn": "on_fb_tag_0"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 236,
+                            "y": 248,
+                            "w": 220,
+                            "h": 30
+                      },
+                      "label_text": "",
+                      "style_id": "ghost",
+                      "z_order": 70,
+                      "name": "fb_tag_1",
+                      "on_click_fn": "on_fb_tag_1"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 236,
+                            "y": 280,
+                            "w": 220,
+                            "h": 30
+                      },
+                      "label_text": "",
+                      "style_id": "ghost",
+                      "z_order": 70,
+                      "name": "fb_tag_2",
+                      "on_click_fn": "on_fb_tag_2"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 236,
+                            "y": 312,
+                            "w": 220,
+                            "h": 30
+                      },
+                      "label_text": "",
+                      "style_id": "ghost",
+                      "z_order": 70,
+                      "name": "fb_tag_3",
+                      "on_click_fn": "on_fb_tag_3"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 236,
+                            "y": 344,
+                            "w": 220,
+                            "h": 30
+                      },
+                      "label_text": "",
+                      "style_id": "ghost",
+                      "z_order": 70,
+                      "name": "fb_tag_4",
+                      "on_click_fn": "on_fb_tag_4"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 236,
+                            "y": 376,
+                            "w": 220,
+                            "h": 30
+                      },
+                      "label_text": "",
+                      "style_id": "ghost",
+                      "z_order": 70,
+                      "name": "fb_tag_5",
+                      "on_click_fn": "on_fb_tag_5"
+                }
+          ]
     },
     "leaderboard": {
       "widgets": [
@@ -4963,418 +5321,446 @@
       ]
     },
     "run_setup": {
-      "//": "Gameplay pack (D221) tier 6: run_setup expanded into the hangar. Panel sits right so the LIVE world drone (sprite reloads on ship cycle) is the preview at screen-left. Stat values + pips rewritten every title frame by main.cpp refresh_hangar; pips share one x column (aligned, the '5 bubbles').",
-      "widgets": [
-        {
-          "element_type": "panel",
-          "rect": {
-            "x": 330,
-            "y": 70,
-            "w": 410,
-            "h": 470
-          },
-          "label_text": "",
-          "style_id": "panel",
-          "z_order": 0
+          "//": "Gameplay pack (D221) tier 6: run_setup expanded into the hangar. Panel sits right so the LIVE world drone (sprite reloads on ship cycle) is the preview at screen-left. Stat values + pips rewritten every title frame by main.cpp refresh_hangar; pips share one x column (aligned, the '5 bubbles').",
+          "widgets": [
+                {
+                      "element_type": "panel",
+                      "rect": {
+                            "x": 330,
+                            "y": 70,
+                            "w": 410,
+                            "h": 470
+                      },
+                      "label_text": "",
+                      "style_id": "panel",
+                      "z_order": 0
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 354,
+                            "y": 488,
+                            "w": 188,
+                            "h": 36
+                      },
+                      "label_text": "HANGAR",
+                      "style_id": "title",
+                      "z_order": 10
+                ,
+          "name": "hangar_title"
         },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 354,
-            "y": 488,
-            "w": 220,
-            "h": 36
-          },
-          "label_text": "HANGAR",
-          "style_id": "title",
-          "z_order": 10
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 550,
-            "y": 492,
-            "w": 166,
-            "h": 26
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "hangar_scrap"
-        },
-        {
-          "element_type": "panel",
-          "rect": {
-            "x": 354,
-            "y": 478,
-            "w": 362,
-            "h": 2
-          },
-          "label_text": "",
-          "style_id": "rule",
-          "z_order": 10
-        },
-        {
-          "element_type": "button",
-          "rect": {
-            "x": 354,
-            "y": 424,
-            "w": 362,
-            "h": 44
-          },
-          "label_text": "",
-          "style_id": "default_button",
-          "z_order": 10,
-          "name": "menu_ship",
-          "on_click_fn": "on_ship_cycle"
-        },
-        {
-          "element_type": "button",
-          "rect": {
-            "x": 354,
-            "y": 372,
-            "w": 362,
-            "h": 44
-          },
-          "label_text": "",
-          "style_id": "default_button",
-          "z_order": 10,
-          "name": "menu_weapon",
-          "on_click_fn": "on_weapon_cycle"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 354,
-            "y": 334,
-            "w": 240,
-            "h": 24
-          },
-          "label_text": "DRONE STATS",
-          "style_id": "subtitle",
-          "z_order": 10
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 354,
-            "y": 306,
-            "w": 232,
-            "h": 16
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "hs_name_0"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 596,
-            "y": 306,
-            "w": 120,
-            "h": 16
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "hs_pips_0"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 354,
-            "y": 284,
-            "w": 232,
-            "h": 16
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "hs_name_1"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 596,
-            "y": 284,
-            "w": 120,
-            "h": 16
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "hs_pips_1"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 354,
-            "y": 262,
-            "w": 232,
-            "h": 16
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "hs_name_2"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 596,
-            "y": 262,
-            "w": 120,
-            "h": 16
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "hs_pips_2"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 354,
-            "y": 240,
-            "w": 232,
-            "h": 16
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "hs_name_3"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 596,
-            "y": 240,
-            "w": 120,
-            "h": 16
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "hs_pips_3"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 354,
-            "y": 218,
-            "w": 232,
-            "h": 16
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "hs_name_4"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 596,
-            "y": 218,
-            "w": 120,
-            "h": 16
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "hs_pips_4"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 354,
-            "y": 196,
-            "w": 232,
-            "h": 16
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "hs_name_5"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 596,
-            "y": 196,
-            "w": 120,
-            "h": 16
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "hs_pips_5"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 354,
-            "y": 174,
-            "w": 232,
-            "h": 16
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "hs_name_6"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 596,
-            "y": 174,
-            "w": 120,
-            "h": 16
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "hs_pips_6"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 354,
-            "y": 152,
-            "w": 232,
-            "h": 16
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "hs_name_7"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 596,
-            "y": 152,
-            "w": 120,
-            "h": 16
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "hs_pips_7"
-        },
-        {
-          "element_type": "button",
-          "rect": {
-            "x": 354,
-            "y": 112,
-            "w": 362,
-            "h": 36
-          },
-          "label_text": "",
-          "style_id": "shop_button",
-          "z_order": 10,
-          "name": "menu_buy",
-          "on_click_fn": "on_buy_ship"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 354,
-            "y": 76,
-            "w": 362,
-            "h": 28
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "hangar_hint"
-        },
-        {
-          "element_type": "button",
-          "rect": {
-            "x": 40,
-            "y": 540,
-            "w": 110,
-            "h": 40
-          },
-          "label_text": "BACK",
-          "style_id": "default_button",
-          "z_order": 10,
-          "name": "menu_back",
-          "on_click_fn": "on_back_click"
-        },
-        {
-          "element_type": "button",
-          "rect": {
-            "x": 40,
-            "y": 210,
-            "w": 120,
-            "h": 44
-          },
-          "label_text": "NORMAL",
-          "style_id": "shop_tab",
-          "z_order": 10,
-          "name": "menu_normal",
-          "on_click_fn": "on_pick_normal"
-        },
-        {
-          "element_type": "button",
-          "rect": {
-            "x": 168,
-            "y": 210,
-            "w": 120,
-            "h": 44
-          },
-          "label_text": "HARD",
-          "style_id": "shop_tab",
-          "z_order": 10,
-          "name": "menu_hard",
-          "on_click_fn": "on_pick_hard"
-        },
-        {
-          "element_type": "button",
-          "rect": {
-            "x": 40,
-            "y": 88,
-            "w": 248,
-            "h": 72
-          },
-          "label_text": "LAUNCH",
-          "style_id": "launch_green",
-          "z_order": 10,
-          "name": "menu_launch",
-          "on_click_fn": "on_launch_click",
-          "pulse_hz": 1.1
-        },
-        {
-          "element_type": "button",
-          "rect": {
-            "x": 40,
-            "y": 318,
-            "w": 120,
-            "h": 44
-          },
-          "label_text": "SHOP",
-          "style_id": "default_button",
-          "z_order": 10,
-          "name": "menu_cosmetics",
-          "on_click_fn": "on_open_cosmetics"
-        },
-        {
-          "element_type": "button",
-          "rect": {
-            "x": 168,
-            "y": 318,
-            "w": 120,
-            "h": 44
-          },
-          "label_text": "INVENTORY",
-          "style_id": "default_button",
-          "z_order": 10,
-          "name": "menu_inventory",
-          "on_click_fn": "on_open_inventory"
-        }
-      ]
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 550,
+                            "y": 492,
+                            "w": 166,
+                            "h": 26
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hangar_scrap"
+                },
+                {
+                      "element_type": "panel",
+                      "rect": {
+                            "x": 354,
+                            "y": 478,
+                            "w": 362,
+                            "h": 2
+                      },
+                      "label_text": "",
+                      "style_id": "rule",
+                      "z_order": 10
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 354,
+                            "y": 424,
+                            "w": 362,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "default_button",
+                      "z_order": 10,
+                      "name": "menu_ship",
+                      "on_click_fn": "on_ship_cycle"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 354,
+                            "y": 372,
+                            "w": 362,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "default_button",
+                      "z_order": 10,
+                      "name": "menu_weapon",
+                      "on_click_fn": "on_weapon_cycle"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 354,
+                            "y": 334,
+                            "w": 240,
+                            "h": 24
+                      },
+                      "label_text": "DRONE STATS",
+                      "style_id": "subtitle",
+                      "z_order": 10
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 354,
+                            "y": 306,
+                            "w": 232,
+                            "h": 16
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hs_name_0"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 596,
+                            "y": 306,
+                            "w": 120,
+                            "h": 16
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hs_pips_0"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 354,
+                            "y": 286,
+                            "w": 232,
+                            "h": 16
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hs_name_1"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 596,
+                            "y": 286,
+                            "w": 120,
+                            "h": 16
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hs_pips_1"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 354,
+                            "y": 266,
+                            "w": 232,
+                            "h": 16
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hs_name_2"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 596,
+                            "y": 266,
+                            "w": 120,
+                            "h": 16
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hs_pips_2"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 354,
+                            "y": 246,
+                            "w": 232,
+                            "h": 16
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hs_name_3"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 596,
+                            "y": 246,
+                            "w": 120,
+                            "h": 16
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hs_pips_3"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 354,
+                            "y": 226,
+                            "w": 232,
+                            "h": 16
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hs_name_4"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 596,
+                            "y": 226,
+                            "w": 120,
+                            "h": 16
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hs_pips_4"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 354,
+                            "y": 206,
+                            "w": 232,
+                            "h": 16
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hs_name_5"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 596,
+                            "y": 206,
+                            "w": 120,
+                            "h": 16
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hs_pips_5"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 354,
+                            "y": 186,
+                            "w": 232,
+                            "h": 16
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hs_name_6"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 596,
+                            "y": 186,
+                            "w": 120,
+                            "h": 16
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hs_pips_6"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 354,
+                            "y": 166,
+                            "w": 232,
+                            "h": 16
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hs_name_7"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 596,
+                            "y": 166,
+                            "w": 120,
+                            "h": 16
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hs_pips_7"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 354,
+                            "y": 146,
+                            "w": 232,
+                            "h": 16
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hs_name_8"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 596,
+                            "y": 146,
+                            "w": 120,
+                            "h": 16
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hs_pips_8"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 354,
+                            "y": 108,
+                            "w": 362,
+                            "h": 36
+                      },
+                      "label_text": "",
+                      "style_id": "shop_button",
+                      "z_order": 10,
+                      "name": "menu_buy",
+                      "on_click_fn": "on_buy_ship"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 354,
+                            "y": 76,
+                            "w": 362,
+                            "h": 28
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "hangar_desc"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 40,
+                            "y": 540,
+                            "w": 110,
+                            "h": 40
+                      },
+                      "label_text": "BACK",
+                      "style_id": "default_button",
+                      "z_order": 10,
+                      "name": "menu_back",
+                      "on_click_fn": "on_back_click"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 40,
+                            "y": 210,
+                            "w": 120,
+                            "h": 44
+                      },
+                      "label_text": "NORMAL",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "menu_normal",
+                      "on_click_fn": "on_pick_normal"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 168,
+                            "y": 210,
+                            "w": 120,
+                            "h": 44
+                      },
+                      "label_text": "HARD",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "menu_hard",
+                      "on_click_fn": "on_pick_hard"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 40,
+                            "y": 88,
+                            "w": 248,
+                            "h": 72
+                      },
+                      "label_text": "LAUNCH",
+                      "style_id": "launch_green",
+                      "z_order": 10,
+                      "name": "menu_launch",
+                      "on_click_fn": "on_launch_click",
+                      "pulse_hz": 1.1
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 40,
+                            "y": 318,
+                            "w": 120,
+                            "h": 44
+                      },
+                      "label_text": "SHOP",
+                      "style_id": "default_button",
+                      "z_order": 10,
+                      "name": "menu_cosmetics",
+                      "on_click_fn": "on_open_cosmetics"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 168,
+                            "y": 318,
+                            "w": 120,
+                            "h": 44
+                      },
+                      "label_text": "INVENTORY",
+                      "style_id": "default_button",
+                      "z_order": 10,
+                      "name": "menu_inventory",
+                      "on_click_fn": "on_open_inventory"
+                }
+          ]
     },
     "run_stats": {
       "//": "Gameplay pack (D221) tier 6: end-of-run flight report, pushed on death and victory before the prestige offer. Lines rewritten every frame by main.cpp refresh_run_stats.",
@@ -5665,190 +6051,462 @@
       ]
     },
     "inventory": {
-      "//": "Tier 7 (D221): the inventory \u2014 owned weapons + the three cosmetic slots for the CURRENT loadout (click a slot to cycle owned paints). Labels rewritten every frame by main.cpp refresh_inventory.",
-      "active": false,
-      "widgets": [
-        {
-          "element_type": "panel",
-          "rect": {
-            "x": 200,
-            "y": 80,
-            "w": 400,
-            "h": 420
-          },
-          "label_text": "",
-          "style_id": "panel",
-          "z_order": 0
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 224,
-            "y": 452,
-            "w": 240,
-            "h": 34
-          },
-          "label_text": "INVENTORY",
-          "style_id": "title",
-          "z_order": 10
-        },
-        {
-          "element_type": "panel",
-          "rect": {
-            "x": 224,
-            "y": 444,
-            "w": 352,
-            "h": 2
-          },
-          "label_text": "",
-          "style_id": "rule",
-          "z_order": 10
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 224,
-            "y": 408,
-            "w": 352,
-            "h": 24
-          },
-          "label_text": "WEAPONS",
-          "style_id": "subtitle",
-          "z_order": 10
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 244,
-            "y": 382,
-            "w": 332,
-            "h": 20
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "inv_weap_0"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 244,
-            "y": 358,
-            "w": 332,
-            "h": 20
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "inv_weap_1"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 244,
-            "y": 334,
-            "w": 332,
-            "h": 20
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "inv_weap_2"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 244,
-            "y": 310,
-            "w": 332,
-            "h": 20
-          },
-          "label_text": "",
-          "style_id": "subtitle",
-          "z_order": 10,
-          "name": "inv_weap_3"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 224,
-            "y": 258,
-            "w": 352,
-            "h": 24
-          },
-          "label_text": "COSMETICS \u2014 SHIP",
-          "style_id": "subtitle",
-          "z_order": 10
-        },
-        {
-          "element_type": "button",
-          "rect": {
-            "x": 224,
-            "y": 214,
-            "w": 352,
-            "h": 38
-          },
-          "label_text": "",
-          "style_id": "default_button",
-          "z_order": 10,
-          "name": "inv_ship_color",
-          "on_click_fn": "on_inv_ship_color"
-        },
-        {
-          "element_type": "button",
-          "rect": {
-            "x": 224,
-            "y": 170,
-            "w": 352,
-            "h": 38
-          },
-          "label_text": "",
-          "style_id": "default_button",
-          "z_order": 10,
-          "name": "inv_trail_color",
-          "on_click_fn": "on_inv_trail_color"
-        },
-        {
-          "element_type": "label",
-          "rect": {
-            "x": 224,
-            "y": 142,
-            "w": 352,
-            "h": 22
-          },
-          "label_text": "COSMETICS \u2014 PROJECTILE",
-          "style_id": "subtitle",
-          "z_order": 10
-        },
-        {
-          "element_type": "button",
-          "rect": {
-            "x": 224,
-            "y": 100,
-            "w": 352,
-            "h": 38
-          },
-          "label_text": "",
-          "style_id": "default_button",
-          "z_order": 10,
-          "name": "inv_proj_color",
-          "on_click_fn": "on_inv_proj_color"
-        },
-        {
-          "element_type": "button",
-          "rect": {
-            "x": 480,
-            "y": 92,
-            "w": 96,
-            "h": 36
-          },
-          "label_text": "BACK",
-          "style_id": "default_button",
-          "z_order": 10,
-          "name": "inv_back",
-          "on_click_fn": "on_overlay_back"
-        }
-      ]
+          "//": "Playtest #2 (D228, bug 013): grid inventory \u2014 selectable cells, the MMO-bag pattern. Labels/styles/disabled rewritten every title frame by main.cpp refresh_inventory: shop_tab+disabled = equipped (the D88 tab convention), card+disabled = unowned, cell 0 of a colour row = the item\u2019s own default.",
+          "active": false,
+          "widgets": [
+                {
+                      "element_type": "panel",
+                      "rect": {
+                            "x": 140,
+                            "y": 70,
+                            "w": 520,
+                            "h": 460
+                      },
+                      "label_text": "",
+                      "style_id": "panel",
+                      "z_order": 0
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 164,
+                            "y": 488,
+                            "w": 240,
+                            "h": 34
+                      },
+                      "label_text": "INVENTORY",
+                      "style_id": "title",
+                      "z_order": 10
+                },
+                {
+                      "element_type": "panel",
+                      "rect": {
+                            "x": 164,
+                            "y": 478,
+                            "w": 472,
+                            "h": 2
+                      },
+                      "label_text": "",
+                      "style_id": "rule",
+                      "z_order": 10
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 164,
+                            "y": 446,
+                            "w": 240,
+                            "h": 24
+                      },
+                      "label_text": "WEAPONS",
+                      "style_id": "subtitle",
+                      "z_order": 10
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 164,
+                            "y": 396,
+                            "w": 112,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_w_0",
+                      "on_click_fn": "on_inv_w_0"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 284,
+                            "y": 396,
+                            "w": 112,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_w_1",
+                      "on_click_fn": "on_inv_w_1"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 404,
+                            "y": 396,
+                            "w": 112,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_w_2",
+                      "on_click_fn": "on_inv_w_2"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 524,
+                            "y": 396,
+                            "w": 112,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_w_3",
+                      "on_click_fn": "on_inv_w_3"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 164,
+                            "y": 356,
+                            "w": 360,
+                            "h": 24
+                      },
+                      "label_text": "COSMETICS \u2014 SHIP COLOR",
+                      "style_id": "subtitle",
+                      "z_order": 10
+                ,
+                      "name": "inv_sec_sc"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 164,
+                            "y": 306,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_sc_0",
+                      "on_click_fn": "on_inv_sc_0"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 232,
+                            "y": 306,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_sc_1",
+                      "on_click_fn": "on_inv_sc_1"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 300,
+                            "y": 306,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_sc_2",
+                      "on_click_fn": "on_inv_sc_2"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 368,
+                            "y": 306,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_sc_3",
+                      "on_click_fn": "on_inv_sc_3"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 436,
+                            "y": 306,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_sc_4",
+                      "on_click_fn": "on_inv_sc_4"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 504,
+                            "y": 306,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_sc_5",
+                      "on_click_fn": "on_inv_sc_5"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 572,
+                            "y": 306,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_sc_6",
+                      "on_click_fn": "on_inv_sc_6"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 164,
+                            "y": 266,
+                            "w": 360,
+                            "h": 24
+                      },
+                      "label_text": "TRAIL COLOR",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "inv_sec_tc"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 164,
+                            "y": 216,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_tc_0",
+                      "on_click_fn": "on_inv_tc_0"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 232,
+                            "y": 216,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_tc_1",
+                      "on_click_fn": "on_inv_tc_1"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 300,
+                            "y": 216,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_tc_2",
+                      "on_click_fn": "on_inv_tc_2"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 368,
+                            "y": 216,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_tc_3",
+                      "on_click_fn": "on_inv_tc_3"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 436,
+                            "y": 216,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_tc_4",
+                      "on_click_fn": "on_inv_tc_4"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 504,
+                            "y": 216,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_tc_5",
+                      "on_click_fn": "on_inv_tc_5"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 572,
+                            "y": 216,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_tc_6",
+                      "on_click_fn": "on_inv_tc_6"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 164,
+                            "y": 176,
+                            "w": 360,
+                            "h": 24
+                      },
+                      "label_text": "PROJECTILE COLOR",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "inv_sec_pc"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 164,
+                            "y": 126,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_pc_0",
+                      "on_click_fn": "on_inv_pc_0"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 232,
+                            "y": 126,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_pc_1",
+                      "on_click_fn": "on_inv_pc_1"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 300,
+                            "y": 126,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_pc_2",
+                      "on_click_fn": "on_inv_pc_2"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 368,
+                            "y": 126,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_pc_3",
+                      "on_click_fn": "on_inv_pc_3"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 436,
+                            "y": 126,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_pc_4",
+                      "on_click_fn": "on_inv_pc_4"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 504,
+                            "y": 126,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_pc_5",
+                      "on_click_fn": "on_inv_pc_5"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 572,
+                            "y": 126,
+                            "w": 64,
+                            "h": 44
+                      },
+                      "label_text": "",
+                      "style_id": "shop_tab",
+                      "z_order": 10,
+                      "name": "inv_pc_6",
+                      "on_click_fn": "on_inv_pc_6"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 524,
+                            "y": 74,
+                            "w": 112,
+                            "h": 44
+                      },
+                      "label_text": "BACK",
+                      "style_id": "default_button",
+                      "z_order": 10,
+                      "name": "inv_back",
+                      "on_click_fn": "on_overlay_back"
+                }
+          ]
     },
     "save_slots": {
       "widgets": [
@@ -6176,49 +6834,49 @@
         {
           "element_type": "label",
           "rect": { "x": 204, "y": 368, "w": 392, "h": 26 },
-          "label_text": "Hold left mouse to fire. SPACE dashes.",
+          "label_text": "Hold left mouse to fire. Right mouse: weapon secondary.",
           "style_id": "subtitle",
           "z_order": 10
         },
         {
           "element_type": "label",
           "rect": { "x": 204, "y": 336, "w": 392, "h": 26 },
-          "label_text": "Q uses your consumable. E fires your active.",
+          "label_text": "SPACE dashes (some drones bank two). Q consumable, E boss item.",
           "style_id": "subtitle",
           "z_order": 10
         },
         {
           "element_type": "label",
           "rect": { "x": 204, "y": 296, "w": 392, "h": 24 },
-          "label_text": "Touching enemies hurts. Keep moving.",
+          "label_text": "Touching enemies hurts. Walls block shots - yours and theirs.",
           "style_id": "caption",
           "z_order": 10
         },
         {
           "element_type": "label",
           "rect": { "x": 204, "y": 268, "w": 392, "h": 24 },
-          "label_text": "Fly over units to collect them - they expire.",
+          "label_text": "Fly over pickups to collect them - they expire.",
           "style_id": "caption",
           "z_order": 10
         },
         {
           "element_type": "label",
           "rect": { "x": 204, "y": 240, "w": 392, "h": 24 },
-          "label_text": "Every 5th wave the shop opens. Spend or bank.",
+          "label_text": "Every 5th wave the shop opens. Scrap persists between runs.",
           "style_id": "caption",
           "z_order": 10
         },
         {
           "element_type": "label",
           "rect": { "x": 204, "y": 212, "w": 392, "h": 24 },
-          "label_text": "Bosses on waves 10, 20, 30 drop new powers.",
+          "label_text": "Bosses at 10, 20, 30 drop items. Arenas rotate every 3 waves.",
           "style_id": "caption",
           "z_order": 10
         },
         {
           "element_type": "label",
           "rect": { "x": 204, "y": 184, "w": 392, "h": 24 },
-          "label_text": "Hull never regenerates by itself. Shields do.",
+          "label_text": "Hull heals via orbs, boss kills and the shop. Shields regen.",
           "style_id": "caption",
           "z_order": 10
         },
@@ -6504,12 +7162,13 @@
           "name": "item_slot_name"
         },
         {
+          "//": "D234 (playtest #8 item 4): the key prompt sits UNDER the box now, the hud_dash_key pattern. The box face is the held item's icon sprite (main.cpp parks it, the dash-button recipe).",
           "element_type": "label",
           "rect": {
-            "x": 18,
-            "y": 28,
-            "w": 44,
-            "h": 14
+            "x": 16,
+            "y": 6,
+            "w": 48,
+            "h": 16
           },
           "label_text": "",
           "style_id": "caption",
@@ -6758,6 +7417,14 @@
           "style_id": "default_button",
           "on_click_fn": "on_active_pick_2",
           "z_order": 10
+        },
+        {
+          "element_type": "label",
+          "rect": { "x": 120, "y": 196, "w": 560, "h": 24 },
+          "label_text": "",
+          "style_id": "caption",
+          "z_order": 10,
+          "name": "reward_desc"
         }
       ]
     },

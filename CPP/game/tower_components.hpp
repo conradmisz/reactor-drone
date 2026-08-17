@@ -101,6 +101,12 @@ struct ProjectileTag {
     // Hailstorm. False keeps the v3 position-history ribbon (D201/D213), which
     // is what Flak's molten slag and Moonshot's crescent still want.
     bool bolt = false;
+    // Playtest #2 item 6 (D228): Flak's own identity — a fat molten chunk (a
+    // short, wide, hot-cored dash) instead of the shared ribbon.
+    bool slag = false;
+    // Playtest #3 item 1 (D229): Moonshot's identity — a real crescent arc,
+    // thin at the tips and fat in the middle, bowed along the heading.
+    bool crescent = false;
 };
 
 /**
@@ -125,6 +131,10 @@ struct ProjectileData {
     // dash_system state.hit idiom — and dies only on walls or lifetime.
     bool pierce = false;
     bool incendiary = false;   // Flak slag: hits apply/refresh a Burn (secondary_fire.hpp)
+    // D232 (Plasma Wake): a wake-dropping SECONDARY shot — trails plasma
+    // patches. wake_x/y remember where the last patch fell.
+    bool wake = false;
+    float wake_x = 0.0f, wake_y = 0.0f;
     std::vector<Entity> hit;
 
     ProjectileData() = default;

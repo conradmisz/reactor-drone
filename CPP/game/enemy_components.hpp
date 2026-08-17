@@ -148,12 +148,18 @@ struct Burn {
 struct Chill {
     float time_left = 0.0f;
     float orig_speed = 0.0f;
+    // D232 (Cryolator): Frostbite rides the same component — stacks each cut
+    // 10% speed; four freeze the target for `frozen_t` seconds, then clear.
+    int   stacks = 0;
+    float stack_cd = 0.0f;     // seconds until the next stack may apply
+    float frozen_t = 0.0f;     // >0 = frozen solid
 };
 
 /// The traveling blizzard ring itself (an entity with Position/Velocity/
 /// Lifetime/Size; this tag holds its slow factor).
 struct BlizzardTag {
     float slow_mult = 0.45f;
+    float dps = 0.0f;          // D232 (Plasma Wake): >0 = the field also burns
 };
 
 

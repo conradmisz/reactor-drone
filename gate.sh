@@ -16,13 +16,18 @@
 set -o pipefail
 cd "$(dirname "$0")"
 OUT=$(mktemp -d)
+# D230 (playtest #4 verification): the gate used to exit 0 no matter what it
+# printed — "DIFFERS from baseline" was advisory. FAIL now propagates, so a
+# scripted caller can trust the exit code. (Trap 8, bugs/003.)
+FAIL=0
 echo "=== build ==="
 cmake --build CPP/build -j"$(nproc)" > "$OUT/build.log" 2>&1 || { tail -30 "$OUT/build.log"; exit 1; }
 W=$(grep "warning:" "$OUT/build.log" | grep -v tmpnam | wc -l)
 echo "warnings (ours): $W"
-[ "$W" -eq 0 ] || grep "warning:" "$OUT/build.log" | grep -v tmpnam | head
+[ "$W" -eq 0 ] || { grep "warning:" "$OUT/build.log" | grep -v tmpnam | head; FAIL=1; }
 echo "=== ctest ==="
-ctest --test-dir CPP/build 2>&1 | grep -E "tests passed|tests failed|Failed" || true
+ctest --test-dir CPP/build > "$OUT/ctest.log" 2>&1 || FAIL=1
+grep -E "tests passed|tests failed|Failed" "$OUT/ctest.log" || true
 echo "=== canary x2 ==="
 # The FIRING canary, not the idle one. A single `--keys 5:SPACE` only presses
 # start (SPACE is both the title key and the fire key), so the run ends
@@ -36,7 +41,8 @@ for i in 1 2; do
     --keys $(seq -f '%g:SPACE' 10 4 2990) --stopframe 3000 2>/dev/null | tail -1 > "$OUT/c$i.txt"
 done
 cat "$OUT/c1.txt"
-if diff -q "$OUT/c1.txt" "$OUT/c2.txt" >/dev/null; then echo "canary: IDENTICAL across runs"; else echo "canary: DIVERGED"; diff "$OUT/c1.txt" "$OUT/c2.txt"; fi
+if diff -q "$OUT/c1.txt" "$OUT/c2.txt" >/dev/null; then echo "canary: IDENTICAL across runs"; else echo "canary: DIVERGED"; diff "$OUT/c1.txt" "$OUT/c2.txt"; FAIL=1; fi
 if [ -n "$1" ] && [ -f "$1" ]; then
-  if diff -q "$OUT/c1.txt" "$1" >/dev/null; then echo "canary: matches baseline $1"; else echo "canary: DIFFERS from baseline"; diff "$1" "$OUT/c1.txt"; fi
+  if diff -q "$OUT/c1.txt" "$1" >/dev/null; then echo "canary: matches baseline $1"; else echo "canary: DIFFERS from baseline"; diff "$1" "$OUT/c1.txt"; FAIL=1; fi
 fi
+exit $FAIL
