@@ -57,8 +57,8 @@ across builds.
 | Mouse | Aim (hold to fire) |
 | Space | Thruster dash — damages what you pass through (10 s cooldown) |
 | ESC | Pause |
-| 1-8 | Buy / equip in the shop |
-| TAB / B | Change shop page / launch |
+| Right mouse | Weapon secondary |
+| B | Open the shop mid-run / launch the next wave |
 
 ## Engineering
 

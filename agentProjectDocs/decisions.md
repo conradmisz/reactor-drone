@@ -3056,3 +3056,26 @@ Frostbite stack cadence 0.5 s → 0.25 s (a held breath freezes in ~0.75 s of
 exposure instead of ~1.5 s); STREAM_RANGE 340 → 425 px (+25%), flame
 particles sped/lengthened to keep the visual honest about the reach.
 Verified: zero-warning build, 8/8 suites, canary unmoved, gate green.
+
+## D237 — The 1-8 shop instant-buy is retired  *(2026-08-17)*
+
+**Decision.** Owner: "that mechanic no longer exists." It half-existed — the
+docs advertised `1-8 = buy the numbered row`, and a real keyboard still
+reached `buy_upgrade` instantly, bypassing D189's press-and-HOLD rule that
+exists so a stray input cannot spend 200 credits. Rather than leave the docs
+lying about live code, the player path is GONE: real digit keys no longer
+reach the shop (the dead `digit_prev` edge array went with them), while the
+SCRIPTED path (`--keys 3`) stays so headless tests and the canary can still
+exercise a purchase.
+
+References purged from every player-facing surface: README controls table
+(now Right mouse / B), docs/features.html controls table + the quick keys
+card (now "press and HOLD a card"), and the website's controls table. TAB's
+row went too — GEAR/LEVELS retired in D225, so TAB has been a no-op since.
+
+**Verified:** zero-warning build, 8/8 suites, canary unmoved, gate green.
+
+**Left alone, needs an owner call:** docs/features.html still carries a whole
+GEAR section (§10) plus `shop-gear.png` and the "page two is gear" tutorial
+line — all describing the retired D225 economy. Deleting a documented section
+and its screenshot is a content decision, not a mechanical one.

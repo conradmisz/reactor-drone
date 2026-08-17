@@ -1919,7 +1919,6 @@ int main(int argc, char* argv[]) {
     bool f1_prev = false, f2_prev = false, space_prev = false, b_prev = false;
     bool f5_prev = false;   // --dev only: skip-to-next-wave edge
     bool tab_prev = false, q_prev = false;
-    bool digit_prev[8] = {false};
     bool n_prev = false;   // Task 7: N renames the pilot from the title screen
     bool l_prev = false;   // Task 9: L opens the leaderboard from the title screen
     if (opts.paused) debug_paused = true;
@@ -2196,12 +2195,11 @@ int main(int argc, char* argv[]) {
         bool l_now = keys[SDL_SCANCODE_L];
         bool l_edge = (l_now && !l_prev);
         l_prev = l_now;
-        int digit = scripted_digit;
-        for (int d = 0; d < 8; ++d) {
-            bool down = keys[SDL_SCANCODE_1 + d];
-            if (down && !digit_prev[d]) digit = d + 1;
-            digit_prev[d] = down;
-        }
+        // D237: the 1-8 instant-buy is RETIRED for players — purchasing is
+        // press-and-hold on the card (D189), and a bare digit bypassed that
+        // whole anti-misclick rule. The scripted path stays: headless tests
+        // and the canary still exercise a purchase through `--keys 3`.
+        const int digit = scripted_digit;
         float mx, my; Uint32 mbtn = SDL_GetMouseState(&mx, &my);
         blackboard.set("mouse.held", (mbtn & SDL_BUTTON_LMASK) != 0 || scripted_fire);
         // Gameplay pack (D221): right mouse is the secondary-fire trigger.
