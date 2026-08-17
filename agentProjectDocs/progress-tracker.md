@@ -112,8 +112,20 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   DOZR, reward_choices 2), armoured ram, cone heat falloff, vignette tiers
   from 20%. Canary unmoved, gate green twice.
 
-  Next: playtest #7 (judge D232 — esp. the three boss items, which need
-  real boss kills under the right loadouts), then tune, then release v2.3.0.
+  Playtests #7-#9 (dev-mode, 2026-08-17) landed D233-D236: flame rides the
+  hull, dropdown fixes, point-blank cone fix, reward tooltips, item-slot
+  icons, fuel lockout, frostbite/freeze visuals, icy glob, freeze cadence.
+
+  **v2.3.0 SHIPPED (2026-08-17).** Tag pushed off feature/distribution; all
+  four CI jobs green — build-mac's FIRST real run passed. Verified in the
+  bugs/008 order: 4 assets 200 anonymously -> Latest moved -> Worker
+  /version 2.3.0 (10s propagation, as documented) -> site serving v2.3.0
+  links (curl, not the stale WebFetch cache). verify_branch 31/32 pre-tag
+  (the one FAIL was version.hpp vs wrangler.jsonc, correct mid-pipeline).
+
+  STILL OWED (owner, per verify_branch): one real run + one real feedback
+  report against production, then check /dashboard. The macOS bundle has
+  still never been LAUNCHED on real Apple hardware — only built there.
 
 - v2.2.0 shipped 2026-08-16; release notes collapsed below.
 
