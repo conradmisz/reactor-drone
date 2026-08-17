@@ -446,7 +446,8 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
       <li>Move with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrow keys.</li>
       <li>Aim with the mouse. The drone always faces your cursor.</li>
       <li>Hold <b>left mouse</b> to fire. You can hold it down the whole run.</li>
-      <li>Press <kbd>Space</kbd> in flight to <b>dash</b> — a fast burst that hurts what it passes through. Long cooldown; it's your escape button.</li>
+      <li><b>Right mouse</b> is your weapon's secondary — every weapon has its own: a charged slug, a crescent burst, a flamethrower, a blizzard.</li>
+      <li>Press <kbd>Space</kbd> in flight to <b>dash</b> — a fast burst that hurts what it passes through. You bank dash charges (one to start; bosses add more), so spent charges refill over time.</li>
       <li>Walk over the credits enemies drop. Spend them when the run pauses.</li>
     </ol>
   </div>
@@ -538,9 +539,10 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
 
   <h3>The dash</h3>
   <p><kbd>Space</kbd> throws you forward in a burst that damages everything you pass through — each enemy
-  once per dash, not once per frame — and you take at most one hit crossing a crowd. The cooldown is long
-  enough that it is an escape, not a movement style. It is the answer to being surrounded, and it is
-  usually the difference between dying on a timed wave and clearing it.</p>
+  once per dash, not once per frame — and you take at most one hit crossing a crowd. Dashes come from a
+  small bank of charges: you start with one (the Owl starts with two), every boss you kill adds one, and a
+  spent charge refills on a long clock. It is the answer to being surrounded, and it is usually the
+  difference between dying on a timed wave and clearing it.</p>
 
   <h3>Invulnerability window</h3>
   <p>After a hit you get a brief window where you can't be hurt again. It's short, and it's the reason
@@ -866,15 +868,16 @@ footer{max-width:var(--measure);margin:0 auto;padding:2.5rem 0 0;border-top:1px 
   "controls": [
     {"input": "[[W]][[A]][[S]][[D]] / arrows", "does": "Move. Diagonals are the same speed as straight lines, so there's no advantage to strafing at an angle.", "when": "Flying"},
     {"input": "Mouse", "does": "Aim. The drone turns to face the cursor and fires where it points.", "when": "Flying"},
-    {"input": "Hold left mouse", "does": "Fire continuously. There's no ammo and no reload — only a rate of fire.", "when": "Flying"},
-    {"input": "[[Space]]", "does": "Dash. A short, fast burst that damages everything it passes through and carries you clear of a crowd. Long cooldown — treat it as one escape every couple of waves, not a movement key.", "when": "Flying"},
+    {"input": "Hold left mouse", "does": "Fire continuously. Firing drains a battery; easing off recharges it, and draining it to empty locks you out until it refills.", "when": "Flying"},
+    {"input": "Hold/press right mouse", "does": "Your weapon's secondary. 55 Iron charges a slug from a banked reserve, Moonshot bursts crescents, Flak breathes fire while its fuel lasts, Hailstorm rolls a blizzard.", "when": "Flying"},
+    {"input": "[[Space]]", "does": "Dash. A short, fast burst that damages everything it passes through and carries you clear of a crowd. You hold a small bank of charges — one to start, plus one per boss killed — refilling on a long clock.", "when": "Flying"},
     {"input": "[[Q]]", "does": "Use your consumable, if you're carrying one. One press spends it.", "when": "Flying"},
     {"input": "[[E]]", "does": "Fire your active — the power a boss gave you. Only the aimed ones are on a key; the Repulsion Device fires itself when your hull gets low.", "when": "Flying, once you own one"},
     {"input": "[[Esc]]", "does": "Pause. Resume, save, or quit from there. The pause screen is also where your run stats live.", "when": "Any time after the title"},
     {"input": "[[Space]]", "does": "Start a Normal run from the title, and restart after a run ends.", "when": "Menus"},
     {"input": "[[B]]", "does": "Open the shop mid-run — but only if you're holding a shop key. Pressing it again closes the shop and launches the next wave.", "when": "Flying, and in the shop"},
     {"input": "[[1]]–[[8]]", "does": "Buy the numbered row. The upgrades page uses all eight.", "when": "Shop only"},
-    {"input": "[[Tab]]", "does": "Flip between the two shop pages: upgrades and gear.", "when": "Shop only"}
+    {"input": "[[Tab]]", "does": "Cycle the shop's tabs.", "when": "Shop only"}
   ],
 
   "archetypes": [
