@@ -123,9 +123,21 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   links (curl, not the stale WebFetch cache). verify_branch 31/32 pre-tag
   (the one FAIL was version.hpp vs wrangler.jsonc, correct mid-pipeline).
 
+  **v2.3.1 SHIPPED (2026-08-18)** — D237 (the 1-8 shop instant-buy retired,
+  references purged from README/manual/site) and D238 (the findable in-game
+  MAILING LIST screen; the old signup was invisible and silent). Same
+  verification chain, all green: 4 assets 200 anonymously, Latest moved,
+  Worker /version 2.3.1 (after the documented ~10s lag), site on v2.3.1.
+
+  Course repo `neu-5850-2026/110-finalproject-conradmisz`: the branch is
+  merged to its `main` (unrelated histories, professor_feedback/ and
+  submission/ preserved) and tagged `final` at v2.3.1.
+
   STILL OWED (owner, per verify_branch): one real run + one real feedback
-  report against production, then check /dashboard. The macOS bundle has
-  still never been LAUNCHED on real Apple hardware — only built there.
+  report against production, then check /dashboard — and now also one real
+  mailing-list signup (type an address on the new screen and confirm the row
+  lands in `subscribers`). The macOS bundle has still never been LAUNCHED on
+  real Apple hardware — only built there.
 
 - v2.2.0 shipped 2026-08-16; release notes collapsed below.
 
