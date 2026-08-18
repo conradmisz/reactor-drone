@@ -123,6 +123,13 @@ Keep under ~60 lines; collapse old Completed entries to one line each.
   links (curl, not the stale WebFetch cache). verify_branch 31/32 pre-tag
   (the one FAIL was version.hpp vs wrangler.jsonc, correct mid-pipeline).
 
+  **v2.3.2 SHIPPED (2026-08-18)** — D239: milestone scrap, 100 per 10 waves
+  cleared (data-driven; a 30-wave victory banks 625 instead of 325). Same
+  chain green: CI 4/4, assets 200, Latest moved, Worker /version 2.3.2, site
+  and course-repo `final` tag both on v2.3.2. **The in-game mailing-list
+  signup is PROVEN end to end** — the owner's real address landed in
+  `subscribers` with source `game` (the first ever).
+
   **v2.3.1 SHIPPED (2026-08-18)** — D237 (the 1-8 shop instant-buy retired,
   references purged from README/manual/site) and D238 (the findable in-game
   MAILING LIST screen; the old signup was invisible and silent). Same
