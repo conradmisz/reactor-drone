@@ -3113,3 +3113,21 @@ instead of behind it.
 
 **Left to the owner:** typing a real address and watching it land in the
 `subscribers` table — the one step no automated check here can perform.
+
+## D239 — Milestone scrap: 100 per 10 waves cleared  *(2026-08-18)*
+
+**Decision.** Owner: 100 scrap for every 10 waves completed. Added to
+`scrap_for_run` as a data-driven purse (`milestone_every` 10,
+`milestone_bonus` 100 in GameData's `scrap` block) rather than a literal, so
+the cadence is tunable and either knob at 0 disables it.
+
+Whole milestones only — 19 waves pays one, 20 pays two. Stacks with the
+existing per-wave (5), boss (25) and victory (100) awards, so a full 30-wave
+victory now banks 625 scrap instead of 325, and a wave-10 death banks 175
+instead of 75. That roughly doubles the deep-run payout, which is the point:
+the old curve was a linear trickle with no step change for going further.
+
+**Verified:** zero-warning build; 8/8 suites with the scrap unit test
+re-pinned to the new numbers (plus two cases proving each knob turns the
+purse off); canary unmoved (the scripted canary dies in wave 1 and clears no
+waves, so it cannot see this); gate green.

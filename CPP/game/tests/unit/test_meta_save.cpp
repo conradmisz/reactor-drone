@@ -163,15 +163,24 @@ TEST_CASE("weapons are owned through ships, never stored", "[meta_save][weapons]
     REQUIRE_FALSE(weapon_owned(m, ships, "Hailstorm"));
 }
 
-TEST_CASE("scrap_for_run pays waves, bosses and the victory bonus", "[meta_save][scrap]") {
-    ScrapConfig c;  // 5 / 25 / 100
+TEST_CASE("scrap_for_run pays waves, bosses, milestones and victory", "[meta_save][scrap]") {
+    ScrapConfig c;  // 5 / 25 / 100, milestone 100 per 10 waves (D239)
     CHECK(scrap_for_run(0, false, c) == 0);
-    CHECK(scrap_for_run(9, false, c) == 45);            // no boss yet
-    CHECK(scrap_for_run(10, false, c) == 75);           // first boss wave counts
-    CHECK(scrap_for_run(29, false, c) == 195);          // died on the last boss
-    CHECK(scrap_for_run(30, true, c) == 325);           // full victory
+    CHECK(scrap_for_run(9, false, c) == 45);            // no boss, no milestone yet
+    CHECK(scrap_for_run(10, false, c) == 175);          // boss 25 + milestone 100
+    CHECK(scrap_for_run(19, false, c) == 220);          // still ONE whole milestone
+    CHECK(scrap_for_run(29, false, c) == 395);          // died on the last boss
+    CHECK(scrap_for_run(30, true, c) == 625);           // full victory, three milestones
     CHECK(scrap_for_run(-3, false, c) == 0);            // garbage clamps
-    CHECK(scrap_for_run(99, true, c) == 325);           // over-count clamps to 30
+    CHECK(scrap_for_run(99, true, c) == 625);           // over-count clamps to 30
+
+    // D239: either knob at zero turns the milestone purse off entirely.
+    ScrapConfig off = c;
+    off.milestone_bonus = 0;
+    CHECK(scrap_for_run(30, true, off) == 325);         // the pre-D239 number
+    off = c;
+    off.milestone_every = 0;
+    CHECK(scrap_for_run(30, true, off) == 325);
 }
 
 TEST_CASE("a ship overlays stats, a weapon overlays the gun", "[ships]") {

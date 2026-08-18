@@ -423,6 +423,11 @@ struct ScrapConfig {
     int per_wave = 5;         // per wave cleared
     int boss_bonus = 25;      // extra per boss wave cleared (10/20/30)
     int victory_bonus = 100;  // extra for finishing wave 30
+    // D239 (owner): a milestone purse — `milestone_bonus` scrap for every
+    // `milestone_every` waves cleared, so a deep run banks a step change
+    // rather than a linear trickle. 0 in either field turns it off.
+    int milestone_every = 10;
+    int milestone_bonus = 100;
 };
 
 /// Scrap earned by a run: `waves_cleared` full waves (victory = all of them),
@@ -432,7 +437,11 @@ inline int scrap_for_run(int waves_cleared, bool victory, const ScrapConfig& c,
     if (waves_cleared < 0) waves_cleared = 0;
     if (waves_cleared > total_waves) waves_cleared = total_waves;
     int bosses = boss_every > 0 ? waves_cleared / boss_every : 0;
+    // D239: whole milestones only — 19 waves pays one, 20 pays two.
+    const int milestones = (c.milestone_every > 0 && c.milestone_bonus > 0)
+                               ? waves_cleared / c.milestone_every : 0;
     return waves_cleared * c.per_wave + bosses * c.boss_bonus
+         + milestones * c.milestone_bonus
          + (victory ? c.victory_bonus : 0);
 }
 

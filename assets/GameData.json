@@ -2792,7 +2792,9 @@
   "scrap": {
     "per_wave": 5,
     "boss_bonus": 25,
-    "victory_bonus": 100
+    "victory_bonus": 100,
+    "milestone_every": 10,
+    "milestone_bonus": 100
   },
   "//cosmetic_colors": "Tier 7 (D221): paints. One purchase = usable in every slot (body atlas, trail tint, projectile tint). granted_by paints derive from ship ownership; the rest sell for scrap in the cosmetic shop.",
   "cosmetic_colors": [

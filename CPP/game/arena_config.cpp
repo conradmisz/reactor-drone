@@ -185,6 +185,8 @@ GameConfig load_arena_config(const std::string& file_path) {
         cfg.scrap.per_wave      = sc.value("per_wave", cfg.scrap.per_wave);
         cfg.scrap.boss_bonus    = sc.value("boss_bonus", cfg.scrap.boss_bonus);
         cfg.scrap.victory_bonus = sc.value("victory_bonus", cfg.scrap.victory_bonus);
+        cfg.scrap.milestone_every = sc.value("milestone_every", cfg.scrap.milestone_every);
+        cfg.scrap.milestone_bonus = sc.value("milestone_bonus", cfg.scrap.milestone_bonus);
     }
 
     if (data.contains("enemy_types")) {
