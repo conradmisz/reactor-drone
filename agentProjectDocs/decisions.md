@@ -3079,3 +3079,37 @@ row went too — GEAR/LEVELS retired in D225, so TAB has been a no-op since.
 GEAR section (§10) plus `shop-gear.png` and the "page two is gear" tutorial
 line — all describing the retired D225 economy. Deleting a documented section
 and its screenshot is a content decision, not a mechanical one.
+
+## D238 — The in-game mailing-list signup a player can find  *(2026-08-17)*
+
+**Decision.** Owner reported the in-game signup "doesn't work". Diagnosis: the
+`/subscribe` endpoint was fine (probed live, 200 + row inserted), and so was
+the POST wiring — but the feature was invisible and silent. Three defects,
+all fixed:
+
+1. **Nothing was ever reported.** `pending_subscribe` was fired and
+   deliberately never polled, so success and failure looked identical —
+   nothing happened either way. Both entry points now poll it and report
+   ("Subscribed - thanks!" / "That address looks wrong" / a failure line).
+2. **Signup was hostage to the rename.** The POST only fired inside the
+   register-200 branch, so a taken name (409) silently discarded a valid
+   address. It now rides the player's CONFIRMATION, independent of what the
+   rename returns.
+3. **It was unreachable in practice.** The only surface was an optional field
+   on the pilot-name screen — first launch, or N at the title, with nothing
+   in the menus mentioning mail exists. New standalone `mailing_list` screen:
+   a MAILING LIST button beside LEADERBOARD, M as its keyboard twin (the N/L
+   shape), one field, SUBMIT, and a status line. The name_entry field stays
+   for first launch — it is still the one moment the game already asks the
+   player to type (the spec's §72 reasoning holds).
+
+**Verified:** zero-warning build; 8/8 suites plus a new contract test
+(test_mailing_list_screen.cpp) pinning the button, the screen's inactive
+boot state, all three click seams and both rewritten labels; canary unmoved,
+gate green; windowed screenshot of the live screen (headless can't reach it —
+net::enabled() is false there, the same gate the feedback form sits behind).
+The drone preview joins the camera-offset list so it parks beside the panel
+instead of behind it.
+
+**Left to the owner:** typing a real address and watching it land in the
+`subscribers` table — the one step no automated check here can perform.

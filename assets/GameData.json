@@ -4844,7 +4844,8 @@
           "on_click_fn": "on_feedback_click",
           "name": "menu_feedback"
         },
-          {"element_type": "button", "rect": {"x": 204, "y": 136, "w": 392, "h": 38}, "label_text": "LEADERBOARD", "style_id": "default_button", "z_order": 10, "on_click_fn": "on_leaderboard_click", "name": "menu_leaderboard"},
+          {"element_type": "button", "rect": {"x": 204, "y": 136, "w": 188, "h": 38}, "label_text": "LEADERBOARD", "style_id": "default_button", "z_order": 10, "on_click_fn": "on_leaderboard_click", "name": "menu_leaderboard"},
+          {"element_type": "button", "rect": {"x": 408, "y": 136, "w": 188, "h": 38}, "label_text": "MAILING LIST", "style_id": "default_button", "z_order": 10, "on_click_fn": "on_mail_click", "name": "menu_mail"},
         {
           "element_type": "label",
           "rect": { "x": 204, "y": 104, "w": 392, "h": 24 },
@@ -7427,6 +7428,140 @@
           "name": "reward_desc"
         }
       ]
+    },
+    "mailing_list": {
+          "//": "D238: the mailing-list signup a player can FIND. The name_entry email field stays (first launch), but it was reachable only via N and reported nothing. main.cpp PHASE_MAIL owns this screen: one buffer, SUBMIT posts /subscribe with source \"game\", and mail_msg reports the actual result.",
+          "active": false,
+          "widgets": [
+                {
+                      "element_type": "panel",
+                      "rect": {
+                            "x": 140,
+                            "y": 150,
+                            "w": 520,
+                            "h": 300
+                      },
+                      "label_text": "",
+                      "style_id": "panel",
+                      "z_order": 0
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 164,
+                            "y": 404,
+                            "w": 360,
+                            "h": 34
+                      },
+                      "label_text": "MAILING LIST",
+                      "style_id": "title",
+                      "z_order": 10
+                },
+                {
+                      "element_type": "panel",
+                      "rect": {
+                            "x": 164,
+                            "y": 394,
+                            "w": 472,
+                            "h": 2
+                      },
+                      "label_text": "",
+                      "style_id": "rule",
+                      "z_order": 10
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 164,
+                            "y": 352,
+                            "w": 472,
+                            "h": 24
+                      },
+                      "label_text": "Release and update mail. Nothing else, unsubscribe any time.",
+                      "style_id": "caption",
+                      "z_order": 10
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 164,
+                            "y": 306,
+                            "w": 100,
+                            "h": 28
+                      },
+                      "label_text": "EMAIL",
+                      "style_id": "subtitle",
+                      "z_order": 10
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 276,
+                            "y": 300,
+                            "w": 360,
+                            "h": 36
+                      },
+                      "label_text": "",
+                      "style_id": "field_focus",
+                      "z_order": 10,
+                      "name": "mail_box",
+                      "on_click_fn": "on_mail_focus"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 280,
+                            "y": 304,
+                            "w": 352,
+                            "h": 28
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "mail_field"
+                },
+                {
+                      "element_type": "label",
+                      "rect": {
+                            "x": 164,
+                            "y": 246,
+                            "w": 472,
+                            "h": 24
+                      },
+                      "label_text": "",
+                      "style_id": "subtitle",
+                      "z_order": 10,
+                      "name": "mail_msg"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 164,
+                            "y": 180,
+                            "w": 150,
+                            "h": 44
+                      },
+                      "label_text": "SUBMIT",
+                      "style_id": "shop_button",
+                      "z_order": 10,
+                      "name": "mail_submit",
+                      "on_click_fn": "on_mail_submit"
+                },
+                {
+                      "element_type": "button",
+                      "rect": {
+                            "x": 486,
+                            "y": 180,
+                            "w": 150,
+                            "h": 44
+                      },
+                      "label_text": "BACK",
+                      "style_id": "default_button",
+                      "z_order": 10,
+                      "name": "mail_back",
+                      "on_click_fn": "on_mail_back"
+                }
+          ]
     },
     "prestige_offer": {
       "//": "Lane O (D128): the arc-complete offer, raised when a run reaches PHASE_VICTORY. main.cpp rewrites prestige_line's label_text with prestige_summary() the way BossSystem rewrites reward_0/1/2, so the level is never authored here. The click fn is matched as a string literal in main.cpp's HOOK: prestige block.",

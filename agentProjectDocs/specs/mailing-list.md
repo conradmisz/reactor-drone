@@ -11,7 +11,8 @@ actually ships, and I want to get off that list in one click.
 
 ## Requirements
 
-1. Signup from two places: the pilot-name screen in-game, and the Reactor
+1. Signup from three places (D238 added the third): the pilot-name screen
+   in-game, the standalone in-game MAILING LIST screen, and the Reactor
    Drone page on the website. Both are optional and skippable.
 2. Storage is the existing D1 database and the existing Worker — no second
    service, no third-party ESP while the list is this small.

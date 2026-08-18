@@ -141,7 +141,8 @@ using SDL_RendererPtr = std::unique_ptr<SDL_Renderer, SDL_RendererDeleter>;
 // Game phases (Blackboard "phase").
 enum Phase { PHASE_TITLE = 0, PHASE_PLAYING = 1, PHASE_GAMEOVER = 2, PHASE_VICTORY = 3,
              PHASE_SHOP = 4, PHASE_INTERMISSION = 5, PHASE_NAME_ENTRY = 6,
-             PHASE_LEADERBOARD = 7, PHASE_FEEDBACK = 8 };
+             PHASE_LEADERBOARD = 7, PHASE_FEEDBACK = 8,
+             PHASE_MAIL = 9 };   // D238: mailing-list signup screen
 
 // Which OS this build reports in feedback rows (specs/feedback-reports.md).
 #if defined(_WIN32)
@@ -166,6 +167,7 @@ constexpr const char* SCREEN_PRESTIGE     = "prestige_offer";   // Lane O (D128)
 constexpr const char* SCREEN_NAME_ENTRY   = "name_entry";       // Task 7 (D195)
 constexpr const char* SCREEN_LEADERBOARD  = "leaderboard";      // Task 9
 constexpr const char* SCREEN_FEEDBACK     = "feedback";         // specs/feedback-reports.md
+constexpr const char* SCREEN_MAIL         = "mailing_list";     // specs/mailing-list.md (D238)
 
 // Task 7 review round 1, Critical 2: std::async(std::launch::async)'s future
 // blocks in ITS DESTRUCTOR until the request finishes (up to the 8s
@@ -1079,6 +1081,11 @@ int main(int argc, char* argv[]) {
     std::string email_buf;
     bool email_focus = false;
     std::future<net::Response> pending_subscribe;
+    // D238: the standalone signup screen's own buffer + status line. The
+    // future above is shared: only one signup can be in flight, and both
+    // entry points now POLL it (the old code fired and never looked).
+    std::string mail_buf;
+    std::string mail_msg;
     // Feedback form (specs/feedback-reports.md). One live future, name_entry's
     // plumbing. fb_fields: 0=subject 1=body 2=tags 3=from.
     std::string fb_fields[4];
@@ -1751,8 +1758,9 @@ int main(int argc, char* argv[]) {
     auto refresh_menu_hint = [&]() {
         const Entity w = widget_by_name("menu_hint_line", menu_hint_w, menu_hint_w_resolved);
         if (auto el = component_storage.get_component<UIElement>(w); el.has_value())
-            el->get().label_text = net::enabled() ? "N renames your pilot  \xc2\xb7  L leaderboard"
-                                                   : "N renames your pilot";
+            el->get().label_text = net::enabled()
+                ? "N renames your pilot  \xc2\xb7  L leaderboard  \xc2\xb7  M mailing list"
+                : "N renames your pilot";
     };
 
     // CONTINUE is one widget that is either an offer or nothing at all: UIElement
@@ -1921,6 +1929,7 @@ int main(int argc, char* argv[]) {
     bool tab_prev = false, q_prev = false;
     bool n_prev = false;   // Task 7: N renames the pilot from the title screen
     bool l_prev = false;   // Task 9: L opens the leaderboard from the title screen
+    bool m_prev = false;   // D238: M opens the mailing-list screen
     if (opts.paused) debug_paused = true;
 
     std::cout << "Reactor Drone v2 initialized. Arrows move, mouse aims, hold fire. ESC quits.\n";
@@ -2195,6 +2204,10 @@ int main(int argc, char* argv[]) {
         bool l_now = keys[SDL_SCANCODE_L];
         bool l_edge = (l_now && !l_prev);
         l_prev = l_now;
+        // D238: M opens the mailing-list screen from the title, the N/L shape.
+        bool m_now = keys[SDL_SCANCODE_M];
+        bool m_edge = (m_now && !m_prev);
+        m_prev = m_now;
         // D237: the 1-8 instant-buy is RETIRED for players — purchasing is
         // press-and-hold on the card (D189), and a bare digit bypassed that
         // whole anti-misclick rule. The scripted path stays: headless tests
@@ -2251,7 +2264,8 @@ int main(int argc, char* argv[]) {
         // and the feedback form (specs/feedback-reports.md) likewise.
         if (blackboard.get_or<bool>("ui.escape_pressed", false) && phase != PHASE_TITLE &&
             phase != PHASE_NAME_ENTRY && phase != PHASE_LEADERBOARD &&
-            phase != PHASE_FEEDBACK && phase != PHASE_SHOP && !run_stats_up) {
+            phase != PHASE_FEEDBACK && phase != PHASE_MAIL &&
+            phase != PHASE_SHOP && !run_stats_up) {
             if (ScreenStackSystem::depth(blackboard) <= 1) {
                 blackboard.set<std::string>(ScreenStackSystem::CMD_PUSH, std::string(SCREEN_PAUSE));
                 // Lane K: the button says SAVE again each time the screen opens,
@@ -2369,6 +2383,88 @@ int main(int argc, char* argv[]) {
         // this form over the pause screen turns `sim` off. Left inside that
         // chain the form went inert the moment the sim froze — no typing, no
         // submit, and no ESC either, which soft-locked the player on the form.
+        // === HOOK: mailing list === (specs/mailing-list.md, D238)
+        // The standalone signup screen. One buffer, one button, and — unlike
+        // the name_entry field this replaces as the primary path — it POLLS
+        // the reply and tells the player what happened.
+        if (phase == PHASE_MAIL) {
+            const std::string typed =
+                blackboard.get_or<std::string>("ui.text_input", std::string());
+            for (char c : typed) {
+                if (mail_buf.size() >= 64u) break;
+                if (c >= 0x20 && c < 0x7F) mail_buf.push_back(c);
+            }
+            if (blackboard.get_or<bool>("ui.backspace_pressed", false) && !mail_buf.empty())
+                mail_buf.pop_back();
+
+            // Poll before reading this frame's input, so a reply that lands on
+            // the same frame as ENTER never races it (the name_entry ordering).
+            if (pending_subscribe.valid() &&
+                pending_subscribe.wait_for(std::chrono::seconds(0)) ==
+                    std::future_status::ready) {
+                const net::Response resp = pending_subscribe.get();
+                if (resp.status == 200) {
+                    mail_buf.clear();
+                    mail_msg = "Subscribed - thanks!";
+                } else if (resp.status == 400) {
+                    mail_msg = "That address looks wrong";
+                } else {
+                    mail_msg = "Couldn't reach the list - try later";
+                }
+            }
+
+            const std::string mc =
+                blackboard.get_or<std::string>(UISystem::UI_CLICK_KEY, std::string());
+            const bool submit = mc == "on_mail_submit" ||
+                                blackboard.get_or<bool>("ui.enter_pressed", false);
+            if (mc == "on_mail_focus" || mc == "on_mail_submit" || mc == "on_mail_back")
+                blackboard.remove(UISystem::UI_CLICK_KEY);
+
+            if (submit && !pending_subscribe.valid()) {
+                // Only the '@' is checked here; real validation is the server's
+                // job (it answers 400 on a bad address, which we now surface).
+                if (mail_buf.find('@') == std::string::npos) {
+                    mail_msg = "Enter an email address";
+                } else {
+                    mail_msg = "Sending...";
+                    pending_subscribe = net::post_json(
+                        std::string(net::NET_BASE) + "/subscribe",
+                        nlohmann::json{{"email", mail_buf},
+                                       {"source", "game"}}.dump());
+                }
+            }
+
+            if (mc == "on_mail_back" ||
+                blackboard.get_or<bool>("ui.escape_pressed", false)) {
+                // The in-flight signup is deliberately NOT abandoned: it is a
+                // fire-and-forget POST whose result nobody needs once the
+                // player walks away, and abandon_future would cancel a signup
+                // the server may already have honoured.
+                SDL_StopTextInput(window.get());
+                mail_buf.clear();
+                mail_msg.clear();
+                phase = PHASE_TITLE;
+                blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                            std::string(SCREEN_MAIN_MENU));
+            }
+
+            if (phase == PHASE_MAIL) {
+                static Entity mail_field_w = 0, mail_msg_w = 0;
+                static bool mail_field_r = false, mail_msg_r = false;
+                if (Entity w = widget_by_name("mail_field", mail_field_w, mail_field_r); w != 0) {
+                    if (auto el = component_storage.get_component<UIElement>(w); el.has_value())
+                        el->get().label_text = mail_buf + "_";
+                }
+                if (Entity w = widget_by_name("mail_msg", mail_msg_w, mail_msg_r); w != 0) {
+                    if (auto el = component_storage.get_component<UIElement>(w); el.has_value())
+                        el->get().label_text =
+                            mail_msg.empty() ? "ENTER or SUBMIT sends  \xc2\xb7  ESC goes back"
+                                             : mail_msg;
+                }
+            }
+        }
+        // === END HOOK: mailing list ===
+
         if (phase == PHASE_FEEDBACK) {
             // specs/feedback-reports.md: four typed fields, TAB cycles focus,
             // ENTER submits (in BODY it inserts a newline instead), ESC backs
@@ -3480,6 +3576,14 @@ int main(int argc, char* argv[]) {
                     phase = PHASE_LEADERBOARD;
                     blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
                                                 std::string(SCREEN_LEADERBOARD));
+                } else if (m_edge && net::enabled()) {
+                    // D238: M is the keyboard twin of the MAILING LIST button.
+                    mail_buf.clear();
+                    mail_msg.clear();
+                    phase = PHASE_MAIL;
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                std::string(SCREEN_MAIL));
+                    SDL_StartTextInput(window.get());
                 } else if (n_edge) {
                     name_buf = meta.player_name;
                     name_entry_error.clear();
@@ -3518,6 +3622,16 @@ int main(int argc, char* argv[]) {
                     blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
                                                 std::string(SCREEN_LEADERBOARD));
                     blackboard.remove(UISystem::UI_CLICK_KEY);
+                } else if (menu_click == "on_mail_click" && net::enabled()) {
+                    // D238: the mailing-list screen. Same shape as the feedback
+                    // form: its own phase so text input is scoped to it.
+                    blackboard.remove(UISystem::UI_CLICK_KEY);
+                    mail_buf.clear();
+                    mail_msg.clear();
+                    phase = PHASE_MAIL;
+                    blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
+                                                std::string(SCREEN_MAIL));
+                    SDL_StartTextInput(window.get());
                 } else if (menu_click == "on_feedback_click" && net::enabled()) {
                     blackboard.remove(UISystem::UI_CLICK_KEY);
                     fb_from_pause = false;
@@ -3798,6 +3912,17 @@ int main(int argc, char* argv[]) {
 
                 // Poll last frame's submit before reading escape/enter this frame,
                 // so a response that lands the same frame as ENTER never races it.
+                // D238: the signup's reply is READ now — silence on both
+                // success and failure was the whole bug. name_entry shows it
+                // on its status line once the rename itself is settled.
+                if (pending_subscribe.valid() &&
+                    pending_subscribe.wait_for(std::chrono::seconds(0)) ==
+                        std::future_status::ready) {
+                    const net::Response sub = pending_subscribe.get();
+                    mail_msg = sub.status == 200 ? "Subscribed - thanks!"
+                             : sub.status == 400 ? "That address looks wrong"
+                                                 : "List signup failed";
+                }
                 if (pending_register.valid() &&
                     pending_register.wait_for(std::chrono::seconds(0)) ==
                         std::future_status::ready) {
@@ -3815,14 +3940,6 @@ int main(int argc, char* argv[]) {
                         // by address, and a failed signup must not hold up the
                         // title screen. Only the '@' is checked here; real
                         // validation is the server's job.
-                        if (email_buf.find('@') != std::string::npos) {
-                            abandon_future(std::move(pending_subscribe));
-                            pending_subscribe = net::post_json(
-                                std::string(net::NET_BASE) + "/subscribe",
-                                nlohmann::json{{"email", email_buf},
-                                               {"source", "game"}}.dump());
-                            email_buf.clear();
-                        }
                         SDL_StopTextInput(window.get());
                         phase = PHASE_TITLE;
                         blackboard.set<std::string>(ScreenStackSystem::CMD_CLEAR_TO,
@@ -3862,6 +3979,19 @@ int main(int argc, char* argv[]) {
                             std::string(net::NET_BASE) + "/register",
                             nlohmann::json{{"player_id", meta.player_id},
                                           {"name", trimmed}}.dump());
+                        // D238: the signup rides the player's CONFIRMATION, not
+                        // the rename's result. It used to fire only inside the
+                        // register-200 branch, so a taken name (409) silently
+                        // threw away a perfectly good address.
+                        if (email_buf.find('@') != std::string::npos &&
+                            !pending_subscribe.valid()) {
+                            pending_subscribe = net::post_json(
+                                std::string(net::NET_BASE) + "/subscribe",
+                                nlohmann::json{{"email", email_buf},
+                                               {"source", "game"}}.dump());
+                            email_buf.clear();
+                            mail_msg = "Signing up...";
+                        }
                     } else {
                         name_entry_error = "Name can't be blank";
                     }
@@ -3891,6 +4021,7 @@ int main(int argc, char* argv[]) {
                                 !name_entry_error.empty() ? name_entry_error
                                 : pending_register.valid()
                                     ? "Submitting..."
+                                : !mail_msg.empty() ? mail_msg
                                     : "TAB next field  \xc2\xb7  ENTER confirm  \xc2\xb7  ESC to skip";
                             // Minor 2: an error reuses the existing red-toned
                             // `pip_loss` style (shop stat-loss preview) rather
@@ -4167,7 +4298,8 @@ int main(int argc, char* argv[]) {
                 const std::string top = stack.empty() ? std::string() : stack.back();
                 const bool hangar = top == SCREEN_RUN_SETUP;
                 if (hangar || top == SCREEN_MAIN_MENU ||
-                    top == "cosmetic_shop" || top == "inventory") {
+                    top == "cosmetic_shop" || top == "inventory" ||
+                    top == SCREEN_MAIL) {
                     // Design-canvas slots (D63's shop-preview mapping): the
                     // hangar's empty left column, or the strip left of the
                     // main-menu / overlay panels.
