@@ -15,7 +15,7 @@
     }
   ],
   "vars": {
-    "RELEASE_VERSION": "2.3.1",
-    "INSTALLER_URL": "https://github.com/conradmisz/reactor-drone/releases/download/v2.3.1/ReactorDrone-Setup-2.3.1.exe"
+    "RELEASE_VERSION": "2.3.2",
+    "INSTALLER_URL": "https://github.com/conradmisz/reactor-drone/releases/download/v2.3.2/ReactorDrone-Setup-2.3.2.exe"
   }
 }
